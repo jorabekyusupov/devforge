@@ -441,7 +441,10 @@ impl PackageStore {
             return Err(RuntimeError::UnsafeArchive);
         }
         let executable = VerifiedExecutable {
-            path,
+            // Ownership was checked with canonical paths above. External tools
+            // (notably Node's script loader) can reject Windows verbatim paths.
+            // Simplify only where the path retains identical filesystem meaning.
+            path: dunce::simplified(&path).to_owned(),
             sha256: receipt
                 .hashes
                 .get(name)

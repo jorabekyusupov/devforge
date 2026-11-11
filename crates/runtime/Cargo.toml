@@ -15,6 +15,7 @@ tar = "0.4.46"
 zip = { version = "9.5.1", default-features = false, features = ["deflate"] }
 lzma-rust2 = { version = "0.25.0", default-features = false, features = ["std", "xz"] }
 tempfile = "3.27.0"
+dunce = "1.0.5"
 
 [dev-dependencies]
 lzma-rust2 = { version = "0.25.0", default-features = false, features = ["std", "xz", "encoder"] }

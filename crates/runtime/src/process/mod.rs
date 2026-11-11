@@ -355,7 +355,7 @@ fn attempt(
     let mut command = Command::new(spec.executable.path());
     command
         .args(&spec.args)
-        .current_dir(&spec.directory)
+        .current_dir(dunce::simplified(&spec.directory))
         .env_clear()
         .envs(&spec.environment)
         .stdin(Stdio::piped())
