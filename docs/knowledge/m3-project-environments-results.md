@@ -27,6 +27,21 @@ sources:
   - id: cli
     resource: ../evidence/m3/cli-registry-smoke.json
     title: Haqiqiy CLI registry va read-only import sinovi
+  - id: ci-final
+    resource: ../evidence/m3/ci-final-checks.json
+    title: Yakuniy macOS va Windows test build matritsasi
+  - id: native-macos
+    resource: ../evidence/m3/hosted-macos-projects.json
+    title: Hosted Mac haqiqiy Laravel va DB lifecycle
+  - id: native-windows
+    resource: ../evidence/m3/hosted-windows-projects.json
+    title: Hosted Windows haqiqiy Laravel va DB lifecycle
+  - id: windows-run
+    resource: ../evidence/m3/ci-native-windows.json
+    title: Windows shell regression va native credential fixture
+  - id: windows-token
+    resource: https://raw.githubusercontent.com/postgres/postgres/REL_18_STABLE/src/common/exec.c
+    title: PostgreSQL Windows token default DACL yondashuvi
   - id: php-constraints
     resource: https://getcomposer.org/doc/articles/versions.md
     title: Composer version constraint'lari
@@ -65,7 +80,7 @@ inactive qiladi; folder, DB, secret va binding'ni o'chirmaydi.
 `Context` tanlangan PHP/Node executable lease'lari, project INI/scan/session/cache
 yo'llari va explicit environment'ni birlashtiradi. PHP, Composer PHAR, Artisan,
 queue prefix, Node/npm va terminal shims shu tanlovdan olinadi. Windows PHP
-paketidagi mavjud extension DLL'lari project INI'da yoqiladi; global PHP INI/scan
+paketidagi mavjud extension DLL'lari, jumladan ZIP, project INI'da yoqiladi; global PHP INI/scan
 yoki PATH almashtirilmaydi. Mac'da web resolver mos FPM paketini, Windows'da
 aynan tanlangan PHP paketining CGI executable'ini beradi.[^execution]
 
@@ -96,7 +111,8 @@ terminali DevForge persisted-log redactor'i orqali o'tmaydi.
 
 Cluster data app-owned `databases/<instance>/data` ichida, runtime binary'dan
 alohida. Instance metadata/secret pending holatda initdb'dan oldin yoziladi;
-initdb faqat yangi owned katalogga ishlaydi. Uzilgan boshlash existing data'ni
+initdb faqat yangi owned katalogga ishlaydi. Admin secret private vaqtinchalik
+pwfile orqali berilib, normal yakunda o‘chiriladi; SQLite/logga yozilmaydi. Uzilgan boshlash existing data'ni
 avtomatik o'chirib/reinitialize qilmaydi; `ready:false` recovery talab qiladi.
 Port loopback'da ajratiladi; band port/instance lock rad etiladi, begona servis
 to'xtatilmaydi. Readiness'dan so'ng authenticated admin query data-directory
@@ -144,14 +160,58 @@ darajasidagi compare-and-swap kafolati emas.[^env-patch]
   known-secret redaction va explicit env backup/change rejection o'tdi.[^smoke]
 
 Native fixture'da secret store in-memory adapter; production native keyring'ni
-almashtirmaydi. Real Laravel migration/empty-worker va hosted Mac/Windows smoke
-alohida `--laravel` flag bilan bajariladi; uning natijalari yakunida qo'shiladi.
-Fixture'dagi artisan script faqat interpreter/context selection'ni tekshiradi,
-Laravel framework worker isboti deb ko'rsatilmaydi.
+almashtirmaydi. Fixture artisan script'i faqat context selection uchun; haqiqiy
+Laravel dalili quyidagi alohida `--laravel` oqimidan olinadi.
 
 Native sinovda DB comment lookup shared-object metadata'dan olinishi va stop'da
 instance lock release qilinishi tuzatildi; final Mac restart/data tekshiruvi o'tdi.
 Global Herd/DB, hosts/trust, shell profiles va real loyiha `.env`'iga tegilmadi.
+
+# Yakuniy hosted dalillar
+
+[Full CI43005697366](https://github.com/jorabekyusupov/devforge/actions/runs/43005697366)
+`64e9911708f1ee4935750569b8322265c53c1cd4` uchun ikkala OS'da success.
+Har birida Rust39 passed/1 opt-in credential ignored, frontend8, locale Node3,
+fmt/clippy, typecheck, native desktop binary build va OKF strict o'tdi. Mac'da
+Unix symlink testi, Windows'da native CMD regression testi bor; son tengligi bir
+xil platforma qamrovi degani emas.[^ci-final]
+
+| Native loyiha smoke | Haqiqiy bajarilgan qamrov |
+| --- | --- |
+| macOS ARM64 | Run43004301944/head1970e7a Mac job'i:8 paket,2 project x7 tool,2 native zsh shim probe, PG/PDO/role isolation, env patch va persistence. |
+| Windows x64 | Run43005817918/head64e9911 Windows job'i:6 paket,2 project x7 tool,2 native cmd shim probe, PG/PDO/role isolation, env patch va persistence. |
+| Laravel | Ikkala actual smoke'da skeleton v13.11.0, Framework13.42.0; Composer create-project no-scripts/no-plugins, PHP8.4 migration/empty queue worker, PHP8.5 migrate:status o'tdi. |
+| Windows native secret adapter | Shu Windows workflow'da opt-in ephemeral credential set/get/delete/absent test1 o'tdi. M3 project smoke'dagi in-memory adapterdan alohida dalil. |
+
+Ikkala project'da SQL parallel query va A'ning PHP/Node tanlovini o'zgartirib,
+B o'zgarmasligini tekshirish actual harness'da bajarilgan. Windows-only retry'dagi
+unselected Mac matrix job'i executed smoke deb sanalmaydi; Mac uchun yuqoridagi
+actual job report'i ishlatiladi.[^native-macos][^native-windows][^windows-run]
+
+## Topilgan va tuzatilgan regressiyalar
+
+- Windows initdb data argumenti canonical verbatim prefix bilan noto'g'ri
+  talqin qilindi; typed external path moslashtirildi, filesystem ruxsati ochilmadi.
+- Hosted runner Admin token'i PostgreSQL tomonidan to'g'ri rad etildi. Production
+  early `administrator_unsupported` code va3 tarjima beradi;21 project error code
+  bor. Test harness yangi restricted token'da Admin/Power User guruhlari va
+  privileges'ni o'chiradi, default DACL'ga o'z user SID access'ini qo'shadi.
+  Bu PostgreSQL'ning rasmiy token yondashuviga mos; account, filesystem ACL yoki
+  UAC policy o'zgarmaydi.[^windows-token]
+- Terminal PATH'dagi private shim entry ham external Windows path sifatida
+  normallashtirildi. CMD uchun native separator, explicit COMSPEC va faqat
+  doimiy script bilan raw quoting ishlatiladi. Regression testi real cmd.exe va
+  Unicode/metacharacter cwd'da o'tdi; user matni shell string'ga qo'shilmaydi.
+- Selected runtime dirs oldinda, mavjud absolute OS tool paths undan keyin;
+  global PATH saqlanadi. Windows ZIP extension'i Composer uchun tekshirildi.
+- Native test credential scan'ida qisqa public config `database` SQLite schema
+  nomiga mos tushgan false positive tuzatildi. Byte scan uzun generated credential
+  va custom secret'larni tekshiradi; metadata refs-only strukturasi unit test bilan
+  tekshiriladi. Production redactor esa qisqa known qiymatlarni ham yashiradi.
+
+Failure snapshot'lari `docs/evidence/m3/native-*-attempt.json`da saqlandi. Yakuniy
+natijalar ular bilan aralashtirilmaydi. UI terminal window acceptance, minimum OS,
+Intel, installer/signing va abrupt supervisor crash gate'lari ochiq qoladi.
 
 # Phase reconciliation
 
@@ -162,7 +222,7 @@ Global Herd/DB, hosts/trust, shell profiles va real loyiha `.env`'iga tegilmadi.
 | Alohida DB/role va connection isolation bor. | Mos: actual owned PG/PDO va cross-database negative test. |
 | Credentials SQLite/persisted project logs'da plaintext emas. | Mos: refs-only metadata, SCRAM verifier, chunk redaction va scan testlari. |
 | GUI Project CRUD va HTTP/FastCGI/proxy serving tayyor. | Amalga oshirilmagan; M4-M5. |
-| Real Laravel migration/worker va Windows DB lifecycle verified. | Hosted dalil pending; natija kelgach yangilanadi. |
+| Real Laravel migration/worker va Windows DB lifecycle verified. | Mos: actual hosted Mac/Windows smoke va native Windows credential fixture o‘tdi. |
 | Native terminal oynasi va minimum OS/Intel/release verified. | Tekshirilmagan; shell probe va build buning o'rnini bosmaydi. |
 
 [^request]: M3'ga o'tish haqidagi joriy user ko'rsatmasi.
@@ -175,3 +235,9 @@ Global Herd/DB, hosts/trust, shell profiles va real loyiha `.env`'iga tegilmadi.
 [^php-constraints]: Composer range semantikasi npm tilidan alohida.
 [^pg-hba]: PostgreSQL18 HBA user/database matching qoidalari.
 [^password]: Client-side SCRAM cleartext'ni SQL/log'ga yubormaslik uchun qo'llanadi.
+
+[^ci-final]: Exact product commit uchun hosted job/step va test summary dalillari.
+[^native-macos]: Actual Mac project smoke; Windows retry'dagi skipped job emas.
+[^native-windows]: Restricted-token Windows fixture;6 pinned package va real Laravel flow.
+[^windows-run]: Explicit CMD test va native credential roundtrip/cleanup step'lari.
+[^windows-token]: PostgreSQL source token default DACL owner access sababini hujjatlashtiradi.

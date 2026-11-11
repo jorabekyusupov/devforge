@@ -115,7 +115,7 @@ Plural tanlovi CLDR/ICU'ga mos vosita bilan bajarilsin; faqat inglizchadagi
 
 # M1'da tanlangan yechim
 
-M3'da20 ta stable project error code uchun `project.errors` uch katalogga qo'shildi.
+M3'da21 ta stable project error code uchun `project.errors` uch katalogga qo'shildi.
 Rust mapping va katalog lint ularni tekshiradi. CLI machine JSON code beradi;
 Project GUI error flow'lari hali M5 acceptance'iga tegishli.
 

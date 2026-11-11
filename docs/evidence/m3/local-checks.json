@@ -38,8 +38,17 @@
   "cli_report": "cli-registry-smoke.json",
   "limitations": [
     "Native terminal GUI window not exercised",
-    "Windows hosted validation pending",
     "Interrupted cluster initialization preserved for explicit recovery; no automated destructive reset",
     "Known-value log redaction, not a hostile-code or encoded-secret sandbox"
-  ]
+  ],
+  "final_hosted": {
+    "commit": "64e9911708f1ee4935750569b8322265c53c1cd4",
+    "full_ci": "ci-final-checks.json",
+    "macos_rust_passed": 39,
+    "windows_rust_passed": 39,
+    "native_windows_credential_roundtrip": true,
+    "macos_smoke": "hosted-macos-projects.json",
+    "windows_smoke": "hosted-windows-projects.json",
+    "real_laravel": "13.42.0 migration and empty queue worker; PHP8.4 then8.5 status"
+  }
 }

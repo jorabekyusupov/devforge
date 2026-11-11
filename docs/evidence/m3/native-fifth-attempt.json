@@ -1,0 +1,152 @@
+{
+  "conclusion": "failure",
+  "headSha": "1970e7aac0da93e6f03090ab1e75e03314896e60",
+  "jobs": [
+    {
+      "completedAt": "2026-11-11T10:35:40Z",
+      "conclusion": "success",
+      "databaseId": 130467843699,
+      "name": "project-smoke (macos-latest)",
+      "startedAt": "2026-11-11T10:31:21Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-11-11T10:31:23Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-11-11T10:31:22Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T10:31:25Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "number": 2,
+          "startedAt": "2026-11-11T10:31:23Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T10:31:31Z",
+          "conclusion": "success",
+          "name": "Run rustup show",
+          "number": 3,
+          "startedAt": "2026-11-11T10:31:25Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T10:35:35Z",
+          "conclusion": "success",
+          "name": "Two project runtimes, owned PostgreSQL roles and persistence",
+          "number": 4,
+          "startedAt": "2026-11-11T10:31:31Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T10:35:35Z",
+          "conclusion": "skipped",
+          "name": "Native Windows ephemeral credential roundtrip and cleanup",
+          "number": 5,
+          "startedAt": "2026-11-11T10:35:35Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T10:35:36Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "number": 10,
+          "startedAt": "2026-11-11T10:35:35Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T10:35:37Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 11,
+          "startedAt": "2026-11-11T10:35:36Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/jorabekyusupov/devforge/actions/runs/43004301944/job/130467843699"
+    },
+    {
+      "completedAt": "2026-11-11T10:35:29Z",
+      "conclusion": "failure",
+      "databaseId": 130467844228,
+      "name": "project-smoke (windows-latest)",
+      "startedAt": "2026-11-11T10:31:21Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-11-11T10:31:22Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-11-11T10:31:21Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T10:31:27Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "number": 2,
+          "startedAt": "2026-11-11T10:31:22Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T10:31:38Z",
+          "conclusion": "success",
+          "name": "Run rustup show",
+          "number": 3,
+          "startedAt": "2026-11-11T10:31:27Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T10:35:26Z",
+          "conclusion": "failure",
+          "name": "Two project runtimes, owned PostgreSQL roles and persistence",
+          "number": 4,
+          "startedAt": "2026-11-11T10:31:38Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T10:35:26Z",
+          "conclusion": "skipped",
+          "name": "Native Windows ephemeral credential roundtrip and cleanup",
+          "number": 5,
+          "startedAt": "2026-11-11T10:35:26Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T10:35:28Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "number": 10,
+          "startedAt": "2026-11-11T10:35:26Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T10:35:28Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 11,
+          "startedAt": "2026-11-11T10:35:28Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/jorabekyusupov/devforge/actions/runs/43004301944/job/130467844228",
+      "relevant_failure_output": [
+        "2026-11-11T10:35:23.8783913Z ",
+        "2026-11-11T10:35:23.8785267Z LOG terminal-probe-status.json: {\"exit_code\":1,\"stderr\":\"The filename, directory name, or volume label syntax is incorrect.\\r\\nError occurred while processing: .exe /D /V:OFF /C call.\\r\\n\",\"stdout\":\"\"}",
+        "2026-11-11T10:35:23.8787462Z LOG initdb.log: [stdout] The files belonging to this database system will be owned by user \"runneradmin\".",
+        "2026-11-11T10:35:23.8788349Z This user must also own the server process.",
+        "2026-11-11T10:35:23.8830079Z ",
+        "2026-11-11T10:35:25.9602463Z Error: TerminalUnavailable",
+        "2026-11-11T10:35:25.9690999Z error: process didn't exit successfully: `target\\debug\\examples\\project_smoke.exe empty-cache m3-result.json --download-missing --laravel` (exit code: 1)",
+        "2026-11-11T10:35:26.0830558Z ##[error]Process completed with exit code 1."
+      ]
+    }
+  ],
+  "status": "completed",
+  "url": "https://github.com/jorabekyusupov/devforge/actions/runs/43004301944"
+}

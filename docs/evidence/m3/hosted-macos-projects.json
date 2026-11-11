@@ -1,0 +1,120 @@
+{
+  "database": {
+    "cross_database_denied": true,
+    "data_preserved_after_forget": true,
+    "graceful_stop": true,
+    "idempotent_provisioning": true,
+    "isolated_roles_and_databases": true,
+    "restart_preserves_rows": true
+  },
+  "environment": {
+    "concurrent_file_edit_rejected": true,
+    "env_explicit_apply_and_backup": true,
+    "import_read_only": true,
+    "log_redaction": true,
+    "no_plaintext_in_sqlite_or_logs": true,
+    "secret_store_fixture": "in-memory test adapter; production uses native keyring"
+  },
+  "gui_terminal_window": "not exercised; shell shims probed natively",
+  "host": {
+    "architecture": "aarch64",
+    "os": "macos"
+  },
+  "packages": 8,
+  "passed": true,
+  "projects": [
+    {
+      "project": "A",
+      "terminal_shell_probe": true,
+      "tools": [
+        {
+          "exit_code": 0,
+          "passed": true,
+          "tool": "php"
+        },
+        {
+          "exit_code": 0,
+          "passed": true,
+          "tool": "php-web"
+        },
+        {
+          "exit_code": 0,
+          "passed": true,
+          "tool": "node"
+        },
+        {
+          "exit_code": 0,
+          "passed": true,
+          "tool": "npm"
+        },
+        {
+          "exit_code": 0,
+          "passed": true,
+          "tool": "composer"
+        },
+        {
+          "exit_code": 0,
+          "passed": true,
+          "tool": "artisan"
+        },
+        {
+          "exit_code": 0,
+          "passed": true,
+          "tool": "queue"
+        }
+      ]
+    },
+    {
+      "project": "B",
+      "terminal_shell_probe": true,
+      "tools": [
+        {
+          "exit_code": 0,
+          "passed": true,
+          "tool": "php"
+        },
+        {
+          "exit_code": 0,
+          "passed": true,
+          "tool": "php-web"
+        },
+        {
+          "exit_code": 0,
+          "passed": true,
+          "tool": "node"
+        },
+        {
+          "exit_code": 0,
+          "passed": true,
+          "tool": "npm"
+        },
+        {
+          "exit_code": 0,
+          "passed": true,
+          "tool": "composer"
+        },
+        {
+          "exit_code": 0,
+          "passed": true,
+          "tool": "artisan"
+        },
+        {
+          "exit_code": 0,
+          "passed": true,
+          "tool": "queue"
+        }
+      ]
+    }
+  ],
+  "real_laravel": {
+    "composer_create_project_no_scripts_no_plugins": true,
+    "empty_queue_worker": true,
+    "framework": "Laravel Framework 13.42.0",
+    "migration": true,
+    "php84_then_php85": true,
+    "skeleton": "v13.11.0"
+  },
+  "version_switch_A_does_not_change_B": true,
+  "github_run": "https://github.com/jorabekyusupov/devforge/actions/runs/43004301944",
+  "head_sha": "1970e7aac0da93e6f03090ab1e75e03314896e60"
+}

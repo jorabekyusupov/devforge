@@ -1,0 +1,396 @@
+{
+  "conclusion": "success",
+  "headSha": "64e9911708f1ee4935750569b8322265c53c1cd4",
+  "jobs": [
+    {
+      "completedAt": "2026-11-11T10:48:56Z",
+      "conclusion": "success",
+      "databaseId": 130472504606,
+      "name": "check (windows-latest)",
+      "startedAt": "2026-11-11T10:41:20Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-11-11T10:41:22Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-11-11T10:41:21Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T10:41:28Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "number": 2,
+          "startedAt": "2026-11-11T10:41:22Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T10:41:37Z",
+          "conclusion": "success",
+          "name": "Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+          "number": 3,
+          "startedAt": "2026-11-11T10:41:28Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T10:41:38Z",
+          "conclusion": "success",
+          "name": "Run actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1",
+          "number": 4,
+          "startedAt": "2026-11-11T10:41:37Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T10:41:49Z",
+          "conclusion": "success",
+          "name": "Prepare toolchain from rust-toolchain.toml",
+          "number": 5,
+          "startedAt": "2026-11-11T10:41:38Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T10:42:02Z",
+          "conclusion": "success",
+          "name": "Run npm ci",
+          "number": 6,
+          "startedAt": "2026-11-11T10:41:49Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T10:42:04Z",
+          "conclusion": "success",
+          "name": "Run npm run check:locales",
+          "number": 7,
+          "startedAt": "2026-11-11T10:42:02Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T10:42:05Z",
+          "conclusion": "success",
+          "name": "Run node --test scripts/check_locales.test.mjs",
+          "number": 8,
+          "startedAt": "2026-11-11T10:42:04Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T10:42:07Z",
+          "conclusion": "success",
+          "name": "Run npm run typecheck",
+          "number": 9,
+          "startedAt": "2026-11-11T10:42:05Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T10:42:13Z",
+          "conclusion": "success",
+          "name": "Run npm test",
+          "number": 10,
+          "startedAt": "2026-11-11T10:42:07Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T10:42:16Z",
+          "conclusion": "success",
+          "name": "Run cargo fmt --all -- --check",
+          "number": 11,
+          "startedAt": "2026-11-11T10:42:13Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T10:44:51Z",
+          "conclusion": "success",
+          "name": "Run cargo clippy --workspace --all-targets -- -D warnings",
+          "number": 12,
+          "startedAt": "2026-11-11T10:42:16Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T10:47:16Z",
+          "conclusion": "success",
+          "name": "Run cargo test --workspace",
+          "number": 13,
+          "startedAt": "2026-11-11T10:44:51Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T10:48:45Z",
+          "conclusion": "success",
+          "name": "Build native desktop binary with embedded frontend",
+          "number": 14,
+          "startedAt": "2026-11-11T10:47:16Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T10:48:51Z",
+          "conclusion": "success",
+          "name": "Run python -m pip install -r scripts/requirements-knowledge.txt",
+          "number": 15,
+          "startedAt": "2026-11-11T10:48:45Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T10:48:51Z",
+          "conclusion": "success",
+          "name": "Run python scripts/validate_knowledge.py --strict",
+          "number": 16,
+          "startedAt": "2026-11-11T10:48:51Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T10:48:51Z",
+          "conclusion": "success",
+          "name": "Post Run actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1",
+          "number": 30,
+          "startedAt": "2026-11-11T10:48:51Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T10:48:52Z",
+          "conclusion": "success",
+          "name": "Post Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+          "number": 31,
+          "startedAt": "2026-11-11T10:48:51Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T10:48:53Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "number": 32,
+          "startedAt": "2026-11-11T10:48:52Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T10:48:54Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 33,
+          "startedAt": "2026-11-11T10:48:53Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/jorabekyusupov/devforge/actions/runs/43005697366/job/130472504606",
+      "rust_test_summaries": [
+        "2026-11-11T10:47:11.0847777Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "2026-11-11T10:47:11.0945207Z test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "2026-11-11T10:47:11.1031639Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "2026-11-11T10:47:11.1149524Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "2026-11-11T10:47:11.3747090Z test result: ok. 3 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.25s",
+        "2026-11-11T10:47:11.7463473Z test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.36s",
+        "2026-11-11T10:47:12.3017520Z test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.54s",
+        "2026-11-11T10:47:12.3478714Z test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s",
+        "2026-11-11T10:47:12.3577262Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "2026-11-11T10:47:14.5336450Z test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.17s",
+        "2026-11-11T10:47:16.0991854Z test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.55s",
+        "2026-11-11T10:47:16.1533396Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "2026-11-11T10:47:16.3113802Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "2026-11-11T10:47:16.3618355Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "2026-11-11T10:47:16.4851365Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "2026-11-11T10:47:16.6053843Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+      ],
+      "rust_passed": 39,
+      "rust_ignored": 1,
+      "runner_image_evidence": [
+        "2026-11-11T10:41:21.3484041Z Image: windows-2025-vs2026"
+      ]
+    },
+    {
+      "completedAt": "2026-11-11T10:47:57Z",
+      "conclusion": "success",
+      "databaseId": 130472504838,
+      "name": "check (macos-latest)",
+      "startedAt": "2026-11-11T10:41:21Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-11-11T10:41:23Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-11-11T10:41:22Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T10:41:25Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "number": 2,
+          "startedAt": "2026-11-11T10:41:23Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T10:41:30Z",
+          "conclusion": "success",
+          "name": "Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+          "number": 3,
+          "startedAt": "2026-11-11T10:41:25Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T10:41:30Z",
+          "conclusion": "success",
+          "name": "Run actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1",
+          "number": 4,
+          "startedAt": "2026-11-11T10:41:30Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T10:41:39Z",
+          "conclusion": "success",
+          "name": "Prepare toolchain from rust-toolchain.toml",
+          "number": 5,
+          "startedAt": "2026-11-11T10:41:30Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T10:41:46Z",
+          "conclusion": "success",
+          "name": "Run npm ci",
+          "number": 6,
+          "startedAt": "2026-11-11T10:41:39Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T10:41:46Z",
+          "conclusion": "success",
+          "name": "Run npm run check:locales",
+          "number": 7,
+          "startedAt": "2026-11-11T10:41:46Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T10:41:47Z",
+          "conclusion": "success",
+          "name": "Run node --test scripts/check_locales.test.mjs",
+          "number": 8,
+          "startedAt": "2026-11-11T10:41:46Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T10:41:48Z",
+          "conclusion": "success",
+          "name": "Run npm run typecheck",
+          "number": 9,
+          "startedAt": "2026-11-11T10:41:47Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T10:41:51Z",
+          "conclusion": "success",
+          "name": "Run npm test",
+          "number": 10,
+          "startedAt": "2026-11-11T10:41:48Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T10:41:52Z",
+          "conclusion": "success",
+          "name": "Run cargo fmt --all -- --check",
+          "number": 11,
+          "startedAt": "2026-11-11T10:41:51Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T10:43:59Z",
+          "conclusion": "success",
+          "name": "Run cargo clippy --workspace --all-targets -- -D warnings",
+          "number": 12,
+          "startedAt": "2026-11-11T10:41:52Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T10:46:19Z",
+          "conclusion": "success",
+          "name": "Run cargo test --workspace",
+          "number": 13,
+          "startedAt": "2026-11-11T10:43:59Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T10:47:46Z",
+          "conclusion": "success",
+          "name": "Build native desktop binary with embedded frontend",
+          "number": 14,
+          "startedAt": "2026-11-11T10:46:19Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T10:47:49Z",
+          "conclusion": "success",
+          "name": "Run python -m pip install -r scripts/requirements-knowledge.txt",
+          "number": 15,
+          "startedAt": "2026-11-11T10:47:46Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T10:47:49Z",
+          "conclusion": "success",
+          "name": "Run python scripts/validate_knowledge.py --strict",
+          "number": 16,
+          "startedAt": "2026-11-11T10:47:49Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T10:47:50Z",
+          "conclusion": "success",
+          "name": "Post Run actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1",
+          "number": 30,
+          "startedAt": "2026-11-11T10:47:49Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T10:47:50Z",
+          "conclusion": "success",
+          "name": "Post Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+          "number": 31,
+          "startedAt": "2026-11-11T10:47:50Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T10:47:51Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "number": 32,
+          "startedAt": "2026-11-11T10:47:50Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T10:47:55Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 33,
+          "startedAt": "2026-11-11T10:47:51Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/jorabekyusupov/devforge/actions/runs/43005697366/job/130472504838",
+      "rust_test_summaries": [
+        "2026-11-11T10:46:13.6057360Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "2026-11-11T10:46:13.6194210Z test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "2026-11-11T10:46:13.6357000Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "2026-11-11T10:46:13.6441180Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "2026-11-11T10:46:13.6727260Z test result: ok. 3 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.02s",
+        "2026-11-11T10:46:13.7556490Z test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s",
+        "2026-11-11T10:46:13.8308160Z test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s",
+        "2026-11-11T10:46:13.9462280Z test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s",
+        "2026-11-11T10:46:13.9596800Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "2026-11-11T10:46:16.0386470Z test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.06s",
+        "2026-11-11T10:46:18.3357950Z test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.24s",
+        "2026-11-11T10:46:18.5144730Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "2026-11-11T10:46:18.7559340Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "2026-11-11T10:46:18.8537590Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "2026-11-11T10:46:19.1149240Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "2026-11-11T10:46:19.2483390Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+      ],
+      "rust_passed": 39,
+      "rust_ignored": 1,
+      "runner_image_evidence": [
+        "2026-11-11T10:41:22.5702050Z Image: macos-26-arm64"
+      ]
+    }
+  ],
+  "status": "completed",
+  "url": "https://github.com/jorabekyusupov/devforge/actions/runs/43005697366"
+}

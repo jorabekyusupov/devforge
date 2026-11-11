@@ -92,7 +92,8 @@ probe. Commands use argument arrays and explicit environments, never shell text.
 
 Logs are raw child output: do not print credentials. Memory and persisted rotation
 are bounded. This core does not implement a privileged sandbox, standalone daemon,
-hard-killed macOS supervisor recovery, project bindings or arbitrary renderer IPC.
+hard-killed macOS supervisor recovery or arbitrary renderer IPC. Project bindings
+are handled by `crates/projects`.
 Future desktop integration must use a worker and narrow typed commands.
 
 Meaningful M2 tests and an optional cached-candidate smoke are available:
@@ -158,6 +159,10 @@ devforge project env-plan <project-id>
 devforge project env-apply <project-id>
 ```
 
+On Windows, run the application/CLI without enabled administrator privileges;
+PostgreSQL refuses an Admin/Power User token. The CI-only fixture reduces its
+own process token; production never changes UAC, accounts or machine permissions.
+
 Each project receives a distinct database and nonprivileged login role. SCRAM
 passwords live in the OS credential store; SQLite holds references only. Loopback
 HBA and database ACLs reject cross-project connections. Data is stored separately
@@ -176,7 +181,8 @@ code or a detector for unknown/encoded secrets printed by a project.
 `project shell` launches a clean project shell in the current console;
 `project terminal` opens a new native console that invokes it. PHP/Composer/Artisan
 shims include the selected INI, Node/npm resolve the selected package, and leases
-last until the shell exits. Global PATH and shell profiles are not changed.
+last until the shell exits. Managed runtime directories precede existing absolute OS tool paths. Global PATH
+and shell profiles are not changed.
 
 M3 checks use temporary projects/data and test-only secret adapters:
 

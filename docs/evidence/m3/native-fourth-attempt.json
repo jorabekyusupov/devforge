@@ -1,0 +1,209 @@
+{
+  "conclusion": "failure",
+  "headSha": "9e0cce1aa5da134f51296d54f23381d22a624cc2",
+  "jobs": [
+    {
+      "completedAt": "2026-11-11T10:22:27Z",
+      "conclusion": "failure",
+      "databaseId": 130461444139,
+      "name": "project-smoke (windows-latest)",
+      "startedAt": "2026-11-11T10:17:43Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-11-11T10:17:45Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-11-11T10:17:44Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T10:17:51Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "number": 2,
+          "startedAt": "2026-11-11T10:17:45Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T10:18:03Z",
+          "conclusion": "success",
+          "name": "Run rustup show",
+          "number": 3,
+          "startedAt": "2026-11-11T10:17:51Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T10:22:23Z",
+          "conclusion": "failure",
+          "name": "Two project runtimes, owned PostgreSQL roles and persistence",
+          "number": 4,
+          "startedAt": "2026-11-11T10:18:03Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T10:22:23Z",
+          "conclusion": "skipped",
+          "name": "Native Windows ephemeral credential roundtrip and cleanup",
+          "number": 5,
+          "startedAt": "2026-11-11T10:22:23Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T10:22:25Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "number": 10,
+          "startedAt": "2026-11-11T10:22:23Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T10:22:26Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 11,
+          "startedAt": "2026-11-11T10:22:25Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/jorabekyusupov/devforge/actions/runs/43002391022/job/130461444139",
+      "relevant_failure_output": [
+        "2026-11-11T10:22:20.9323208Z [stdout] metadata/databases/e6715afd0c7849f681a934ab117914ae/data ... ok",
+        "2026-11-11T10:22:20.9323611Z ",
+        "2026-11-11T10:22:20.9323762Z [stdout] creating subdirectories ... ok",
+        "2026-11-11T10:22:20.9323959Z ",
+        "2026-11-11T10:22:20.9324176Z [stdout] selecting dynamic shared memory implementation ... windows",
+        "2026-11-11T10:22:20.9324491Z ",
+        "2026-11-11T10:22:20.9324632Z [stdout] selecting default \"max_connections\" ... 100",
+        "2026-11-11T10:22:20.9324894Z ",
+        "2026-11-11T10:22:20.9325035Z [stdout] selecting default \"shared_buffers\" ... 128MB",
+        "2026-11-11T10:22:20.9325292Z ",
+        "2026-11-11T10:22:20.9325651Z [stdout] selecting default time zone ... UTC",
+        "2026-11-11T10:22:20.9325910Z ",
+        "2026-11-11T10:22:20.9326059Z [stdout] creating configuration files ... ok",
+        "2026-11-11T10:22:20.9326274Z ",
+        "2026-11-11T10:22:20.9326441Z [stdout] running bootstrap script ... ok",
+        "2026-11-11T10:22:20.9326638Z ",
+        "2026-11-11T10:22:20.9326828Z [stdout] performing post-bootstrap initialization ... ok",
+        "2026-11-11T10:22:20.9327116Z ",
+        "2026-11-11T10:22:20.9327220Z [stdout] syncing data to disk ... ok",
+        "2026-11-11T10:22:20.9327455Z ",
+        "2026-11-11T10:22:20.9327539Z [stdout] ",
+        "2026-11-11T10:22:20.9327905Z Success. You can now start the database server using:",
+        "2026-11-11T10:22:20.9328163Z ",
+        "2026-11-11T10:22:20.9329394Z     ^\"C^:^\\Users^\\runneradmin^\\AppData^\\Local^\\Temp^\\^.tmpixQr6v^\\packages^\\packages^\\postgresql^-17cf409044f4129527faa0624e975583bcee9918e577b267f8d14548206bfaa1^\\bin^\\pg^_ctl^\" -D ^\"C^:^\\Users^\\runneradmin^\\AppData^\\Local^\\Temp^\\^.tmpixQr6v^\\metadata^\\databases^\\e6715afd0c7849f681a934ab117914ae^\\data^\" -l logfile start",
+        "2026-11-11T10:22:20.9330647Z ",
+        "2026-11-11T10:22:20.9330656Z ",
+        "2026-11-11T10:22:20.9330659Z ",
+        "2026-11-11T10:22:20.9330847Z LOG pg-stop.log: [stdout] waiting for server to shut down..... done",
+        "2026-11-11T10:22:20.9331153Z ",
+        "2026-11-11T10:22:20.9331248Z [stdout] server stopped",
+        "2026-11-11T10:22:20.9331435Z ",
+        "2026-11-11T10:22:20.9331438Z ",
+        "2026-11-11T10:22:20.9331900Z LOG postgres.log: [stderr] 2026-11-11 10:21:39.979 UTC [9412] LOG:  starting PostgreSQL 18.6 on x86_64-windows, compiled by msvc-19.44.35228, 64-bit",
+        "2026-11-11T10:22:20.9332412Z ",
+        "2026-11-11T10:22:20.9332684Z [stderr] 2026-11-11 10:21:39.979 UTC [9412] LOG:  listening on IPv4 address \"127.0.0.1\", port 54780",
+        "2026-11-11T10:22:20.9333135Z ",
+        "2026-11-11T10:22:20.9333427Z [stderr] 2026-11-11 10:21:40.066 UTC [4972] LOG:  database system was shut down at 2026-11-11 10:21:37 UTC",
+        "2026-11-11T10:22:20.9333817Z ",
+        "2026-11-11T10:22:20.9334055Z [stderr] 2026-11-11 10:21:40.075 UTC [9412] LOG:  database system is ready to accept connections",
+        "2026-11-11T10:22:20.9334417Z ",
+        "2026-11-11T10:22:20.9335427Z [stderr] 2026-11-11 10:21:42.424 UTC [1452] FATAL:  pg_hba.conf rejects connection for host \"127.0.0.1\", user \"df_8dbfcbd4ea7c41f3ac87b04deeda1fe1\", database \"df_5aac98181f124f3f869d18a27e16021c\", no encryption",
+        "2026-11-11T10:22:20.9336218Z ",
+        "2026-11-11T10:22:20.9336857Z [stderr] 2026-11-11 10:21:42.444 UTC [3960] FATAL:  pg_hba.conf rejects connection for host \"127.0.0.1\", user \"df_5aac98181f124f3f869d18a27e16021c\", database \"df_8dbfcbd4ea7c41f3ac87b04deeda1fe1\", no encryption",
+        "2026-11-11T10:22:20.9337561Z ",
+        "2026-11-11T10:22:20.9338106Z [stderr] 2026-11-11 10:21:42.464 UTC [3448] FATAL:  pg_hba.conf rejects connection for host \"127.0.0.1\", user \"df_8dbfcbd4ea7c41f3ac87b04deeda1fe1\", database \"postgres\", no encryption",
+        "2026-11-11T10:22:20.9338752Z ",
+        "2026-11-11T10:22:20.9338942Z [stderr] 2026-11-11 10:22:18.862 UTC [9412] LOG:  received fast shutdown request",
+        "2026-11-11T10:22:20.9339261Z ",
+        "2026-11-11T10:22:20.9339461Z [stderr] 2026-11-11 10:22:18.868 UTC [9412] LOG:  aborting any active transactions",
+        "2026-11-11T10:22:20.9339790Z ",
+        "2026-11-11T10:22:20.9340162Z [stderr] 2026-11-11 10:22:18.873 UTC [9412] LOG:  background worker \"logical replication launcher\" (PID 7892) exited with exit code 1",
+        "2026-11-11T10:22:20.9340670Z ",
+        "2026-11-11T10:22:20.9340849Z [stderr] 2026-11-11 10:22:18.874 UTC [9984] LOG:  shutting down",
+        "2026-11-11T10:22:20.9341094Z ",
+        "2026-11-11T10:22:20.9341337Z [stderr] 2026-11-11 10:22:18.879 UTC [9984] LOG:  checkpoint starting: shutdown immediate",
+        "2026-11-11T10:22:20.9341656Z ",
+        "2026-11-11T10:22:20.9342620Z [stderr] 2026-11-11 10:22:20.423 UTC [9984] LOG:  checkpoint complete: wrote 1980 buffers (12.1%), wrote 3 SLRU buffers; 0 WAL file(s) added, 0 removed, 1 recycled; write=0.060 s, sync=1.467 s, total=1.549 s; sync files=616, longest=0.046 s, average=0.003 s; distance=9367 kB, estimate=9367 kB; lsn=0/2119418, redo lsn=0/2119418",
+        "2026-11-11T10:22:20.9343710Z ",
+        "2026-11-11T10:22:20.9343902Z [stderr] 2026-11-11 10:22:20.463 UTC [9412] LOG:  database system is shut down",
+        "2026-11-11T10:22:20.9344216Z ",
+        "2026-11-11T10:22:20.9344381Z ",
+        "2026-11-11T10:22:23.2111665Z Error: TerminalUnavailable",
+        "2026-11-11T10:22:23.2194462Z error: process didn't exit successfully: `target\\debug\\examples\\project_smoke.exe empty-cache m3-result.json --download-missing --laravel` (exit code: 1)",
+        "2026-11-11T10:22:23.3452380Z ##[error]Process completed with exit code 1.",
+        "2026-11-11T10:22:23.3774061Z "
+      ]
+    },
+    {
+      "completedAt": "2026-11-11T10:17:54Z",
+      "conclusion": "success",
+      "databaseId": 130461444434,
+      "name": "project-smoke (macos-latest)",
+      "startedAt": "2026-11-11T10:17:42Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-11-11T10:17:43Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-11-11T10:17:42Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T10:17:44Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "number": 2,
+          "startedAt": "2026-11-11T10:17:43Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T10:17:50Z",
+          "conclusion": "success",
+          "name": "Run rustup show",
+          "number": 3,
+          "startedAt": "2026-11-11T10:17:44Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T10:17:50Z",
+          "conclusion": "skipped",
+          "name": "Two project runtimes, owned PostgreSQL roles and persistence",
+          "number": 4,
+          "startedAt": "2026-11-11T10:17:50Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T10:17:50Z",
+          "conclusion": "skipped",
+          "name": "Native Windows ephemeral credential roundtrip and cleanup",
+          "number": 5,
+          "startedAt": "2026-11-11T10:17:50Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T10:17:51Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "number": 10,
+          "startedAt": "2026-11-11T10:17:50Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T10:17:51Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 11,
+          "startedAt": "2026-11-11T10:17:51Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/jorabekyusupov/devforge/actions/runs/43002391022/job/130461444434"
+    }
+  ],
+  "status": "completed",
+  "url": "https://github.com/jorabekyusupov/devforge/actions/runs/43002391022"
+}

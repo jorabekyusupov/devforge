@@ -1,0 +1,154 @@
+{
+  "conclusion": "failure",
+  "headSha": "06b6e0b7fb00fb232851f9431053f5c47422bee1",
+  "jobs": [
+    {
+      "completedAt": "2026-11-11T09:44:03Z",
+      "conclusion": "failure",
+      "databaseId": 130443712638,
+      "name": "project-smoke (windows-latest)",
+      "startedAt": "2026-11-11T09:39:56Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-11-11T09:39:57Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-11-11T09:39:57Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T09:40:03Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "number": 2,
+          "startedAt": "2026-11-11T09:39:57Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T09:40:13Z",
+          "conclusion": "success",
+          "name": "Run rustup show",
+          "number": 3,
+          "startedAt": "2026-11-11T09:40:03Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T09:43:59Z",
+          "conclusion": "failure",
+          "name": "Two project runtimes, owned PostgreSQL roles and persistence",
+          "number": 4,
+          "startedAt": "2026-11-11T09:40:13Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T09:43:59Z",
+          "conclusion": "skipped",
+          "name": "Native Windows ephemeral credential roundtrip and cleanup",
+          "number": 5,
+          "startedAt": "2026-11-11T09:43:59Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T09:44:02Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "number": 10,
+          "startedAt": "2026-11-11T09:43:59Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T09:44:02Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 11,
+          "startedAt": "2026-11-11T09:44:02Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/jorabekyusupov/devforge/actions/runs/42997069629/job/130443712638",
+      "relevant_failure_output": [
+        "2026-11-11T09:43:57.1670919Z [stderr] initdb: error: could not create directory \"//?/C:\": Permission denied",
+        "2026-11-11T09:43:59.8482987Z Error: DatabaseUnavailable"
+      ]
+    },
+    {
+      "completedAt": "2026-11-11T09:46:30Z",
+      "conclusion": "failure",
+      "databaseId": 130443713034,
+      "name": "project-smoke (macos-latest)",
+      "startedAt": "2026-11-11T09:39:57Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-11-11T09:40:00Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-11-11T09:39:59Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T09:40:03Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "number": 2,
+          "startedAt": "2026-11-11T09:40:00Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T09:40:15Z",
+          "conclusion": "success",
+          "name": "Run rustup show",
+          "number": 3,
+          "startedAt": "2026-11-11T09:40:03Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T09:46:25Z",
+          "conclusion": "failure",
+          "name": "Two project runtimes, owned PostgreSQL roles and persistence",
+          "number": 4,
+          "startedAt": "2026-11-11T09:40:15Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T09:46:25Z",
+          "conclusion": "skipped",
+          "name": "Native Windows ephemeral credential roundtrip and cleanup",
+          "number": 5,
+          "startedAt": "2026-11-11T09:46:25Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T09:46:26Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "number": 10,
+          "startedAt": "2026-11-11T09:46:25Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T09:46:28Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 11,
+          "startedAt": "2026-11-11T09:46:26Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/jorabekyusupov/devforge/actions/runs/42997069629/job/130443713034",
+      "relevant_failure_output": [
+        "2026-11-11T09:46:21.9822930Z thread 'main' (24529) panicked at crates/projects/examples/project_smoke.rs:380:9:",
+        "2026-11-11T09:46:21.9845860Z assertion failed: !String::from_utf8_lossy(&bytes).contains(secret)"
+      ]
+    }
+  ],
+  "status": "completed",
+  "url": "https://github.com/jorabekyusupov/devforge/actions/runs/42997069629",
+  "diagnosis": {
+    "windows": "initdb -D received Windows verbatim canonical path; normalize typed external path argument without changing permissions",
+    "macos": "Credential scan falsely matched public QUEUE_CONNECTION=database against SQLite schema database_bindings. Scan long random credential values and structural refs-only schema instead."
+  }
+}

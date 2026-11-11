@@ -1,0 +1,147 @@
+{
+  "conclusion": "failure",
+  "headSha": "f0d1b95370149e022f9660954083c6ea371b227b",
+  "jobs": [
+    {
+      "completedAt": "2026-11-11T09:55:19Z",
+      "conclusion": "success",
+      "databaseId": 130447922304,
+      "name": "project-smoke (macos-latest)",
+      "startedAt": "2026-11-11T09:49:01Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-11-11T09:49:02Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-11-11T09:49:01Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T09:49:04Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "number": 2,
+          "startedAt": "2026-11-11T09:49:02Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T09:49:15Z",
+          "conclusion": "success",
+          "name": "Run rustup show",
+          "number": 3,
+          "startedAt": "2026-11-11T09:49:04Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T09:55:13Z",
+          "conclusion": "success",
+          "name": "Two project runtimes, owned PostgreSQL roles and persistence",
+          "number": 4,
+          "startedAt": "2026-11-11T09:49:15Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T09:55:13Z",
+          "conclusion": "skipped",
+          "name": "Native Windows ephemeral credential roundtrip and cleanup",
+          "number": 5,
+          "startedAt": "2026-11-11T09:55:13Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T09:55:14Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "number": 10,
+          "startedAt": "2026-11-11T09:55:13Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T09:55:17Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 11,
+          "startedAt": "2026-11-11T09:55:14Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/jorabekyusupov/devforge/actions/runs/42998333941/job/130447922304"
+    },
+    {
+      "completedAt": "2026-11-11T09:52:47Z",
+      "conclusion": "failure",
+      "databaseId": 130447922628,
+      "name": "project-smoke (windows-latest)",
+      "startedAt": "2026-11-11T09:49:01Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-11-11T09:49:03Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-11-11T09:49:02Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T09:49:10Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "number": 2,
+          "startedAt": "2026-11-11T09:49:03Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T09:49:24Z",
+          "conclusion": "success",
+          "name": "Run rustup show",
+          "number": 3,
+          "startedAt": "2026-11-11T09:49:10Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T09:52:43Z",
+          "conclusion": "failure",
+          "name": "Two project runtimes, owned PostgreSQL roles and persistence",
+          "number": 4,
+          "startedAt": "2026-11-11T09:49:24Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T09:52:43Z",
+          "conclusion": "skipped",
+          "name": "Native Windows ephemeral credential roundtrip and cleanup",
+          "number": 5,
+          "startedAt": "2026-11-11T09:52:43Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T09:52:45Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "number": 10,
+          "startedAt": "2026-11-11T09:52:43Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T09:52:46Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 11,
+          "startedAt": "2026-11-11T09:52:45Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/jorabekyusupov/devforge/actions/runs/42998333941/job/130447922628",
+      "relevant_failure_output": [
+        "2026-11-11T09:52:41.0376571Z LOG postgres.log: [stderr] Execution of PostgreSQL by a user with administrative permissions is not",
+        "2026-11-11T09:52:43.0425820Z Error: DatabaseUnavailable"
+      ]
+    }
+  ],
+  "status": "completed",
+  "url": "https://github.com/jorabekyusupov/devforge/actions/runs/42998333941",
+  "diagnosis": "Hosted Windows runner token had enabled administrative groups. PostgreSQL correctly refuses it. Production now fails early with localized administrator_unsupported; only the test harness relaunches itself using CreateRestrictedToken with Admin/Power User groups and privileges disabled."
+}
