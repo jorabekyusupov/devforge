@@ -13,6 +13,9 @@ use devforge_runtime::{
     package::{Limits, PackageStore, Target},
 };
 use serde_json::json;
+#[cfg(windows)]
+#[path = "support/windows_unprivileged.rs"]
+mod windows_unprivileged;
 use std::{
     collections::BTreeMap,
     fs,
@@ -35,6 +38,10 @@ impl SecretStore for Secrets {
     }
 }
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    #[cfg(windows)]
+    if let Some(code) = windows_unprivileged::relaunch()? {
+        std::process::exit(code);
+    }
     let args: Vec<_> = std::env::args().skip(1).collect();
     let root = tempfile::tempdir()?;
     let outcome = run(root.path(), &args);

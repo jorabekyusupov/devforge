@@ -134,6 +134,9 @@ impl ProjectStore {
         packages: &PackageStore,
         secrets: &dyn SecretStore,
     ) -> Result<Instance> {
+        if administrator_enabled()? {
+            return Err(E::AdministratorUnsupported);
+        }
         let _operation = self.operation_lock()?;
         let package = catalog.get(package_id)?;
         if package.kind != "postgresql" || package.variant != "server" {
@@ -238,6 +241,9 @@ impl RunningPostgres {
         packages: &PackageStore,
         secrets: &dyn SecretStore,
     ) -> Result<Self> {
+        if administrator_enabled()? {
+            return Err(E::AdministratorUnsupported);
+        }
         let instance = store.instance(id)?;
         let root = store.root.join("databases").join(id);
         if !instance.ready
@@ -425,6 +431,41 @@ fn server_env(
         std::env::join_paths(paths).expect("validated OS paths"),
     );
     env
+}
+
+/// Mirrors PostgreSQL's enabled Admin/Power User group check. A filtered UAC
+/// token is allowed; callers are never elevated or silently given new rights.
+pub fn administrator_enabled() -> Result<bool> {
+    #[cfg(windows)]
+    {
+        use windows_sys::Win32::Security::*;
+        for kind in [WinBuiltinAdministratorsSid, WinBuiltinPowerUsersSid] {
+            let mut sid = [0u32; 17];
+            let mut size = std::mem::size_of_val(&sid) as u32;
+            let mut member = 0;
+            if unsafe {
+                CreateWellKnownSid(
+                    kind,
+                    std::ptr::null_mut(),
+                    sid.as_mut_ptr().cast(),
+                    &mut size,
+                )
+            } == 0
+            {
+                return Err(E::DatabaseUnavailable);
+            }
+            if unsafe {
+                CheckTokenMembership(std::ptr::null_mut(), sid.as_mut_ptr().cast(), &mut member)
+            } == 0
+            {
+                return Err(E::DatabaseUnavailable);
+            }
+            if member != 0 {
+                return Ok(true);
+            }
+        }
+    }
+    Ok(false)
 }
 
 pub fn provision_on_running(

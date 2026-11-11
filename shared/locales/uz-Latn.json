@@ -122,7 +122,8 @@
       "recovery_required": "Uzilgan boshlang‘ich sozlash alohida tiklashni talab qiladi.",
       "invalid_env_file": "Muhit fayli noto‘g‘ri, ikki ma’noli yoki ramziy havola.",
       "env_file_changed": "Muhit fayli o‘zgartirish tayyorlangandan keyin o‘zgargan.",
-      "terminal_unavailable": "Loyiha terminalini ochib bo‘lmadi."
+      "terminal_unavailable": "Loyiha terminalini ochib bo‘lmadi.",
+      "administrator_unsupported": "PostgreSQL’ni ishga tushirish uchun DevForge’ni administrator huquqisiz oching."
     }
   }
 }

@@ -29,6 +29,7 @@ pub enum ProjectError {
     InvalidEnvFile,
     EnvFileChanged,
     TerminalUnavailable,
+    AdministratorUnsupported,
 }
 impl std::fmt::Display for ProjectError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -103,6 +104,7 @@ mod localization_tests {
                 super::ProjectError::InvalidEnvFile,
                 super::ProjectError::EnvFileChanged,
                 super::ProjectError::TerminalUnavailable,
+                super::ProjectError::AdministratorUnsupported,
             ] {
                 assert!(
                     catalog["project"]["errors"][code.to_string()]

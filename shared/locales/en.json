@@ -122,7 +122,8 @@
       "recovery_required": "The interrupted instance needs explicit recovery.",
       "invalid_env_file": "The environment file is invalid, ambiguous or a symbolic link.",
       "env_file_changed": "The environment file changed after the patch was prepared.",
-      "terminal_unavailable": "The project terminal could not be opened."
+      "terminal_unavailable": "The project terminal could not be opened.",
+      "administrator_unsupported": "Start DevForge without administrator privileges to run PostgreSQL."
     }
   }
 }
