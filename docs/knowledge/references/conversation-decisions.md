@@ -163,3 +163,15 @@ Natija: M1 yakunidagi commit/push vakolatlandi; oldin bajarilgan test suite'lari
 qayta ishga tushirilmaydi. Push ham CI testlarini qayta boshlamasligi uchun
 ushbu commit'da `[skip ci]` ishlatiladi. OKF strict strukturaviy validatsiyasi
 yangi hujjatlar uchun alohida tekshirish bo'lib, product test suite emas.
+
+## M2 topshirig'i
+
+Foydalanuvchi:
+
+> Endi reja asosida M2 bosqichini boshlaylik, runtime paketlari va jarayonlarni boshqarish yadrosini yarat, test qil, natijalarni OKFga yoz va yakunda push qil.
+
+Bu M2 kodi, tegishli test/smoke, OKF va commit/push'ni vakolatlaydi. Oldingi
+M1 push'dagi qayta test qilmaslik ko'rsatmasi o'sha yetkazishga tegishli edi;
+ushbu yangi topshiriq M2 uchun testni aniq so'raydi. GitHub Actions read-only
+tekshiruvida yoqilganligi aniqlandi; M2 push'dan keyingi CI natijasi real dalilga
+qarab yoziladi. Mahalliy Windows VM va GUI tekshiruvi bundan kelib chiqmaydi.

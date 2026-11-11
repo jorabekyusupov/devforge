@@ -1,0 +1,30 @@
+[package]
+name = "devforge-runtime"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+sha2 = "0.11.1"
+reqwest = { version = "0.13.5", default-features = false, features = ["rustls"] }
+tokio = { version = "1.54.1", features = ["rt", "time", "macros"] }
+flate2 = "1.1.11"
+tar = "0.4.46"
+zip = { version = "9.5.1", default-features = false, features = ["deflate"] }
+lzma-rust2 = { version = "0.25.0", default-features = false, features = ["std", "xz"] }
+tempfile = "3.27.0"
+
+[dev-dependencies]
+lzma-rust2 = { version = "0.25.0", default-features = false, features = ["std", "xz", "encoder"] }
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2.191"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61.2", features = ["Win32_Foundation", "Win32_Security", "Win32_System_Threading", "Win32_System_JobObjects", "Win32_System_Diagnostics_ToolHelp"] }
+
+[[bin]]
+name = "devforge-process-fixture"
+path = "fixtures/process.rs"

@@ -78,5 +78,27 @@
     "copy": "Nusxalash",
     "paste": "Joylashtirish",
     "selectAll": "Barchasini tanlash"
+  },
+  "runtime": {
+    "errors": {
+      "invalid_package": "Paket tavsifi noto‘g‘ri.",
+      "unsupported_target": "Bu paket ushbu kompyuterga mos emas.",
+      "integrity_mismatch": "Yuklangan paket yaxlitlik tekshiruvidan o‘tmadi.",
+      "unsafe_archive": "Arxivda xavfli yoki qo‘llanmaydigan elementlar bor.",
+      "limit_exceeded": "Paket hajm yoki fayllar soni chegarasidan oshdi.",
+      "cancelled": "Amal bekor qilindi.",
+      "download_failed": "Paketni yuklab bo‘lmadi.",
+      "io": "Mahalliy saqlash joyiga murojaat qilib bo‘lmadi.",
+      "disk_full": "Diskda bo‘sh joy yetarli emas.",
+      "busy": "Bu runtime yoki jarayon hozir ishlatilmoqda.",
+      "package_conflict": "Shu identifikatorli mos kelmaydigan paket allaqachon mavjud.",
+      "not_installed": "Tanlangan runtime o‘rnatilmagan.",
+      "executable_changed": "O‘rnatilgan bajariluvchi fayl o‘zgargan. Runtime’ni qayta o‘rnating.",
+      "spawn_failed": "Jarayonni ishga tushirib bo‘lmadi.",
+      "readiness_timeout": "Jarayon belgilangan vaqtda tayyor bo‘lmadi.",
+      "process_exited": "Jarayon kutilmaganda yakunlandi.",
+      "invalid_process": "Jarayon sozlamalari noto‘g‘ri.",
+      "log_failed": "Jarayon loglarini saqlab bo‘lmadi."
+    }
   }
 }

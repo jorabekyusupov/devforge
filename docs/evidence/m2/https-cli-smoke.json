@@ -1,0 +1,72 @@
+{
+  "scope": "Real HTTPS download using pinned publisher digest, actual CLI managed version probe and removal in temporary data directory",
+  "results": [
+    {
+      "arguments": [
+        "runtime",
+        "install",
+        "caddy-v2.11.9-macos-arm64"
+      ],
+      "exit_code": 0,
+      "output": {
+        "directory": "/private/var/folders/29/0tjzs13n3_zdtdqsykpljhth0000gn/T/devforge-m2-cli-59_nswkk/runtimes/packages/caddy-2652d1a756d7039aeb5a9e81d8c6fa8200bafd06cf5a4be1e2902e5f099a8de6",
+        "key": "caddy-2652d1a756d7039aeb5a9e81d8c6fa8200bafd06cf5a4be1e2902e5f099a8de6",
+        "reused": false
+      }
+    },
+    {
+      "arguments": [
+        "runtime",
+        "probe",
+        "caddy-v2.11.9-macos-arm64",
+        "caddy"
+      ],
+      "exit_code": 0,
+      "output": {
+        "logs": [
+          {
+            "stream": "stdout",
+            "text": "v2.11.9 h1:bhZtcRKQOq0fuLvEgCdPYvUxXyGn9kzjG4lh2332DTE=\n"
+          }
+        ],
+        "process": {
+          "desired_running": false,
+          "failure": null,
+          "history": [
+            {
+              "sequence": 1,
+              "state": "starting"
+            },
+            {
+              "sequence": 2,
+              "state": "starting"
+            },
+            {
+              "sequence": 3,
+              "state": "starting"
+            },
+            {
+              "sequence": 4,
+              "state": "succeeded"
+            }
+          ],
+          "observed": "succeeded",
+          "pid": null,
+          "restarts": 0
+        }
+      }
+    },
+    {
+      "arguments": [
+        "runtime",
+        "remove",
+        "caddy-v2.11.9-macos-arm64"
+      ],
+      "exit_code": 0,
+      "output": {
+        "removed": true
+      }
+    }
+  ],
+  "passed": true
+}

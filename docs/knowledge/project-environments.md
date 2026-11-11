@@ -41,6 +41,11 @@ alohida instance biriktirish yo'li ko'zda tutiladi; bu mexanizm hali yozilmagan.
 
 # Hali belgilanmagan
 
+M2 exact package identity va leased executable resolver'ni yaratdi;
+[runtime natijalariga](m2-runtime-core-results.md) qarang. Ikki Node versiyasi
+parallel vaqtinchalik HTTP fixture'da tekshirildi. Bu hali saqlangan Project
+binding, DB role yoki loyihaning web/CLI env integratsiyasi emas; ular M3+.
+
 Terminal integratsiyasi, versiya resolver'i, PHP worker/pool modeli, aniq
 konfiguratsiya fayli va `.env` bilan ishlash kontrakti hali tanlanmagan.
 PostgreSQL'ni MVP'dagi yagona boshlang'ich DB qilish

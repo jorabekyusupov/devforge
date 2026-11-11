@@ -23,6 +23,7 @@ mavzuni tanlang, so'ng faqat tegishli hujjatlar va ularning manbalarini o'qing.
 
 ## Manba va yuritish
 
+- [M2 runtime yadrosi](m2-runtime-core-results.md) - paket store, cancellation, process ownership/readiness/restart/loglar, CLI va platforma sinovlari.
 - [M1 desktop natijalari](m1-foundation-results.md) - Rust/Tauri poydevori, uch tilli UI, SQLite/keychain, bajarilgan test va native macOS dalillari hamda ochiq platforma gate'lari.
 - [M0 runtime natijalari](m0-runtime-findings.md) - macOS va Windows paketlari, haqiqiy bajarish dalillari, cheklovlar va M0 ochiq gate'lari.
 - [Bilim bazasini yuritish](knowledge-policy.md) - OKF tuzilishi, qaror holatlari, manba, yangilash va tekshirish qoidalari.

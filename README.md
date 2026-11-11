@@ -1,9 +1,10 @@
 # DevForge
 
 A macOS and Windows desktop foundation for managing local development environments.
-The current M1 build provides local preferences, diagnostics, native menus/tray, and
-Russian, Uzbek Latin, and English interfaces. Runtime/project management belongs to
-later phases; the Projects screen states that limitation explicitly.
+The desktop provides local preferences, diagnostics, native menus/tray, and
+Russian, Uzbek Latin, and English interfaces. M2 adds a Rust runtime package store
+and process supervisor, exposed through the library and CLI. Project management
+and runtime controls in the desktop belong to later phases.
 
 ## Development
 
@@ -39,6 +40,8 @@ artifacts are development builds, not signed/public releases.
 
 - `crates/core`: settings, locale negotiation, storage/secret contracts; no Tauri.
 - `crates/platform`: SQLite migrations, OS paths, native credential adapter.
+- `crates/runtime`: pinned packages, safe staged installation, cancellation,
+  executable leases, owned process groups/jobs, readiness/restarts, bounded logs.
 - `crates/cli`: `devforge doctor`, sharing the real storage/diagnostics layer.
 - `apps/desktop`: React presentation and a narrow Rust/Tauri IPC shell.
 - `shared/locales`: canonical registry and catalogs used by both WebView and native
@@ -58,6 +61,47 @@ The app uses system language/appearance initially, preserves explicit choices,
 and falls back through the locale registry. Uzbek Latin and English fallback are
 initial implementation defaults. Browser-only previews explicitly disable editing
 when no native connection is present; they do not fake desktop persistence.
+
+## M2 runtime core
+
+The reviewed development catalog is `runtime/m2-catalog.json`, derived from M0
+publisher digests/layouts. These are feasibility candidates; licensing, signing,
+minimum OS and native runtime release gates remain open. The CLI uses exact IDs:
+
+```sh
+scripts/with_rust.sh cargo run -p devforge-cli -- runtime catalog
+scripts/with_rust.sh cargo run -p devforge-cli -- runtime install caddy-v2.11.9-macos-arm64
+scripts/with_rust.sh cargo run -p devforge-cli -- runtime probe caddy-v2.11.9-macos-arm64 caddy
+scripts/with_rust.sh cargo run -p devforge-cli -- runtime remove caddy-v2.11.9-macos-arm64
+```
+
+Use the catalog ID matching the host. An optional archive path after `install`
+imports a cached file and still verifies its digest. `DEVFORGE_DATA_DIR` isolates
+CLI experiments. Package removal touches the owned binary directory only and
+refuses while an executable lease is in use. No project version is auto-selected.
+
+The synchronous store API belongs on a worker thread. `Supervisor` owns background
+workers and must outlive windows; `request_stop` is nonblocking, `stop`/Drop join
+cleanup. Services must run in foreground. macOS uses an owned process group;
+Windows assigns a suspended child to a kill-on-close Job Object before resuming.
+Readiness is an explicit stdout/stderr marker or successful exit for a one-shot
+probe. Commands use argument arrays and explicit environments, never shell text.
+
+Logs are raw child output: do not print credentials. Memory and persisted rotation
+are bounded. This core does not implement a privileged sandbox, standalone daemon,
+hard-killed macOS supervisor recovery, project bindings or arbitrary renderer IPC.
+Future desktop integration must use a worker and narrow typed commands.
+
+Meaningful M2 tests and an optional cached-candidate smoke are available:
+
+```sh
+cargo test -p devforge-runtime
+cargo run -p devforge-runtime --example catalog_smoke -- /path/to/m0/artifacts /path/to/report.json
+```
+
+The example uses temporary runtime/log directories and starts two Node loopback
+HTTP fixtures on OS-assigned ports. It does not change hosts, trust, Herd or real
+project databases. The fixture executable is a test tool, not a desktop sidecar.
 
 ## Evidence and project knowledge
 

@@ -1,0 +1,426 @@
+mod log;
+mod tree;
+use crate::{Cancellation, Result, RuntimeError, package::VerifiedExecutable, relative_path};
+pub use log::{LogChunk, LogPolicy};
+use serde::Serialize;
+use std::{
+    collections::{BTreeMap, HashMap, VecDeque},
+    ffi::OsString,
+    fs::{self, File, OpenOptions},
+    io::Read,
+    path::{Path, PathBuf},
+    process::{Command, Stdio},
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicBool, Ordering},
+    },
+    thread::{self, JoinHandle},
+    time::{Duration, Instant},
+};
+
+#[derive(Clone)]
+pub enum Readiness {
+    Output {
+        stream: &'static str,
+        needle: String,
+    },
+    SuccessfulExit,
+}
+#[derive(Clone, Copy)]
+pub struct RestartPolicy {
+    pub max_restarts: u32,
+    pub backoff: Duration,
+}
+impl Default for RestartPolicy {
+    fn default() -> Self {
+        Self {
+            max_restarts: 0,
+            backoff: Duration::from_millis(100),
+        }
+    }
+}
+#[derive(Clone)]
+pub struct ProcessSpec {
+    pub id: String,
+    pub executable: VerifiedExecutable,
+    pub args: Vec<OsString>,
+    pub directory: PathBuf,
+    pub environment: BTreeMap<OsString, OsString>,
+    pub readiness: Readiness,
+    pub readiness_timeout: Duration,
+    pub stop_grace: Duration,
+    pub restart: RestartPolicy,
+    pub logs: LogPolicy,
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Observed {
+    Starting,
+    Ready,
+    Backoff,
+    Stopping,
+    Stopped,
+    Succeeded,
+    Failed,
+}
+#[derive(Debug, Clone, Serialize)]
+pub struct Transition {
+    pub sequence: u64,
+    pub state: Observed,
+}
+#[derive(Debug, Clone, Serialize)]
+pub struct Snapshot {
+    pub desired_running: bool,
+    pub observed: Observed,
+    pub pid: Option<u32>,
+    pub restarts: u32,
+    pub failure: Option<RuntimeError>,
+    pub history: VecDeque<Transition>,
+}
+impl Snapshot {
+    fn set(&mut self, state: Observed, pid: Option<u32>, failure: Option<RuntimeError>) {
+        self.observed = state;
+        self.pid = pid;
+        self.failure = failure;
+        let sequence = self.history.back().map_or(1, |e| e.sequence + 1);
+        if self.history.len() == 32 {
+            self.history.pop_front();
+        }
+        self.history.push_back(Transition { sequence, state });
+    }
+}
+struct Managed {
+    state: Arc<Mutex<Snapshot>>,
+    logs: Arc<Mutex<log::Logs>>,
+    stop: Cancellation,
+    worker: Option<JoinHandle<()>>,
+    _ownership: File,
+}
+impl Drop for Managed {
+    fn drop(&mut self) {
+        self.stop.cancel();
+        if let Some(worker) = self.worker.take() {
+            let _ = worker.join();
+        }
+    }
+}
+/// Owner-scoped background workers. Window lifetime is deliberately unrelated:
+/// a future app/supervisor composition root owns this, never a React window.
+pub struct Supervisor {
+    root: PathBuf,
+    processes: HashMap<String, Managed>,
+}
+impl Supervisor {
+    pub fn open(root: impl AsRef<Path>) -> Result<Self> {
+        fs::create_dir_all(root.as_ref())?;
+        let root = fs::canonicalize(root)?;
+        let marker = root.join(".devforge-process-logs");
+        if !marker.exists() {
+            if fs::read_dir(&root)?.next().is_some() {
+                return Err(RuntimeError::PackageConflict);
+            }
+            fs::write(&marker, b"devforge-process-logs-v1\n")?;
+        }
+        if fs::read(&marker)? != b"devforge-process-logs-v1\n" {
+            return Err(RuntimeError::PackageConflict);
+        }
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&root, fs::Permissions::from_mode(0o700))?;
+        }
+        Ok(Self {
+            root,
+            processes: HashMap::new(),
+        })
+    }
+    pub fn start(&mut self, spec: ProcessSpec) -> Result<()> {
+        let id = relative_path(&spec.id)?;
+        if id.components().count() != 1
+            || spec.id.len() > 80
+            || self.processes.contains_key(&spec.id)
+            || self.processes.len() >= 64
+            || spec.restart.max_restarts > 10
+            || spec.restart.backoff > Duration::from_secs(60)
+            || spec.readiness_timeout.is_zero()
+            || spec.readiness_timeout > Duration::from_secs(300)
+            || spec.stop_grace > Duration::from_secs(30)
+            || !spec.directory.is_absolute()
+            || !spec.directory.is_dir()
+            || matches!(&spec.readiness,Readiness::Output {stream,needle} if !["stdout","stderr"].contains(stream) || needle.is_empty() || needle.len()>1024)
+        {
+            return Err(RuntimeError::InvalidProcess);
+        }
+        spec.executable.check()?;
+        let ownership = OpenOptions::new()
+            .create(true)
+            .truncate(false)
+            .read(true)
+            .write(true)
+            .open(self.root.join(format!("{}.lock", spec.id)))?;
+        ownership.try_lock().map_err(|_| RuntimeError::Busy)?;
+        let logs = Arc::new(Mutex::new(log::Logs::open(
+            self.root.join(format!("{}.log", spec.id)),
+            spec.logs,
+        )?));
+        let mut snapshot = Snapshot {
+            desired_running: true,
+            observed: Observed::Starting,
+            pid: None,
+            restarts: 0,
+            failure: None,
+            history: VecDeque::new(),
+        };
+        snapshot.set(Observed::Starting, None, None);
+        let state = Arc::new(Mutex::new(snapshot));
+        let stop = Cancellation::default();
+        let worker_state = state.clone();
+        let worker_logs = logs.clone();
+        let worker_stop = stop.clone();
+        let key = spec.id.clone();
+        let worker = thread::Builder::new()
+            .name(format!("devforge-{}", spec.id))
+            .spawn(move || run(spec, worker_state, worker_logs, worker_stop))?;
+        self.processes.insert(
+            key,
+            Managed {
+                state,
+                logs,
+                stop,
+                worker: Some(worker),
+                _ownership: ownership,
+            },
+        );
+        Ok(())
+    }
+    pub fn snapshot(&self, id: &str) -> Result<Snapshot> {
+        Ok(self
+            .processes
+            .get(id)
+            .ok_or(RuntimeError::InvalidProcess)?
+            .state
+            .lock()
+            .unwrap()
+            .clone())
+    }
+    pub fn logs(&self, id: &str) -> Result<(Vec<LogChunk>, u64)> {
+        let logs = self
+            .processes
+            .get(id)
+            .ok_or(RuntimeError::InvalidProcess)?
+            .logs
+            .lock()
+            .unwrap();
+        Ok((logs.chunks.iter().cloned().collect(), logs.dropped_bytes))
+    }
+    /// Nonblocking cancellation includes startup/readiness and backoff.
+    pub fn request_stop(&self, id: &str) -> Result<()> {
+        self.processes
+            .get(id)
+            .ok_or(RuntimeError::InvalidProcess)?
+            .stop
+            .cancel();
+        Ok(())
+    }
+    pub fn stop(&mut self, id: &str) -> Result<Snapshot> {
+        let mut managed = self
+            .processes
+            .remove(id)
+            .ok_or(RuntimeError::InvalidProcess)?;
+        managed.stop.cancel();
+        if let Some(worker) = managed.worker.take() {
+            worker.join().map_err(|_| RuntimeError::Io)?;
+        }
+        let snapshot = managed.state.lock().unwrap().clone();
+        Ok(snapshot)
+    }
+    pub fn wait_terminal(&self, id: &str, timeout: Duration) -> Result<Snapshot> {
+        let deadline = Instant::now() + timeout;
+        loop {
+            let s = self.snapshot(id)?;
+            if matches!(
+                s.observed,
+                Observed::Succeeded | Observed::Failed | Observed::Stopped
+            ) {
+                return Ok(s);
+            }
+            if Instant::now() >= deadline {
+                return Err(RuntimeError::ReadinessTimeout);
+            }
+            thread::sleep(Duration::from_millis(10));
+        }
+    }
+}
+fn set(
+    state: &Mutex<Snapshot>,
+    observed: Observed,
+    pid: Option<u32>,
+    failure: Option<RuntimeError>,
+) {
+    state.lock().unwrap().set(observed, pid, failure);
+}
+fn run(
+    spec: ProcessSpec,
+    state: Arc<Mutex<Snapshot>>,
+    logs: Arc<Mutex<log::Logs>>,
+    stop: Cancellation,
+) {
+    loop {
+        if stop.is_cancelled() {
+            break;
+        }
+        set(&state, Observed::Starting, None, None);
+        let failure = attempt(&spec, &state, &logs, &stop);
+        if stop.is_cancelled() {
+            break;
+        }
+        match failure {
+            Ok(()) => {
+                state.lock().unwrap().desired_running = false;
+                set(&state, Observed::Succeeded, None, None);
+                return;
+            }
+            Err(error) => {
+                let restarts = state.lock().unwrap().restarts;
+                if restarts >= spec.restart.max_restarts {
+                    state.lock().unwrap().desired_running = false;
+                    set(&state, Observed::Failed, None, Some(error));
+                    return;
+                }
+                state.lock().unwrap().restarts += 1;
+                set(&state, Observed::Backoff, None, Some(error));
+                let deadline = Instant::now() + spec.restart.backoff;
+                while Instant::now() < deadline && !stop.is_cancelled() {
+                    thread::sleep(Duration::from_millis(10));
+                }
+            }
+        }
+    }
+    state.lock().unwrap().desired_running = false;
+    set(&state, Observed::Stopped, None, None);
+}
+fn reader(
+    mut pipe: impl Read + Send + 'static,
+    stream: &'static str,
+    logs: Arc<Mutex<log::Logs>>,
+    ready: Arc<AtomicBool>,
+    failed: Arc<AtomicBool>,
+    readiness: Readiness,
+) -> JoinHandle<()> {
+    thread::spawn(move || {
+        let mut bytes = [0; 4096];
+        let mut tail = Vec::new();
+        loop {
+            let n = match pipe.read(&mut bytes) {
+                Ok(0) => break,
+                Ok(n) => n,
+                Err(_) => {
+                    failed.store(true, Ordering::Relaxed);
+                    break;
+                }
+            };
+            if let Readiness::Output {
+                stream: wanted,
+                needle,
+            } = &readiness
+                && *wanted == stream
+            {
+                tail.extend_from_slice(&bytes[..n]);
+                let matched = tail.windows(needle.len()).any(|w| w == needle.as_bytes());
+                let keep = needle.len().saturating_sub(1);
+                if tail.len() > keep {
+                    tail.drain(..tail.len() - keep);
+                }
+                if logs.lock().unwrap().push(stream, &bytes[..n]).is_err() {
+                    failed.store(true, Ordering::Relaxed);
+                }
+                if matched {
+                    ready.store(true, Ordering::Relaxed);
+                }
+                continue;
+            }
+            if logs.lock().unwrap().push(stream, &bytes[..n]).is_err() {
+                failed.store(true, Ordering::Relaxed);
+            }
+        }
+    })
+}
+fn attempt(
+    spec: &ProcessSpec,
+    state: &Mutex<Snapshot>,
+    logs: &Arc<Mutex<log::Logs>>,
+    stop: &Cancellation,
+) -> Result<()> {
+    spec.executable.check()?;
+    let mut command = Command::new(spec.executable.path());
+    command
+        .args(&spec.args)
+        .current_dir(&spec.directory)
+        .env_clear()
+        .envs(&spec.environment)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    let mut tree = tree::Tree::spawn(&mut command)?;
+    let pid = tree.child.id();
+    set(state, Observed::Starting, Some(pid), None);
+    let ready = Arc::new(AtomicBool::new(false));
+    let failed = Arc::new(AtomicBool::new(false));
+    let stdout = reader(
+        tree.child.stdout.take().unwrap(),
+        "stdout",
+        logs.clone(),
+        ready.clone(),
+        failed.clone(),
+        spec.readiness.clone(),
+    );
+    let stderr = reader(
+        tree.child.stderr.take().unwrap(),
+        "stderr",
+        logs.clone(),
+        ready.clone(),
+        failed.clone(),
+        spec.readiness.clone(),
+    );
+    let deadline = Instant::now() + spec.readiness_timeout;
+    let mut is_ready = false;
+    let outcome = (|| loop {
+        if stop.is_cancelled() {
+            set(state, Observed::Stopping, Some(pid), None);
+            break Err(RuntimeError::Cancelled);
+        }
+        if failed.load(Ordering::Relaxed) {
+            break Err(RuntimeError::LogFailed);
+        }
+        if tree.exited()? {
+            break Ok(());
+        }
+        if !is_ready && ready.load(Ordering::Relaxed) {
+            is_ready = true;
+            set(state, Observed::Ready, Some(pid), None);
+        }
+        if !is_ready && Instant::now() >= deadline {
+            break Err(RuntimeError::ReadinessTimeout);
+        }
+        thread::sleep(Duration::from_millis(10));
+    })();
+    // Cleanup also runs after root crash: its descendants must not outlive the
+    // managed attempt or retain stdout pipes and block the reader joins.
+    let code = tree.finish(if outcome.is_ok() {
+        Duration::ZERO
+    } else {
+        spec.stop_grace
+    });
+    drop(tree);
+    let _ = stdout.join();
+    let _ = stderr.join();
+    outcome?;
+    if failed.load(Ordering::Relaxed) {
+        return Err(RuntimeError::LogFailed);
+    }
+    if matches!(spec.readiness, Readiness::SuccessfulExit) && code? == Some(0) {
+        Ok(())
+    } else {
+        Err(RuntimeError::ProcessExited)
+    }
+}

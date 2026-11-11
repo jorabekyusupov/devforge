@@ -2,6 +2,7 @@
 
 ## 2026-11-11
 
+- **M2 runtime yadrosi**: [natijalar](m2-runtime-core-results.md), pinned catalog, staged package store, cancellation/limits, executable leases, process-group/Job adapterlari, readiness va bounded restart/loglar, CLI install/probe/remove yaratildi. macOS fixture/regression va 8 real paket smoke dalillari saqlandi. Windows CI hamda to'liq lifecycle/release qamrovi hisobotda alohida ko'rsatiladi.
 - **M1 poydevori**: Cargo workspace, Tauri/React desktop shell, SQLite migration, OS secret adapter, CLI doctor, shared en/ru/uz-Latn kataloglari va CI matrix yaratildi. [M1 hisobotida](m1-foundation-results.md) oldin o'tgan testlar, native macOS app/menu/re-launch dalillari va Windows/Intel/minimum OS cheklovlari ajratildi. Foydalanuvchining qayta test qilmasdan push ko'rsatmasi sabab avvalgi test suite'lari qayta bajarilmadi; bu push uchun CI skip belgisi ishlatiladi.
 - **M0 dalillari**: [Runtime natijalari](m0-runtime-findings.md), aniq artifact/target kataloglari va izolyatsiyalangan smoke runner'lar qo'shildi. 23 artifact publisher SHA-256'ga mos keldi; ikki muqobil manba metadata-only qoldi. ARM64 va x64/Rosetta'da ikki PHP, ikki Node, Laravel/PDO/HTTP/TLS/Vite transport sinovlari o'tdi. 44 tooling/validator testi o'tdi; Windows, native Intel/minimum OS va release gate'lari ochiq saqlandi.
 - **MVP reja**: Platforma/runtime feasibility'dan installer va uch tilli qabul matritsasigacha M0-M6 [bajarish rejasi](mvp-phase-1-plan.md) yaratildi. Scope va yangi texnik tanlovlar taklif, implementation hali boshlanmagan.

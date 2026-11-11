@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/core", "crates/platform", "crates/cli", "apps/desktop/src-tauri"]
+members = ["crates/core", "crates/platform", "crates/runtime", "crates/cli", "apps/desktop/src-tauri"]
 resolver = "2"
 
 [workspace.package]
@@ -12,6 +12,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 devforge-core = { path = "crates/core" }
 devforge-platform = { path = "crates/platform" }
+devforge-runtime = { path = "crates/runtime" }
 
 [profile.release]
 lto = "thin"

@@ -1,4 +1,4 @@
-name: Desktop foundation
+name: Desktop and runtime core
 on:
   push:
   pull_request:
@@ -7,6 +7,7 @@ permissions:
   contents: read
 jobs:
   check:
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:

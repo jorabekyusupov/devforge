@@ -78,5 +78,27 @@
     "copy": "Copy",
     "paste": "Paste",
     "selectAll": "Select All"
+  },
+  "runtime": {
+    "errors": {
+      "invalid_package": "The package definition is invalid.",
+      "unsupported_target": "This package does not match this computer.",
+      "integrity_mismatch": "The downloaded package failed its integrity check.",
+      "unsafe_archive": "The archive contains unsafe or unsupported entries.",
+      "limit_exceeded": "The package exceeds the configured size or entry limit.",
+      "cancelled": "The operation was cancelled.",
+      "download_failed": "The package could not be downloaded.",
+      "io": "The runtime operation could not access local storage.",
+      "disk_full": "There is not enough disk space.",
+      "busy": "This runtime or process is currently in use.",
+      "package_conflict": "An incompatible package already exists at this identity.",
+      "not_installed": "The selected runtime is not installed.",
+      "executable_changed": "The installed executable changed. Reinstall this runtime.",
+      "spawn_failed": "The process could not be started.",
+      "readiness_timeout": "The process did not become ready in time.",
+      "process_exited": "The process exited unexpectedly.",
+      "invalid_process": "The process configuration is invalid.",
+      "log_failed": "Process logs could not be saved."
+    }
   }
 }
