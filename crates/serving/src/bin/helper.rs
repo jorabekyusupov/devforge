@@ -31,8 +31,8 @@ fn read_plan(path: &std::path::Path) -> devforge_serving::Result<Vec<u8>> {
     #[cfg(windows)]
     {
         use std::os::windows::fs::OpenOptionsExt;
-        use windows_sys::Win32::{
-            Security::SECURITY_IDENTIFICATION, Storage::FileSystem::FILE_FLAG_OPEN_REPARSE_POINT,
+        use windows_sys::Win32::Storage::FileSystem::{
+            FILE_FLAG_OPEN_REPARSE_POINT, SECURITY_IDENTIFICATION,
         };
         options
             .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT)
