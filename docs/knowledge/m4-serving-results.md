@@ -79,6 +79,7 @@ startup, conflict restart va untrusted HTTP fallback bilan Mac'da o'tdi.
 Windows'da hosts/CA install va exact cleanup o'tdi, ammo fixture elevated
 process'da tayyorlangani uchun unprivileged child uning metadata'sini yoza olmadi.
 Prepare ham run kabi test-only restricted token'da bajarishga o'tkazildi;
+Composer'ga yuboriladigan Windows canonical verbatim path normal formaga keltirildi;
 OS hisob/ACL/security siyosati o'zgartirilmaydi. Browser acceptance hali davom etmoqda.[^laravel-local][^browser-driver]
 
 Dastlabki native CI Windows mandatory file-lock semantics va Windows-only lint
@@ -91,14 +92,19 @@ trust settings'ni qoldirishi aniqlandi; cleanup endi exact DER uchun admin trust
 settings va keychain item'ini alohida o'chiradi.[^mac-trust] Browser CLI chaqiruvidagi
 subcommand xatosi ham tuzatildi. Mac security chaqiruvlari local-only trust
 check, noninteractive stdin, bounded output va10s deadline bilan bajariladi;
-helper inputi bounded regular file. Browser test Laravel secure-cookie uchun
-`null` yetarli emasligini ko'rsatdi: serving context primary URL scheme'iga mos
-explicit true/false beradi. `auto_https off` holatida Caddy default PKI'ni
+helper inputi bounded regular file. Serving context primary URL scheme'iga mos explicit secure-cookie true/false
+beradi. Browser test avval Laravel13 standart `-session` nomini `_session` deb
+qidirgan; fixture endi aniq SESSION_COOKIE beradi va atributlar tekshiriladi. `auto_https off` holatida Caddy default PKI'ni
 keyinchalik yaratib trust install qilishga uringan; explicit local PKI va
 skip_install_trust birgalikda berilib, bu yo'l o'chirildi. Expired CA install rad etiladi, exact-owned
-CA removal esa private key va amaldagi validity'ni talab qilmaydi. Mac cleanup exact
-keychain reference bo'yicha `delete-certificate -t -Z` ishlatadi; root'da bu
-admin trust settings'ni ham olib tashlaydi. Headless natija hali pending. Bu ilk run'lar acceptance pass emas. Hosted macOS Chrome va Windows Edge .test/OS trust/
+CA removal esa private key va amaldagi validity'ni talab qilmaydi. Mac headless runner'da `remove-trusted-cert` hamda `delete-certificate -t`
+authorization kutishida qolgan;10s timeout bilan error qaytishi tasdiqlandi.
+Yangi removal exact CA'ni system-default/unspecified holatiga qaytarib, keychain
+certificate'ini hash orqali o'chiradi va untrusted/absent holatini tekshiradi.
+OS authorization siyosati o'zgartirilmaydi. Nontrusting admin metadata qolishi
+mumkinligi helper effect'ida `may_retain_nontrusting_record` bilan ochiq beriladi;
+metadata'ni jismonan tozalash GUI/uninstall gate'ida qoladi. Yangi usulning
+native natijasi hali pending. Bu ilk run'lar acceptance pass emas. Hosted macOS Chrome va Windows Edge .test/OS trust/
 secure cookie/upload/Vite HMR natijalari faqat actual CI tugagach shu hujjatga
 kiritiladi. Workflow mavjudligi uning muvaffaqiyatli o'tganiga dalil emas.[^native]
 

@@ -31,6 +31,7 @@ pub struct Effect {
     pub changed: bool,
     pub preexisting: bool,
     pub digest: String,
+    pub may_retain_nontrusting_record: bool,
 }
 impl Plan {
     pub fn digest(&self) -> String {
@@ -99,6 +100,8 @@ impl Plan {
             changed,
             preexisting,
             digest: self.digest(),
+            may_retain_nontrusting_record: cfg!(target_os = "macos")
+                && matches!(self.action, Operation::TrustRemove { .. }),
         })
     }
 }
@@ -391,6 +394,21 @@ fn remove(der: &[u8]) -> Result<()> {
     use sha1::{Digest, Sha1};
     // Admin trust settings outlive a keychain certificate. Remove the exact
     // reviewed DER from both stores; deleting only the keychain item is incomplete.
+    // Reset only this certificate to system-default evaluation. Some headless
+    // macOS releases block DeleteTrustSettings even for root. Setting an exact
+    // unspecified record uses the supported update API without weakening any
+    // authorization policy. A nontrusting record may remain; report that fact.
+    let mut file = tempfile::NamedTempFile::new()?;
+    file.write_all(pem::encode(&pem::Pem::new("CERTIFICATE", der.to_vec())).as_bytes())?;
+    file.as_file().sync_all()?;
+    let reset = security_command(
+        std::process::Command::new("/usr/bin/security")
+            .args(["add-trusted-cert", "-d", "-r", "unspecified"])
+            .arg(file.path()),
+    )?;
+    if !reset.status.success() {
+        return Err(E::TrustFailed);
+    }
     if certificate_present(der)? {
         let fp: String = Sha1::digest(der)
             .iter()
@@ -398,7 +416,6 @@ fn remove(der: &[u8]) -> Result<()> {
             .collect();
         let status = security_command(std::process::Command::new("/usr/bin/security").args([
             "delete-certificate",
-            "-t",
             "-Z",
             &fp,
             "/Library/Keychains/System.keychain",
@@ -408,7 +425,7 @@ fn remove(der: &[u8]) -> Result<()> {
         }
     }
     for _ in 0..10 {
-        if !trusted(der)? {
+        if !trusted(der)? && !certificate_present(der)? {
             return Ok(());
         }
         std::thread::sleep(std::time::Duration::from_millis(100));

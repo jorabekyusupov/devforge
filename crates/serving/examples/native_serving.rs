@@ -54,6 +54,7 @@ fn main() -> Result<()> {
         }
         fs::create_dir_all(&root)?;
         let root = fs::canonicalize(root)?;
+        let root = dunce::simplified(&root).to_path_buf();
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
@@ -146,7 +147,7 @@ fn main() -> Result<()> {
             assert!(!system::trusted(&fs::read(
                 s.root.join("serving/authority/ca.der")
             )?)?);
-            println!("M4_CLEANUP:hosts_restored_and_exact_CA_removed");
+            println!("M4_CLEANUP:hosts_restored_certificate_removed_and_untrusted");
             Ok(())
         }
         _ => Err("unknown phase".into()),
@@ -291,6 +292,7 @@ fn run(s: &Session, args: &[String]) -> Result<()> {
             ("APP_ENV", "testing"),
             ("APP_KEY", "0123456789abcdef0123456789abcdef"),
             ("SESSION_DRIVER", "file"),
+            ("SESSION_COOKIE", "devforge_m4_session"),
             ("CACHE_STORE", "array"),
             ("LOG_CHANNEL", "stderr"),
         ] {
