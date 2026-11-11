@@ -20,6 +20,9 @@ jobs:
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - run: rustup show
+      - name: Native Windows command quoting regression
+        if: runner.os == 'Windows' && (inputs.target == 'all' || inputs.target == 'windows')
+        run: cargo test -p devforge-projects terminal::windows_tests::fixed_cmd_probe_preserves_the_native_executable_and_shell_syntax -- --exact
       - name: Two project runtimes, owned PostgreSQL roles and persistence
         if: inputs.target == 'all' || startsWith(matrix.os, inputs.target)
         run: cargo run -p devforge-projects --example project_smoke -- empty-cache m3-result.json --download-missing --laravel

@@ -129,6 +129,15 @@ pub(crate) fn base() -> BTreeMap<OsString, OsString> {
     env.insert("LANG".into(), "C".into());
     #[cfg(windows)]
     {
+        if let Some(root) = std::env::var_os("SystemRoot") {
+            env.insert(
+                "COMSPEC".into(),
+                std::path::PathBuf::from(root)
+                    .join("System32")
+                    .join("cmd.exe")
+                    .into_os_string(),
+            );
+        }
         env.insert("PATHEXT".into(), ".COM;.EXE;.BAT;.CMD".into());
         env.insert("NoDefaultCurrentDirectoryInExePath".into(), "1".into());
     }

@@ -109,7 +109,7 @@ pub fn shell(
     let _composer = packages.resource(composer, "composer")?;
     let mut command = if cfg!(windows) {
         let root = std::env::var_os("SystemRoot").ok_or(E::TerminalUnavailable)?;
-        let mut c = Command::new(PathBuf::from(root).join("System32/cmd.exe"));
+        let mut c = Command::new(PathBuf::from(root).join("System32").join("cmd.exe"));
         c.arg("/D");
         c
     } else {
@@ -129,12 +129,7 @@ pub fn shell(
 pub fn probe(context: &mut Context, catalog: &Catalog, packages: &PackageStore) -> Result<String> {
     prepare(context, catalog, packages)?;
     let mut command = if cfg!(windows) {
-        let mut c = Command::new(
-            PathBuf::from(std::env::var_os("SystemRoot").ok_or(E::TerminalUnavailable)?)
-                .join("System32/cmd.exe"),
-        );
-        c.args(["/D", "/V:OFF", "/C", "call php --version && node --version"]);
-        c
+        windows_probe_command("call php --version && node --version")?
     } else {
         let mut c = Command::new("/bin/zsh");
         c.args(["-d", "-f", "-c", "php --version && node --version"]);
@@ -157,6 +152,44 @@ pub fn probe(context: &mut Context, catalog: &Catalog, packages: &PackageStore) 
         return Err(E::TerminalUnavailable);
     }
     Ok(String::from_utf8_lossy(&output.stdout).into_owned())
+}
+fn windows_probe_command(script: &'static str) -> Result<Command> {
+    let mut command = Command::new(
+        PathBuf::from(std::env::var_os("SystemRoot").ok_or(E::TerminalUnavailable)?)
+            .join("System32")
+            .join("cmd.exe"),
+    );
+    command.args(["/D", "/V:OFF", "/S", "/C"]);
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        command.raw_arg(format!("\"{script}\""));
+    }
+    #[cfg(not(windows))]
+    command.arg(script);
+    Ok(command)
+}
+#[cfg(all(test, windows))]
+mod windows_tests {
+    #[test]
+    fn fixed_cmd_probe_preserves_the_native_executable_and_shell_syntax() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("A & ' Unicode Ўзбек");
+        std::fs::create_dir(&path).unwrap();
+        let output = super::windows_probe_command("call echo DEVFORGE_SHELL_PROBE")
+            .unwrap()
+            .env_clear()
+            .envs(crate::environment::base())
+            .current_dir(dunce::simplified(&path))
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert!(String::from_utf8_lossy(&output.stdout).contains("DEVFORGE_SHELL_PROBE"));
+    }
 }
 pub fn open(store: &ProjectStore, id: &str, data_dir: &Path) -> Result<()> {
     store.get(id)?;
