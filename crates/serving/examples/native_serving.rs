@@ -532,7 +532,7 @@ fn run(s: &Session, args: &[String]) -> Result<()> {
             assert!(!text.contains(secret), "secret in owned log");
         }
     }
-    let result = json!({"host":{"os":std::env::consts::OS,"arch":std::env::consts::ARCH},"laravel_version":laravel_version.trim(),"status":status,"conflict_ports":conflict,"browser":browser,"fallback_browser":fallback_browser,"laravel_routing_php_versions_database_static_tls":true,"denied_elevation_recovery":true,"untrusted_http_localhost_fallback":true,"foreign_listeners_preserved":true,"restart_and_hot_cleanup":true,"secret_logs_clean":true,"system_trusted":trusted,"passed":true});
+    let result = json!({"host":{"os":std::env::consts::OS,"arch":std::env::consts::ARCH},"laravel_version":laravel_version.trim(),"status":status,"conflict_ports":conflict,"browser":browser,"fallback_browser":fallback_browser,"laravel_routing_php_versions_database_static_tls":true,"denied_elevation_recovery":true,"untrusted_http_localhost_fallback":true,"untrusted_fallback_status":fs_status,"foreign_listeners_preserved":true,"restart_and_hot_cleanup":true,"secret_logs_clean":true,"system_trusted":trusted,"passed":true});
     fs::write(report, serde_json::to_vec_pretty(&result)?)?;
     println!("M4_REPORT:{}", serde_json::to_string(&result)?);
     Ok(())

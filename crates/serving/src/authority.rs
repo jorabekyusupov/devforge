@@ -146,6 +146,12 @@ impl Authority {
     }
 }
 pub fn validate_root(der: &[u8], owner: &str) -> Result<()> {
+    validate_identity(der, owner, true)
+}
+pub(crate) fn validate_removal(der: &[u8], owner: &str) -> Result<()> {
+    validate_identity(der, owner, false)
+}
+fn validate_identity(der: &[u8], owner: &str, require_valid_time: bool) -> Result<()> {
     if !crate::site::owner(owner) || der.len() > 16 * 1024 {
         return Err(E::AuthorityInvalid);
     }
@@ -153,7 +159,7 @@ pub fn validate_root(der: &[u8], owner: &str) -> Result<()> {
     if !rest.is_empty() || cert.issuer() != cert.subject() || !cert.is_ca() {
         return Err(E::AuthorityInvalid);
     }
-    if !cert.validity().is_valid() {
+    if require_valid_time && !cert.validity().is_valid() {
         return Err(E::CertificateExpired);
     }
     let name = cert
@@ -240,5 +246,39 @@ mod tests {
             fingerprint
         );
         assert!(Authority::open(dir.path(), &crate::id(), &secrets).is_err());
+    }
+    #[test]
+    fn expired_owned_ca_can_be_removed_but_not_installed() {
+        let owner = crate::id();
+        let key = KeyPair::generate().unwrap();
+        let mut params = CertificateParams::new(Vec::<String>::new()).unwrap();
+        params.distinguished_name.push(
+            DnType::CommonName,
+            format!("DevForge Development CA {owner}"),
+        );
+        params.is_ca = IsCa::Ca(BasicConstraints::Constrained(0));
+        params.name_constraints = Some(NameConstraints {
+            permitted_subtrees: vec![
+                GeneralSubtree::DnsName("devforge.test".into()),
+                GeneralSubtree::DnsName("localhost".into()),
+            ],
+            excluded_subtrees: vec![],
+        });
+        params.not_before = OffsetDateTime::now_utc() - Duration::days(2);
+        params.not_after = OffsetDateTime::now_utc() - Duration::days(1);
+        let der = params.self_signed(&key).unwrap().der().to_vec();
+        assert_eq!(
+            validate_root(&der, &owner).err(),
+            Some(E::CertificateExpired)
+        );
+        let plan = crate::system::Plan {
+            schema: 1,
+            owner: owner.clone(),
+            action: crate::system::Operation::TrustRemove {
+                certificate_der: der.clone(),
+            },
+        };
+        plan.validate(&plan.digest()).unwrap();
+        assert!(validate_removal(&der, &crate::id()).is_err());
     }
 }

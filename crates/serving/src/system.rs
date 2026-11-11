@@ -59,9 +59,11 @@ impl Plan {
                     crate::site::domain(d)?;
                 }
             }
-            Operation::TrustInstall { certificate_der }
-            | Operation::TrustRemove { certificate_der } => {
+            Operation::TrustInstall { certificate_der } => {
                 crate::authority::validate_root(certificate_der, &self.owner)?
+            }
+            Operation::TrustRemove { certificate_der } => {
+                crate::authority::validate_removal(certificate_der, &self.owner)?
             }
         }
         Ok(())
@@ -154,14 +156,17 @@ fn patch_hosts(
         #[cfg(windows)]
         {
             use std::os::windows::ffi::OsStrExt;
-            use windows_sys::Win32::Storage::FileSystem::ReplaceFileW;
+            use windows_sys::Win32::Storage::FileSystem::{
+                FILE_ATTRIBUTE_NORMAL, ReplaceFileW, SetFileAttributesW,
+            };
+            // ReplaceFileW opens its replacement with no sharing. Close the
+            // staged handle first; TempPath still owns cleanup on failure.
+            let staged = staged.into_temp_path();
             let target: Vec<u16> = path.as_os_str().encode_wide().chain(Some(0)).collect();
-            let source: Vec<u16> = staged
-                .path()
-                .as_os_str()
-                .encode_wide()
-                .chain(Some(0))
-                .collect();
+            let source: Vec<u16> = staged.as_os_str().encode_wide().chain(Some(0)).collect();
+            if unsafe { SetFileAttributesW(source.as_ptr(), FILE_ATTRIBUTE_NORMAL) } == 0 {
+                return Err(E::PermissionRequired);
+            }
             if unsafe {
                 ReplaceFileW(
                     target.as_ptr(),
@@ -267,10 +272,11 @@ pub fn trusted(der: &[u8]) -> Result<bool> {
     {
         let mut file = tempfile::NamedTempFile::new()?;
         file.write_all(pem::encode(&pem::Pem::new("CERTIFICATE", der.to_vec())).as_bytes())?;
-        let result = std::process::Command::new("/usr/bin/security")
-            .args(["verify-cert", "-p", "basic", "-c"])
-            .arg(file.path())
-            .output()?;
+        let result = security_command(
+            std::process::Command::new("/usr/bin/security")
+                .args(["verify-cert", "-L", "-q", "-p", "basic", "-c"])
+                .arg(file.path()),
+        )?;
         return Ok(result.status.success());
     }
     #[cfg(windows)]
@@ -282,15 +288,64 @@ pub fn trusted(der: &[u8]) -> Result<bool> {
     }
 }
 #[cfg(target_os = "macos")]
+fn security_command(command: &mut std::process::Command) -> Result<std::process::Output> {
+    use std::{
+        io::Read,
+        process::Stdio,
+        time::{Duration, Instant},
+    };
+    let mut child = command
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|_| E::TrustFailed)?;
+    let collect = |stream: Box<dyn Read + Send>| {
+        std::thread::spawn(move || {
+            let mut bytes = Vec::new();
+            let outcome = stream.take(2 * 1024 * 1024 + 1).read_to_end(&mut bytes);
+            (outcome, bytes)
+        })
+    };
+    let stdout = collect(Box::new(child.stdout.take().ok_or(E::TrustFailed)?));
+    let stderr = collect(Box::new(child.stderr.take().ok_or(E::TrustFailed)?));
+    let until = Instant::now() + Duration::from_secs(10);
+    let status = loop {
+        if let Some(status) = child.try_wait().map_err(|_| E::TrustFailed)? {
+            break status;
+        }
+        if Instant::now() >= until {
+            let _ = child.kill();
+            let _ = child.wait();
+            let _ = stdout.join();
+            let _ = stderr.join();
+            return Err(E::TrustFailed);
+        }
+        std::thread::sleep(Duration::from_millis(20));
+    };
+    let (one, stdout) = stdout.join().map_err(|_| E::TrustFailed)?;
+    let (two, stderr) = stderr.join().map_err(|_| E::TrustFailed)?;
+    if one.is_err()
+        || two.is_err()
+        || stdout.len() > 2 * 1024 * 1024
+        || stderr.len() > 2 * 1024 * 1024
+    {
+        return Err(E::TrustFailed);
+    }
+    Ok(std::process::Output {
+        status,
+        stdout,
+        stderr,
+    })
+}
+#[cfg(target_os = "macos")]
 fn certificate_present(der: &[u8]) -> Result<bool> {
-    let result = std::process::Command::new("/usr/bin/security")
-        .args([
-            "find-certificate",
-            "-a",
-            "-p",
-            "/Library/Keychains/System.keychain",
-        ])
-        .output()?;
+    let result = security_command(std::process::Command::new("/usr/bin/security").args([
+        "find-certificate",
+        "-a",
+        "-p",
+        "/Library/Keychains/System.keychain",
+    ]))?;
     if !result.status.success() {
         return Err(E::TrustFailed);
     }
@@ -304,18 +359,19 @@ fn install(der: &[u8]) -> Result<()> {
     let mut file = tempfile::NamedTempFile::new()?;
     file.write_all(pem::encode(&pem::Pem::new("CERTIFICATE", der.to_vec())).as_bytes())?;
     file.as_file().sync_all()?;
-    let status = std::process::Command::new("/usr/bin/security")
-        .args([
-            "add-trusted-cert",
-            "-d",
-            "-r",
-            "trustRoot",
-            "-k",
-            "/Library/Keychains/System.keychain",
-        ])
-        .arg(file.path())
-        .status()?;
-    if status.success() {
+    let status = security_command(
+        std::process::Command::new("/usr/bin/security")
+            .args([
+                "add-trusted-cert",
+                "-d",
+                "-r",
+                "trustRoot",
+                "-k",
+                "/Library/Keychains/System.keychain",
+            ])
+            .arg(file.path()),
+    )?;
+    if status.status.success() {
         Ok(())
     } else {
         Err(E::TrustFailed)
@@ -330,11 +386,12 @@ fn remove(der: &[u8]) -> Result<()> {
         let mut file = tempfile::NamedTempFile::new()?;
         file.write_all(pem::encode(&pem::Pem::new("CERTIFICATE", der.to_vec())).as_bytes())?;
         file.as_file().sync_all()?;
-        let status = std::process::Command::new("/usr/bin/security")
-            .args(["remove-trusted-cert", "-d"])
-            .arg(file.path())
-            .status()?;
-        if !status.success() {
+        let status = security_command(
+            std::process::Command::new("/usr/bin/security")
+                .args(["remove-trusted-cert", "-d"])
+                .arg(file.path()),
+        )?;
+        if !status.status.success() {
             return Err(E::TrustFailed);
         }
     }
@@ -343,15 +400,13 @@ fn remove(der: &[u8]) -> Result<()> {
             .iter()
             .map(|b| format!("{b:02X}"))
             .collect();
-        let status = std::process::Command::new("/usr/bin/security")
-            .args([
-                "delete-certificate",
-                "-Z",
-                &fp,
-                "/Library/Keychains/System.keychain",
-            ])
-            .status()?;
-        if !status.success() {
+        let status = security_command(std::process::Command::new("/usr/bin/security").args([
+            "delete-certificate",
+            "-Z",
+            &fp,
+            "/Library/Keychains/System.keychain",
+        ]))?;
+        if !status.status.success() {
             return Err(E::TrustFailed);
         }
     }

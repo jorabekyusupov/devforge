@@ -16,7 +16,12 @@ fn ready(s: &Supervisor, id: &str) {
             return;
         }
         assert!(Instant::now() < until, "{state:?}");
-        assert_ne!(state.observed, Observed::Failed, "{state:?}");
+        assert_ne!(
+            state.observed,
+            Observed::Failed,
+            "{state:?} logs={:?}",
+            s.logs(id)
+        );
         thread::sleep(Duration::from_millis(10));
     }
 }
@@ -290,6 +295,9 @@ fn tcp_readiness_waits_for_listener_and_rejects_non_loopback() {
     drop(reservation);
     let mut spec = f.spec("tcp", "tcp");
     spec.args.push(address.port().to_string().into());
+    if let Some(root) = std::env::var_os("SystemRoot") {
+        spec.environment.insert("SystemRoot".into(), root);
+    }
     spec.readiness = Readiness::Tcp { address };
     supervisor.start(spec).unwrap();
     assert_eq!(

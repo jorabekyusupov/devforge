@@ -52,6 +52,7 @@ jobs:
         if: always()
         run: target/debug/examples/native_serving cleanup-plan ${{ github.workspace }}/m4-session.json
       - name: Restore disposable macOS VM system state
+        timeout-minutes: 2
         if: always() && runner.os == 'macOS'
         shell: bash
         run: |

@@ -68,10 +68,16 @@ Browser acceptance hali davom etmoqda.
 
 Dastlabki native CI Windows mandatory file-lock semantics va Windows-only lint
 regressiyasini topdi. Hosts read/recheck endi locked handle orqali bajariladi,
-file identity ham solishtiriladi. Mac'da CA keychain item'ini o'chirish admin
+file identity ham solishtiriladi. `ReplaceFileW` replacement faylini no-sharing
+rejimida ochgani uchun staged write handle avval yopiladi; ACL saqlash uchun
+almashtirish API'si saqlanadi. Windows TCP fixture'iga WinSock provider lookup
+uchun explicit SystemRoot beriladi; product context uni allaqachon beradi. Mac'da CA keychain item'ini o'chirish admin
 trust settings'ni qoldirishi aniqlandi; cleanup endi exact DER uchun admin trust
 settings va keychain item'ini alohida o'chiradi. Browser CLI chaqiruvidagi
-subcommand xatosi ham tuzatildi. Bu ilk run'lar acceptance pass emas. Hosted macOS Chrome va Windows Edge .test/OS trust/
+subcommand xatosi ham tuzatildi. Mac security chaqiruvlari local-only trust
+check, noninteractive stdin, bounded output va10s deadline bilan bajariladi;
+helper inputi bounded regular file. Expired CA install rad etiladi, exact-owned
+CA removal esa private key va amaldagi validity'ni talab qilmaydi. Bu ilk run'lar acceptance pass emas. Hosted macOS Chrome va Windows Edge .test/OS trust/
 secure cookie/upload/Vite HMR natijalari faqat actual CI tugagach shu hujjatga
 kiritiladi. Workflow mavjudligi uning muvaffaqiyatli o'tganiga dalil emas.[^native]
 

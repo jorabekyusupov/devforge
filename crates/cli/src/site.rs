@@ -64,25 +64,27 @@ pub fn run() -> Result<()> {
                         .collect(),
                 )?,
                 "hosts-remove" => system::hosts_plan(&owner, vec![])?,
-                "trust" | "trust-remove" => {
+                "trust" => {
                     let ca = Authority::open(sites.root().join("authority"), &owner, &secrets)?;
                     Plan {
                         schema: 1,
                         owner,
-                        action: if arg(1)? == "trust" {
-                            Operation::TrustInstall {
-                                certificate_der: ca.der().to_vec(),
-                            }
-                        } else {
-                            Operation::TrustRemove {
-                                certificate_der: ca.der().to_vec(),
-                            }
+                        action: Operation::TrustInstall {
+                            certificate_der: ca.der().to_vec(),
                         },
                     }
                 }
+                "trust-remove" => Plan {
+                    schema: 1,
+                    owner,
+                    action: Operation::TrustRemove {
+                        certificate_der: std::fs::read(sites.root().join("authority/ca.der"))?,
+                    },
+                },
                 _ => return Err(E::InvalidConfiguration),
             };
             let digest = plan.digest();
+            plan.validate(&digest)?;
             let path = std::path::Path::new(arg(2)?);
             let bytes = serde_json::to_vec_pretty(&plan).unwrap();
             {
