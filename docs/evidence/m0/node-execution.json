@@ -1,0 +1,83 @@
+{
+  "recorded_at": "2026-11-11T05:23:53.392200+00:00",
+  "host_os": "27.2",
+  "host_platform": "Darwin",
+  "results": [
+    {
+      "artifact_id": "node-v22.23.4-macos-arm64",
+      "mode": "native",
+      "scope": "Standalone Node/npm and Intl; not application translation or Vite HMR proof",
+      "version": "v22.23.4",
+      "platform": "darwin",
+      "arch": "arm64",
+      "icu": "78.3",
+      "locales": [
+        "en",
+        "ru",
+        "uz-Latn"
+      ],
+      "number": "1\u00a0234,5",
+      "plural": "few",
+      "npm": "10.9.9",
+      "status": "passed",
+      "publisher_sha256_matched": true
+    },
+    {
+      "artifact_id": "node-v22.23.4-macos-x64",
+      "mode": "rosetta",
+      "scope": "Standalone Node/npm and Intl; not application translation or Vite HMR proof",
+      "version": "v22.23.4",
+      "platform": "darwin",
+      "arch": "x64",
+      "icu": "78.3",
+      "locales": [
+        "en",
+        "ru",
+        "uz-Latn"
+      ],
+      "number": "1\u00a0234,5",
+      "plural": "few",
+      "npm": "10.9.9",
+      "status": "passed",
+      "publisher_sha256_matched": true
+    },
+    {
+      "artifact_id": "node-v24.22.2-macos-arm64",
+      "mode": "native",
+      "scope": "Standalone Node/npm and Intl; not application translation or Vite HMR proof",
+      "version": "v24.22.2",
+      "platform": "darwin",
+      "arch": "arm64",
+      "icu": "78.3",
+      "locales": [
+        "en",
+        "ru",
+        "uz-Latn"
+      ],
+      "number": "1\u00a0234,5",
+      "plural": "few",
+      "npm": "11.19.1",
+      "status": "passed",
+      "publisher_sha256_matched": true
+    },
+    {
+      "artifact_id": "node-v24.22.2-macos-x64",
+      "mode": "rosetta",
+      "scope": "Standalone Node/npm and Intl; not application translation or Vite HMR proof",
+      "version": "v24.22.2",
+      "platform": "darwin",
+      "arch": "x64",
+      "icu": "78.3",
+      "locales": [
+        "en",
+        "ru",
+        "uz-Latn"
+      ],
+      "number": "1\u00a0234,5",
+      "plural": "few",
+      "npm": "11.19.1",
+      "status": "passed",
+      "publisher_sha256_matched": true
+    }
+  ]
+}

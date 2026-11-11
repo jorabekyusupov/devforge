@@ -1,0 +1,133 @@
+{
+  "recorded_at": "2026-11-11T05:25:14.949842+00:00",
+  "host_os": "27.2",
+  "host_architecture": "arm64",
+  "requested_architecture": "arm64",
+  "system_configuration_changed": false,
+  "stages": "runtime smoke, not desktop UI/i18n validation",
+  "execution_mode": "native",
+  "artifact_ids": [
+    "php-8.5.12-cli-macos-arm64",
+    "php-8.5.12-fpm-macos-arm64",
+    "node-v22.23.4-macos-arm64",
+    "node-v24.22.2-macos-arm64",
+    "caddy-v2.11.9-macos-arm64",
+    "composer-2.11.2",
+    "postgresql-18.6.0-macos-arm64"
+  ],
+  "php": {
+    "8.5.12": {
+      "info": {
+        "version": "8.5.12",
+        "sapi": "cli",
+        "extensions": [
+          "Core",
+          "date",
+          "lexbor",
+          "uri",
+          "pcre",
+          "sqlite3",
+          "zlib",
+          "apcu",
+          "bcmath",
+          "bz2",
+          "calendar",
+          "ctype",
+          "curl",
+          "json",
+          "SPL",
+          "mbstring",
+          "session",
+          "fileinfo",
+          "filter",
+          "ftp",
+          "gd",
+          "gmp",
+          "hash",
+          "iconv",
+          "standard",
+          "libxml",
+          "exif",
+          "dom",
+          "igbinary",
+          "msgpack",
+          "Zend OPcache",
+          "pcntl",
+          "PDO",
+          "mysqlnd",
+          "pdo_mysql",
+          "pdo_pgsql",
+          "pdo_sqlite",
+          "pgsql",
+          "openssl",
+          "posix",
+          "random",
+          "redis",
+          "Reflection",
+          "SimpleXML",
+          "soap",
+          "sockets",
+          "tokenizer",
+          "Phar",
+          "xml",
+          "xmlreader",
+          "xmlwriter",
+          "zip"
+        ],
+        "pdo": [
+          "mysql",
+          "pgsql",
+          "sqlite"
+        ]
+      },
+      "relocated_unicode_path": true,
+      "dynamic_dependencies": "<temporary-fixture>/relocated PHP \u0420\u0443\u0441\u0441\u043a\u0438\u0439 8.5.12/cli/php:\n\t/usr/lib/libSystem.B.dylib (compatibility version 1.0.0, current version 1351.0.0)\n\t/usr/lib/libresolv.9.dylib (compatibility version 1.0.0, current version 1.0.0)\n\t/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation (compatibility version 150.0.0, current version 3502.1.255)\n\t/System/Library/Frameworks/Kerberos.framework/Versions/A/Kerberos (compatibility version 5.0.0, current version 6.0.0)\n\t/System/Library/Frameworks/CoreServices.framework/Versions/A/CoreServices (compatibility version 1.0.0, current version 1226.0.0)\n\t/System/Library/Frameworks/SystemConfiguration.framework/Versions/A/SystemConfiguration (compatibility version 1.0.0, current version 1351.120.3)\n\t/usr/lib/libc++.1.dylib (compatibility version 1.0.0, current version 1900.180.0)",
+      "minimum_macos_metadata": [
+        "12.0"
+      ],
+      "laravel_http": {
+        "php": "8.5.12",
+        "sapi": "fpm-fcgi",
+        "database": {
+          "name": "devforge_m0",
+          "version": "PostgreSQL 18.6 on aarch64-apple-darwin24.6.0, compiled by Apple clang version 17.0.0 (clang-1700.0.13.5), 64-bit"
+        },
+        "samples": {
+          "ru": "\u0413\u043e\u0442\u043e\u0432\u043e",
+          "uz": "Tayyor",
+          "en": "Ready"
+        }
+      },
+      "laravel_https_explicit_ca": true,
+      "system_ca_trust_changed": false
+    }
+  },
+  "node": {
+    "v22.23.4": {
+      "version": "v22.23.4",
+      "arch": "arm64",
+      "platform": "darwin",
+      "vite_build": true
+    },
+    "v24.22.2": {
+      "version": "v24.22.2",
+      "arch": "arm64",
+      "platform": "darwin",
+      "vite_build": true
+    }
+  },
+  "caddy_version": "v2.11.9 h1:bhZtcRKQOq0fuLvEgCdPYvUxXyGn9kzjG4lh2332DTE=",
+  "composer_version": "Composer version 2.11.2 2026-11-10 10:09:37",
+  "laravel_skeleton": "v13.11.0",
+  "laravel_framework": "Laravel Framework 13.42.0",
+  "postgresql_provider": "Zonky embedded PostgreSQL; third-party testing bundle candidate",
+  "postgresql_version": "postgres (PostgreSQL) 18.6",
+  "postgresql_dependencies": "<temporary-fixture>/relocated-postgresql/bin/postgres (architecture x86_64):\n\t@rpath/libzstd.1.dylib (compatibility version 1.0.0, current version 1.5.7)\n\t@rpath/liblz4.1.10.0.dylib (compatibility version 1.0.0, current version 1.10.0)\n\t@rpath/libxml2.16.dylib (compatibility version 18.0.0, current version 18.3.0)\n\t/usr/lib/libpam.2.dylib (compatibility version 3.0.0, current version 3.0.0)\n\t@rpath/libssl.3.dylib (compatibility version 3.0.0, current version 3.0.0)\n\t@rpath/libcrypto.3.dylib (compatibility version 3.0.0, current version 3.0.0)\n\t@rpath/libgssapi_krb5.2.2.dylib (compatibility version 2.0.0, current version 2.2.0)\n\t@rpath/libz.1.3.2.dylib (compatibility version 1.0.0, current version 1.3.2)\n\t/usr/lib/libSystem.B.dylib (compatibility version 1.0.0, current version 1351.0.0)\n\t/System/Library/Frameworks/LDAP.framework/Versions/A/LDAP (compatibility version 1.0.0, current version 2.4.0)\n\t@rpath/libicuuc.77.1.dylib (compatibility version 77.0.0, current version 77.1.0)\n\t@rpath/libicui18n.77.1.dylib (compatibility version 77.0.0, current version 77.1.0)\n<temporary-fixture>/relocated-postgresql/bin/postgres (architecture arm64):\n\t@rpath/libzstd.1.dylib (compatibility version 1.0.0, current version 1.5.7)\n\t@rpath/liblz4.1.10.0.dylib (compatibility version 1.0.0, current version 1.10.0)\n\t@rpath/libxml2.16.dylib (compatibility version 18.0.0, current version 18.3.0)\n\t/usr/lib/libpam.2.dylib (compatibility version 3.0.0, current version 3.0.0)\n\t@rpath/libssl.3.dylib (compatibility version 3.0.0, current version 3.0.0)\n\t@rpath/libcrypto.3.dylib (compatibility version 3.0.0, current version 3.0.0)\n\t@rpath/libgssapi_krb5.2.2.dylib (compatibility version 2.0.0, current version 2.2.0)\n\t@rpath/libz.1.3.2.dylib (compatibility version 1.0.0, current version 1.3.2)\n\t/usr/lib/libSystem.B.dylib (compatibility version 1.0.0, current version 1351.0.0)\n\t/System/Library/Frameworks/LDAP.framework/Versions/A/LDAP (compatibility version 1.0.0, current version 2.4.0)\n\t@rpath/libicuuc.77.1.dylib (compatibility version 77.0.0, current version 77.1.0)\n\t@rpath/libicui18n.77.1.dylib (compatibility version 77.0.0, current version 77.1.0)",
+  "vite_client_http_status": 200,
+  "postgresql_query": "Laravel PDO query passed",
+  "fixture_lockfiles": {
+    "composer.lock": "50ff2ad70f04c811c0234573914ed97edd0385c58e44ab0d5bf959e794de9d02",
+    "package-lock.json": "24a03203905031a53d568eeab8ba4e008ca1c64ccc4f2d454379fb39026b75cd"
+  },
+  "status": "passed"
+}

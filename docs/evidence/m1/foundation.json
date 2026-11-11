@@ -1,0 +1,62 @@
+{
+  "milestone": "M1",
+  "date": "2026-11-11",
+  "record_type": "Agent-curated command results and native UI observations, not an independent attestation",
+  "host": {"os": "macOS", "version": "27.2", "architecture": "arm64"},
+  "versions": {
+    "rust": "1.99.1",
+    "tauri_crate": "2.12.5",
+    "tauri_cli": "2.12.4",
+    "react": "19.3.1",
+    "typescript": "7.0.2",
+    "vite": "8.3.8",
+    "i18next": "27.1.1",
+    "react_i18next": "18.0.1",
+    "rusqlite": "0.41.1",
+    "keyring": "4.2.0",
+    "source_of_resolved_versions": "Cargo.lock and package-lock.json"
+  },
+  "prior_checks": [
+    {"command": "scripts/with_rust.sh cargo test --workspace", "exit_code": 0, "passed": 7, "ignored": 1, "coverage": "Locale negotiation, settings validation, data-only locale extension, SQLite migration/reopen and corruption/future-schema handling"},
+    {"command": "scripts/with_rust.sh cargo test -p devforge-platform native_secret_roundtrip_removes_its_ephemeral_item -- --ignored", "exit_code": 0, "passed": 1, "coverage": "macOS native credential set/get/delete with unique ephemeral fixture; deletion and absent read confirmed"},
+    {"command": "npm test", "exit_code": 0, "passed": 8, "test_files": 2, "coverage": "i18n plural/fallback/extra locale and component switch/save/remount/retry/no-native/system preference; fake backend only in component tests"},
+    {"command": "node --test scripts/check_locales.test.mjs", "exit_code": 0, "passed": 3, "coverage": "Registry extensibility and catalog key/placeholder/plural/alias validation"},
+    {"command": "npm run typecheck", "exit_code": 0},
+    {"command": "scripts/with_rust.sh cargo clippy --workspace --all-targets -- -D warnings", "exit_code": 0},
+    {"command": "scripts/with_rust.sh npm run tauri -- build --debug --bundles app", "exit_code": 0, "artifact": "target/debug/bundle/macos/DevForge.app", "profile": "debug", "reported_size_mib": 32.28, "frontend": "tsc --noEmit and Vite production bundle passed as beforeBuildCommand"}
+  ],
+  "native_ui_observations": {
+    "method": "CUA accessibility tree and screenshots of the actual bundled macOS app; task Vite server stopped before launch",
+    "origin": "tauri://localhost",
+    "initial_preferences": {"language": "system", "theme": "system", "resolved_locale": "ru"},
+    "switch": {"en": "Settings; Saved automatically; Edit", "ru": "Настройки; Сохранено автоматически; Правка", "uz-Latn": "Sozlamalar; Avtomatik saqlandi; Tahrirlash"},
+    "native_application_menu": {
+      "en": ["Open DevForge", "Settings…", "Quit DevForge"],
+      "ru": ["Открыть DevForge", "Настройки…", "Завершить DevForge"],
+      "uz-Latn": ["DevForge’ni ochish", "Sozlamalar…", "DevForge’dan chiqish"]
+    },
+    "persistence": ["uz-Latn selected and system-language unchecked after Cmd+Q/relaunch", "ru and light theme selected after another Cmd+Q/relaunch"],
+    "appearance": "System dark appearance and explicit Light rendered; radios and native theme changed. Initial transition screenshot captured stale painted tiles, settled subsequent Settings screenshot rendered the correct light colors.",
+    "native_navigation": "Cmd+, navigated Diagnostics to Settings and focused the Settings heading; native menu Settings action also opened Settings",
+    "diagnostics": {"os": "macos", "architecture": "aarch64", "appVersion": "0.1.0", "schemaVersion": 1, "database": "OS app-data/com.devforge.desktop/preferences.sqlite3"},
+    "system_language": "Follow system language resolved back to ru",
+    "final_preferences": {"language": "system", "theme": "system"},
+    "visual_review": "Native light Settings retained reference hierarchy, sidebar, locale/theme cards, local-storage strip and footer. Actual OS decorations used. No pixel-perfect or full accessibility certification claimed.",
+    "unverified": ["Tray click/open and close-to-tray cycle", "Minimum-size window interaction and full keyboard/accessibility matrix", "Unsupported saved locale in the native UI (covered at domain/component level)", "Explicit Dark choice distinct from System dark"]
+  },
+  "platform_limits": {
+    "windows": "No Windows machine/VM/runner was available. Source and CI matrix prepared; no Windows compile or UI result claimed.",
+    "intel_macos": "No native Intel desktop build/run was performed; M0 Rosetta runtime evidence is separate.",
+    "minimum_os": "macOS 13.5 config baseline is provisional; only the recorded macOS 27.2 host was used.",
+    "distribution": "Debug app only; signing/notarization, installers and public release not performed."
+  },
+  "cli_smoke": {
+    "command": "DEVFORGE_DATA_DIR=<new temporary directory> scripts/with_rust.sh cargo run -p devforge-cli -- doctor",
+    "exit_code": 0,
+    "diagnostics": {"os": "macos", "architecture": "aarch64", "appVersion": "0.1.0", "schemaVersion": 1},
+    "settings": {"language": "system", "theme": "system"},
+    "isolation": "New task-local SQLite database under /tmp; native app preferences untouched"
+  },
+  "knowledge_validation": {"command": "/tmp/devforge-okf-validator-env/bin/python scripts/validate_knowledge.py --strict --json", "exit_code": 0, "documents": 15, "errors": 0, "warnings": 0},
+  "no_rerun_policy": "After the user's no-repeat instruction, completed test suites were not rerun. Previously started build/test jobs were collected. Remaining native UI observation was completed. The publishing commit uses [skip ci] so push does not start another CI test run. Structural OKF validation of newly written docs is separate."
+}

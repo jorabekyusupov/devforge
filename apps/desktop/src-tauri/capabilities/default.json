@@ -1,0 +1,6 @@
+{
+  "identifier": "main-window",
+  "description": "Main window events only; no shell, filesystem or credential IPC.",
+  "windows": ["main"],
+  "permissions": ["core:event:default"]
+}

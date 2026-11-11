@@ -1,0 +1,4 @@
+# Development tooling only; not dependencies of the DevForge desktop application.
+PyYAML==6.0.3
+markdown-it-py==3.0.0
+mdurl==0.1.2

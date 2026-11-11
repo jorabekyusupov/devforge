@@ -1,0 +1,40 @@
+{
+  "host": {
+    "platform": "Darwin",
+    "version": "27.2",
+    "architecture": "arm64"
+  },
+  "intel_execution": "Rosetta is available; no native Intel machine was verified",
+  "windows_execution": {
+    "available": false,
+    "source": "User explicitly replied that no Windows test machine/VM/runner is currently available"
+  },
+  "herd_read_only_diagnostics": {
+    "version": "2.1.0",
+    "fpm_healthy": true,
+    "nginx_active": true,
+    "dnsmasq_active": true,
+    "extra_services_inventory": "Herd Pro required; not available"
+  },
+  "occupied_standard_ports": [
+    80,
+    443,
+    5432
+  ],
+  "rustc_on_path": false,
+  "cargo_on_path": false,
+  "isolation_policy": {
+    "fixtures_outside_herd": true,
+    "system_hosts_changes": false,
+    "system_trust_changes": false,
+    "existing_services_stopped": false,
+    "user_databases_modified": false
+  },
+  "scope": "Observed host baseline; not proof of minimum supported OS or desktop app support",
+  "post_smoke_herd_health": {
+    "version": "2.1.0",
+    "fpm_healthy": true,
+    "nginx": "active",
+    "dns": "active"
+  }
+}

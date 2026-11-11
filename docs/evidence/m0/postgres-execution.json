@@ -1,0 +1,34 @@
+{
+  "recorded_at": "2026-11-11T05:21:38.428490+00:00",
+  "host_os": "27.2",
+  "results": [
+    {
+      "artifact_id": "postgresql-18.6.0-macos-arm64",
+      "target": "macos-arm64",
+      "mode": "native",
+      "version": "postgres (PostgreSQL) 18.6",
+      "dependencies": "<temporary-fixture>/relocated PostgreSQL \u0420\u0443\u0441\u0441\u043a\u0438\u0439/bin/postgres (architecture x86_64):\n\t@rpath/libzstd.1.dylib (compatibility version 1.0.0, current version 1.5.7)\n\t@rpath/liblz4.1.10.0.dylib (compatibility version 1.0.0, current version 1.10.0)\n\t@rpath/libxml2.16.dylib (compatibility version 18.0.0, current version 18.3.0)\n\t/usr/lib/libpam.2.dylib (compatibility version 3.0.0, current version 3.0.0)\n\t@rpath/libssl.3.dylib (compatibility version 3.0.0, current version 3.0.0)\n\t@rpath/libcrypto.3.dylib (compatibility version 3.0.0, current version 3.0.0)\n\t@rpath/libgssapi_krb5.2.2.dylib (compatibility version 2.0.0, current version 2.2.0)\n\t@rpath/libz.1.3.2.dylib (compatibility version 1.0.0, current version 1.3.2)\n\t/usr/lib/libSystem.B.dylib (compatibility version 1.0.0, current version 1351.0.0)\n\t/System/Library/Frameworks/LDAP.framework/Versions/A/LDAP (compatibility version 1.0.0, current version 2.4.0)\n\t@rpath/libicuuc.77.1.dylib (compatibility version 77.0.0, current version 77.1.0)\n\t@rpath/libicui18n.77.1.dylib (compatibility version 77.0.0, current version 77.1.0)\n<temporary-fixture>/relocated PostgreSQL \u0420\u0443\u0441\u0441\u043a\u0438\u0439/bin/postgres (architecture arm64):\n\t@rpath/libzstd.1.dylib (compatibility version 1.0.0, current version 1.5.7)\n\t@rpath/liblz4.1.10.0.dylib (compatibility version 1.0.0, current version 1.10.0)\n\t@rpath/libxml2.16.dylib (compatibility version 18.0.0, current version 18.3.0)\n\t/usr/lib/libpam.2.dylib (compatibility version 3.0.0, current version 3.0.0)\n\t@rpath/libssl.3.dylib (compatibility version 3.0.0, current version 3.0.0)\n\t@rpath/libcrypto.3.dylib (compatibility version 3.0.0, current version 3.0.0)\n\t@rpath/libgssapi_krb5.2.2.dylib (compatibility version 2.0.0, current version 2.2.0)\n\t@rpath/libz.1.3.2.dylib (compatibility version 1.0.0, current version 1.3.2)\n\t/usr/lib/libSystem.B.dylib (compatibility version 1.0.0, current version 1351.0.0)\n\t/System/Library/Frameworks/LDAP.framework/Versions/A/LDAP (compatibility version 1.0.0, current version 2.4.0)\n\t@rpath/libicuuc.77.1.dylib (compatibility version 77.0.0, current version 77.1.0)\n\t@rpath/libicui18n.77.1.dylib (compatibility version 77.0.0, current version 77.1.0)\n",
+      "status": "passed",
+      "publisher_sha256_matched": true,
+      "initdb": true,
+      "single_user_sql": true,
+      "unicode_query": true,
+      "tcp_integration": "not-tested",
+      "system_configuration_changed": false
+    },
+    {
+      "artifact_id": "postgresql-18.6.0-macos-x64",
+      "target": "macos-x64",
+      "mode": "rosetta",
+      "version": "postgres (PostgreSQL) 18.6",
+      "dependencies": "<temporary-fixture>/relocated PostgreSQL \u0420\u0443\u0441\u0441\u043a\u0438\u0439/bin/postgres (architecture x86_64):\n\t@rpath/libzstd.1.dylib (compatibility version 1.0.0, current version 1.5.7)\n\t@rpath/liblz4.1.10.0.dylib (compatibility version 1.0.0, current version 1.10.0)\n\t@rpath/libxml2.16.dylib (compatibility version 18.0.0, current version 18.3.0)\n\t/usr/lib/libpam.2.dylib (compatibility version 3.0.0, current version 3.0.0)\n\t@rpath/libssl.3.dylib (compatibility version 3.0.0, current version 3.0.0)\n\t@rpath/libcrypto.3.dylib (compatibility version 3.0.0, current version 3.0.0)\n\t@rpath/libgssapi_krb5.2.2.dylib (compatibility version 2.0.0, current version 2.2.0)\n\t@rpath/libz.1.3.2.dylib (compatibility version 1.0.0, current version 1.3.2)\n\t/usr/lib/libSystem.B.dylib (compatibility version 1.0.0, current version 1351.0.0)\n\t/System/Library/Frameworks/LDAP.framework/Versions/A/LDAP (compatibility version 1.0.0, current version 2.4.0)\n\t@rpath/libicuuc.77.1.dylib (compatibility version 77.0.0, current version 77.1.0)\n\t@rpath/libicui18n.77.1.dylib (compatibility version 77.0.0, current version 77.1.0)\n<temporary-fixture>/relocated PostgreSQL \u0420\u0443\u0441\u0441\u043a\u0438\u0439/bin/postgres (architecture arm64):\n\t@rpath/libzstd.1.dylib (compatibility version 1.0.0, current version 1.5.7)\n\t@rpath/liblz4.1.10.0.dylib (compatibility version 1.0.0, current version 1.10.0)\n\t@rpath/libxml2.16.dylib (compatibility version 18.0.0, current version 18.3.0)\n\t/usr/lib/libpam.2.dylib (compatibility version 3.0.0, current version 3.0.0)\n\t@rpath/libssl.3.dylib (compatibility version 3.0.0, current version 3.0.0)\n\t@rpath/libcrypto.3.dylib (compatibility version 3.0.0, current version 3.0.0)\n\t@rpath/libgssapi_krb5.2.2.dylib (compatibility version 2.0.0, current version 2.2.0)\n\t@rpath/libz.1.3.2.dylib (compatibility version 1.0.0, current version 1.3.2)\n\t/usr/lib/libSystem.B.dylib (compatibility version 1.0.0, current version 1351.0.0)\n\t/System/Library/Frameworks/LDAP.framework/Versions/A/LDAP (compatibility version 1.0.0, current version 2.4.0)\n\t@rpath/libicuuc.77.1.dylib (compatibility version 77.0.0, current version 77.1.0)\n\t@rpath/libicui18n.77.1.dylib (compatibility version 77.0.0, current version 77.1.0)\n",
+      "status": "passed",
+      "publisher_sha256_matched": true,
+      "initdb": true,
+      "single_user_sql": true,
+      "unicode_query": true,
+      "tcp_integration": "not-tested",
+      "system_configuration_changed": false
+    }
+  ]
+}

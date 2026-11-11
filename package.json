@@ -1,0 +1,12 @@
+{
+  "name": "devforge", "version": "0.1.0", "private": true, "type": "module",
+  "workspaces": ["apps/desktop"],
+  "scripts": {
+    "dev": "npm run dev -w @devforge/desktop",
+    "build": "npm run build -w @devforge/desktop",
+    "typecheck": "npm run typecheck -w @devforge/desktop",
+    "test": "npm run test -w @devforge/desktop",
+    "check:locales": "node scripts/check_locales.mjs",
+    "tauri": "npm run tauri -w @devforge/desktop --"
+  }
+}

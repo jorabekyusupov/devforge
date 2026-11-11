@@ -1,0 +1,27 @@
+{
+  "recorded_at": "2026-11-11T05:26:11.618687+00:00",
+  "execution_host": {
+    "os": "Darwin",
+    "architecture": "arm64"
+  },
+  "scope": "Artifact integrity and static inspection, not foreign-OS runtime verification",
+  "expected_artifacts": 1,
+  "status": "completed",
+  "artifacts": [
+    {
+      "id": "php-8.4.27-cli-macos-arm64",
+      "package": "php",
+      "sapi": "cli",
+      "version": "8.4.27",
+      "target": "macos-arm64",
+      "url": "https://dl.static-php.dev/v3/php-bin/common/php-8.4.27-cli-macos-aarch64.tar.gz",
+      "sha256": "ef03c8fcb789892683c9091f26699e63438494ebef6e63f7a99e8adb25f065cb",
+      "checksum_source": "https://dl.static-php.dev/v3/php-bin/common/php-8.4.27-cli-macos-aarch64.tar.gz.sha256",
+      "provider": "StaticPHP v3 common; third-party candidate",
+      "runtime_executed": false,
+      "signature_verification": "not-performed",
+      "status": "failed",
+      "error": "Download incomplete (curl exit 92): curl: (92) HTTP/2 stream 1 was not closed cleanly: INTERNAL_ERROR (err 2); task-owned partial retained"
+    }
+  ]
+}

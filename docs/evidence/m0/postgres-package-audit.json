@@ -1,0 +1,136 @@
+{
+  "recorded_at": "2026-11-11T05:20:52.226344+00:00",
+  "execution_host": {
+    "os": "Darwin",
+    "architecture": "arm64"
+  },
+  "scope": "Artifact integrity and static inspection, not foreign-OS runtime verification",
+  "expected_artifacts": 3,
+  "status": "completed",
+  "artifacts": [
+    {
+      "id": "postgresql-18.6.0-windows-x64",
+      "package": "postgresql",
+      "version": "18.6.0",
+      "target": "windows-x64",
+      "url": "https://repo.maven.apache.org/maven2/io/zonky/test/postgres/embedded-postgres-binaries-windows-amd64/18.6.0/embedded-postgres-binaries-windows-amd64-18.6.0.jar",
+      "sha256": "b7ef2d03588e0439f0d0a2250f43905f7464f1e96ace47703ceaf79094198150",
+      "checksum_source": "https://repo.maven.apache.org/maven2/io/zonky/test/postgres/embedded-postgres-binaries-windows-amd64/18.6.0/embedded-postgres-binaries-windows-amd64-18.6.0.jar.sha256",
+      "provider": "Zonky embedded PostgreSQL; third-party testing bundle candidate",
+      "runtime_executed": false,
+      "signature_verification": "not-performed",
+      "cache_file": "postgresql-18.6.0-windows-x64-embedded-postgres-binaries-windows-amd64-18.6.0.jar",
+      "bytes": 25366735,
+      "computed_sha256": "b7ef2d03588e0439f0d0a2250f43905f7464f1e96ace47703ceaf79094198150",
+      "integrity": "publisher-sha256-matched",
+      "inspection": {
+        "archive_kind": "zip",
+        "file_count": 1497,
+        "binaries": [
+          {
+            "member": "postgres-windows-x86_64.txz!/bin/initdb.exe",
+            "architectures": [
+              "x64"
+            ]
+          },
+          {
+            "member": "postgres-windows-x86_64.txz!/bin/postgres.exe",
+            "architectures": [
+              "x64"
+            ]
+          }
+        ],
+        "nested_archives_inspected": [
+          "postgres-windows-x86_64.txz"
+        ],
+        "license_members": [],
+        "windows_pdo_pgsql_present": false
+      },
+      "status": "inspected"
+    },
+    {
+      "id": "postgresql-18.6.0-macos-arm64",
+      "package": "postgresql",
+      "version": "18.6.0",
+      "target": "macos-arm64",
+      "url": "https://repo.maven.apache.org/maven2/io/zonky/test/postgres/embedded-postgres-binaries-darwin-arm64v8/18.6.0/embedded-postgres-binaries-darwin-arm64v8-18.6.0.jar",
+      "sha256": "8f6ed6f38195b50a40712ada8b2a12060b6193c1a6977a6eb5cff053bb5a1b89",
+      "checksum_source": "https://repo.maven.apache.org/maven2/io/zonky/test/postgres/embedded-postgres-binaries-darwin-arm64v8/18.6.0/embedded-postgres-binaries-darwin-arm64v8-18.6.0.jar.sha256",
+      "provider": "Zonky embedded PostgreSQL; third-party testing bundle candidate",
+      "runtime_executed": false,
+      "signature_verification": "not-performed",
+      "cache_file": "postgresql-18.6.0-macos-arm64-embedded-postgres-binaries-darwin-arm64v8-18.6.0.jar",
+      "bytes": 71185174,
+      "computed_sha256": "8f6ed6f38195b50a40712ada8b2a12060b6193c1a6977a6eb5cff053bb5a1b89",
+      "integrity": "publisher-sha256-matched",
+      "inspection": {
+        "archive_kind": "zip",
+        "file_count": 1039,
+        "binaries": [
+          {
+            "member": "postgres-darwin-arm_64.txz!/bin/initdb",
+            "architectures": [
+              "arm64",
+              "x64"
+            ]
+          },
+          {
+            "member": "postgres-darwin-arm_64.txz!/bin/postgres",
+            "architectures": [
+              "arm64",
+              "x64"
+            ]
+          }
+        ],
+        "nested_archives_inspected": [
+          "postgres-darwin-arm_64.txz"
+        ],
+        "license_members": [],
+        "windows_pdo_pgsql_present": false
+      },
+      "status": "inspected"
+    },
+    {
+      "id": "postgresql-18.6.0-macos-x64",
+      "package": "postgresql",
+      "version": "18.6.0",
+      "target": "macos-x64",
+      "url": "https://repo.maven.apache.org/maven2/io/zonky/test/postgres/embedded-postgres-binaries-darwin-amd64/18.6.0/embedded-postgres-binaries-darwin-amd64-18.6.0.jar",
+      "sha256": "690941008aac9ee360820fde9bb7870a4f3dcac5e9e2f9e45e42333a436ad0f9",
+      "checksum_source": "https://repo.maven.apache.org/maven2/io/zonky/test/postgres/embedded-postgres-binaries-darwin-amd64/18.6.0/embedded-postgres-binaries-darwin-amd64-18.6.0.jar.sha256",
+      "provider": "Zonky embedded PostgreSQL; third-party testing bundle candidate",
+      "runtime_executed": false,
+      "signature_verification": "not-performed",
+      "cache_file": "postgresql-18.6.0-macos-x64-embedded-postgres-binaries-darwin-amd64-18.6.0.jar",
+      "bytes": 71185174,
+      "computed_sha256": "690941008aac9ee360820fde9bb7870a4f3dcac5e9e2f9e45e42333a436ad0f9",
+      "integrity": "publisher-sha256-matched",
+      "inspection": {
+        "archive_kind": "zip",
+        "file_count": 1039,
+        "binaries": [
+          {
+            "member": "postgres-darwin-x86_64.txz!/bin/initdb",
+            "architectures": [
+              "arm64",
+              "x64"
+            ]
+          },
+          {
+            "member": "postgres-darwin-x86_64.txz!/bin/postgres",
+            "architectures": [
+              "arm64",
+              "x64"
+            ]
+          }
+        ],
+        "nested_archives_inspected": [
+          "postgres-darwin-x86_64.txz"
+        ],
+        "license_members": [],
+        "windows_pdo_pgsql_present": false
+      },
+      "status": "inspected"
+    }
+  ]
+}

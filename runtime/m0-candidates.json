@@ -1,0 +1,250 @@
+[
+  {
+    "id": "php-8.4.27-cli-macos-arm64",
+    "package": "php",
+    "sapi": "cli",
+    "version": "8.4.27",
+    "target": "macos-arm64",
+    "url": "https://dl.static-php.dev/v3/php-bin/common/php-8.4.27-cli-macos-aarch64.tar.gz",
+    "sha256": "ef03c8fcb789892683c9091f26699e63438494ebef6e63f7a99e8adb25f065cb",
+    "checksum_source": "https://dl.static-php.dev/v3/php-bin/common/php-8.4.27-cli-macos-aarch64.tar.gz.sha256",
+    "provider": "StaticPHP v3 common; third-party candidate"
+  },
+  {
+    "id": "php-8.4.27-fpm-macos-arm64",
+    "package": "php",
+    "sapi": "fpm",
+    "version": "8.4.27",
+    "target": "macos-arm64",
+    "url": "https://dl.static-php.dev/v3/php-bin/common/php-8.4.27-fpm-macos-aarch64.tar.gz",
+    "sha256": "b615ed61a4605074775838fc5ce64178da77b99a70f30330d1dbf25b9869a72f",
+    "checksum_source": "https://dl.static-php.dev/v3/php-bin/common/php-8.4.27-fpm-macos-aarch64.tar.gz.sha256",
+    "provider": "StaticPHP v3 common; third-party candidate"
+  },
+  {
+    "id": "php-8.5.12-cli-macos-arm64",
+    "package": "php",
+    "sapi": "cli",
+    "version": "8.5.12",
+    "target": "macos-arm64",
+    "url": "https://dl.static-php.dev/v3/php-bin/common/php-8.5.12-cli-macos-aarch64.tar.gz",
+    "sha256": "cfbb53b904bb29f553c23cb51dfb9ec82bb69adaf9aeb6df8b6da29ea9f03553",
+    "checksum_source": "https://dl.static-php.dev/v3/php-bin/common/php-8.5.12-cli-macos-aarch64.tar.gz.sha256",
+    "provider": "StaticPHP v3 common; third-party candidate"
+  },
+  {
+    "id": "php-8.5.12-fpm-macos-arm64",
+    "package": "php",
+    "sapi": "fpm",
+    "version": "8.5.12",
+    "target": "macos-arm64",
+    "url": "https://dl.static-php.dev/v3/php-bin/common/php-8.5.12-fpm-macos-aarch64.tar.gz",
+    "sha256": "b11e25657f6190b86453a6989c631b25ed041329e9cdf6f85189d653133ce970",
+    "checksum_source": "https://dl.static-php.dev/v3/php-bin/common/php-8.5.12-fpm-macos-aarch64.tar.gz.sha256",
+    "provider": "StaticPHP v3 common; third-party candidate"
+  },
+  {
+    "id": "composer-2.11.2",
+    "package": "composer",
+    "version": "2.11.2",
+    "target": "php-portable",
+    "url": "https://getcomposer.org/download/2.11.2/composer.phar",
+    "sha256": "dd158c0afd41d15fac89e1b4e47b5d42911fe316c3687cd5edac98319b25d028",
+    "checksum_source": "https://getcomposer.org/download/2.11.2/composer.phar.sha256sum"
+  },
+  {
+    "id": "node-v22.23.4-macos-arm64",
+    "package": "node",
+    "version": "v22.23.4",
+    "target": "macos-arm64",
+    "url": "https://nodejs.org/dist/v22.23.4/node-v22.23.4-darwin-arm64.tar.gz",
+    "sha256": "c9e1dbc748b33ed2d14f42445191ecaf14c56259c7a9a26d0042c49ec2b66428",
+    "checksum_source": "https://nodejs.org/dist/v22.23.4/SHASUMS256.txt"
+  },
+  {
+    "id": "node-v22.23.4-macos-x64",
+    "package": "node",
+    "version": "v22.23.4",
+    "target": "macos-x64",
+    "url": "https://nodejs.org/dist/v22.23.4/node-v22.23.4-darwin-x64.tar.gz",
+    "sha256": "efcc2b0db6f94bf53eddb038fe2b370277a042bd29e4f19b8f8e23598795b819",
+    "checksum_source": "https://nodejs.org/dist/v22.23.4/SHASUMS256.txt"
+  },
+  {
+    "id": "node-v22.23.4-windows-x64",
+    "package": "node",
+    "version": "v22.23.4",
+    "target": "windows-x64",
+    "url": "https://nodejs.org/dist/v22.23.4/node-v22.23.4-win-x64.zip",
+    "sha256": "cbc74b5e0982c9dbb41525fd8fb5dcd32fbee237863f7829072f4639a1ce5f20",
+    "checksum_source": "https://nodejs.org/dist/v22.23.4/SHASUMS256.txt"
+  },
+  {
+    "id": "node-v24.22.2-macos-arm64",
+    "package": "node",
+    "version": "v24.22.2",
+    "target": "macos-arm64",
+    "url": "https://nodejs.org/dist/v24.22.2/node-v24.22.2-darwin-arm64.tar.gz",
+    "sha256": "aa9549349e47dffaa42dcf95d6e06ade8c4bdafc980979883b88767670df385a",
+    "checksum_source": "https://nodejs.org/dist/v24.22.2/SHASUMS256.txt"
+  },
+  {
+    "id": "node-v24.22.2-macos-x64",
+    "package": "node",
+    "version": "v24.22.2",
+    "target": "macos-x64",
+    "url": "https://nodejs.org/dist/v24.22.2/node-v24.22.2-darwin-x64.tar.gz",
+    "sha256": "d5e336d588c45be0c37dbd52cc29895593009ca4997a77a1fd02815131ed0e52",
+    "checksum_source": "https://nodejs.org/dist/v24.22.2/SHASUMS256.txt"
+  },
+  {
+    "id": "node-v24.22.2-windows-x64",
+    "package": "node",
+    "version": "v24.22.2",
+    "target": "windows-x64",
+    "url": "https://nodejs.org/dist/v24.22.2/node-v24.22.2-win-x64.zip",
+    "sha256": "ca1bff5d8ead13c9f2ea404a176db46bd430704d5b5113734049fa365e7799e2",
+    "checksum_source": "https://nodejs.org/dist/v24.22.2/SHASUMS256.txt"
+  },
+  {
+    "id": "caddy-v2.11.9-macos-arm64",
+    "package": "caddy",
+    "version": "v2.11.9",
+    "target": "macos-arm64",
+    "url": "https://github.com/caddyserver/caddy/releases/download/v2.11.9/caddy_2.11.9_mac_arm64.tar.gz",
+    "sha256": "d075afc620376679a77b453399bf7ada264cab3280b2833e4ed1372abc0c1c13",
+    "checksum_source": "https://api.github.com/repos/caddyserver/caddy/releases/tags/v2.11.9"
+  },
+  {
+    "id": "caddy-v2.11.9-macos-x64",
+    "package": "caddy",
+    "version": "v2.11.9",
+    "target": "macos-x64",
+    "url": "https://github.com/caddyserver/caddy/releases/download/v2.11.9/caddy_2.11.9_mac_amd64.tar.gz",
+    "sha256": "22af256a2cc45606f6bfa8786cd89130529331319665926f4e972234a658fb30",
+    "checksum_source": "https://api.github.com/repos/caddyserver/caddy/releases/tags/v2.11.9"
+  },
+  {
+    "id": "caddy-v2.11.9-windows-x64",
+    "package": "caddy",
+    "version": "v2.11.9",
+    "target": "windows-x64",
+    "url": "https://github.com/caddyserver/caddy/releases/download/v2.11.9/caddy_2.11.9_windows_amd64.zip",
+    "sha256": "ad93112d335ee687100c4c9f11bced16ca590377976b7fe7883882b9e797e472",
+    "checksum_source": "https://api.github.com/repos/caddyserver/caddy/releases/tags/v2.11.9"
+  },
+  {
+    "id": "php-8.4.27-1-windows-x64",
+    "package": "php",
+    "version": "8.4.27-1",
+    "target": "windows-x64",
+    "url": "https://downloads.php.net/~windows/releases/php-8.4.27-1-nts-Win32-vs17-x64.zip",
+    "sha256": "dbae154a0a89791f36c3d48e68bae797878333e7d6cb5721e74617de59b63ab7",
+    "checksum_source": "https://downloads.php.net/~windows/releases/releases.json"
+  },
+  {
+    "id": "php-8.5.12-1-windows-x64",
+    "package": "php",
+    "version": "8.5.12-1",
+    "target": "windows-x64",
+    "url": "https://downloads.php.net/~windows/releases/php-8.5.12-1-nts-Win32-vs17-x64.zip",
+    "sha256": "2a36a2edcb7a5b9252f638fd5e4cf84d7f6e066092654220dc0b63e5cf4e9723",
+    "checksum_source": "https://downloads.php.net/~windows/releases/releases.json"
+  },
+  {
+    "id": "php-8.4.27-cli-macos-x64",
+    "package": "php",
+    "sapi": "cli",
+    "version": "8.4.27",
+    "target": "macos-x64",
+    "url": "https://dl.static-php.dev/v3/php-bin/common/php-8.4.27-cli-macos-x86_64.tar.gz",
+    "sha256": "4ca9f866595b8c10a42327b3905a51197a5af5d8cc611b97afb39386ac929b34",
+    "checksum_source": "https://dl.static-php.dev/v3/php-bin/common/php-8.4.27-cli-macos-x86_64.tar.gz.sha256",
+    "provider": "StaticPHP v3 common; third-party candidate"
+  },
+  {
+    "id": "php-8.4.27-fpm-macos-x64",
+    "package": "php",
+    "sapi": "fpm",
+    "version": "8.4.27",
+    "target": "macos-x64",
+    "url": "https://dl.static-php.dev/v3/php-bin/common/php-8.4.27-fpm-macos-x86_64.tar.gz",
+    "sha256": "acfe4f13b724a0fd04d8a22f9ddb7dd2742ca74e03c49014e574c0510064600e",
+    "checksum_source": "https://dl.static-php.dev/v3/php-bin/common/php-8.4.27-fpm-macos-x86_64.tar.gz.sha256",
+    "provider": "StaticPHP v3 common; third-party candidate"
+  },
+  {
+    "id": "php-8.5.12-cli-macos-x64",
+    "package": "php",
+    "sapi": "cli",
+    "version": "8.5.12",
+    "target": "macos-x64",
+    "url": "https://dl.static-php.dev/v3/php-bin/common/php-8.5.12-cli-macos-x86_64.tar.gz",
+    "sha256": "32c08d8d793d939c960f944d92abe16350dddf0ea79418256fa76633e110ce2b",
+    "checksum_source": "https://dl.static-php.dev/v3/php-bin/common/php-8.5.12-cli-macos-x86_64.tar.gz.sha256",
+    "provider": "StaticPHP v3 common; third-party candidate"
+  },
+  {
+    "id": "php-8.5.12-fpm-macos-x64",
+    "package": "php",
+    "sapi": "fpm",
+    "version": "8.5.12",
+    "target": "macos-x64",
+    "url": "https://dl.static-php.dev/v3/php-bin/common/php-8.5.12-fpm-macos-x86_64.tar.gz",
+    "sha256": "7c166125797e536d6cda9a8267eb89fffd294b4f49878bb586dadbba713a879a",
+    "checksum_source": "https://dl.static-php.dev/v3/php-bin/common/php-8.5.12-fpm-macos-x86_64.tar.gz.sha256",
+    "provider": "StaticPHP v3 common; third-party candidate"
+  },
+  {
+    "id": "postgresapp-18-macos-universal",
+    "package": "postgresql",
+    "version": "18 (embedded patch to inspect)",
+    "target": "macos-universal",
+    "url": "https://github.com/PostgresApp/PostgresApp/releases/download/v2.9.6/Postgres-2.9.6-18.dmg",
+    "sha256": "9fc7d0dc08cf46dfd94bb32cbaaad81b41b37847a42d6dcb2f9fbd292813defb",
+    "checksum_source": "https://api.github.com/repos/PostgresApp/PostgresApp/releases/tags/v2.9.6",
+    "provider": "Postgres.app; candidate only",
+    "download_policy": "metadata-only"
+  },
+  {
+    "id": "postgresql-18.6-5-windows-x64",
+    "package": "postgresql",
+    "version": "18.6-5",
+    "target": "windows-x64",
+    "url": "https://get.enterprisedb.com/postgresql/postgresql-18.6-5-windows-x64-binaries.zip",
+    "sha256": null,
+    "checksum_source": null,
+    "provider": "EDB binary archive; digest provenance unresolved; inspect only",
+    "download_policy": "metadata-only"
+  },
+  {
+    "id": "postgresql-18.6.0-macos-arm64",
+    "package": "postgresql",
+    "version": "18.6.0",
+    "target": "macos-arm64",
+    "url": "https://repo.maven.apache.org/maven2/io/zonky/test/postgres/embedded-postgres-binaries-darwin-arm64v8/18.6.0/embedded-postgres-binaries-darwin-arm64v8-18.6.0.jar",
+    "sha256": "8f6ed6f38195b50a40712ada8b2a12060b6193c1a6977a6eb5cff053bb5a1b89",
+    "checksum_source": "https://repo.maven.apache.org/maven2/io/zonky/test/postgres/embedded-postgres-binaries-darwin-arm64v8/18.6.0/embedded-postgres-binaries-darwin-arm64v8-18.6.0.jar.sha256",
+    "provider": "Zonky embedded PostgreSQL; third-party testing bundle candidate"
+  },
+  {
+    "id": "postgresql-18.6.0-macos-x64",
+    "package": "postgresql",
+    "version": "18.6.0",
+    "target": "macos-x64",
+    "url": "https://repo.maven.apache.org/maven2/io/zonky/test/postgres/embedded-postgres-binaries-darwin-amd64/18.6.0/embedded-postgres-binaries-darwin-amd64-18.6.0.jar",
+    "sha256": "690941008aac9ee360820fde9bb7870a4f3dcac5e9e2f9e45e42333a436ad0f9",
+    "checksum_source": "https://repo.maven.apache.org/maven2/io/zonky/test/postgres/embedded-postgres-binaries-darwin-amd64/18.6.0/embedded-postgres-binaries-darwin-amd64-18.6.0.jar.sha256",
+    "provider": "Zonky embedded PostgreSQL; third-party testing bundle candidate"
+  },
+  {
+    "id": "postgresql-18.6.0-windows-x64",
+    "package": "postgresql",
+    "version": "18.6.0",
+    "target": "windows-x64",
+    "url": "https://repo.maven.apache.org/maven2/io/zonky/test/postgres/embedded-postgres-binaries-windows-amd64/18.6.0/embedded-postgres-binaries-windows-amd64-18.6.0.jar",
+    "sha256": "b7ef2d03588e0439f0d0a2250f43905f7464f1e96ace47703ceaf79094198150",
+    "checksum_source": "https://repo.maven.apache.org/maven2/io/zonky/test/postgres/embedded-postgres-binaries-windows-amd64/18.6.0/embedded-postgres-binaries-windows-amd64-18.6.0.jar.sha256",
+    "provider": "Zonky embedded PostgreSQL; third-party testing bundle candidate"
+  }
+]

@@ -1,0 +1,93 @@
+{
+  "schema_version": 1,
+  "phase": "M0",
+  "status": "partial",
+  "recorded_at": "2026-11-11T05:44:18.148957+00:00",
+  "scope": "Feasibility snapshot, not a production runtime manifest or release support declaration",
+  "runtime_versions": {
+    "php": [
+      "8.4.27",
+      "8.5.12"
+    ],
+    "windows_php_packages": [
+      "8.4.27-1",
+      "8.5.12-1"
+    ],
+    "node": [
+      "v22.23.4",
+      "v24.22.2"
+    ],
+    "caddy": "v2.11.9",
+    "postgresql": "18.6",
+    "composer": "2.11.2"
+  },
+  "targets": [
+    {
+      "id": "macos-arm64",
+      "execution": "native",
+      "tested_os": "27.2",
+      "stack_evidence": "docs/evidence/m0/macos-arm64-smoke.json",
+      "minimum_os_candidate": "13.5",
+      "minimum_os_verified": false,
+      "desktop_app_verified": false,
+      "release_ready": false
+    },
+    {
+      "id": "macos-x64",
+      "execution": "Rosetta on macOS 27.2 ARM64; native Intel not tested",
+      "standalone_evidence": [
+        "docs/evidence/m0/node-execution.json",
+        "docs/evidence/m0/postgres-execution.json",
+        "docs/evidence/m0/caddy-execution.json"
+      ],
+      "php_stack_status": "PHP 8.4/8.5, PostgreSQL TCP, Caddy HTTP/TLS, Node 22/24 Vite build/direct HMR passed under Rosetta",
+      "minimum_os_candidate": "13.5",
+      "minimum_os_verified": false,
+      "native_intel_verified": false,
+      "desktop_app_verified": false,
+      "release_ready": false,
+      "stack_evidence": "docs/evidence/m0/macos-x64-rosetta-smoke.json"
+    },
+    {
+      "id": "windows-x64",
+      "execution": "not available; user confirmed no Windows VM/test machine/runner",
+      "artifact_evidence": "docs/evidence/m0/package-audit.json",
+      "runtime_verified": false,
+      "minimum_os_candidate": "Windows 11",
+      "minimum_os_verified": false,
+      "desktop_app_verified": false,
+      "release_ready": false
+    }
+  ],
+  "localization": {
+    "required_languages": [
+      "Russian",
+      "Uzbek",
+      "English"
+    ],
+    "candidate_locale_codes": [
+      "ru",
+      "uz-Latn",
+      "en"
+    ],
+    "fallback_candidate": "en",
+    "defaults_status": "working-direction, not explicit user selection",
+    "intl_runtime_evidence": "docs/evidence/m0/node-execution.json",
+    "application_catalogs_implemented": false
+  },
+  "open_release_gates": [
+    "Real Windows execution environment",
+    "Native Intel and minimum OS validation",
+    "PHP extension profile and third-party notices/SBOM",
+    "Provider reproducible packaging and signing",
+    "System trust/browser and HTTPS-proxied HMR",
+    "Tauri/toolchain and application i18n verification in M1+"
+  ],
+  "artifact_audit_summary": {
+    "candidates": 25,
+    "publisher_sha256_matched": 23,
+    "metadata_only": 2,
+    "failed": 0,
+    "evidence": "docs/evidence/m0/package-audit.json"
+  }
+}

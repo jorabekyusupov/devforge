@@ -1,0 +1,82 @@
+{
+  "nav": {
+    "workspace": "Ish muhiti",
+    "application": "Ilova",
+    "projects": "Loyihalar",
+    "settings": "Sozlamalar",
+    "diagnostics": "Diagnostika",
+    "main": "Asosiy navigatsiya"
+  },
+  "common": {
+    "saved": "Avtomatik saqlandi",
+    "saving": "Saqlanmoqda…",
+    "retry": "Qayta urinish",
+    "loading": "Yuklanmoqda…",
+    "offline": "Ilova bilan aloqa yo‘q",
+    "storageTitle": "Shu qurilmada saqlanadi",
+    "storageDescription": "Sozlamalar qurilmangizda qoladi.",
+    "footer": "Mahalliy dasturlash, puxta boshqaruv.",
+    "refresh": "Yangilash",
+    "connected": "Sozlamalar ulangan",
+    "skip": "Asosiy qismga o‘tish"
+  },
+  "settings": {
+    "breadcrumb": "Parametrlar",
+    "title": "Sozlamalar",
+    "description": "Ish muhiti sizga mos bo‘lsin.",
+    "languageTitle": "Til va hudud",
+    "languageDescription": "DevForge interfeysi uchun tilni tanlang.",
+    "followSystem": "Tizim tilidan foydalanish",
+    "remembered": "Tanlovingiz shu qurilmada saqlanadi.",
+    "languageCount_one": "{{count}} ta til mavjud",
+    "languageCount_other": "{{count}} ta til mavjud",
+    "appearanceTitle": "Ko‘rinish",
+    "appearanceDescription": "Har qanday yorug‘likda qulay.",
+    "system": "Tizimga mos",
+    "light": "Yorug‘",
+    "dark": "Qorong‘i",
+    "unsupported": "Oldingi tanlangan til mavjud emas. Zaxira tili ishlatilmoqda; boshqa tilni tanlamaguningizcha saqlangan tanlov o‘zgarmaydi."
+  },
+  "projects": {
+    "title": "Loyihalar",
+    "description": "Mahalliy dasturlash uchun yagona joy.",
+    "empty": "Ish muhitingiz shu yerdan boshlanadi",
+    "notice": "Bu versiyada loyihalarni boshqarish hali mavjud emas. Sozlamalar bo‘limida ilovani o‘zingizga moslashingiz mumkin.",
+    "openSettings": "Sozlamalarni ochish",
+    "soon": "Tez kunda"
+  },
+  "diagnostics": {
+    "title": "Diagnostika",
+    "description": "Ilova muhiti haqida aniq ma’lumot.",
+    "device": "Shu qurilma",
+    "operatingSystem": "Operatsion tizim",
+    "architecture": "Arxitektura",
+    "version": "Ilova versiyasi",
+    "storage": "Mahalliy saqlash",
+    "database": "Sozlamalar bazasi",
+    "schema": "Sxema versiyasi",
+    "privacy": "Loyiha parollari bu bazada saqlanmaydi.",
+    "connection": "Ilova bilan aloqa"
+  },
+  "errors": {
+    "invalid_settings": "Bu sozlamalar qo‘llab-quvvatlanmaydi. Mavjud variantni tanlang.",
+    "invalid_registry": "Til resurslarini yuklab bo‘lmadi.",
+    "storage_unavailable": "Sozlamalarga kirib bo‘lmadi. Mahalliy saqlash joyini tekshiring va qayta urinib ko‘ring.",
+    "secret_unavailable": "Himoyalangan parol saqlash xizmati mavjud emas.",
+    "desktop_unavailable": "Sozlamalarni saqlash va qurilma diagnostikasini ko‘rish uchun DevForge ilovasini oching.",
+    "unexpected": "Xatolik yuz berdi. Oldingi sozlamalaringiz saqlangan. Qayta urinib ko‘ring.",
+    "native_partial": "Sozlamalar saqlandi, lekin ilova menyusi yangilanmadi. Ularni qo‘llash uchun DevForge’ni qayta oching."
+  },
+  "native": {
+    "show": "DevForge’ni ochish",
+    "settings": "Sozlamalar…",
+    "quit": "DevForge’dan chiqish",
+    "edit": "Tahrirlash",
+    "undo": "Bekor qilish",
+    "redo": "Qaytarish",
+    "cut": "Kesish",
+    "copy": "Nusxalash",
+    "paste": "Joylashtirish",
+    "selectAll": "Barchasini tanlash"
+  }
+}

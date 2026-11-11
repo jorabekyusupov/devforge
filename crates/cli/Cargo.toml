@@ -1,0 +1,14 @@
+[package]
+name = "devforge-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "devforge"
+path = "src/main.rs"
+
+[dependencies]
+devforge-core.workspace = true
+devforge-platform.workspace = true
+serde_json.workspace = true

@@ -1,0 +1,8 @@
+{
+  "fallback": "en",
+  "locales": [
+    { "id": "en", "name": "English", "direction": "ltr", "aliases": [] },
+    { "id": "ru", "name": "Русский", "direction": "ltr", "aliases": [] },
+    { "id": "uz-Latn", "name": "O‘zbekcha", "direction": "ltr", "aliases": ["uz"] }
+  ]
+}

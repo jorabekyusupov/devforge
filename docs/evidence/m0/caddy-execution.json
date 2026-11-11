@@ -1,0 +1,20 @@
+{
+  "recorded_at": "2026-11-11T05:36:46.689742+00:00",
+  "host_os": "27.2",
+  "results": [
+    {
+      "artifact_id": "caddy-v2.11.9-macos-arm64",
+      "version": "v2.11.9 h1:bhZtcRKQOq0fuLvEgCdPYvUxXyGn9kzjG4lh2332DTE=",
+      "mode": "native",
+      "publisher_sha256_matched": true,
+      "scope": "Executable version probe; full HTTP/TLS integration is recorded separately"
+    },
+    {
+      "artifact_id": "caddy-v2.11.9-macos-x64",
+      "version": "v2.11.9 h1:bhZtcRKQOq0fuLvEgCdPYvUxXyGn9kzjG4lh2332DTE=",
+      "mode": "rosetta",
+      "publisher_sha256_matched": true,
+      "scope": "Executable version probe; full HTTP/TLS integration is recorded separately"
+    }
+  ]
+}

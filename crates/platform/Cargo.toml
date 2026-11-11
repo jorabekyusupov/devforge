@@ -1,0 +1,16 @@
+[package]
+name = "devforge-platform"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+devforge-core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+rusqlite = { version = "0.41.1", default-features = false, features = ["bundled"] }
+keyring = "4.2.0"
+dirs = "6"
+
+[dev-dependencies]
+tempfile = "3"

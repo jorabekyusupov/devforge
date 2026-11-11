@@ -1,0 +1,4 @@
+interface:
+  display_name: "DevForge"
+  short_description: "Build DevForge for macOS and Windows"
+  default_prompt: "Use $devforge to implement and verify the requested DevForge desktop change."

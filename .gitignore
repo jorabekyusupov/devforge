@@ -1,0 +1,11 @@
+.venv-knowledge/
+__pycache__/
+*.py[cod]
+.m0-cache/
+node_modules/
+target/
+apps/desktop/dist/
+playwright-report/
+test-results/
+.DS_Store
+apps/desktop/src-tauri/gen/

@@ -1,0 +1,82 @@
+{
+  "nav": {
+    "workspace": "Workspace",
+    "application": "Application",
+    "projects": "Projects",
+    "settings": "Settings",
+    "diagnostics": "Diagnostics",
+    "main": "Main navigation"
+  },
+  "common": {
+    "saved": "Saved automatically",
+    "saving": "Saving…",
+    "retry": "Try again",
+    "loading": "Loading…",
+    "offline": "Desktop unavailable",
+    "storageTitle": "Stored on this device",
+    "storageDescription": "Preferences stay local.",
+    "footer": "Local development, thoughtfully managed.",
+    "refresh": "Refresh",
+    "connected": "Preferences connected",
+    "skip": "Skip to main content"
+  },
+  "settings": {
+    "breadcrumb": "Preferences",
+    "title": "Settings",
+    "description": "A workspace that feels like yours.",
+    "languageTitle": "Language & region",
+    "languageDescription": "Choose the language used throughout DevForge.",
+    "followSystem": "Follow system language",
+    "remembered": "Your choice is remembered on this device.",
+    "languageCount_one": "{{count}} language available",
+    "languageCount_other": "{{count}} languages available",
+    "appearanceTitle": "Appearance",
+    "appearanceDescription": "Comfortable in every light.",
+    "system": "System",
+    "light": "Light",
+    "dark": "Dark",
+    "unsupported": "Your previous language is unavailable. A fallback is being used; your saved choice is preserved until you select another language."
+  },
+  "projects": {
+    "title": "Projects",
+    "description": "One place for your local development.",
+    "empty": "Your workspace starts here",
+    "notice": "Project management is not available in this build. You can already personalize the app in Settings.",
+    "openSettings": "Open settings",
+    "soon": "Coming soon"
+  },
+  "diagnostics": {
+    "title": "Diagnostics",
+    "description": "A clear view of your application environment.",
+    "device": "This device",
+    "operatingSystem": "Operating system",
+    "architecture": "Architecture",
+    "version": "Application version",
+    "storage": "Local storage",
+    "database": "Preferences database",
+    "schema": "Schema version",
+    "privacy": "No project credentials are stored in this database.",
+    "connection": "Desktop connection"
+  },
+  "errors": {
+    "invalid_settings": "These preferences are not supported. Choose an available option.",
+    "invalid_registry": "Language resources could not be loaded.",
+    "storage_unavailable": "Preferences could not be accessed. Check local storage and try again.",
+    "secret_unavailable": "Secure credential storage is unavailable.",
+    "desktop_unavailable": "Open the DevForge desktop app to save preferences and view device diagnostics.",
+    "unexpected": "Something went wrong. Your previous preferences are preserved. Try again.",
+    "native_partial": "Preferences were saved, but app menus could not be updated. Reopen DevForge to apply them."
+  },
+  "native": {
+    "show": "Open DevForge",
+    "settings": "Settings…",
+    "quit": "Quit DevForge",
+    "edit": "Edit",
+    "undo": "Undo",
+    "redo": "Redo",
+    "cut": "Cut",
+    "copy": "Copy",
+    "paste": "Paste",
+    "selectAll": "Select All"
+  }
+}
