@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "source_sha": "6f3033e8ff80786dad1dd33a84704efde8a48e6c",
+  "core_run": 43020283271,
+  "native_run": 43020318091,
+  "jobs": [
+    {
+      "os": "macos",
+      "job_id": 130521476686,
+      "rust_passed": 51,
+      "rust_failed": 0,
+      "rust_ignored": 1,
+      "frontend_passed": 8,
+      "locale_tests_passed": 3,
+      "locales": 3
+    },
+    {
+      "os": "windows",
+      "job_id": 130521477502,
+      "rust_passed": 51,
+      "rust_failed": 0,
+      "rust_ignored": 1,
+      "frontend_passed": 8,
+      "locale_tests_passed": 3,
+      "locales": 3
+    }
+  ]
+}

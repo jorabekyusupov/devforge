@@ -1,0 +1,166 @@
+{
+  "schema": 1,
+  "source_sha": "6f3033e8ff80786dad1dd33a84704efde8a48e6c",
+  "workflow_run": 43020318091,
+  "job_id": 130521600010,
+  "url": "https://github.com/jorabekyusupov/devforge/actions/runs/43020318091/job/130521600010",
+  "hosted": true,
+  "fixture_secret_store": "private filesystem test adapter; production CA key uses native SecretStore",
+  "system_integration": {
+    "hosts_and_ca_applied_on_disposable_vm": true,
+    "hosts_restored_certificate_removed_and_untrusted": true,
+    "may_retain_nontrusting_record": false
+  },
+  "result": {
+    "browser": {
+      "browser": "msedge",
+      "executed": true,
+      "https_secure_context": true,
+      "laravel_multipart_upload": true,
+      "native_tls_no_bypass": true,
+      "secure_http_only_session_cookie": true,
+      "vite_wss_hmr_without_reload": true
+    },
+    "conflict_ports": {
+      "http": {
+        "fallback": true,
+        "permission_denied": false,
+        "requested": 52638,
+        "selected": 8080
+      },
+      "https": {
+        "fallback": true,
+        "permission_denied": false,
+        "requested": 52639,
+        "selected": 8443
+      },
+      "nonce": "818a6f90fdc641c8b7714a4813891105",
+      "running": true,
+      "sites": [
+        {
+          "certificate_active": true,
+          "domain": "a-37ff660e.devforge.test",
+          "domain_resolves": true,
+          "fallback_url": "http://a-37ff660e.localhost:8080",
+          "http_url": "http://a-37ff660e.devforge.test:8080",
+          "https_url": "https://a-37ff660e.devforge.test:8443",
+          "php_ready": true,
+          "preferred_url": "https://a-37ff660e.devforge.test:8443",
+          "project_id": "090d04871c4e48f4a7502293e6c1e69d",
+          "system_trusted": true,
+          "vite_ready": true
+        },
+        {
+          "certificate_active": true,
+          "domain": "b-37ff660e.devforge.test",
+          "domain_resolves": true,
+          "fallback_url": "http://b-37ff660e.localhost:8080",
+          "http_url": "http://b-37ff660e.devforge.test:8080",
+          "https_url": "https://b-37ff660e.devforge.test:8443",
+          "php_ready": true,
+          "preferred_url": "https://b-37ff660e.devforge.test:8443",
+          "project_id": "870640e83c0549b8aa558032a8b1a626",
+          "system_trusted": true,
+          "vite_ready": false
+        }
+      ]
+    },
+    "denied_elevation_recovery": true,
+    "fallback_browser": {
+      "browser": "msedge",
+      "executed": true,
+      "http_localhost_without_system_changes": true
+    },
+    "foreign_listeners_preserved": true,
+    "host": {
+      "arch": "x86_64",
+      "os": "windows"
+    },
+    "laravel_routing_php_versions_database_static_tls": true,
+    "laravel_version": "Laravel Framework 13.42.0",
+    "passed": true,
+    "restart_and_hot_cleanup": true,
+    "secret_logs_clean": true,
+    "status": {
+      "http": {
+        "fallback": true,
+        "permission_denied": true,
+        "requested": 80,
+        "selected": 8080
+      },
+      "https": {
+        "fallback": false,
+        "permission_denied": false,
+        "requested": 443,
+        "selected": 443
+      },
+      "nonce": "699f931c24ac467b84c35225338aaa76",
+      "running": true,
+      "sites": [
+        {
+          "certificate_active": true,
+          "domain": "a-37ff660e.devforge.test",
+          "domain_resolves": true,
+          "fallback_url": "http://a-37ff660e.localhost:8080",
+          "http_url": "http://a-37ff660e.devforge.test:8080",
+          "https_url": "https://a-37ff660e.devforge.test",
+          "php_ready": true,
+          "preferred_url": "https://a-37ff660e.devforge.test",
+          "project_id": "090d04871c4e48f4a7502293e6c1e69d",
+          "system_trusted": true,
+          "vite_ready": true
+        },
+        {
+          "certificate_active": true,
+          "domain": "b-37ff660e.devforge.test",
+          "domain_resolves": true,
+          "fallback_url": "http://b-37ff660e.localhost:8080",
+          "http_url": "http://b-37ff660e.devforge.test:8080",
+          "https_url": "https://b-37ff660e.devforge.test",
+          "php_ready": true,
+          "preferred_url": "https://b-37ff660e.devforge.test",
+          "project_id": "870640e83c0549b8aa558032a8b1a626",
+          "system_trusted": true,
+          "vite_ready": false
+        }
+      ]
+    },
+    "system_trusted": true,
+    "untrusted_fallback_status": {
+      "http": {
+        "fallback": false,
+        "permission_denied": false,
+        "requested": 0,
+        "selected": 52673
+      },
+      "https": {
+        "fallback": false,
+        "permission_denied": false,
+        "requested": 0,
+        "selected": 52674
+      },
+      "nonce": "e654b04533c84dcba7f09ebfeb9910af",
+      "running": true,
+      "sites": [
+        {
+          "certificate_active": true,
+          "domain": "fallback-37ff660e.devforge.test",
+          "domain_resolves": false,
+          "fallback_url": "http://fallback-37ff660e.localhost:52673",
+          "http_url": "http://fallback-37ff660e.devforge.test:52673",
+          "https_url": "https://fallback-37ff660e.devforge.test:52674",
+          "php_ready": true,
+          "preferred_url": "http://fallback-37ff660e.localhost:52673",
+          "project_id": "870640e83c0549b8aa558032a8b1a626",
+          "system_trusted": false,
+          "vite_ready": false
+        }
+      ]
+    },
+    "untrusted_http_localhost_fallback": true
+  },
+  "runner": {
+    "os_version": "Windows Server2025 (10.0.26100)",
+    "packages_installed": 7
+  }
+}

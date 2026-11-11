@@ -1,0 +1,83 @@
+{
+  "schema": 1,
+  "repository": "jorabekyusupov/devforge",
+  "milestone": "M4",
+  "attempts": [
+    {
+      "sha": "9bd70f0931cb00e62bd62dff1db42f75313d7e10",
+      "native_run": 43013965255,
+      "result": "failure",
+      "observed": [
+        "Windows mandatory lock blocked reading hosts through a second handle.",
+        "macOS browser CLI invocation lacked its cli subcommand.",
+        "Deleting a macOS keychain certificate left its admin trust settings active."
+      ]
+    },
+    {
+      "sha": "3773d9136b1bd4c7053aea05fdfe404c617dfc39",
+      "native_run": 43015055021,
+      "result": "cancelled",
+      "observed": [
+        "Windows ReplaceFileW could not open the replacement while its staging handle remained open.",
+        "macOS native body failed and cleanup hung; forced cancellation did not retain its job log."
+      ],
+      "core_run": 43015019134,
+      "core_observed": "Windows TCP fixture lacked SystemRoot for WinSock provider discovery."
+    },
+    {
+      "sha": "944534ec5a13551bcfb111a6d345d15d855dd964",
+      "native_run": 43016243871,
+      "result": "failure",
+      "observed": [
+        "Windows helper imported SECURITY_IDENTIFICATION from the wrong windows-sys module.",
+        "macOS cookie assertion assumed the older Laravel cookie name.",
+        "macOS trust removal returned a bounded timeout."
+      ]
+    },
+    {
+      "sha": "15cef4397aec0d7b2a12fb5d138fc8a99f237a46",
+      "native_run": 43016966903,
+      "result": "failure",
+      "observed": [
+        "Windows hosts/CA install and exact restoration passed.",
+        "The fixture created under an administrative token could not be written by its ordinary-user run."
+      ]
+    },
+    {
+      "sha": "f1edad670efc22e6a1e56fe529bfd79279384454",
+      "native_run": 43017618199,
+      "result": "failure",
+      "observed": [
+        "Composer rejected a Windows verbatim destination path; external paths now use their native simplified form.",
+        "The cookie assertion still did not match Laravel 13's default name; the fixture now declares SESSION_COOKIE explicitly.",
+        "macOS delete-certificate -t also encountered the headless trust-settings authorization limit."
+      ],
+      "core_run": 43017573954,
+      "core_result": "success",
+      "rust_tests_per_os": 51
+    },
+    {
+      "sha": "fc9cdb2d2ca6f594529b49c8271eb5e29c40d025",
+      "native_run": 43018946309,
+      "result": "failure",
+      "observed": [
+        "macOS native TLS, secure/HttpOnly session cookie and WSS HMR without document reload passed.",
+        "Upload assertion found two controls named Upload; fixture labels were separated.",
+        "Edge discovery lacked the standard ProgramFiles environment paths.",
+        "Both hosts restoration and CA removal/untrusted verification passed; macOS explicitly reports possible nontrusting metadata retention."
+      ],
+      "core_run": 43018926983,
+      "core_result": "success"
+    },
+    {
+      "sha": "6f3033e8ff80786dad1dd33a84704efde8a48e6c",
+      "native_run": 43020318091,
+      "result": "success",
+      "core_run": 43020283271,
+      "core_result": "success",
+      "observed": [
+        "Full macOS Chrome and Windows Edge native suite passed, including upload, WSS HMR without reload, fallback and cleanup."
+      ]
+    }
+  ]
+}

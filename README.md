@@ -246,4 +246,8 @@ System integration is an explicit two-step operation:
 change system configuration or another application's trust. A stale hosts plan
 must be regenerated. Trust removal is explicit; an already present CA is never
 adopted for automatic cleanup. The disposable CI workflow tests and restores only
-its own hosts/CA entries. See [M4 evidence](docs/knowledge/m4-serving-results.md).
+its own hosts/CA entries. On macOS, removal resets the exact CA to system-default
+trust and removes its keychain certificate; a nontrusting settings record may
+remain, reported by `may_retain_nontrusting_record`. Physical removal of that
+metadata belongs to the later GUI/uninstall flow. See
+[M4 evidence](docs/knowledge/m4-serving-results.md).
