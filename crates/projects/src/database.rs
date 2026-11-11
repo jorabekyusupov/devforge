@@ -198,6 +198,10 @@ impl ProjectStore {
         )?;
         let outcome = supervisor.wait_terminal("initdb", Duration::from_secs(70))?;
         if outcome.observed != Observed::Succeeded {
+            fs::write(
+                root.join("logs/initdb-status.json"),
+                serde_json::to_vec(&outcome).expect("safe snapshot"),
+            )?;
             return Err(E::DatabaseUnavailable);
         }
         drop(pw);

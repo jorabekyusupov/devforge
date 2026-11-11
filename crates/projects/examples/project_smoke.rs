@@ -447,10 +447,10 @@ fn files(root: &Path) -> Vec<PathBuf> {
     out
 }
 fn assert_no_secret_logs(root: &Path, secrets: &Secrets) -> Result<(), Box<dyn std::error::Error>> {
-    for file in files(root)
-        .into_iter()
-        .filter(|p| p.to_string_lossy().ends_with(".log"))
-    {
+    for file in files(root).into_iter().filter(|p| {
+        p.to_string_lossy().ends_with(".log")
+            || p.file_name().is_some_and(|n| n == "initdb-status.json")
+    }) {
         let text = fs::read_to_string(file)?;
         for value in secrets.0.lock().unwrap().values().filter(|v| v.len() >= 16) {
             assert!(!text.contains(value));
@@ -459,10 +459,10 @@ fn assert_no_secret_logs(root: &Path, secrets: &Secrets) -> Result<(), Box<dyn s
     Ok(())
 }
 fn show_logs(root: &Path) {
-    for file in files(root)
-        .into_iter()
-        .filter(|p| p.to_string_lossy().ends_with(".log"))
-    {
+    for file in files(root).into_iter().filter(|p| {
+        p.to_string_lossy().ends_with(".log")
+            || p.file_name().is_some_and(|n| n == "initdb-status.json")
+    }) {
         if let Ok(text) = fs::read_to_string(&file) {
             eprintln!(
                 "LOG {}: {}",

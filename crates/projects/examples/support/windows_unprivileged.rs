@@ -1,6 +1,7 @@
 //! Test harness only. Hosted runners are elevated; PostgreSQL deliberately
 //! refuses an enabled Admin/Power User token. Reduce the existing token for the
-//! child fixture without accounts, ACL changes, UAC changes, or bypass flags.
+//! child fixture without accounts, filesystem ACL changes, UAC changes, or
+//! bypass flags. Its new token's default DACL retains access for its own user.
 use std::{
     ffi::{OsStr, OsString},
     os::windows::ffi::OsStrExt,
@@ -26,14 +27,7 @@ pub fn relaunch() -> Result<Option<i32>, Box<dyn std::error::Error>> {
         return Err("Fixture administrative groups were not disabled".into());
     }
     let mut original = std::ptr::null_mut();
-    if unsafe {
-        OpenProcessToken(
-            GetCurrentProcess(),
-            TOKEN_DUPLICATE | TOKEN_QUERY | TOKEN_ASSIGN_PRIMARY,
-            &mut original,
-        )
-    } == 0
-    {
+    if unsafe { OpenProcessToken(GetCurrentProcess(), TOKEN_ALL_ACCESS, &mut original) } == 0 {
         return Err(std::io::Error::last_os_error().into());
     }
     let original = Owned(original);
@@ -84,6 +78,7 @@ pub fn relaunch() -> Result<Option<i32>, Box<dyn std::error::Error>> {
         return Err(std::io::Error::last_os_error().into());
     }
     let token = Owned(token);
+    owner_default_dacl(token.0)?;
     let program = std::env::current_exe()?;
     let mut application: Vec<u16> = program.as_os_str().encode_wide().chain(Some(0)).collect();
     let mut args = vec![program.into_os_string()];
@@ -135,6 +130,67 @@ pub fn relaunch() -> Result<Option<i32>, Box<dyn std::error::Error>> {
         return Err(std::io::Error::last_os_error().into());
     }
     Ok(Some(code as i32))
+}
+fn token_info(token: HANDLE, kind: TOKEN_INFORMATION_CLASS) -> Result<Vec<usize>, std::io::Error> {
+    let mut needed = 0;
+    unsafe {
+        GetTokenInformation(token, kind, std::ptr::null_mut(), 0, &mut needed);
+    }
+    if needed == 0 {
+        return Err(std::io::Error::last_os_error());
+    }
+    let mut buffer = vec![0usize; (needed as usize).div_ceil(std::mem::size_of::<usize>())];
+    if unsafe { GetTokenInformation(token, kind, buffer.as_mut_ptr().cast(), needed, &mut needed) }
+        == 0
+    {
+        return Err(std::io::Error::last_os_error());
+    }
+    Ok(buffer)
+}
+fn owner_default_dacl(token: HANDLE) -> Result<(), std::io::Error> {
+    use windows_sys::Win32::Security::Authorization::*;
+    let user = token_info(token, TokenUser)?;
+    let default = token_info(token, TokenDefaultDacl)?;
+    let sid = unsafe { (*(user.as_ptr().cast::<TOKEN_USER>())).User.Sid };
+    let old = unsafe { (*(default.as_ptr().cast::<TOKEN_DEFAULT_DACL>())).DefaultDacl };
+    let access = EXPLICIT_ACCESS_W {
+        grfAccessPermissions: GENERIC_ALL,
+        grfAccessMode: GRANT_ACCESS,
+        grfInheritance: OBJECT_INHERIT_ACE,
+        Trustee: TRUSTEE_W {
+            pMultipleTrustee: std::ptr::null_mut(),
+            MultipleTrusteeOperation: NO_MULTIPLE_TRUSTEE,
+            TrusteeForm: TRUSTEE_IS_SID,
+            TrusteeType: TRUSTEE_IS_USER,
+            ptstrName: sid.cast(),
+        },
+    };
+    let mut acl = std::ptr::null_mut();
+    let result = unsafe { SetEntriesInAclW(1, &access, old, &mut acl) };
+    if result != 0 {
+        return Err(std::io::Error::from_raw_os_error(result as i32));
+    }
+    let dacl = TOKEN_DEFAULT_DACL { DefaultDacl: acl };
+    let success = unsafe {
+        SetTokenInformation(
+            token,
+            TokenDefaultDacl,
+            &dacl as *const _ as *const _,
+            std::mem::size_of_val(&dacl) as u32,
+        )
+    };
+    let error = if success == 0 {
+        Some(std::io::Error::last_os_error())
+    } else {
+        None
+    };
+    unsafe {
+        LocalFree(acl.cast());
+    }
+    match error {
+        Some(error) => Err(error),
+        None => Ok(()),
+    }
 }
 fn quote(arg: &OsStr) -> Vec<u16> {
     let mut out = vec![34];
