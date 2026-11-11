@@ -1,0 +1,1 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>M4 Laravel serving</title>@vite('resources/js/m4.js')</head><body><h1>M4 Laravel</h1><p id="message">Loading</p><form action="/upload" method="post" enctype="multipart/form-data">@csrf<label>Upload<input type="file" name="file"></label><button type="submit">Upload</button></form></body></html>

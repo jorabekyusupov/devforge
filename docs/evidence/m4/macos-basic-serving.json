@@ -1,0 +1,53 @@
+{
+  "host": {
+    "arch": "aarch64",
+    "os": "macos"
+  },
+  "passed": true,
+  "routing_php_versions_static_and_tls": true,
+  "status": {
+    "http": {
+      "fallback": true,
+      "permission_denied": true,
+      "requested": 80,
+      "selected": 8080
+    },
+    "https": {
+      "fallback": true,
+      "permission_denied": true,
+      "requested": 443,
+      "selected": 8443
+    },
+    "nonce": "3ba4687b3309459c90ad9cfc51414c28",
+    "running": true,
+    "sites": [
+      {
+        "certificate_active": true,
+        "domain": "a-77f6478c.devforge.test",
+        "domain_resolves": true,
+        "fallback_url": "http://a-77f6478c.localhost:8080",
+        "http_url": "http://a-77f6478c.devforge.test:8080",
+        "https_url": "https://a-77f6478c.devforge.test:8443",
+        "php_ready": true,
+        "preferred_url": "http://a-77f6478c.devforge.test:8080",
+        "project_id": "9bb4159645f84ed48a8e6bac01dbd110",
+        "system_trusted": false,
+        "vite_ready": false
+      },
+      {
+        "certificate_active": true,
+        "domain": "b-77f6478c.devforge.test",
+        "domain_resolves": true,
+        "fallback_url": "http://b-77f6478c.localhost:8080",
+        "http_url": "http://b-77f6478c.devforge.test:8080",
+        "https_url": "https://b-77f6478c.devforge.test:8443",
+        "php_ready": true,
+        "preferred_url": "http://b-77f6478c.devforge.test:8080",
+        "project_id": "df71e0d3f9c44783b07878a854efeed2",
+        "system_trusted": false,
+        "vite_ready": false
+      }
+    ]
+  },
+  "system_changes": false
+}

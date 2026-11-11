@@ -23,6 +23,7 @@ mavzuni tanlang, so'ng faqat tegishli hujjatlar va ularning manbalarini o'qing.
 
 ## Manba va yuritish
 
+- [M4 domen va serving](m4-serving-results.md) - domain/HTTPS/hosts helper, Caddy/PHP/Vite orchestration va native test holati.
 - [M3 loyiha muhitlari](m3-project-environments-results.md) - import, scoped PHP/Node/Composer, PostgreSQL DB/role, secret references va explicit env patch dalillari.
 - [M2 runtime yadrosi](m2-runtime-core-results.md) - paket store, cancellation, process ownership/readiness/restart/loglar, CLI va platforma sinovlari.
 - [M1 desktop natijalari](m1-foundation-results.md) - Rust/Tauri poydevori, uch tilli UI, SQLite/keychain, bajarilgan test va native macOS dalillari hamda ochiq platforma gate'lari.

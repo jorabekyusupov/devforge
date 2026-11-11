@@ -26,6 +26,9 @@ pub enum Readiness {
         needle: String,
     },
     SuccessfulExit,
+    Tcp {
+        address: std::net::SocketAddr,
+    },
 }
 #[derive(Clone, Copy)]
 pub struct RestartPolicy {
@@ -165,6 +168,7 @@ impl Supervisor {
             || !spec.directory.is_absolute()
             || !spec.directory.is_dir()
             || matches!(&spec.readiness,Readiness::Output {stream,needle} if !["stdout","stderr"].contains(stream) || needle.is_empty() || needle.len()>1024)
+            || matches!(&spec.readiness,Readiness::Tcp{address} if !address.ip().is_loopback()||address.port()==0)
         {
             return Err(RuntimeError::InvalidProcess);
         }
@@ -446,6 +450,13 @@ fn attempt(
             break Ok(());
         }
         if !is_ready && ready.load(Ordering::Relaxed) {
+            is_ready = true;
+            set(state, Observed::Ready, Some(pid), None);
+        }
+        if !is_ready
+            && let Readiness::Tcp { address } = spec.readiness
+            && std::net::TcpStream::connect_timeout(&address, Duration::from_millis(30)).is_ok()
+        {
             is_ready = true;
             set(state, Observed::Ready, Some(pid), None);
         }

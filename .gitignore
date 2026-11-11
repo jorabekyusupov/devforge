@@ -9,3 +9,6 @@ playwright-report/
 test-results/
 .DS_Store
 apps/desktop/src-tauri/gen/
+output/playwright/
+.playwright/
+.playwright-cli/

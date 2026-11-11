@@ -1,0 +1,73 @@
+name: Native domains HTTPS Laravel serving
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Native runner to exercise
+        type: choice
+        default: all
+        options: [all, macos, windows]
+permissions:
+  contents: read
+jobs:
+  serving:
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ${{ fromJSON(inputs.target == 'macos' && '["macos-latest"]' || inputs.target == 'windows' && '["windows-latest"]' || '["macos-latest","windows-latest"]') }}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24.22.2'
+          cache: npm
+      - run: rustup show
+      - run: npm ci
+      - name: Build bounded helper and native acceptance harness
+        run: cargo build -p devforge-serving --bin devforge-helper --example native_serving
+      - name: Prepare disposable VM fixture and reviewed plans
+        run: target/debug/examples/native_serving prepare ${{ github.workspace }}/m4-session.json
+      - name: Apply exact hosts and CA plans on disposable macOS VM
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          for plan in hosts-install trust-install; do
+            sudo -n target/debug/devforge-helper apply "m4-private-fixture/$plan.json" "$(cat "m4-private-fixture/$plan.digest")"
+          done
+      - name: Apply exact hosts and CA plans on disposable Windows VM
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          foreach ($plan in @('hosts-install','trust-install')) {
+            & target/debug/devforge-helper.exe apply "m4-private-fixture/$plan.json" (Get-Content -Raw "m4-private-fixture/$plan.digest")
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+      - name: Native unprivileged Laravel PHP database HTTPS browser and Vite HMR
+        run: target/debug/examples/native_serving run ${{ github.workspace }}/m4-session.json empty-cache m4-result.json --download-missing --system-integrated --browser
+      - name: Generate bounded cleanup plans
+        if: always()
+        run: target/debug/examples/native_serving cleanup-plan ${{ github.workspace }}/m4-session.json
+      - name: Restore disposable macOS VM system state
+        if: always() && runner.os == 'macOS'
+        shell: bash
+        run: |
+          for plan in hosts-remove trust-remove; do
+            if [ -f "m4-private-fixture/$plan.json" ]; then
+              sudo -n target/debug/devforge-helper apply "m4-private-fixture/$plan.json" "$(cat "m4-private-fixture/$plan.digest")"
+            fi
+          done
+      - name: Restore disposable Windows VM system state
+        if: always() && runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          foreach ($plan in @('hosts-remove','trust-remove')) {
+            if (Test-Path "m4-private-fixture/$plan.json") {
+              & target/debug/devforge-helper.exe apply "m4-private-fixture/$plan.json" (Get-Content -Raw "m4-private-fixture/$plan.digest")
+              if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            }
+          }
+      - name: Verify exact restoration and removal of only the owned CA
+        if: always()
+        run: target/debug/examples/native_serving verify-cleanup ${{ github.workspace }}/m4-session.json

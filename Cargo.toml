@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/core", "crates/platform", "crates/runtime", "crates/projects", "crates/cli", "apps/desktop/src-tauri"]
+members = ["crates/core", "crates/platform", "crates/runtime", "crates/projects", "crates/serving", "crates/cli", "apps/desktop/src-tauri"]
 resolver = "2"
 
 [workspace.package]
@@ -14,6 +14,7 @@ devforge-core = { path = "crates/core" }
 devforge-platform = { path = "crates/platform" }
 devforge-runtime = { path = "crates/runtime" }
 devforge-projects = { path = "crates/projects" }
+devforge-serving = { path = "crates/serving" }
 
 [profile.release]
 lto = "thin"

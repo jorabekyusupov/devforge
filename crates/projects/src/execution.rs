@@ -57,6 +57,28 @@ pub struct Context {
     pub(crate) config: PathBuf,
 }
 impl Context {
+    /// Serving owns only these runtime-derived values; no .env write occurs.
+    pub fn web_origin(mut self, origin: &str) -> Result<Self> {
+        if !(origin.starts_with("http://") || origin.starts_with("https://"))
+            || origin.contains(['\r', '\n', '\0'])
+        {
+            return Err(E::InvalidEnvironment);
+        }
+        self.environment.insert("APP_URL".into(), origin.into());
+        self.environment.remove(std::ffi::OsStr::new("ASSET_URL"));
+        self.environment
+            .insert("SESSION_SECURE_COOKIE".into(), "null".into());
+        self.environment
+            .insert("PHP_FCGI_MAX_REQUESTS".into(), "0".into());
+        Ok(self)
+    }
+    pub fn frontend(mut self) -> Self {
+        self.environment.retain(|name, _| {
+            let key = name.to_string_lossy();
+            !key.starts_with("DB_") && key != "DATABASE_URL" && key != "APP_KEY"
+        });
+        self
+    }
     pub fn resolve(
         store: &ProjectStore,
         id: &str,
@@ -320,6 +342,19 @@ pub struct ExecutionResult {
     pub dropped_bytes: u64,
 }
 impl Invocation {
+    pub fn id(&self) -> &str {
+        &self.spec.id
+    }
+    pub fn start_service(&self, supervisor: &mut Supervisor, readiness: Readiness) -> Result<()> {
+        let mut spec = self.spec.clone();
+        spec.readiness = readiness;
+        spec.restart = RestartPolicy {
+            max_restarts: 2,
+            backoff: Duration::from_millis(200),
+        };
+        supervisor.start_redacted(spec, self.context.sensitive.clone())?;
+        Ok(())
+    }
     pub fn executable_path(&self) -> &std::path::Path {
         self.spec.executable.path()
     }

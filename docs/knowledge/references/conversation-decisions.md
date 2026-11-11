@@ -186,3 +186,15 @@ Bu mavjud MVP rejasidagi M3 implementation'ini davom ettirish sifatida olindi.
 Loyiha importi, runtime binding, PostgreSQL va scoped CLI doirasida kod/test/OKF
 ishlari bajariladi; oldingi yetkazish oqimi bo'yicha commit/push va native CI
 davom ettiriladi. M4 serving yoki M5 desktop UI hajmiga avtomatik kengaytirilmaydi.
+
+## M4 serving topshirig'i
+
+Foydalanuvchi:
+
+> Endi M4 bosqichiga o't, reja asosida domen, HTTPS va Laravel serving qismini yarat, macOS va Windows’da test qil, natijalarni OKFga yoz va yakunda push qil.
+
+Bu serving kodi, scoped hosts/CA helper, native runtime/browser testlar, OKF va
+commit/push'ni vakolatlaydi. Native GitHub Actions uchun source avval push qilinib,
+actual natijalar yakuniy evidence commit'ida yoziladi. Foydalanuvchining Mac
+hosts/trust sozlamalari avtomatik o'zgartirilmaydi; elevated integratsiya testi
+disposable CI VM'da bajariladi.

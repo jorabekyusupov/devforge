@@ -13,6 +13,7 @@ devforge-core.workspace = true
 devforge-platform.workspace = true
 devforge-runtime.workspace = true
 devforge-projects.workspace = true
+devforge-serving.workspace = true
 ctrlc = { version = "3.5.2", features = ["termination"] }
 serde.workspace = true
 serde_json.workspace = true

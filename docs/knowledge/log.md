@@ -2,6 +2,8 @@
 
 ## 2026-11-11
 
+- **M4 implementation**: [Serving natijalari](m4-serving-results.md), shared Caddy/PHP/Vite orchestration, scoped CA va fixed-target hosts/trust helper yaratildi. Mac basic TLS/fallback sinovi o'tdi; native acceptance CI natijalari pending, tayyor feature deb ko'rsatilmaydi.
+
 - **M3 yakuniy native dalil**: Full CI64e9911 macOS/Windows'da39 Rust testi, frontend/locale va native binary build bilan o'tdi. Actual Mac8/Windows6 paket,2 project, Laravel13.42 migration/worker, PHP8.4->8.5, PG/PDO/isolation/restart va env backup sinovlari o'tdi. Windows CMD quoting hamda credential roundtrip testi o'tdi; token/path/fixture regressiyalari va ochiq GUI/minimum OS gate'lari [hisobotda](m3-project-environments-results.md) saqlandi.
 
 - **M3 loyiha muhitlari**: [Natijalar](m3-project-environments-results.md) va `crates/projects` yaratildi: read-only import, PHP/npm constraint'lari, persistent binding/context, secret references, explicit env patch/backup va owned PostgreSQL DB/role. Mac'da39 Rust testi va2 loyiha native smoke o'tdi; yakuniy hosted qamrov alohida dalil bilan qo'shildi.

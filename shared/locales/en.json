@@ -125,5 +125,29 @@
       "terminal_unavailable": "The project terminal could not be opened.",
       "administrator_unsupported": "Start DevForge without administrator privileges to run PostgreSQL."
     }
+  },
+  "serving": {
+    "errors": {
+      "invalid_domain": "Use a lowercase domain ending in .devforge.test.",
+      "domain_conflict": "This domain or its development alias belongs to another project.",
+      "invalid_public_root": "The project needs a public folder containing index.php.",
+      "invalid_configuration": "The serving configuration or reviewed system plan is invalid.",
+      "storage_unavailable": "Serving files could not be accessed.",
+      "secret_unavailable": "The development CA key is unavailable in secure storage.",
+      "authority_invalid": "The development certificate authority is invalid or does not match its key.",
+      "certificate_expired": "The development certificate has expired.",
+      "permission_required": "Administrator permission is required for this system change. The HTTP fallback remains available.",
+      "hosts_changed": "The hosts file changed. Prepare a fresh plan and review it again.",
+      "hosts_conflict": "An existing hosts entry conflicts with this domain.",
+      "trust_failed": "The system certificate trust change failed.",
+      "runtime_unavailable": "A required serving runtime is missing or invalid.",
+      "port_unavailable": "The serving session or a required loopback port is unavailable.",
+      "start_failed": "A serving process could not become ready.",
+      "probe_failed": "The serving identity or TLS health check failed.",
+      "vite_unavailable": "Install the project Vite dependencies before enabling live reload.",
+      "hot_file_conflict": "The project already has a hot file. Stop its current development server first.",
+      "project_unavailable": "The project or its runtime configuration is unavailable.",
+      "elevated_process_unsupported": "Run the serving supervisor without administrator privileges."
+    }
   }
 }

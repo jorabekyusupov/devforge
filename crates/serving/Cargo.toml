@@ -1,0 +1,36 @@
+[package]
+name = "devforge-serving"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+devforge-core.workspace = true
+devforge-runtime.workspace = true
+devforge-projects.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+rcgen = { version = "0.14.10", features = ["x509-parser"] }
+x509-parser = { version = "0.18.1", features = ["verify"] }
+sha2 = "0.11.1"
+sha1 = "0.11.0"
+pem = "3.0.6"
+time = "0.3.47"
+uuid = { version = "1.29.2", features = ["v4"] }
+zeroize = "1.9.0"
+tempfile = "3.27.0"
+dunce = "1.0.5"
+reqwest = { version = "0.13.5", default-features = false, features = ["blocking", "rustls", "json"] }
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2.191"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61.2", features = ["Win32_Foundation", "Win32_Security", "Win32_Security_Cryptography", "Win32_System_Threading", "Win32_System_SystemInformation", "Win32_Storage_FileSystem", "Win32_System_Console", "Win32_Security_Authorization"] }
+
+[dev-dependencies]
+devforge-platform.workspace = true
+
+[[bin]]
+name = "devforge-helper"
+path = "src/bin/helper.rs"

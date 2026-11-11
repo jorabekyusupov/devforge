@@ -125,5 +125,29 @@
       "terminal_unavailable": "Loyiha terminalini ochib bo‘lmadi.",
       "administrator_unsupported": "PostgreSQL’ni ishga tushirish uchun DevForge’ni administrator huquqisiz oching."
     }
+  },
+  "serving": {
+    "errors": {
+      "invalid_domain": ".devforge.test bilan tugaydigan kichik harfli domen kiriting.",
+      "domain_conflict": "Domen yoki uning lokal muqobili boshqa loyihaga biriktirilgan.",
+      "invalid_public_root": "Loyihada index.php fayli bor public papkasi bo'lishi kerak.",
+      "invalid_configuration": "Serving sozlamasi yoki ko'rib chiqilgan tizim rejasi yaroqsiz.",
+      "storage_unavailable": "Serving fayllariga kirib bo'lmadi.",
+      "secret_unavailable": "Ishlab chiqish CA kaliti xavfsiz saqlash joyida mavjud emas.",
+      "authority_invalid": "Sertifikat markazi yaroqsiz yoki uning kalitiga mos kelmaydi.",
+      "certificate_expired": "Ishlab chiqish sertifikatining muddati tugagan.",
+      "permission_required": "Bu tizim o'zgarishi uchun administrator ruxsati kerak. Muqobil HTTP manzil ishlashda davom etadi.",
+      "hosts_changed": "Hosts fayli o'zgargan. Yangi reja tayyorlab, qayta ko'rib chiqing.",
+      "hosts_conflict": "Mavjud hosts yozuvi bu domenga zid.",
+      "trust_failed": "Tizimda sertifikatga ishonch sozlamasini o'zgartirib bo'lmadi.",
+      "runtime_unavailable": "Kerakli serving runtime mavjud emas yoki yaroqsiz.",
+      "port_unavailable": "Serving sessiyasi yoki kerakli lokal port band.",
+      "start_failed": "Serving jarayoni tayyor holatga o'tmadi.",
+      "probe_failed": "Serving identifikatsiyasi yoki TLS holat tekshiruvi o'tmadi.",
+      "vite_unavailable": "Jonli yangilashni yoqishdan oldin loyiha Vite bog'liqliklarini o'rnating.",
+      "hot_file_conflict": "Loyihada hot fayli mavjud. Avval ishlayotgan ishlab chiqish serverini to'xtating.",
+      "project_unavailable": "Loyiha yoki uning runtime sozlamasi mavjud emas.",
+      "elevated_process_unsupported": "Serving boshqaruvchisini administrator huquqisiz ishga tushiring."
+    }
   }
 }
