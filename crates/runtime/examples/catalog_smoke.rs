@@ -1,5 +1,5 @@
 //! Re-check M0 cached candidates through the production M2 store/supervisor.
-//! Usage: cargo run -p devforge-runtime --example catalog_smoke -- <cache> <report>
+//! Usage: cargo run -p devforge-runtime --example catalog_smoke -- <cache> <report> [--download-missing]
 use devforge_runtime::{
     Cancellation,
     package::{Limits, Package, PackageStore, Target},
@@ -38,8 +38,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         eprintln!("Installing {id}");
         let filename = package.url.rsplit('/').next().unwrap();
         let archive = cache.join(format!("{id}-{filename}"));
-        let installed =
-            store.install_cached(package, &archive, &Cancellation::default(), |_| {})?;
+        let installed = if archive.is_file() {
+            store.install_cached(package, &archive, &Cancellation::default(), |_| {})?
+        } else if args.iter().any(|arg| arg == "--download-missing") {
+            store.download(package, &Cancellation::default(), |_| {})?
+        } else {
+            return Err(format!(
+                "Missing cached archive for {id}; use --download-missing explicitly"
+            )
+            .into());
+        };
         let mut probes = vec![];
         for name in package.executables.keys() {
             let process_id = format!("probe-{}-{}", results.len(), probes.len());
@@ -70,13 +78,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         if package.kind == "node" {
             let node = store.executable(package, "node")?;
-            let npm = node
-                .path()
-                .parent()
-                .unwrap()
-                .parent()
-                .unwrap()
-                .join("lib/node_modules/npm/bin/npm-cli.js");
+            let npm = if package.target == Target::WindowsX64 {
+                node.path()
+                    .parent()
+                    .unwrap()
+                    .join("node_modules/npm/bin/npm-cli.js")
+            } else {
+                node.path()
+                    .parent()
+                    .unwrap()
+                    .parent()
+                    .unwrap()
+                    .join("lib/node_modules/npm/bin/npm-cli.js")
+            };
             let name = format!("npm-{}", nodes.len());
             supervisor.start(spec(
                 &store,
@@ -155,12 +169,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     for package in &nodes {
         store.remove(package)?;
     }
-    fs::write(
-        report,
-        serde_json::to_vec_pretty(
-            &json!({"host":{"os":std::env::consts::OS,"arch":std::env::consts::ARCH},"scope":"M2 cached installation plus actual managed version probes/npm/two parallel Node HTTP services; task-local storage; no system/project changes","packages":results,"node_services":services,"node_removal_after_stop":true,"passed":true}),
-        )?,
-    )?;
+    let result = json!({"host":{"os":std::env::consts::OS,"arch":std::env::consts::ARCH},"source":if args.iter().any(|a|a=="--download-missing"){"cached or explicit HTTPS download"}else{"cached"},"scope":"M2 installation plus actual managed version probes/npm/two parallel Node HTTP services; task-local storage; no system/project changes","packages":results,"node_services":services,"node_removal_after_stop":true,"passed":true});
+    fs::write(report, serde_json::to_vec_pretty(&result)?)?;
+    println!("M2_REPORT:{}", serde_json::to_string(&result)?);
     Ok(())
 }
 fn spec(

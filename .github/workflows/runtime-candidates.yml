@@ -1,0 +1,19 @@
+name: Native runtime candidate smoke
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  smoke:
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Prepare toolchain from rust-toolchain.toml
+        run: rustup show
+      - name: Install pinned candidates and run native probes and parallel Node services
+        run: cargo run -p devforge-runtime --example catalog_smoke -- empty-cache m2-result.json --download-missing

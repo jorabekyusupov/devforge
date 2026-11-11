@@ -102,6 +102,10 @@ cargo run -p devforge-runtime --example catalog_smoke -- /path/to/m0/artifacts /
 The example uses temporary runtime/log directories and starts two Node loopback
 HTTP fixtures on OS-assigned ports. It does not change hosts, trust, Herd or real
 project databases. The fixture executable is a test tool, not a desktop sidecar.
+With an empty cache, pass `--download-missing` explicitly to fetch the pinned
+publisher artifacts. The manually dispatched `runtime-candidates.yml` workflow
+runs this native smoke on macOS and Windows; it is separate from routine CI so
+ordinary source pushes do not repeatedly download all third-party candidates.
 
 ## Evidence and project knowledge
 
