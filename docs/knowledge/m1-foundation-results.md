@@ -31,6 +31,11 @@ sources:
 
 # Natija va holat
 
+Bu M1 davridagi dalil snapshot'idir. Keyingi [M2 natijasida](m2-runtime-core-results.md)
+hosted Windows va macOS test/build dalili qo'shildi; Windows GUI va credential
+roundtrip hali tekshirilmagan. Quyidagi tarixiy unverified qamrov shu yangi
+dalil bilan birga talqin qilinadi.
+
 2026-11-11 kuni foydalanuvchining M1 topshirig'i asosida Rust/Tauri desktop
 poydevori yaratildi. `decision_status: confirmed` topshiriqqa tegishli, barcha
 targetlar sinovdan o'tganini anglatmaydi.[^request] macOS ARM64 debug `.app`

@@ -30,6 +30,18 @@ sources:
   - id: checks
     resource: ../evidence/m2/local-checks.json
     title: Mahalliy M2 test va tekshirish xulosasi
+  - id: ci
+    resource: ../evidence/m2/ci-checks.json
+    title: Hosted macOS va Windows CI natijalari
+  - id: ci-final
+    resource: ../evidence/m2/ci-final-checks.json
+    title: Windows path fix'dan keyingi yakuniy hosted CI
+  - id: macos-candidates
+    resource: ../evidence/m2/hosted-macos-candidates.json
+    title: Hosted macOS publisher paketlarining bajarilishi
+  - id: windows-candidates
+    resource: ../evidence/m2/hosted-windows-candidates.json
+    title: Hosted Windows publisher paketlarining bajarilishi
   - id: catalog
     resource: ../../runtime/m2-catalog.json
     title: M0 publisher digest va layout'dan hosil qilingan 22 descriptor
@@ -39,6 +51,12 @@ sources:
   - id: darwin
     resource: https://raw.githubusercontent.com/apple-oss-distributions/xnu/main/bsd/sys/proc_info.h
     title: Darwin process-group member holatlari
+  - id: windows-path-failure
+    resource: ../evidence/m2/windows-npm-path-failure.json
+    title: Real Windows npm path regressiyasi
+  - id: canonicalize
+    resource: https://doc.rust-lang.org/std/fs/fn.canonicalize.html
+    title: Windows canonicalize extended path chegarasi
 ---
 
 # Natija
@@ -167,6 +185,69 @@ tekshirildi. Pending-network sinovi cancellation future'ni tekshiradi; cached
 install cancel alohida real file streaming'da tekshirildi. Smoke clean machine
 yoki release redistribution testi emas.
 
+# Hosted platforma dalili
+
+[CI run42983475157](https://github.com/jorabekyusupov/devforge/actions/runs/42983475157)
+`494263b8da1431a5ec0cee92ed087a585dfa449e` commit'da macOS va Windows uchun
+**success** bo'ldi. Har job'da Rust28 o'tdi/1 credential ignored; locale/frontend,
+fmt/clippy, embedded frontend bilan native desktop binary build va OKF strict
+ham o'tdi. Image'lar `macos-26-arm64` va `windows-2025-vs2026`.
+Bu headless fixture va build dalili; Windows GUI, credential manager native
+roundtrip yoki toza Windows foydalanuvchi mashinasidagi barcha runtime zanjiri
+deb talqin qilinmaydi. Keyingi candidate-smoke harness commit'ida runtime source
+va tests o'zgarmagani Git diff bilan tekshirildi.[^ci]
+
+Real publisher paketlari uchun alohida `runtime-candidates.yml` workflow manual
+dispatch qilinadi; ordinary push barcha paketlarni takror yuklamaydi. Example'da
+`--download-missing` tarmoqdan olishga explicit opt-in, Windows npm layout'i
+alohida hisobga olingan. Yakuniy natijalar quyida alohida saqlangan.
+
+## Windows npm regressiyasi
+
+Fixture/build CI o'tganidan keyingi real candidate smoke Windows npm'da
+`EISDIR: lstat 'C:'` xatosini topdi. Executable'dan hosil qilingan npm script
+argumentida Rust canonicalize qaytargan `\\?\` verbatim prefix bor edi;
+Node22 script loader'i uni qabul qilmadi. Xato native diagnostikasi
+[alohida saqlandi](../evidence/m2/windows-npm-path-failure.json). Mac publisher
+smoke shu run'da8 paket/11 probe bilan o'tgan.[^windows-path-failure]
+
+Tuzatish: containment tekshiruvi canonical yo'lda qoladi; tekshirilgan executable
+path va command working-directory tashqi tool uchun `dunce::simplified` orqali
+faqat bir xil filesystem ma'nosini saqlasa oddiy ko'rinishga o'tadi. Arbitrary
+argument string'lari avtomatik qayta yozilmaydi. Verbatim-only/uzun yo'lni
+majburan qisqartirish yoki system long-path permission o'zgarishi yo'q; bunday
+yo'llar alohida runtime acceptance talab qiladi. Rust rasmiy hujjati canonical
+Windows path boshqa dasturlarning command-line'iga mos kelmasligi mumkinligini
+alohida ko'rsatadi.[^canonicalize]
+
+Tuzatishdan keyin mahalliy M2 test21 va scoped Clippy o'tdi; yakuniy hosted
+dalillar quyida saqlangan. Fixture testi
+publisher runtime integration sinovining o'rnini bosmasligi ushbu holatda
+amalda tasdiqlandi.
+
+## Yakuniy hosted qabul dalili
+
+`37777ed9ea5c02bd7bf9257d77a1dfc1480f6aed` uchun
+[full CI42986065977](https://github.com/jorabekyusupov/devforge/actions/runs/42986065977)
+**macOS va Windows'da success**: har birida Rust28 passed/1 ignored,
+frontend/locale, fmt/clippy, native desktop binary build va strict OKF o'tdi.
+Bu aynan Windows path fix kiritilgan product source'ni tekshiradi.[^ci-final]
+
+| Native publisher smoke | Dalil va natija |
+| --- | --- |
+| macOS26 ARM64 hosted | Run42984392616, head2ed0188:8 paket,11 executable/npm probe va2 parallel Node HTTP200. Running removal Busy; stop'dan keyin removal o'tdi. |
+| Windows x64 hosted | Run42986088291, head37777ed:6 paket,11 executable/npm probe va2 parallel Node HTTP200. PHP8.4/8.5 CLI/CGI, Node22/24/npm, Caddy va PG/initdb o'tdi; running removal Busy va stop'dan keyin removal o'tdi. |
+
+Har ikkala natija real HTTPS download, pinned SHA-256 va yangi production
+package/supervisor qatlamidan olindi. Mac va Windows report'lari alohida;
+Windows-only retry'dagi tanlanmagan Mac matrix job'i executed smoke deb
+sanalmaydi.[^macos-candidates][^windows-candidates]
+
+Bu M0 Windows gate'ining package/version/Node HTTP qismini qoplaydi. Windows'da
+PG cluster/PDO/Laravel PHP-CGI+proxy/TLS/HMR zanjiri hali M0/M3-M4 acceptance
+talabi sifatida ochiq. Hosted Server image Windows11 minimum OS sinovi emas.
+GUI, native credential roundtrip, installer va macOS guardian gap'i saqlanadi.
+
 # Kod va bilim solishtiruvi
 
 | Da'vo | Holat va dalil |
@@ -176,12 +257,12 @@ yoki release redistribution testi emas.
 | Root process crash, Stop/Drop descendant'larni tozalaydi. | Mos, qayd etilgan Mac foreground fixture qamrovida; unrelated child saqlandi. |
 | Barcha supervisor hard-crash/daemon holatlarida orphan yo'q. | Amalga oshirilmagan/to'liq tekshirilmagan; yuqoridagi guardian gap'i ochiq. |
 | Runtime error'lari uch tilda mavjud. | Mos: catalogs + mapping/lint; M2 native error screen flow hali yo'q. |
-| Windows runtime manager native acceptance'dan o'tgan. | CI natijasi alohida dalil bilan yangilanadi; mahalliy Windows host yo'q. |
+| Windows runtime yadrosi native fixture/build'dan o'tgan. | Mos: yakuniy CI28 Rust testi/native binary build va6 real publisher package smoke o'tdi; GUI/minimum OS ochiq. |
 | Project runtime/DB binding va desktop service boshqaruvi bor. | Amalga oshirilmagan; M3-M5. |
 | Minimum OS/Intel/signing/release tayyor. | Tekshirilmagan; M0/M1 gate'lari saqlanadi. |
 
-GitHub Actions yoqilganligi tekshirildi; M2 push uchun macOS/Windows workflow
-ishlatiladi. Remote natijalar local Mac natijasi bilan aralashtirilmaydi. Bu
+GitHub Actions orqali macOS/Windows workflow'lari bajarildi. Remote natijalar
+local Mac natijasi bilan aralashtirilmaydi. Bu
 hisobotning lifecycle `draft` holati inson tasdig'i emas; OKF validator semantik
 runtime isbotini bermaydi.
 
@@ -193,6 +274,12 @@ runtime isbotini bermaydi.
 [^smoke]: Yangi Rust yadrosi orqali M0 cached paketlarining haqiqiy bajarilishi.
 [^https]: Cached import'dan alohida real HTTPS va CLI integratsiyasi.
 [^checks]: Agent-curated buyruq natijalari; mustaqil attestation emas.
+[^ci]: GitHub Actions job/step natijalari va log'dan olingan test/image xulosasi.
+[^ci-final]: Path fix bilan yakuniy product source uchun full CI va test log xulosalari.
+[^macos-candidates]: Haqiqiy bajarilgan Mac publisher smoke; head va run report ichida.
+[^windows-candidates]: Tuzatishdan keyingi real Windows publisher smoke; 6 paket va11 probe.
 [^catalog]: Provider sha/layout snapshot; release-ready deklaratsiyasi emas.
 [^jobs]: Windows'ning process tree ownership primitivlari haqidagi rasmiy hujjat.
 [^darwin]: Apple proc_info strukturalari va guruh member holatini tekshirish API'si.
+[^windows-path-failure]: Windows hosted log'dagi haqiqiy npm stderr va pinned Node versiyasi.
+[^canonicalize]: std::fs::canonicalize platform-specific Windows behavior.

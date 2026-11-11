@@ -1,0 +1,130 @@
+{
+  "conclusion": "success",
+  "headSha": "37777ed9ea5c02bd7bf9257d77a1dfc1480f6aed",
+  "jobs": [
+    {
+      "completedAt": "2026-11-11T08:19:44Z",
+      "conclusion": "success",
+      "databaseId": 130407486860,
+      "name": "smoke (macos-latest)",
+      "startedAt": "2026-11-11T08:19:20Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-11-11T08:19:23Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-11-11T08:19:20Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T08:19:29Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "number": 2,
+          "startedAt": "2026-11-11T08:19:23Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T08:19:40Z",
+          "conclusion": "success",
+          "name": "Prepare toolchain from rust-toolchain.toml",
+          "number": 3,
+          "startedAt": "2026-11-11T08:19:29Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T08:19:40Z",
+          "conclusion": "skipped",
+          "name": "Install pinned candidates and run native probes and parallel Node services",
+          "number": 4,
+          "startedAt": "2026-11-11T08:19:40Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T08:19:42Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "number": 8,
+          "startedAt": "2026-11-11T08:19:40Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T08:19:42Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 9,
+          "startedAt": "2026-11-11T08:19:42Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/jorabekyusupov/devforge/actions/runs/42986088291/job/130407486860",
+      "executed_smoke": false
+    },
+    {
+      "completedAt": "2026-11-11T08:23:49Z",
+      "conclusion": "success",
+      "databaseId": 130407487271,
+      "name": "smoke (windows-latest)",
+      "startedAt": "2026-11-11T08:19:18Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-11-11T08:19:19Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-11-11T08:19:19Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T08:19:25Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "number": 2,
+          "startedAt": "2026-11-11T08:19:19Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T08:19:37Z",
+          "conclusion": "success",
+          "name": "Prepare toolchain from rust-toolchain.toml",
+          "number": 3,
+          "startedAt": "2026-11-11T08:19:25Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T08:23:44Z",
+          "conclusion": "success",
+          "name": "Install pinned candidates and run native probes and parallel Node services",
+          "number": 4,
+          "startedAt": "2026-11-11T08:19:37Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T08:23:47Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "number": 8,
+          "startedAt": "2026-11-11T08:23:44Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T08:23:47Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 9,
+          "startedAt": "2026-11-11T08:23:47Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/jorabekyusupov/devforge/actions/runs/42986088291/job/130407487271",
+      "executed_smoke": true
+    }
+  ],
+  "status": "completed",
+  "url": "https://github.com/jorabekyusupov/devforge/actions/runs/42986088291",
+  "selected_target": "windows",
+  "scope": "Actual native Windows publisher package smoke after path normalization. Mac matrix entry was not selected; use the separate hosted-macos-candidates report for its executed result."
+}

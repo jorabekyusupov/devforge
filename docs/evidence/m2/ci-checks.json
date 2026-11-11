@@ -1,0 +1,391 @@
+{
+  "conclusion": "success",
+  "headSha": "494263b8da1431a5ec0cee92ed087a585dfa449e",
+  "jobs": [
+    {
+      "completedAt": "2026-11-11T08:06:09Z",
+      "conclusion": "success",
+      "databaseId": 130399088314,
+      "name": "check (windows-latest)",
+      "startedAt": "2026-11-11T07:59:13Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-11-11T07:59:15Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-11-11T07:59:14Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T07:59:20Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "number": 2,
+          "startedAt": "2026-11-11T07:59:15Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T07:59:26Z",
+          "conclusion": "success",
+          "name": "Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+          "number": 3,
+          "startedAt": "2026-11-11T07:59:20Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T07:59:26Z",
+          "conclusion": "success",
+          "name": "Run actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1",
+          "number": 4,
+          "startedAt": "2026-11-11T07:59:26Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T07:59:38Z",
+          "conclusion": "success",
+          "name": "Prepare toolchain from rust-toolchain.toml",
+          "number": 5,
+          "startedAt": "2026-11-11T07:59:26Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T07:59:50Z",
+          "conclusion": "success",
+          "name": "Run npm ci",
+          "number": 6,
+          "startedAt": "2026-11-11T07:59:38Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T07:59:51Z",
+          "conclusion": "success",
+          "name": "Run npm run check:locales",
+          "number": 7,
+          "startedAt": "2026-11-11T07:59:50Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T07:59:51Z",
+          "conclusion": "success",
+          "name": "Run node --test scripts/check_locales.test.mjs",
+          "number": 8,
+          "startedAt": "2026-11-11T07:59:51Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T07:59:53Z",
+          "conclusion": "success",
+          "name": "Run npm run typecheck",
+          "number": 9,
+          "startedAt": "2026-11-11T07:59:51Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T07:59:56Z",
+          "conclusion": "success",
+          "name": "Run npm test",
+          "number": 10,
+          "startedAt": "2026-11-11T07:59:53Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T07:59:58Z",
+          "conclusion": "success",
+          "name": "Run cargo fmt --all -- --check",
+          "number": 11,
+          "startedAt": "2026-11-11T07:59:56Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T08:02:20Z",
+          "conclusion": "success",
+          "name": "Run cargo clippy --workspace --all-targets -- -D warnings",
+          "number": 12,
+          "startedAt": "2026-11-11T07:59:58Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T08:04:56Z",
+          "conclusion": "success",
+          "name": "Run cargo test --workspace",
+          "number": 13,
+          "startedAt": "2026-11-11T08:02:20Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T08:05:57Z",
+          "conclusion": "success",
+          "name": "Build native desktop binary with embedded frontend",
+          "number": 14,
+          "startedAt": "2026-11-11T08:04:56Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T08:06:02Z",
+          "conclusion": "success",
+          "name": "Run python -m pip install -r scripts/requirements-knowledge.txt",
+          "number": 15,
+          "startedAt": "2026-11-11T08:05:57Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T08:06:02Z",
+          "conclusion": "success",
+          "name": "Run python scripts/validate_knowledge.py --strict",
+          "number": 16,
+          "startedAt": "2026-11-11T08:06:02Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T08:06:02Z",
+          "conclusion": "success",
+          "name": "Post Run actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1",
+          "number": 30,
+          "startedAt": "2026-11-11T08:06:02Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T08:06:05Z",
+          "conclusion": "success",
+          "name": "Post Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+          "number": 31,
+          "startedAt": "2026-11-11T08:06:02Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T08:06:07Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "number": 32,
+          "startedAt": "2026-11-11T08:06:05Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T08:06:07Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 33,
+          "startedAt": "2026-11-11T08:06:07Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/jorabekyusupov/devforge/actions/runs/42983475157/job/130399088314",
+      "test_summaries": [
+        "2026-11-11T08:04:40.6566962Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "2026-11-11T08:04:40.6675957Z test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "2026-11-11T08:04:40.6773659Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "2026-11-11T08:04:40.6894525Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "2026-11-11T08:04:44.1403921Z test result: ok. 3 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 3.44s",
+        "2026-11-11T08:04:44.1969872Z test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s",
+        "2026-11-11T08:04:44.2090182Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "2026-11-11T08:04:53.2319942Z test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 9.01s",
+        "2026-11-11T08:04:55.7480416Z test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.50s",
+        "2026-11-11T08:04:55.8136660Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "2026-11-11T08:04:55.9906118Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "2026-11-11T08:04:56.0543740Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "2026-11-11T08:04:56.1966235Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+      ],
+      "runner_image_evidence": [
+        "2026-11-11T07:59:14.2691902Z ##[group]Runner Image Provisioner",
+        "2026-11-11T07:59:14.2700195Z ##[group]Runner Image",
+        "2026-11-11T07:59:14.2700661Z Image: windows-2025-vs2026"
+      ]
+    },
+    {
+      "completedAt": "2026-11-11T08:05:49Z",
+      "conclusion": "success",
+      "databaseId": 130399088577,
+      "name": "check (macos-latest)",
+      "startedAt": "2026-11-11T07:59:14Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-11-11T07:59:15Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-11-11T07:59:14Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T07:59:18Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "number": 2,
+          "startedAt": "2026-11-11T07:59:15Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T07:59:19Z",
+          "conclusion": "success",
+          "name": "Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+          "number": 3,
+          "startedAt": "2026-11-11T07:59:18Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T07:59:20Z",
+          "conclusion": "success",
+          "name": "Run actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1",
+          "number": 4,
+          "startedAt": "2026-11-11T07:59:19Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T07:59:28Z",
+          "conclusion": "success",
+          "name": "Prepare toolchain from rust-toolchain.toml",
+          "number": 5,
+          "startedAt": "2026-11-11T07:59:20Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T07:59:35Z",
+          "conclusion": "success",
+          "name": "Run npm ci",
+          "number": 6,
+          "startedAt": "2026-11-11T07:59:28Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T07:59:35Z",
+          "conclusion": "success",
+          "name": "Run npm run check:locales",
+          "number": 7,
+          "startedAt": "2026-11-11T07:59:35Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T07:59:36Z",
+          "conclusion": "success",
+          "name": "Run node --test scripts/check_locales.test.mjs",
+          "number": 8,
+          "startedAt": "2026-11-11T07:59:35Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T07:59:37Z",
+          "conclusion": "success",
+          "name": "Run npm run typecheck",
+          "number": 9,
+          "startedAt": "2026-11-11T07:59:36Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T07:59:39Z",
+          "conclusion": "success",
+          "name": "Run npm test",
+          "number": 10,
+          "startedAt": "2026-11-11T07:59:37Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T07:59:40Z",
+          "conclusion": "success",
+          "name": "Run cargo fmt --all -- --check",
+          "number": 11,
+          "startedAt": "2026-11-11T07:59:39Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T08:01:53Z",
+          "conclusion": "success",
+          "name": "Run cargo clippy --workspace --all-targets -- -D warnings",
+          "number": 12,
+          "startedAt": "2026-11-11T07:59:40Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T08:04:20Z",
+          "conclusion": "success",
+          "name": "Run cargo test --workspace",
+          "number": 13,
+          "startedAt": "2026-11-11T08:01:53Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T08:05:32Z",
+          "conclusion": "success",
+          "name": "Build native desktop binary with embedded frontend",
+          "number": 14,
+          "startedAt": "2026-11-11T08:04:20Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T08:05:35Z",
+          "conclusion": "success",
+          "name": "Run python -m pip install -r scripts/requirements-knowledge.txt",
+          "number": 15,
+          "startedAt": "2026-11-11T08:05:32Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T08:05:35Z",
+          "conclusion": "success",
+          "name": "Run python scripts/validate_knowledge.py --strict",
+          "number": 16,
+          "startedAt": "2026-11-11T08:05:35Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T08:05:36Z",
+          "conclusion": "success",
+          "name": "Post Run actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1",
+          "number": 30,
+          "startedAt": "2026-11-11T08:05:35Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T08:05:40Z",
+          "conclusion": "success",
+          "name": "Post Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+          "number": 31,
+          "startedAt": "2026-11-11T08:05:36Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T08:05:41Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "number": 32,
+          "startedAt": "2026-11-11T08:05:40Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T08:05:46Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 33,
+          "startedAt": "2026-11-11T08:05:41Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/jorabekyusupov/devforge/actions/runs/42983475157/job/130399088577",
+      "test_summaries": [
+        "2026-11-11T08:04:14.2483650Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "2026-11-11T08:04:14.2713990Z test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "2026-11-11T08:04:14.2982360Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "2026-11-11T08:04:14.3114490Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "2026-11-11T08:04:14.3627400Z test result: ok. 3 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.03s",
+        "2026-11-11T08:04:14.5711170Z test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.17s",
+        "2026-11-11T08:04:14.6214000Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "2026-11-11T08:04:17.2017190Z test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.59s",
+        "2026-11-11T08:04:18.9143900Z test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.70s",
+        "2026-11-11T08:04:19.0975620Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "2026-11-11T08:04:19.5447150Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "2026-11-11T08:04:19.6771060Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "2026-11-11T08:04:20.2234950Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+      ],
+      "runner_image_evidence": [
+        "2026-11-11T07:59:14.5927370Z ##[group]Runner Image Provisioner",
+        "2026-11-11T07:59:14.5934110Z ##[group]Runner Image",
+        "2026-11-11T07:59:14.5934670Z Image: macos-26-arm64"
+      ]
+    }
+  ],
+  "status": "completed",
+  "url": "https://github.com/jorabekyusupov/devforge/actions/runs/42983475157",
+  "scope": "Actual hosted macOS/Windows checks on the recorded head SHA. Core source unchanged in subsequent candidate-smoke harness commit; not Windows GUI or clean-machine runtime acceptance."
+}

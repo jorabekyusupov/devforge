@@ -50,7 +50,9 @@ sources:
 # Holat
 
 Bu M0 tarixiy snapshot'idir. Keyingi [M1 desktop natijalari](m1-foundation-results.md)
-Rust toolchain va uch tilli ilova holatini yangilaydi; quyidagi M0 davridagi
+va [M2 runtime natijalari](m2-runtime-core-results.md) toolchain, UI hamda hosted
+macOS/Windows package/probe/Node HTTP dalillarini yangilaydi. Windows'dagi to'liq
+Laravel/PDO/FastCGI/PG-cluster/TLS/HMR acceptance hali ochiq; quyidagi M0 davridagi
 "desktop hali yo'q" yozuvlari joriy source holati deb olinmaydi.
 
 2026-11-11 kuni M0 bajarilishi boshlandi. Runtime paketlari va mavjud hostdagi

@@ -2,15 +2,53 @@
   "milestone": "M2",
   "date": "2026-11-11",
   "record_type": "Agent-curated results of observed commands, not independent attestation",
-  "host": {"os": "macOS", "version": "27.2", "architecture": "arm64"},
+  "host": {
+    "os": "macOS",
+    "version": "27.2",
+    "architecture": "arm64"
+  },
   "checks": [
-    {"command": "scripts/with_rust.sh cargo test -p devforge-runtime", "exit_code": 0, "unit": 3, "packages": 11, "processes": 7, "passed": 21},
-    {"command": "scripts/with_rust.sh cargo test --workspace", "exit_code": 0, "passed": 28, "ignored": 1, "ignored_reason": "Native credential fixture is explicitly opt-in; already verified separately in M1"},
-    {"command": "scripts/with_rust.sh cargo clippy --workspace --all-targets -- -D warnings", "exit_code": 0},
-    {"command": "npm test", "exit_code": 0, "passed": 8},
-    {"command": "node --test scripts/check_locales.test.mjs", "exit_code": 0, "passed": 3},
-    {"command": "npm run check:locales", "exit_code": 0, "catalogs": 3},
-    {"command": "/tmp/devforge-okf-validator-env/bin/python scripts/validate_knowledge.py --strict --json", "exit_code": 0, "documents": 16, "errors": 0, "warnings": 0}
+    {
+      "command": "scripts/with_rust.sh cargo test -p devforge-runtime",
+      "exit_code": 0,
+      "unit": 3,
+      "packages": 11,
+      "processes": 7,
+      "passed": 21
+    },
+    {
+      "command": "scripts/with_rust.sh cargo test --workspace",
+      "exit_code": 0,
+      "passed": 28,
+      "ignored": 1,
+      "ignored_reason": "Native credential fixture is explicitly opt-in; already verified separately in M1"
+    },
+    {
+      "command": "scripts/with_rust.sh cargo clippy --workspace --all-targets -- -D warnings",
+      "exit_code": 0
+    },
+    {
+      "command": "npm test",
+      "exit_code": 0,
+      "passed": 8
+    },
+    {
+      "command": "node --test scripts/check_locales.test.mjs",
+      "exit_code": 0,
+      "passed": 3
+    },
+    {
+      "command": "npm run check:locales",
+      "exit_code": 0,
+      "catalogs": 3
+    },
+    {
+      "command": "/tmp/devforge-okf-validator-env/bin/python scripts/validate_knowledge.py --strict --json",
+      "exit_code": 0,
+      "documents": 16,
+      "errors": 0,
+      "warnings": 0
+    }
   ],
   "test_interpretation": {
     "disk_full": "Injected StorageFull writer; real user disk was not filled",
@@ -20,8 +58,45 @@
     "daemon_escape": "Foreground managed runtimes required; setsid escape is not sandbox-contained",
     "localization": "All 18 RuntimeError codes have en/ru/uz-Latn messages and catalog parity; no M2 desktop runtime UI/IPC yet"
   },
-  "native_candidates": {"report": "macos-catalog-smoke.json", "installed": 8, "probes": 11, "parallel_node_http_services": 2, "running_removal": "busy", "removal_after_stop": true},
-  "https_cli": {"report": "https-cli-smoke.json", "commands": 3, "passed": true},
-  "windows": "Local host unavailable. GitHub Actions enabled; result is recorded separately after the authorized M2 push.",
-  "release_gates": ["Native Intel and minimum OS", "Provider notices/reproducibility and signing", "Full project DB/serving lifecycle in M3+", "Desktop runtime integration and standalone supervisor lifetime"]
+  "native_candidates": {
+    "report": "macos-catalog-smoke.json",
+    "installed": 8,
+    "probes": 11,
+    "parallel_node_http_services": 2,
+    "running_removal": "busy",
+    "removal_after_stop": true
+  },
+  "https_cli": {
+    "report": "https-cli-smoke.json",
+    "commands": 3,
+    "passed": true
+  },
+  "windows": {
+    "full_ci": "ci-final-checks.json",
+    "candidate_smoke": "hosted-windows-candidates.json",
+    "native_packages": 6,
+    "probes": 11,
+    "parallel_node_http_services": 2,
+    "passed": true,
+    "gui_verified": false
+  },
+  "release_gates": [
+    "Native Intel and minimum OS",
+    "Provider notices/reproducibility and signing",
+    "Full project DB/serving lifecycle in M3+",
+    "Desktop runtime integration and standalone supervisor lifetime"
+  ],
+  "post_windows_path_fix": {
+    "runtime_tests": 21,
+    "runtime_clippy": "passed",
+    "fix_commit": "37777ed9ea5c02bd7bf9257d77a1dfc1480f6aed"
+  },
+  "hosted_macos": {
+    "full_ci": "ci-final-checks.json",
+    "candidate_smoke": "hosted-macos-candidates.json",
+    "native_packages": 8,
+    "probes": 11,
+    "parallel_node_http_services": 2,
+    "passed": true
+  }
 }

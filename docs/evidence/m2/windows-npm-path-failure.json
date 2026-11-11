@@ -1,0 +1,130 @@
+{
+  "conclusion": "failure",
+  "headSha": "2a309ce678a8018321b55e653d0e30da0158fd29",
+  "jobs": [
+    {
+      "completedAt": "2026-11-11T08:16:23Z",
+      "conclusion": "failure",
+      "databaseId": 130404921860,
+      "name": "smoke (windows-latest)",
+      "startedAt": "2026-11-11T08:13:12Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-11-11T08:13:14Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-11-11T08:13:13Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T08:13:19Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "number": 2,
+          "startedAt": "2026-11-11T08:13:14Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T08:13:31Z",
+          "conclusion": "success",
+          "name": "Prepare toolchain from rust-toolchain.toml",
+          "number": 3,
+          "startedAt": "2026-11-11T08:13:19Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T08:16:19Z",
+          "conclusion": "failure",
+          "name": "Install pinned candidates and run native probes and parallel Node services",
+          "number": 4,
+          "startedAt": "2026-11-11T08:13:31Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T08:16:22Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "number": 8,
+          "startedAt": "2026-11-11T08:16:19Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T08:16:22Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 9,
+          "startedAt": "2026-11-11T08:16:22Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/jorabekyusupov/devforge/actions/runs/42985292326/job/130404921860"
+    },
+    {
+      "completedAt": "2026-11-11T08:13:29Z",
+      "conclusion": "success",
+      "databaseId": 130404922102,
+      "name": "smoke (macos-latest)",
+      "startedAt": "2026-11-11T08:13:14Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-11-11T08:13:15Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-11-11T08:13:14Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T08:13:17Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "number": 2,
+          "startedAt": "2026-11-11T08:13:15Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T08:13:25Z",
+          "conclusion": "success",
+          "name": "Prepare toolchain from rust-toolchain.toml",
+          "number": 3,
+          "startedAt": "2026-11-11T08:13:17Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T08:13:25Z",
+          "conclusion": "skipped",
+          "name": "Install pinned candidates and run native probes and parallel Node services",
+          "number": 4,
+          "startedAt": "2026-11-11T08:13:25Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T08:13:25Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "number": 8,
+          "startedAt": "2026-11-11T08:13:25Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-11T08:13:26Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 9,
+          "startedAt": "2026-11-11T08:13:25Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/jorabekyusupov/devforge/actions/runs/42985292326/job/130404922102"
+    }
+  ],
+  "status": "completed",
+  "url": "https://github.com/jorabekyusupov/devforge/actions/runs/42985292326",
+  "failure_output": [
+    "2026-11-11T08:16:19.3969422Z Error: \"npm: Snapshot { desired_running: false, observed: Failed, pid: None, restarts: 0, failure: Some(ProcessExited), history: [Transition { sequence: 1, state: Starting }, Transition { sequence: 2, state: Starting }, Transition { sequence: 3, state: Starting }, Transition { sequence: 4, state: Failed }] }; executable=\\\"\\\\\\\\\\\\\\\\?\\\\\\\\C:\\\\\\\\Users\\\\\\\\runneradmin\\\\\\\\AppData\\\\\\\\Local\\\\\\\\Temp\\\\\\\\.tmpOMD41Z\\\\\\\\runtime-store\\\\\\\\packages\\\\\\\\node-85a65da84fbc89786141460a66415e3eb2a3e7243c52a37a915f902622b99651\\\\\\\\node-v22.23.4-win-x64\\\\\\\\node_modules\\\\\\\\npm\\\\\\\\bin\\\\\\\\npm-cli.js\\\"; logs=[LogChunk { stream: \\\"stderr\\\", text: \\\"node:fs:2759\\\\r\\\\n    const out = binding.lstat(base, false, undefined, true /* throwIfNoEntry */);\\\\r\\\\n                        ^\\\\r\\\\n\\\\r\\\\nError: EISDIR: illegal operation on a directory, lstat 'C:'\\\\r\\\\n    at Object.realpathSync (node:fs:2759:25)\\\\r\\\\n    at toRealPath (node:internal/modules/helpers:61:13)\\\\r\\\\n    at Function._findPath (node:internal/modules/cjs/loader:760:22)\\\\r\\\\n    at resolveMainPath (node:internal/modules/run_main:39:23)\\\\r\\\\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:163:20)\\\\r\\\\n    at node:internal/main/run_main_module:36:49 {\\\\r\\\\n  errno: -4068,\\\\r\\\\n  code: 'EISDIR',\\\\r\\\\n  syscall: 'lstat',\\\\r\\\\n  path: 'C:'\\\\r\\\\n}\\\\r\\\\n\\\" }, LogChunk { stream: \\\"stderr\\\", text: \\\"\\\\r\\\\nNode.js v22.23.4\\\\r\\\\n\\\" }]\""
+  ],
+  "diagnosis": "Rust canonical Windows verbatim path passed as npm script argument; Node realpathSync lstat C: fails with EISDIR. Fix simplifies external executable/cwd paths only where filesystem meaning is identical; containment validation retains canonical paths."
+}

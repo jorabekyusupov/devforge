@@ -1,0 +1,458 @@
+{
+  "host": {
+    "arch": "x86_64",
+    "os": "windows"
+  },
+  "node_removal_after_stop": true,
+  "node_services": [
+    {
+      "body": "devforge-m2-v22.23.4",
+      "http_status": 200,
+      "ready": true,
+      "removal_while_running": "busy",
+      "version": "v22.23.4"
+    },
+    {
+      "body": "devforge-m2-v24.22.2",
+      "http_status": 200,
+      "ready": true,
+      "removal_while_running": "busy",
+      "version": "v24.22.2"
+    }
+  ],
+  "packages": [
+    {
+      "catalog_id": "caddy-v2.11.9-windows-x64",
+      "installed": true,
+      "key": "caddy-05e87b11c72e35c7dc10b822f6a97c7056ca6c3bfacabc97afd899cd86271e1e",
+      "probes": [
+        {
+          "executable": "caddy",
+          "logs": [
+            {
+              "stream": "stderr",
+              "text": "{\"level\":\"warn\",\"ts\":1794385278.8115988,\"msg\":\"unable to determine directory for user configuration; falling back to current directory\",\"error\":\"%AppData% is not defined\"}\n"
+            },
+            {
+              "stream": "stdout",
+              "text": "v2.11.9 h1:bhZtcRKQOq0fuLvEgCdPYvUxXyGn9kzjG4lh2332DTE=\n"
+            }
+          ],
+          "state": {
+            "desired_running": false,
+            "failure": null,
+            "history": [
+              {
+                "sequence": 1,
+                "state": "starting"
+              },
+              {
+                "sequence": 2,
+                "state": "starting"
+              },
+              {
+                "sequence": 3,
+                "state": "starting"
+              },
+              {
+                "sequence": 4,
+                "state": "succeeded"
+              }
+            ],
+            "observed": "succeeded",
+            "pid": null,
+            "restarts": 0
+          }
+        }
+      ]
+    },
+    {
+      "catalog_id": "node-v22.23.4-windows-x64",
+      "installed": true,
+      "key": "node-85a65da84fbc89786141460a66415e3eb2a3e7243c52a37a915f902622b99651",
+      "probes": [
+        {
+          "executable": "node",
+          "logs": [
+            {
+              "stream": "stdout",
+              "text": "v22.23.4\r\n"
+            }
+          ],
+          "state": {
+            "desired_running": false,
+            "failure": null,
+            "history": [
+              {
+                "sequence": 1,
+                "state": "starting"
+              },
+              {
+                "sequence": 2,
+                "state": "starting"
+              },
+              {
+                "sequence": 3,
+                "state": "starting"
+              },
+              {
+                "sequence": 4,
+                "state": "succeeded"
+              }
+            ],
+            "observed": "succeeded",
+            "pid": null,
+            "restarts": 0
+          }
+        },
+        {
+          "executable": "npm via installed node",
+          "logs": [
+            {
+              "stream": "stdout",
+              "text": "10.9.9\n"
+            }
+          ],
+          "state": {
+            "desired_running": false,
+            "failure": null,
+            "history": [
+              {
+                "sequence": 1,
+                "state": "starting"
+              },
+              {
+                "sequence": 2,
+                "state": "starting"
+              },
+              {
+                "sequence": 3,
+                "state": "starting"
+              },
+              {
+                "sequence": 4,
+                "state": "succeeded"
+              }
+            ],
+            "observed": "succeeded",
+            "pid": null,
+            "restarts": 0
+          }
+        }
+      ]
+    },
+    {
+      "catalog_id": "node-v24.22.2-windows-x64",
+      "installed": true,
+      "key": "node-9e3cfcc2b3940dfc25732b297af118a5fa78031892886b156a56a0447819c9d2",
+      "probes": [
+        {
+          "executable": "node",
+          "logs": [
+            {
+              "stream": "stdout",
+              "text": "v24.22.2\r\n"
+            }
+          ],
+          "state": {
+            "desired_running": false,
+            "failure": null,
+            "history": [
+              {
+                "sequence": 1,
+                "state": "starting"
+              },
+              {
+                "sequence": 2,
+                "state": "starting"
+              },
+              {
+                "sequence": 3,
+                "state": "starting"
+              },
+              {
+                "sequence": 4,
+                "state": "succeeded"
+              }
+            ],
+            "observed": "succeeded",
+            "pid": null,
+            "restarts": 0
+          }
+        },
+        {
+          "executable": "npm via installed node",
+          "logs": [
+            {
+              "stream": "stdout",
+              "text": "11.19.1\n"
+            }
+          ],
+          "state": {
+            "desired_running": false,
+            "failure": null,
+            "history": [
+              {
+                "sequence": 1,
+                "state": "starting"
+              },
+              {
+                "sequence": 2,
+                "state": "starting"
+              },
+              {
+                "sequence": 3,
+                "state": "starting"
+              },
+              {
+                "sequence": 4,
+                "state": "succeeded"
+              }
+            ],
+            "observed": "succeeded",
+            "pid": null,
+            "restarts": 0
+          }
+        }
+      ]
+    },
+    {
+      "catalog_id": "php-8.4.27-1-windows-x64",
+      "installed": true,
+      "key": "php-d7623c07ff0bb9dabfa2e1d16ed806455a5f9871687acd4e87c37d567a56af48",
+      "probes": [
+        {
+          "executable": "php",
+          "logs": [
+            {
+              "stream": "stdout",
+              "text": "PHP 8.4.27 (cli) (built: Oct 26 2026 09:50:21) (NTS Visual C++ 2022 x64)\nCopyright (c) The PHP Group\nBuilt by The PHP Group\nZend Engine v4.4.27, Copyright (c) Zend Technologies\n"
+            }
+          ],
+          "state": {
+            "desired_running": false,
+            "failure": null,
+            "history": [
+              {
+                "sequence": 1,
+                "state": "starting"
+              },
+              {
+                "sequence": 2,
+                "state": "starting"
+              },
+              {
+                "sequence": 3,
+                "state": "starting"
+              },
+              {
+                "sequence": 4,
+                "state": "succeeded"
+              }
+            ],
+            "observed": "succeeded",
+            "pid": null,
+            "restarts": 0
+          }
+        },
+        {
+          "executable": "php-cgi",
+          "logs": [
+            {
+              "stream": "stdout",
+              "text": "PHP 8.4.27 (cgi-fcgi) (built: Oct 26 2026 09:50:21) (NTS Visual C++ 2022 x64)\nCopyright (c) The PHP Group\nBuilt by The PHP Group\nZend Engine v4.4.27, Copyright (c) Zend Technologies\n"
+            }
+          ],
+          "state": {
+            "desired_running": false,
+            "failure": null,
+            "history": [
+              {
+                "sequence": 1,
+                "state": "starting"
+              },
+              {
+                "sequence": 2,
+                "state": "starting"
+              },
+              {
+                "sequence": 3,
+                "state": "starting"
+              },
+              {
+                "sequence": 4,
+                "state": "succeeded"
+              }
+            ],
+            "observed": "succeeded",
+            "pid": null,
+            "restarts": 0
+          }
+        }
+      ]
+    },
+    {
+      "catalog_id": "php-8.5.12-1-windows-x64",
+      "installed": true,
+      "key": "php-87551c1f05e3d15a6a21598c7b0528c9e21dbe7d7b0dd1f489ee94e76d1ae6e5",
+      "probes": [
+        {
+          "executable": "php",
+          "logs": [
+            {
+              "stream": "stdout",
+              "text": "PHP 8.5.12 (cli) (built: Oct 26 2026 09:51:07) (NTS Visual C++ 2022 x64)\nCopyright (c) The PHP Group\nBuilt by The PHP Group\nZend Engine v4.5.12, Copyright (c) Zend Technologies\n    with Zend OPcache v8.5.12, Copyright (c), by Zend Technologies\n"
+            }
+          ],
+          "state": {
+            "desired_running": false,
+            "failure": null,
+            "history": [
+              {
+                "sequence": 1,
+                "state": "starting"
+              },
+              {
+                "sequence": 2,
+                "state": "starting"
+              },
+              {
+                "sequence": 3,
+                "state": "starting"
+              },
+              {
+                "sequence": 4,
+                "state": "succeeded"
+              }
+            ],
+            "observed": "succeeded",
+            "pid": null,
+            "restarts": 0
+          }
+        },
+        {
+          "executable": "php-cgi",
+          "logs": [
+            {
+              "stream": "stdout",
+              "text": "PHP 8.5.12 (cgi-fcgi) (built: Oct 26 2026 09:51:07) (NTS Visual C++ 2022 x64)\nCopyright (c) The PHP Group\nBuilt by The PHP Group\nZend Engine v4.5.12, Copyright (c) Zend Technologies\n    with Zend OPcache v8.5.12, Copyright (c), by Zend Technologies\n"
+            }
+          ],
+          "state": {
+            "desired_running": false,
+            "failure": null,
+            "history": [
+              {
+                "sequence": 1,
+                "state": "starting"
+              },
+              {
+                "sequence": 2,
+                "state": "starting"
+              },
+              {
+                "sequence": 3,
+                "state": "starting"
+              },
+              {
+                "sequence": 4,
+                "state": "succeeded"
+              }
+            ],
+            "observed": "succeeded",
+            "pid": null,
+            "restarts": 0
+          }
+        }
+      ]
+    },
+    {
+      "catalog_id": "postgresql-18.6.0-windows-x64",
+      "installed": true,
+      "key": "postgresql-9838b7a473bb7c0a19c60090aef2be74e65e4bf17dd422004c9c220648515748",
+      "probes": [
+        {
+          "executable": "initdb",
+          "logs": [
+            {
+              "stream": "stdout",
+              "text": "initdb (PostgreSQL) 18.6"
+            },
+            {
+              "stream": "stdout",
+              "text": "\r\n"
+            }
+          ],
+          "state": {
+            "desired_running": false,
+            "failure": null,
+            "history": [
+              {
+                "sequence": 1,
+                "state": "starting"
+              },
+              {
+                "sequence": 2,
+                "state": "starting"
+              },
+              {
+                "sequence": 3,
+                "state": "starting"
+              },
+              {
+                "sequence": 4,
+                "state": "succeeded"
+              }
+            ],
+            "observed": "succeeded",
+            "pid": null,
+            "restarts": 0
+          }
+        },
+        {
+          "executable": "postgres",
+          "logs": [
+            {
+              "stream": "stdout",
+              "text": "postgres (PostgreSQL) 18.6"
+            },
+            {
+              "stream": "stdout",
+              "text": "\r\n"
+            }
+          ],
+          "state": {
+            "desired_running": false,
+            "failure": null,
+            "history": [
+              {
+                "sequence": 1,
+                "state": "starting"
+              },
+              {
+                "sequence": 2,
+                "state": "starting"
+              },
+              {
+                "sequence": 3,
+                "state": "starting"
+              },
+              {
+                "sequence": 4,
+                "state": "succeeded"
+              }
+            ],
+            "observed": "succeeded",
+            "pid": null,
+            "restarts": 0
+          }
+        }
+      ]
+    }
+  ],
+  "passed": true,
+  "scope": "M2 installation plus actual managed version probes/npm/two parallel Node HTTP services; task-local storage; no system/project changes",
+  "source": "cached or explicit HTTPS download",
+  "github_run": "https://github.com/jorabekyusupov/devforge/actions/runs/42986088291",
+  "head_sha": "37777ed9ea5c02bd7bf9257d77a1dfc1480f6aed"
+}

@@ -54,7 +54,8 @@ SQLite va OS credential adapterini, `crates/cli` doctor buyrug'ini,
 SQLite ishlarining command yo'li Tauri `spawn_blocking` orqali bajariladi.
 Aniq versiyalar manifest, lockfile va toolchain faylida.
 
-macOS ARM64 native app tekshirildi; Windows CI tayyor, bajarilishi tasdiqlanmagan.
+M1'da macOS ARM64 native app tekshirildi. M2'da hosted macOS/Windows test va
+native binary build dalili qo'shildi; Windows GUI hali tekshirilmagan.
 [M1 natijasi](m1-foundation-results.md) kod va dalil chegaralarini saqlaydi.
 
 # Ochiq masalalar
