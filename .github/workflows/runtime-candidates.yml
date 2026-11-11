@@ -1,6 +1,12 @@
 name: Native runtime candidate smoke
 on:
   workflow_dispatch:
+    inputs:
+      target:
+        description: Native runner to exercise
+        type: choice
+        default: all
+        options: [all, macos, windows]
 permissions:
   contents: read
 jobs:
@@ -16,4 +22,5 @@ jobs:
       - name: Prepare toolchain from rust-toolchain.toml
         run: rustup show
       - name: Install pinned candidates and run native probes and parallel Node services
+        if: inputs.target == 'all' || startsWith(matrix.os, inputs.target)
         run: cargo run -p devforge-runtime --example catalog_smoke -- empty-cache m2-result.json --download-missing

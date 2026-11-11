@@ -98,12 +98,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 "node",
                 &name,
                 work.path(),
-                vec![npm.into_os_string(), "--version".into()],
+                vec![npm.clone().into_os_string(), "--version".into()],
                 Readiness::SuccessfulExit,
             )?)?;
             let state = supervisor.wait_terminal(&name, Duration::from_secs(20))?;
             if state.observed != Observed::Succeeded {
-                return Err(format!("npm: {state:?}").into());
+                return Err(format!(
+                    "npm: {state:?}; executable={npm:?}; logs={:?}",
+                    supervisor.logs(&name)?.0
+                )
+                .into());
             }
             probes.push(json!({"executable":"npm via installed node","state":state,"logs":supervisor.logs(&name)?.0}));
             supervisor.stop(&name)?;
