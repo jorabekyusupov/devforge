@@ -13,6 +13,14 @@ fn main() {
     let args: Vec<_> = std::env::args().skip(1).collect();
     let mode = args.first().map(String::as_str).unwrap_or("ready");
     match mode {
+        "tcp" => {
+            thread::sleep(Duration::from_millis(150));
+            let listener =
+                std::net::TcpListener::bind(("127.0.0.1", args[1].parse::<u16>().unwrap()))
+                    .unwrap();
+            wait();
+            drop(listener);
+        }
         "secret" => {
             let value = std::env::var("APP_TEST_SECRET").unwrap();
             let middle = value.len() / 2;

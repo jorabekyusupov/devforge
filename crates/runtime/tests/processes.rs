@@ -279,3 +279,31 @@ fn alive(pid: u32) -> bool {
         result
     }
 }
+
+#[test]
+fn tcp_readiness_waits_for_listener_and_rejects_non_loopback() {
+    let f = Fixture::new();
+    f.install();
+    let mut supervisor = Supervisor::open(f.temp.path().join("tcp-logs")).unwrap();
+    let reservation = std::net::TcpListener::bind(("127.0.0.1", 0)).unwrap();
+    let address = reservation.local_addr().unwrap();
+    drop(reservation);
+    let mut spec = f.spec("tcp", "tcp");
+    spec.args.push(address.port().to_string().into());
+    spec.readiness = Readiness::Tcp { address };
+    supervisor.start(spec).unwrap();
+    assert_eq!(
+        supervisor.snapshot("tcp").unwrap().observed,
+        Observed::Starting
+    );
+    ready(&supervisor, "tcp");
+    supervisor.stop("tcp").unwrap();
+    let mut bad = f.spec("external", "quiet");
+    bad.readiness = Readiness::Tcp {
+        address: ([8, 8, 8, 8], 80).into(),
+    };
+    assert_eq!(
+        supervisor.start(bad).err(),
+        Some(RuntimeError::InvalidProcess)
+    );
+}

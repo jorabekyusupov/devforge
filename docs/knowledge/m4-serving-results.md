@@ -60,8 +60,18 @@ start rad etiladi. Automatic OS elevation yoki global DNS daemon yo'q.[^helper]
 
 # Tekshiruv holati
 
-Scoped unit testlar, full Rust/frontend checks va haqiqiy Laravel native browser
-tekshiruvi davom etmoqda. Hosted macOS Chrome va Windows Edge .test/OS trust/
+Mahalliy47 Rust testi,8 frontend va3 locale testi o'tdi; keyingi TCP readiness
+va native hosts fixture regressiyalari ham alohida o'tdi. Haqiqiy Laravel13.42
+ikki project uchun PG sentinel, selected PHP, nested routing/static/TLS, Vite
+startup, conflict restart va untrusted HTTP fallback bilan Mac'da o'tdi.
+Browser acceptance hali davom etmoqda.
+
+Dastlabki native CI Windows mandatory file-lock semantics va Windows-only lint
+regressiyasini topdi. Hosts read/recheck endi locked handle orqali bajariladi,
+file identity ham solishtiriladi. Mac'da CA keychain item'ini o'chirish admin
+trust settings'ni qoldirishi aniqlandi; cleanup endi exact DER uchun admin trust
+settings va keychain item'ini alohida o'chiradi. Browser CLI chaqiruvidagi
+subcommand xatosi ham tuzatildi. Bu ilk run'lar acceptance pass emas. Hosted macOS Chrome va Windows Edge .test/OS trust/
 secure cookie/upload/Vite HMR natijalari faqat actual CI tugagach shu hujjatga
 kiritiladi. Workflow mavjudligi uning muvaffaqiyatli o'tganiga dalil emas.[^native]
 

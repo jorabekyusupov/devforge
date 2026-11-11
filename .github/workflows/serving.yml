@@ -34,15 +34,17 @@ jobs:
         shell: bash
         run: |
           for plan in hosts-install trust-install; do
-            sudo -n target/debug/devforge-helper apply "m4-private-fixture/$plan.json" "$(cat "m4-private-fixture/$plan.digest")"
+            sudo -n target/debug/devforge-helper apply "m4-private-fixture/$plan.json" "$(cat "m4-private-fixture/$plan.digest")" | tee "m4-private-fixture/$plan.effect.json"
           done
       - name: Apply exact hosts and CA plans on disposable Windows VM
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           foreach ($plan in @('hosts-install','trust-install')) {
-            & target/debug/devforge-helper.exe apply "m4-private-fixture/$plan.json" (Get-Content -Raw "m4-private-fixture/$plan.digest")
+            $effect = & target/debug/devforge-helper.exe apply "m4-private-fixture/$plan.json" (Get-Content -Raw "m4-private-fixture/$plan.digest")
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            $effect | Set-Content -Encoding utf8 "m4-private-fixture/$plan.effect.json"
+            Write-Output $effect
           }
       - name: Native unprivileged Laravel PHP database HTTPS browser and Vite HMR
         run: target/debug/examples/native_serving run ${{ github.workspace }}/m4-session.json empty-cache m4-result.json --download-missing --system-integrated --browser

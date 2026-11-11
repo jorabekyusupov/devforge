@@ -212,3 +212,38 @@ python scripts/validate_knowledge.py --strict
 
 The [design reference](design-system/devforge/MASTER.md) records the visual target
 and applicable UI workflows. Generated imagery is a reference, not the app UI.
+
+### M4 local serving (CLI)
+
+`devforge site configure <project-id> <name>.devforge.test [--vite] [--http-only]`
+registers a project route. Install its selected PHP CLI/web package, Node and the
+catalog's default Caddy first. `--vite` requires the project's installed Vite;
+DevForge does not install project dependencies when starting a site.
+`devforge site list` shows saved routes; `devforge site serve` starts all configured
+sites in the foreground. Send `quit` on stdin or Ctrl+C to stop owned processes.
+The returned status contains the actual ports/URLs, PHP/Vite readiness, DNS
+resolution, certificate activation and system trust separately. Ports 80/443
+fall back to 8080/8443 or another free loopback port without stopping other tools.
+
+Domains are scoped to `.devforge.test`. DNS or trust setup is optional: the
+reported HTTP `*.localhost` fallback can be used without changing the system.
+HTTPS uses a DevForge CA whose signing key stays in the native credential store.
+The public certificate and fingerprint are shown by `devforge site authority`.
+
+System integration is an explicit two-step operation:
+
+1. `devforge site system-plan hosts <new-plan.json>` or
+   `devforge site system-plan trust <new-plan.json>` writes a reviewable plan and
+   prints its SHA-256 digest. Hosts plans preserve unrelated entries and reject
+   conflicts. Review the domains/CA and the digest before applying.
+2. Run **only** `devforge-helper apply <plan.json> <digest>` with OS elevation
+   (`sudo` on macOS or an administrator terminal on Windows). The main supervisor
+   must stay unprivileged. The helper accepts fixed hosts/CA operations, never an
+   arbitrary target path or project command. There is no automatic elevation UI.
+
+`hosts-remove` prepares removal of only this installation's marker block;
+`trust-remove` prepares removal of the exact CA. Removing a site does not silently
+change system configuration or another application's trust. A stale hosts plan
+must be regenerated. Trust removal is explicit; an already present CA is never
+adopted for automatic cleanup. The disposable CI workflow tests and restores only
+its own hosts/CA entries. See [M4 evidence](docs/knowledge/m4-serving-results.md).

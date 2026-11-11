@@ -133,7 +133,13 @@ impl Serving {
             }
             let resolves = (site.domain.as_str(), 80)
                 .to_socket_addrs()
-                .is_ok_and(|mut all| all.any(|a| a.ip() == std::net::Ipv4Addr::LOCALHOST));
+                .is_ok_and(|all| {
+                    let addresses: Vec<_> = all.collect();
+                    addresses
+                        .iter()
+                        .any(|a| a.ip() == std::net::Ipv4Addr::LOCALHOST)
+                        && addresses.iter().all(|a| a.ip().is_loopback())
+                });
             let host = if resolves {
                 site.domain.clone()
             } else {
@@ -437,7 +443,9 @@ impl Serving {
             let _ = self.supervisor.stop(invocation.id());
         }
         for (path, origin) in &self.hot_files {
-            if fs::read_to_string(path).is_ok_and(|value| value.trim() == origin) {
+            if fs::read_to_string(path).is_ok_and(|value| {
+                reqwest::Url::parse(value.trim()).ok() == reqwest::Url::parse(origin).ok()
+            }) {
                 fs::remove_file(path)?;
             }
         }

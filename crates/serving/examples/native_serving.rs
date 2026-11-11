@@ -40,10 +40,10 @@ struct Session {
 fn main() -> Result<()> {
     let args: Vec<_> = std::env::args().skip(1).collect();
     #[cfg(windows)]
-    if args.first().map(String::as_str) == Some("run") {
-        if let Some(code) = windows_unprivileged::relaunch()? {
-            std::process::exit(code);
-        }
+    if args.first().map(String::as_str) == Some("run")
+        && let Some(code) = windows_unprivileged::relaunch()?
+    {
+        std::process::exit(code);
     }
     let mode = args.first().ok_or("mode required")?;
     let path = PathBuf::from(args.get(1).ok_or("session path required")?);
@@ -118,7 +118,12 @@ fn main() -> Result<()> {
                 &system::hosts_plan(&s.owner, vec![])?,
             )?;
             let ca = fs::read(s.root.join("serving/authority/ca.der"))?;
-            if !s.trust_was_present {
+            let trust_effect = fs::read(s.root.join("trust-install.effect.json"))
+                .ok()
+                .and_then(|b| serde_json::from_slice::<serde_json::Value>(&b).ok());
+            if !s.trust_was_present
+                && trust_effect.is_some_and(|e| e["changed"] == true && e["preexisting"] == false)
+            {
                 save_plan(
                     &s.root,
                     "trust-remove",
@@ -493,6 +498,29 @@ fn run(s: &Session, args: &[String]) -> Result<()> {
             .text()?,
         "B"
     );
+    let fallback_browser = if args.iter().any(|a| a == "--browser") {
+        let config = root.join("fallback-browser.json");
+        fs::write(
+            &config,
+            serde_json::to_vec(
+                &json!({"mode":"fallback","url":fs_status.sites[0].fallback_url,"root":root}),
+            )?,
+        )?;
+        let script = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../apps/desktop/scripts/m4-browser.mjs");
+        let output = exec(
+            &b.id,
+            Tool::Node,
+            vec![script.into_os_string(), config.into_os_string()],
+        )?;
+        let encoded = output
+            .lines()
+            .find_map(|l| l.strip_prefix("M4_BROWSER_REPORT:"))
+            .ok_or_else(|| format!("fallback browser report missing: {output}"))?;
+        serde_json::from_str::<serde_json::Value>(encoded)?
+    } else {
+        json!({"executed":false})
+    };
     fallback.stop()?;
     database.stop()?;
     for path in files(root)
@@ -504,7 +532,7 @@ fn run(s: &Session, args: &[String]) -> Result<()> {
             assert!(!text.contains(secret), "secret in owned log");
         }
     }
-    let result = json!({"host":{"os":std::env::consts::OS,"arch":std::env::consts::ARCH},"laravel_version":laravel_version.trim(),"status":status,"conflict_ports":conflict,"browser":browser,"laravel_routing_php_versions_database_static_tls":true,"denied_elevation_recovery":true,"untrusted_http_localhost_fallback":true,"foreign_listeners_preserved":true,"restart_and_hot_cleanup":true,"secret_logs_clean":true,"system_trusted":trusted,"passed":true});
+    let result = json!({"host":{"os":std::env::consts::OS,"arch":std::env::consts::ARCH},"laravel_version":laravel_version.trim(),"status":status,"conflict_ports":conflict,"browser":browser,"fallback_browser":fallback_browser,"laravel_routing_php_versions_database_static_tls":true,"denied_elevation_recovery":true,"untrusted_http_localhost_fallback":true,"foreign_listeners_preserved":true,"restart_and_hot_cleanup":true,"secret_logs_clean":true,"system_trusted":trusted,"passed":true});
     fs::write(report, serde_json::to_vec_pretty(&result)?)?;
     println!("M4_REPORT:{}", serde_json::to_string(&result)?);
     Ok(())

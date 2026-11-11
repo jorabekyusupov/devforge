@@ -75,84 +75,7 @@ impl Plan {
             Operation::Hosts {
                 before_sha256,
                 domains,
-            } => {
-                let path = hosts_path()?;
-                let metadata = fs::symlink_metadata(&path)?;
-                if !metadata.is_file() || metadata.file_type().is_symlink() {
-                    return Err(E::HostsConflict);
-                }
-                #[cfg(unix)]
-                {
-                    use std::os::unix::fs::MetadataExt;
-                    if metadata.nlink() != 1 {
-                        return Err(E::HostsConflict);
-                    }
-                }
-                let lock = OpenOptions::new()
-                    .read(true)
-                    .write(true)
-                    .open(&path)
-                    .map_err(|_| E::PermissionRequired)?;
-                lock.try_lock().map_err(|_| E::HostsChanged)?;
-                let before = fs::read(&path)?;
-                if crate::hash(&before) != *before_sha256 {
-                    return Err(E::HostsChanged);
-                }
-                let after = crate::hosts::patch(&before, &self.owner, domains)?;
-                let changed = after != before;
-                if changed {
-                    let mut staged = tempfile::NamedTempFile::new_in(
-                        path.parent().ok_or(E::StorageUnavailable)?,
-                    )?;
-                    #[cfg(target_os = "macos")]
-                    {
-                        let copied = std::process::Command::new("/bin/cp")
-                            .arg("-p")
-                            .arg(&path)
-                            .arg(staged.path())
-                            .status()?;
-                        if !copied.success() {
-                            return Err(E::PermissionRequired);
-                        }
-                    }
-                    staged.as_file_mut().set_len(0)?;
-                    staged.write_all(&after)?;
-                    staged.as_file().sync_all()?;
-                    if crate::hash(&fs::read(&path)?) != *before_sha256 {
-                        return Err(E::HostsChanged);
-                    }
-                    #[cfg(unix)]
-                    staged.persist(&path).map_err(|_| E::PermissionRequired)?;
-                    #[cfg(windows)]
-                    {
-                        use std::os::windows::ffi::OsStrExt;
-                        use windows_sys::Win32::Storage::FileSystem::ReplaceFileW;
-                        let target: Vec<u16> =
-                            path.as_os_str().encode_wide().chain(Some(0)).collect();
-                        let source: Vec<u16> = staged
-                            .path()
-                            .as_os_str()
-                            .encode_wide()
-                            .chain(Some(0))
-                            .collect();
-                        if unsafe {
-                            ReplaceFileW(
-                                target.as_ptr(),
-                                source.as_ptr(),
-                                std::ptr::null(),
-                                0,
-                                std::ptr::null(),
-                                std::ptr::null(),
-                            )
-                        } == 0
-                        {
-                            return Err(E::PermissionRequired);
-                        }
-                    }
-                }
-                drop(lock);
-                (changed, !changed)
-            }
+            } => patch_hosts(&hosts_path()?, &self.owner, domains, before_sha256)?,
             Operation::TrustInstall { certificate_der } => {
                 if certificate_present(certificate_der)? {
                     (false, true)
@@ -162,7 +85,7 @@ impl Plan {
                 }
             }
             Operation::TrustRemove { certificate_der } => {
-                if certificate_present(certificate_der)? {
+                if certificate_present(certificate_der)? || trusted(certificate_der)? {
                     remove(certificate_der)?;
                     (true, false)
                 } else {
@@ -177,6 +100,124 @@ impl Plan {
         })
     }
 }
+fn patch_hosts(
+    path: &std::path::Path,
+    owner: &str,
+    domains: &[String],
+    before_sha256: &str,
+) -> Result<(bool, bool)> {
+    let metadata = fs::symlink_metadata(path)?;
+    if !metadata.is_file() || metadata.file_type().is_symlink() {
+        return Err(E::HostsConflict);
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        if metadata.nlink() != 1 {
+            return Err(E::HostsConflict);
+        }
+    }
+    let mut lock = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(path)
+        .map_err(|_| E::PermissionRequired)?;
+    lock.try_lock().map_err(|_| E::HostsChanged)?;
+    let before = read_locked(&mut lock)?;
+    if crate::hash(&before) != before_sha256 {
+        return Err(E::HostsChanged);
+    }
+    let after = crate::hosts::patch(&before, owner, domains)?;
+    let changed = after != before;
+    if changed {
+        let mut staged =
+            tempfile::NamedTempFile::new_in(path.parent().ok_or(E::StorageUnavailable)?)?;
+        #[cfg(target_os = "macos")]
+        {
+            let copied = std::process::Command::new("/bin/cp")
+                .arg("-p")
+                .arg(path)
+                .arg(staged.path())
+                .status()?;
+            if !copied.success() {
+                return Err(E::PermissionRequired);
+            }
+        }
+        staged.as_file_mut().set_len(0)?;
+        staged.write_all(&after)?;
+        staged.as_file().sync_all()?;
+        if !same_open_file(&lock, path)? || crate::hash(&read_locked(&mut lock)?) != before_sha256 {
+            return Err(E::HostsChanged);
+        }
+        #[cfg(unix)]
+        staged.persist(path).map_err(|_| E::PermissionRequired)?;
+        #[cfg(windows)]
+        {
+            use std::os::windows::ffi::OsStrExt;
+            use windows_sys::Win32::Storage::FileSystem::ReplaceFileW;
+            let target: Vec<u16> = path.as_os_str().encode_wide().chain(Some(0)).collect();
+            let source: Vec<u16> = staged
+                .path()
+                .as_os_str()
+                .encode_wide()
+                .chain(Some(0))
+                .collect();
+            if unsafe {
+                ReplaceFileW(
+                    target.as_ptr(),
+                    source.as_ptr(),
+                    std::ptr::null(),
+                    0,
+                    std::ptr::null(),
+                    std::ptr::null(),
+                )
+            } == 0
+            {
+                return Err(E::PermissionRequired);
+            }
+        }
+    }
+    drop(lock);
+    Ok((changed, !changed))
+}
+fn same_open_file(file: &std::fs::File, path: &std::path::Path) -> Result<bool> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        let original = file.metadata()?;
+        let current = fs::symlink_metadata(path)?;
+        Ok(original.dev() == current.dev() && original.ino() == current.ino())
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::{fs::OpenOptionsExt, io::AsRawHandle};
+        use windows_sys::Win32::Storage::FileSystem::{
+            BY_HANDLE_FILE_INFORMATION, GetFileInformationByHandle,
+        };
+        let current = OpenOptions::new().access_mode(0).open(path)?;
+        let mut one: BY_HANDLE_FILE_INFORMATION = unsafe { std::mem::zeroed() };
+        let mut two: BY_HANDLE_FILE_INFORMATION = unsafe { std::mem::zeroed() };
+        if unsafe { GetFileInformationByHandle(file.as_raw_handle(), &mut one) } == 0
+            || unsafe { GetFileInformationByHandle(current.as_raw_handle(), &mut two) } == 0
+        {
+            return Err(E::HostsChanged);
+        }
+        Ok(one.dwVolumeSerialNumber == two.dwVolumeSerialNumber
+            && one.nFileIndexHigh == two.nFileIndexHigh
+            && one.nFileIndexLow == two.nFileIndexLow)
+    }
+}
+fn read_locked(file: &mut std::fs::File) -> Result<Vec<u8>> {
+    use std::io::{Read, Seek, SeekFrom};
+    file.seek(SeekFrom::Start(0))?;
+    let mut bytes = Vec::new();
+    file.take(2 * 1024 * 1024 + 1).read_to_end(&mut bytes)?;
+    if bytes.len() > 2 * 1024 * 1024 {
+        return Err(E::HostsConflict);
+    }
+    Ok(bytes)
+}
+
 #[allow(clippy::needless_return)]
 pub fn hosts_path() -> Result<PathBuf> {
     #[cfg(target_os = "macos")]
@@ -283,24 +324,46 @@ fn install(der: &[u8]) -> Result<()> {
 #[cfg(target_os = "macos")]
 fn remove(der: &[u8]) -> Result<()> {
     use sha1::{Digest, Sha1};
-    let fp: String = Sha1::digest(der)
-        .iter()
-        .map(|b| format!("{b:02X}"))
-        .collect();
-    let status = std::process::Command::new("/usr/bin/security")
-        .args([
-            "delete-certificate",
-            "-Z",
-            &fp,
-            "/Library/Keychains/System.keychain",
-        ])
-        .status()?;
-    if status.success() {
-        Ok(())
-    } else {
-        Err(E::TrustFailed)
+    // Admin trust settings outlive a keychain certificate. Remove the exact
+    // reviewed DER from both stores; deleting only the keychain item is incomplete.
+    if trusted(der)? {
+        let mut file = tempfile::NamedTempFile::new()?;
+        file.write_all(pem::encode(&pem::Pem::new("CERTIFICATE", der.to_vec())).as_bytes())?;
+        file.as_file().sync_all()?;
+        let status = std::process::Command::new("/usr/bin/security")
+            .args(["remove-trusted-cert", "-d"])
+            .arg(file.path())
+            .status()?;
+        if !status.success() {
+            return Err(E::TrustFailed);
+        }
     }
+    if certificate_present(der)? {
+        let fp: String = Sha1::digest(der)
+            .iter()
+            .map(|b| format!("{b:02X}"))
+            .collect();
+        let status = std::process::Command::new("/usr/bin/security")
+            .args([
+                "delete-certificate",
+                "-Z",
+                &fp,
+                "/Library/Keychains/System.keychain",
+            ])
+            .status()?;
+        if !status.success() {
+            return Err(E::TrustFailed);
+        }
+    }
+    for _ in 0..10 {
+        if !trusted(der)? {
+            return Ok(());
+        }
+        std::thread::sleep(std::time::Duration::from_millis(100));
+    }
+    Err(E::TrustFailed)
 }
+
 #[cfg(windows)]
 mod windows {
     use super::*;
@@ -429,5 +492,32 @@ mod tests {
         let mut q = serde_json::to_value(&p).unwrap();
         q["target"] = "/etc/passwd".into();
         assert!(serde_json::from_value::<Plan>(q).is_err());
+    }
+    #[test]
+    fn native_hosts_lock_patch_and_stale_plan_preserve_foreign_bytes() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("hosts");
+        let before = b"127.0.0.1 localhost\r\n# existing tool\r\n";
+        fs::write(&path, before).unwrap();
+        let owner = "a".repeat(32);
+        assert!(
+            patch_hosts(
+                &path,
+                &owner,
+                &["a.devforge.test".into()],
+                &crate::hash(before)
+            )
+            .unwrap()
+            .0
+        );
+        let patched = fs::read(&path).unwrap();
+        assert!(patched.ends_with(before));
+        assert_eq!(
+            patch_hosts(&path, &owner, &[], &crate::hash(before)).err(),
+            Some(E::HostsChanged)
+        );
+        assert_eq!(fs::read(&path).unwrap(), patched);
+        patch_hosts(&path, &owner, &[], &crate::hash(&patched)).unwrap();
+        assert_eq!(fs::read(&path).unwrap(), before);
     }
 }
