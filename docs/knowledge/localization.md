@@ -115,6 +115,9 @@ Plural tanlovi CLDR/ICU'ga mos vosita bilan bajarilsin; faqat inglizchadagi
 
 # M1'da tanlangan yechim
 
+M4'da20 ta stable serving/helper error code `serving.errors` uch katalogga
+qo'shildi. Error-to-catalog Rust testi mavjud; UI recovery flow'lari M5'da ulanadi.
+
 M3'da21 ta stable project error code uchun `project.errors` uch katalogga qo'shildi.
 Rust mapping va katalog lint ularni tekshiradi. CLI machine JSON code beradi;
 Project GUI error flow'lari hali M5 acceptance'iga tegishli.

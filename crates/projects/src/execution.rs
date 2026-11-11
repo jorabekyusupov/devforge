@@ -66,8 +66,15 @@ impl Context {
         }
         self.environment.insert("APP_URL".into(), origin.into());
         self.environment.remove(std::ffi::OsStr::new("ASSET_URL"));
-        self.environment
-            .insert("SESSION_SECURE_COOKIE".into(), "null".into());
+        self.environment.insert(
+            "SESSION_SECURE_COOKIE".into(),
+            if origin.starts_with("https://") {
+                "true"
+            } else {
+                "false"
+            }
+            .into(),
+        );
         self.environment
             .insert("PHP_FCGI_MAX_REQUESTS".into(), "0".into());
         Ok(self)

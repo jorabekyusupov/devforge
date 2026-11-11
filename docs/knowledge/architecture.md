@@ -69,8 +69,12 @@ yaratildi: registry, inspection, context resolver, secret references va owned DB
 lifecycle. Project CLI shu qatlamni chaqiradi. GUI command'lari M5'da ulanadi;
 bloklovchi library amallari o'shanda worker thread'da bajarilishi kerak.
 
-Web-server/proxy integratsiyasi, DNS, huquqli yordamchi jarayon, standalone
-supervisor daemon va installer hali amalga oshirilmagan. Ularning oldingi
-takliflari ishlayotgan feature deb talqin qilinmaydi.
+M4'da [serving backend](m4-serving-results.md) `crates/serving`da yaratildi:
+owned domains/hosts plans, private CA, fixed-target elevated helper va Caddy/PHP/
+Vite orchestration. Global DNS daemon o'rniga exact hosts yozuvlari va `.localhost`
+fallback ishlatiladi. Supervisor unprivileged; root/admin amallari bir martalik
+helper bilan chegaralangan. CLI foreground lifecycle mavjud; standalone daemon,
+GUI system-integration flow va installer hali amalga oshirilmagan. Native
+acceptance holati M4 hisobotidagi actual dalil bilan talqin qilinadi.
 
 [^conversation]: Suhbatdagi yakuniy Rust/Tauri tavsiyasi va undan keyin yaratilgan skill; alohida benchmark yoki formal stack tasdig'i yo'q.

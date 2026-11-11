@@ -25,7 +25,7 @@ pub(crate) fn caddy(
     data: &Path,
 ) -> Result<String> {
     let mut text = format!(
-        "{{\n admin off\n auto_https off\n skip_install_trust\n persist_config off\n storage file_system {{\n  root {}\n }}\n}}\n",
+        "{{\n admin off\n auto_https off\n skip_install_trust\n pki {{\n  ca local {{\n  }}\n }}\n persist_config off\n storage file_system {{\n  root {}\n }}\n}}\n",
         quoted(data)?
     );
     for route in routes {

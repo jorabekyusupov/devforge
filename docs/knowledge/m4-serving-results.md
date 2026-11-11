@@ -21,6 +21,18 @@ sources:
   - id: local
     resource: ../evidence/m4/macos-basic-serving.json
     title: macOS PHP routing static TLS smoke
+  - id: laravel-local
+    resource: ../evidence/m4/macos-laravel-serving.json
+    title: macOS real Laravel DB routing va restart sinovi
+  - id: browser-driver
+    resource: ../../apps/desktop/scripts/m4-browser.mjs
+    title: Native browser CLI TLS cookie upload va HMR tekshiruvi
+  - id: windows-replace
+    resource: https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-replacefilew
+    title: Windows ReplaceFileW sharing va ACL kontrakti
+  - id: mac-trust
+    resource: https://github.com/apple-oss-distributions/Security/blob/main/SecurityTool/macOS/security.1
+    title: Apple security trust settings remove kontrakti
   - id: native
     resource: ../../.github/workflows/serving.yml
     title: Disposable native macOS Windows acceptance workflow
@@ -64,20 +76,29 @@ Mahalliy47 Rust testi,8 frontend va3 locale testi o'tdi; keyingi TCP readiness
 va native hosts fixture regressiyalari ham alohida o'tdi. Haqiqiy Laravel13.42
 ikki project uchun PG sentinel, selected PHP, nested routing/static/TLS, Vite
 startup, conflict restart va untrusted HTTP fallback bilan Mac'da o'tdi.
-Browser acceptance hali davom etmoqda.
+Windows'da hosts/CA install va exact cleanup o'tdi, ammo fixture elevated
+process'da tayyorlangani uchun unprivileged child uning metadata'sini yoza olmadi.
+Prepare ham run kabi test-only restricted token'da bajarishga o'tkazildi;
+OS hisob/ACL/security siyosati o'zgartirilmaydi. Browser acceptance hali davom etmoqda.[^laravel-local][^browser-driver]
 
 Dastlabki native CI Windows mandatory file-lock semantics va Windows-only lint
 regressiyasini topdi. Hosts read/recheck endi locked handle orqali bajariladi,
 file identity ham solishtiriladi. `ReplaceFileW` replacement faylini no-sharing
 rejimida ochgani uchun staged write handle avval yopiladi; ACL saqlash uchun
-almashtirish API'si saqlanadi. Windows TCP fixture'iga WinSock provider lookup
+almashtirish API'si saqlanadi.[^windows-replace] Windows TCP fixture'iga WinSock provider lookup
 uchun explicit SystemRoot beriladi; product context uni allaqachon beradi. Mac'da CA keychain item'ini o'chirish admin
 trust settings'ni qoldirishi aniqlandi; cleanup endi exact DER uchun admin trust
-settings va keychain item'ini alohida o'chiradi. Browser CLI chaqiruvidagi
+settings va keychain item'ini alohida o'chiradi.[^mac-trust] Browser CLI chaqiruvidagi
 subcommand xatosi ham tuzatildi. Mac security chaqiruvlari local-only trust
 check, noninteractive stdin, bounded output va10s deadline bilan bajariladi;
-helper inputi bounded regular file. Expired CA install rad etiladi, exact-owned
-CA removal esa private key va amaldagi validity'ni talab qilmaydi. Bu ilk run'lar acceptance pass emas. Hosted macOS Chrome va Windows Edge .test/OS trust/
+helper inputi bounded regular file. Browser test Laravel secure-cookie uchun
+`null` yetarli emasligini ko'rsatdi: serving context primary URL scheme'iga mos
+explicit true/false beradi. `auto_https off` holatida Caddy default PKI'ni
+keyinchalik yaratib trust install qilishga uringan; explicit local PKI va
+skip_install_trust birgalikda berilib, bu yo'l o'chirildi. Expired CA install rad etiladi, exact-owned
+CA removal esa private key va amaldagi validity'ni talab qilmaydi. Mac cleanup exact
+keychain reference bo'yicha `delete-certificate -t -Z` ishlatadi; root'da bu
+admin trust settings'ni ham olib tashlaydi. Headless natija hali pending. Bu ilk run'lar acceptance pass emas. Hosted macOS Chrome va Windows Edge .test/OS trust/
 secure cookie/upload/Vite HMR natijalari faqat actual CI tugagach shu hujjatga
 kiritiladi. Workflow mavjudligi uning muvaffaqiyatli o'tganiga dalil emas.[^native]
 
@@ -94,3 +115,8 @@ kiritiladi. Workflow mavjudligi uning muvaffaqiyatli o'tganiga dalil emas.[^nati
 [^authority]: Root/leaf generation va validation.
 [^local]: Mahalliy custom-root HTTP/TLS sinovi; system trust acceptance o'rniga o'tmaydi.
 [^native]: Hosted disposable VM workflow; natijasi alohida qayd etiladi.
+
+[^laravel-local]: Task-local Mac actual Laravel/PHP/PostgreSQL/Vite serving fixture; OS trust o'zgartirilmagan.
+[^browser-driver]: Pinned Playwright CLI, named session va ignoreHTTPSErrors false; native natija alohida evidence'da.
+[^windows-replace]: Microsoft native file replacement sharing, DACL va metadata semantikasi.
+[^mac-trust]: Apple admin trust settings va keychain certificate alohida obyekt ekanini hujjatlashtiradi.

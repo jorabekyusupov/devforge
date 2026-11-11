@@ -40,7 +40,7 @@ struct Session {
 fn main() -> Result<()> {
     let args: Vec<_> = std::env::args().skip(1).collect();
     #[cfg(windows)]
-    if args.first().map(String::as_str) == Some("run")
+    if matches!(args.first().map(String::as_str), Some("run" | "prepare"))
         && let Some(code) = windows_unprivileged::relaunch()?
     {
         std::process::exit(code);

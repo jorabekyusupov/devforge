@@ -7,6 +7,11 @@ on:
         type: choice
         default: all
         options: [all, macos, windows]
+      suite:
+        description: Acceptance suite
+        type: choice
+        default: full
+        options: [full, system-only]
 permissions:
   contents: read
 jobs:
@@ -47,6 +52,7 @@ jobs:
             Write-Output $effect
           }
       - name: Native unprivileged Laravel PHP database HTTPS browser and Vite HMR
+        if: inputs.suite == 'full'
         run: target/debug/examples/native_serving run ${{ github.workspace }}/m4-session.json empty-cache m4-result.json --download-missing --system-integrated --browser
       - name: Generate bounded cleanup plans
         if: always()

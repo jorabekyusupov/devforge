@@ -294,6 +294,11 @@ fn security_command(command: &mut std::process::Command) -> Result<std::process:
         process::Stdio,
         time::{Duration, Instant},
     };
+    let operation = command
+        .get_args()
+        .next()
+        .map(|a| a.to_string_lossy().into_owned())
+        .unwrap_or_default();
     let mut child = command
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
@@ -315,6 +320,10 @@ fn security_command(command: &mut std::process::Command) -> Result<std::process:
             break status;
         }
         if Instant::now() >= until {
+            eprintln!(
+                "{}",
+                serde_json::json!({"diagnostic":"system_command_timeout","operation":operation})
+            );
             let _ = child.kill();
             let _ = child.wait();
             let _ = stdout.join();
@@ -382,19 +391,6 @@ fn remove(der: &[u8]) -> Result<()> {
     use sha1::{Digest, Sha1};
     // Admin trust settings outlive a keychain certificate. Remove the exact
     // reviewed DER from both stores; deleting only the keychain item is incomplete.
-    if trusted(der)? {
-        let mut file = tempfile::NamedTempFile::new()?;
-        file.write_all(pem::encode(&pem::Pem::new("CERTIFICATE", der.to_vec())).as_bytes())?;
-        file.as_file().sync_all()?;
-        let status = security_command(
-            std::process::Command::new("/usr/bin/security")
-                .args(["remove-trusted-cert", "-d"])
-                .arg(file.path()),
-        )?;
-        if !status.status.success() {
-            return Err(E::TrustFailed);
-        }
-    }
     if certificate_present(der)? {
         let fp: String = Sha1::digest(der)
             .iter()
@@ -402,6 +398,7 @@ fn remove(der: &[u8]) -> Result<()> {
             .collect();
         let status = security_command(std::process::Command::new("/usr/bin/security").args([
             "delete-certificate",
+            "-t",
             "-Z",
             &fp,
             "/Library/Keychains/System.keychain",
