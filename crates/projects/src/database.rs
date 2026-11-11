@@ -175,7 +175,7 @@ impl ProjectStore {
                 executable: initdb,
                 args: vec![
                     "-D".into(),
-                    root.join("data").into_os_string(),
+                    dunce::simplified(&root.join("data")).as_os_str().to_owned(),
                     "--encoding=UTF8".into(),
                     "--no-locale".into(),
                     format!("--username={}", instance.admin).into(),
