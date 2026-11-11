@@ -75,7 +75,8 @@ pub fn prepare(
         .get(std::ffi::OsStr::new("PATH"))
         .ok_or(E::InvalidEnvironment)?
         .clone();
-    let paths = std::iter::once(bin.clone()).chain(std::env::split_paths(&old));
+    let paths =
+        std::iter::once(dunce::simplified(&bin).to_owned()).chain(std::env::split_paths(&old));
     context.environment.insert(
         "PATH".into(),
         std::env::join_paths(paths).map_err(|_| E::InvalidEnvironment)?,
@@ -132,7 +133,7 @@ pub fn probe(context: &mut Context, catalog: &Catalog, packages: &PackageStore) 
             PathBuf::from(std::env::var_os("SystemRoot").ok_or(E::TerminalUnavailable)?)
                 .join("System32/cmd.exe"),
         );
-        c.args(["/D", "/C", "php --version && node --version"]);
+        c.args(["/D", "/V:OFF", "/C", "call php --version && node --version"]);
         c
     } else {
         let mut c = Command::new("/bin/zsh");
@@ -146,6 +147,13 @@ pub fn probe(context: &mut Context, catalog: &Catalog, packages: &PackageStore) 
         .output()
         .map_err(|_| E::TerminalUnavailable)?;
     if !output.status.success() {
+        let mut stdout = String::from_utf8_lossy(&output.stdout).into_owned();
+        let mut stderr = String::from_utf8_lossy(&output.stderr).into_owned();
+        for value in &context.sensitive {
+            stdout = stdout.replace(value, "[REDACTED]");
+            stderr = stderr.replace(value, "[REDACTED]");
+        }
+        fs::write(context.config.join("terminal-probe-status.json"),serde_json::to_vec(&serde_json::json!({"exit_code":output.status.code(),"stdout":stdout,"stderr":stderr})).expect("safe diagnostic"))?;
         return Err(E::TerminalUnavailable);
     }
     Ok(String::from_utf8_lossy(&output.stdout).into_owned())

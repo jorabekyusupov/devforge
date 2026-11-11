@@ -94,6 +94,7 @@ impl Context {
                 "pdo_pgsql",
                 "intl",
                 "sodium",
+                "zip",
             ] {
                 if ext.join(format!("php_{name}.dll")).is_file() {
                     text.push_str(&format!("extension={name}\n"));
@@ -175,9 +176,13 @@ impl Context {
                 PathBuf::from("/sbin"),
             ]);
         }
+        if let Some(ambient) = std::env::var_os("PATH") {
+            paths.extend(std::env::split_paths(&ambient).filter(|path| path.is_absolute()));
+        }
         environment.insert(
             "PATH".into(),
-            std::env::join_paths(paths).map_err(|_| E::InvalidEnvironment)?,
+            std::env::join_paths(paths.iter().map(|path| dunce::simplified(path)))
+                .map_err(|_| E::InvalidEnvironment)?,
         );
         Ok(Self {
             project,

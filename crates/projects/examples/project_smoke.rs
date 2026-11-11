@@ -187,7 +187,7 @@ fn run(root: &Path, args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
                 Tool::Php,
                 vec![
                     "-r",
-                    r#"echo json_encode(['php'=>PHP_VERSION,'ini'=>php_ini_loaded_file(),'db'=>getenv('DB_DATABASE')]); $pdo=new PDO('pgsql:host='.getenv('DB_HOST').';port='.getenv('DB_PORT').';dbname='.getenv('DB_DATABASE'),getenv('DB_USERNAME'),getenv('DB_PASSWORD')); echo '\nPDO_OK';"#,
+                    r#"echo json_encode(['php'=>PHP_VERSION,'ini'=>php_ini_loaded_file(),'zip'=>class_exists('ZipArchive'),'db'=>getenv('DB_DATABASE')]); $pdo=new PDO('pgsql:host='.getenv('DB_HOST').';port='.getenv('DB_PORT').';dbname='.getenv('DB_DATABASE'),getenv('DB_USERNAME'),getenv('DB_PASSWORD')); echo '\nPDO_OK';"#,
                 ],
             ),
             (Tool::PhpWeb, vec!["-v"]),
@@ -233,6 +233,12 @@ fn run(root: &Path, args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
             }
             if tool == Tool::Php {
                 assert!(output.contains("PDO_OK"));
+                if cfg!(windows) {
+                    assert!(
+                        output.contains("\"zip\":true"),
+                        "Windows Composer requires the bundled ZIP extension: {output}"
+                    );
+                }
             }
             results.push(json!({"tool":tool.name(),"passed":true,"exit_code":result.exit_code}));
         }
@@ -461,7 +467,8 @@ fn assert_no_secret_logs(root: &Path, secrets: &Secrets) -> Result<(), Box<dyn s
 fn show_logs(root: &Path) {
     for file in files(root).into_iter().filter(|p| {
         p.to_string_lossy().ends_with(".log")
-            || p.file_name().is_some_and(|n| n == "initdb-status.json")
+            || p.file_name()
+                .is_some_and(|n| n == "initdb-status.json" || n == "terminal-probe-status.json")
     }) {
         if let Ok(text) = fs::read_to_string(&file) {
             eprintln!(
