@@ -403,6 +403,15 @@ impl RunningPostgres {
         self._lock.take();
         Ok(())
     }
+    pub fn status(&self) -> Option<devforge_runtime::process::Snapshot> {
+        self.supervisor.snapshot("postgres").ok()
+    }
+    pub fn logs(&self) -> Vec<devforge_runtime::process::LogChunk> {
+        self.supervisor
+            .logs("postgres")
+            .map(|(logs, _)| logs)
+            .unwrap_or_default()
+    }
     pub fn package(&self) -> &Package {
         &self.package
     }

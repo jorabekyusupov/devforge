@@ -38,6 +38,7 @@ function backend(): Backend & { current: Bootstrap } {
   return service;
 }
 async function open(service: Backend) {
+  window.location.hash = "#settings";
   const engine = await createEngine();
   const view = render(
     <I18nextProvider i18n={engine}>

@@ -4,6 +4,7 @@ pub mod authority;
 mod config;
 mod fastcgi;
 pub mod hosts;
+mod hot;
 pub mod manager;
 pub mod site;
 pub mod system;

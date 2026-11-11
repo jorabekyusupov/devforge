@@ -1,0 +1,40 @@
+name: Native daily workspace and desktop UI
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Native target
+        type: choice
+        default: all
+        options: [all, macos, windows]
+permissions:
+  contents: read
+jobs:
+  workspace:
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ${{ fromJSON(inputs.target == 'macos' && '["macos-latest"]' || inputs.target == 'windows' && '["windows-latest"]' || '["macos-latest","windows-latest"]') }}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24.22.2'
+          cache: npm
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.13'
+      - run: rustup show
+      - run: npm ci
+      - name: Build native workspace fixture and isolated GUI acceptance binary
+        run: cargo build -p devforge-workspace --example native_workspace --features test-support
+      - name: Real Laravel queue Vite two projects version switch and shared PostgreSQL
+        run: target/debug/examples/native_workspace m5-fixture empty-cache
+      - name: Build native desktop with debug-only loopback WebDriver
+        run: npm run tauri -- build --debug --no-bundle --features e2e
+      - name: Native WKWebView and WebView2 everyday workflow
+        env:
+          WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: --disable-gpu
+        run: python scripts/m5_desktop_smoke.py m5-fixture target/debug/devforge-desktop target/debug/examples/native_workspace

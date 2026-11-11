@@ -60,7 +60,7 @@ pub struct Status {
 pub struct Serving {
     supervisor: Supervisor,
     _invocations: Vec<Invocation>,
-    _lock: Option<File>,
+    _locks: Vec<File>,
     status: Status,
     status_file: PathBuf,
     root: PathBuf,
@@ -76,11 +76,37 @@ impl Serving {
         secrets: &dyn SecretStore,
         options: Options,
     ) -> Result<Self> {
+        Self::start_selected(store, projects, catalog, packages, secrets, options, None)
+    }
+    pub fn start_selected(
+        store: &SiteStore,
+        projects: &ProjectStore,
+        catalog: &Catalog,
+        packages: &PackageStore,
+        secrets: &dyn SecretStore,
+        options: Options,
+        selected: Option<&[String]>,
+    ) -> Result<Self> {
         if crate::system::elevated()? {
             return Err(E::ElevatedProcessUnsupported);
         }
-        let lock = store.lock("session.lock")?;
-        let sites = store.sites()?;
+        let mut sites = store.sites()?;
+        if let Some(ids) = selected {
+            if ids.is_empty()
+                || ids
+                    .iter()
+                    .any(|id| !sites.iter().any(|s| &s.project_id == id))
+            {
+                return Err(E::ProjectUnavailable);
+            }
+            sites.retain(|s| ids.contains(&s.project_id));
+        }
+        let mut lock_sites = sites.clone();
+        lock_sites.sort_by(|a, b| a.project_id.cmp(&b.project_id));
+        let locks = lock_sites
+            .iter()
+            .map(|s| store.lock(&format!("session-{}.lock", s.project_id)))
+            .collect::<Result<Vec<_>>>()?;
         if sites.is_empty() || sites.len() > 16 {
             return Err(E::InvalidConfiguration);
         }
@@ -114,9 +140,13 @@ impl Serving {
             nonce: nonce.clone(),
         };
         let mut manager = Self {
-            supervisor: Supervisor::open(store.root().join("logs"))?,
+            supervisor: Supervisor::open(store.root().join("logs").join(if sites.len() == 1 {
+                sites[0].project_id.clone()
+            } else {
+                "all".into()
+            }))?,
             _invocations: Vec::new(),
-            _lock: Some(lock),
+            _locks: locks,
             status,
             status_file: store.root().join("status.json"),
             root,
@@ -200,9 +230,7 @@ impl Serving {
                     return Err(E::ViteUnavailable);
                 }
                 let hot = project.path.join("public/hot");
-                if hot.exists() {
-                    return Err(E::HotFileConflict);
-                }
+                crate::hot::recover(store, &project.id, &hot)?;
                 let reserve = PortReservation::choose(0, 0)?;
                 let vport = reserve.choice.selected;
                 let vhost = if resolves {
@@ -392,6 +420,22 @@ impl Serving {
                 )?;
             }
         }
+        for route in &routes {
+            if let Some(port) = route.vite {
+                let path = projects
+                    .get(&route.site.project_id)?
+                    .path
+                    .join("public/hot");
+                let origin = manager
+                    .hot_files
+                    .iter()
+                    .find(|(p, _)| p == &path)
+                    .ok_or(E::HotFileConflict)?
+                    .1
+                    .clone();
+                crate::hot::record(store, &route.site.project_id, &path, &origin, port)?;
+            }
+        }
         manager.status.running = true;
         crate::atomic(
             &store.root().join("status.json"),
@@ -451,7 +495,7 @@ impl Serving {
             }
         }
         self._invocations.clear();
-        self._lock.take();
+        self._locks.clear();
         self.stopped = true;
         self.status.running = false;
         crate::atomic(
@@ -459,6 +503,28 @@ impl Serving {
             &serde_json::to_vec_pretty(&self.status()).unwrap(),
         )?;
         Ok(())
+    }
+    pub fn process_snapshots(&self) -> Vec<(String, devforge_runtime::process::Snapshot)> {
+        std::iter::once("caddy".to_owned())
+            .chain(self._invocations.iter().map(|i| i.id().to_owned()))
+            .filter_map(|id| self.supervisor.snapshot(&id).ok().map(|s| (id, s)))
+            .collect()
+    }
+    pub fn logs(&self) -> Vec<(String, devforge_runtime::process::LogChunk)> {
+        self.process_snapshots()
+            .into_iter()
+            .flat_map(|(id, _)| {
+                self.supervisor
+                    .logs(&id)
+                    .map(|(chunks, _)| {
+                        chunks
+                            .into_iter()
+                            .map(move |c| (id.clone(), c))
+                            .collect::<Vec<_>>()
+                    })
+                    .unwrap_or_default()
+            })
+            .collect()
     }
     pub fn directory(&self) -> &std::path::Path {
         &self.root

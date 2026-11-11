@@ -18,6 +18,7 @@ serde_json.workspace = true
 
 [features]
 custom-protocol = ["tauri/custom-protocol"]
+e2e = ["dep:tauri-plugin-wdio-webdriver", "devforge-workspace/test-support"]
 
 [dependencies]
 tauri = { version = "2.12.5", features = ["tray-icon"] }
@@ -26,3 +27,9 @@ devforge-platform.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sys-locale = "0.3"
+
+devforge-workspace.workspace = true
+devforge-projects.workspace = true
+devforge-runtime.workspace = true
+tauri-plugin-dialog = "2.8.4"
+tauri-plugin-wdio-webdriver = {version="1.5.1", optional=true}

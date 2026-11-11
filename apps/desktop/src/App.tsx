@@ -5,7 +5,10 @@ import {
   AlertCircle,
   CheckCircle2,
   Folder,
+  Layers,
+  Server,
   Settings2,
+  Power,
 } from "lucide-react";
 import {
   desktopBackend,
@@ -15,14 +18,22 @@ import {
   type Theme,
 } from "./bridge";
 import { SettingsPage } from "./pages/SettingsPage";
-import { ProjectsPage } from "./pages/ProjectsPage";
+import { WorkspacePage } from "./pages/WorkspacePage";
 import { DiagnosticsPage } from "./pages/DiagnosticsPage";
 
-type Page = "projects" | "settings" | "diagnostics";
-const validPage = (value: string): Page =>
-  ["projects", "settings", "diagnostics"].includes(value)
-    ? (value as Page)
-    : "settings";
+type Page = "projects" | "runtimes" | "services" | "settings" | "diagnostics";
+const validPage = (value: string): Page => {
+  const route = value.split("?")[0];
+  return [
+    "projects",
+    "runtimes",
+    "services",
+    "settings",
+    "diagnostics",
+  ].includes(route)
+    ? (route as Page)
+    : "projects";
+};
 
 export function App({ backend = desktopBackend }: { backend?: Backend }) {
   const { t, i18n } = useTranslation();
@@ -97,6 +108,20 @@ export function App({ backend = desktopBackend }: { backend?: Backend }) {
     };
   }, [backend]);
   useEffect(() => {
+    let stop: (() => void) | undefined;
+    let active = true;
+    void backend
+      .onFailure?.((code) => setError(codeOf(code)))
+      .then((fn) => {
+        if (active) stop = fn;
+        else fn();
+      });
+    return () => {
+      active = false;
+      stop?.();
+    };
+  }, [backend]);
+  useEffect(() => {
     const navigate = () => {
       setPage(validPage(window.location.hash.slice(1)));
       requestAnimationFrame(() => heading.current?.focus());
@@ -114,6 +139,8 @@ export function App({ backend = desktopBackend }: { backend?: Backend }) {
 
   const navigateItems = [
     { id: "projects", icon: Folder, group: "workspace" },
+    { id: "runtimes", icon: Layers, group: "workspace" },
+    { id: "services", icon: Server, group: "workspace" },
     { id: "settings", icon: Settings2, group: "application" },
     { id: "diagnostics", icon: Activity, group: "application" },
   ] as const;
@@ -159,12 +186,27 @@ export function App({ backend = desktopBackend }: { backend?: Backend }) {
         </nav>
         <div className="sidebar-version">
           v{snapshot?.diagnostics.appVersion ?? "0.1.0"}
+          {backend.quit && (
+            <button
+              className="quit-button"
+              onClick={() => void backend.quit?.()}
+            >
+              <Power aria-hidden="true" />
+              {t("native.quit")}
+            </button>
+          )}
         </div>
       </aside>
       <main id="main-content">
         <header className="page-header">
           <p className="breadcrumb">
-            <span>{t("nav.application")}</span>
+            <span>
+              {t(
+                ["projects", "runtimes", "services"].includes(page)
+                  ? "nav.workspace"
+                  : "nav.application",
+              )}
+            </span>
             <span aria-hidden="true">/</span>
             <span>
               {page === "settings"
@@ -177,6 +219,7 @@ export function App({ backend = desktopBackend }: { backend?: Backend }) {
               {t(`${page}.title`)}
             </h1>
             <span
+              hidden={page !== "settings"}
               className={`save-status ${snapshot ? "" : "unavailable"}`}
               role="status"
               aria-live="polite"
@@ -217,7 +260,12 @@ export function App({ backend = desktopBackend }: { backend?: Backend }) {
           <SettingsPage snapshot={snapshot} busy={busy} onChange={persist} />
         )}
 
-        {page === "projects" && <ProjectsPage />}
+        {(["projects", "runtimes", "services"] as Page[]).includes(page) && (
+          <WorkspacePage
+            backend={backend.workspace}
+            mode={page as "projects" | "runtimes" | "services"}
+          />
+        )}
 
         {page === "diagnostics" && (
           <DiagnosticsPage snapshot={snapshot} busy={busy} onRefresh={load} />

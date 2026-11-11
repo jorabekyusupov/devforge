@@ -1,0 +1,22 @@
+{
+  "host": {
+    "arch": "aarch64",
+    "os": "macos"
+  },
+  "logs_redacted": true,
+  "parallel_projects": true,
+  "passed": true,
+  "project_A_switch_preserves_B_worker_pid": true,
+  "project_stop_preserves_shared_database": true,
+  "real_queue_job_executed": true,
+  "real_vite_managed": true,
+  "reopen_preserves_bindings": true,
+  "separate_databases": true,
+  "shutdown_stops_owned_services": true,
+  "system_hosts_trust_unchanged": true,
+  "verification_host": {
+    "os": "Darwin",
+    "architecture": "arm64"
+  },
+  "source_scope": "task-local native check before hosted final-source CI"
+}

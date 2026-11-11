@@ -90,6 +90,10 @@ pub fn shell(
     packages: &PackageStore,
     secrets: &dyn SecretStore,
 ) -> Result<i32> {
+    #[cfg(windows)]
+    unsafe {
+        windows_sys::Win32::System::Console::AllocConsole();
+    }
     let mut context = Context::resolve(store, id, catalog, packages, secrets)?;
     prepare(&mut context, catalog, packages)?;
     // Keep both interpreter and Composer leases until the interactive shell exits.

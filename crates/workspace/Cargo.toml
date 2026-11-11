@@ -1,0 +1,26 @@
+[package]
+name = "devforge-workspace"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+[dependencies]
+devforge-core.workspace = true
+devforge-runtime.workspace = true
+devforge-projects.workspace = true
+devforge-serving.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tempfile = "3.27.0"
+dunce = "1.0.5"
+url = "2.5.8"
+[dev-dependencies]
+reqwest = {version="0.13.5", default-features=false,features=["blocking","rustls","json"]}
+devforge-platform.workspace = true
+[target.'cfg(windows)'.dependencies]
+windows-sys = {version="0.61.2",features=["Win32_UI_Shell","Win32_UI_WindowsAndMessaging"]}
+[features]
+test-support = []
+
+[[example]]
+name="native_workspace"
+required-features=["test-support"]

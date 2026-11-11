@@ -1,3 +1,6 @@
+#[cfg(all(feature = "e2e", not(debug_assertions)))]
+compile_error!("E2E instrumentation is supported only in debug acceptance builds");
+mod workspace;
 use devforge_core::{ErrorCode, LocaleRegistry, Settings, SettingsRepository, Theme};
 use devforge_platform::{Diagnostics, SqliteSettings, app_data_dir, diagnostics};
 use serde::Serialize;
@@ -178,7 +181,7 @@ fn apply_native(app: &tauri::AppHandle, locale: &str, theme: Theme) -> tauri::Re
 }
 fn menu_action(app: &tauri::AppHandle, id: &str) {
     match id {
-        "quit" => app.exit(0),
+        "quit" => workspace::quit(app),
         "show" | "settings" => {
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.show();
@@ -205,8 +208,49 @@ fn tray_icon() -> tauri::image::Image<'static> {
 }
 
 pub fn run() {
-    tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![bootstrap, save_settings])
+    #[cfg(feature = "e2e")]
+    {
+        assert!(
+            std::env::var_os("DEVFORGE_DATA_DIR").is_some(),
+            "Acceptance builds require an isolated data directory"
+        );
+        eprintln!("E2E_PHASE: building native app");
+    }
+    #[allow(unused_mut)]
+    let mut context = tauri::generate_context!();
+    #[cfg(feature = "e2e")]
+    for window in &mut context.config_mut().app.windows {
+        window.incognito = true;
+    }
+
+    let builder = tauri::Builder::default().plugin(tauri_plugin_dialog::init());
+    #[cfg(feature = "e2e")]
+    let builder = builder.plugin(tauri_plugin_wdio_webdriver::init());
+    let app = builder
+        .on_page_load(|_, payload| {
+            #[cfg(feature = "e2e")]
+            if matches!(payload.event(), tauri::webview::PageLoadEvent::Finished)
+                && let Some(root) = std::env::var_os("DEVFORGE_DATA_DIR")
+            {
+                let _ = std::fs::write(
+                    std::path::PathBuf::from(root).join("e2e-page-ready"),
+                    std::process::id().to_string(),
+                );
+            }
+            #[cfg(not(feature = "e2e"))]
+            let _ = payload;
+        })
+        .invoke_handler(tauri::generate_handler![
+            bootstrap,
+            save_settings,
+            workspace::workspace_snapshot,
+            workspace::workspace_command,
+            workspace::workspace_cancel,
+            workspace::open_project,
+            workspace::choose_project_directory,
+            workspace::quit_application,
+            workspace::main_window_action
+        ])
         .on_menu_event(|app, event| menu_action(app, event.id.as_ref()))
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event
@@ -217,6 +261,8 @@ pub fn run() {
             }
         })
         .setup(|app| {
+            #[cfg(feature = "e2e")]
+            eprintln!("E2E_PHASE: native window created");
             let bundle: serde_json::Value = serde_json::from_str(BUNDLE)?;
             let state = AppState {
                 database: Arc::new(Mutex::new(None)),
@@ -245,9 +291,53 @@ pub fn run() {
             state
                 .native_synced
                 .store(tray.is_ok() && menus_synced, Ordering::Relaxed);
+            app.manage(workspace::State::new(app_data_dir()?));
             app.manage(state);
+            #[cfg(feature = "e2e")]
+            eprintln!("E2E_PHASE: app state ready");
             Ok(())
         })
-        .run(tauri::generate_context!())
+        .build(context)
         .expect("DevForge desktop runtime failed");
+    app.run(|app, event| {
+        if let tauri::RunEvent::ExitRequested { api, .. } = event
+            && !app
+                .state::<workspace::State>()
+                .exited
+                .load(Ordering::SeqCst)
+        {
+            api.prevent_exit();
+            workspace::quit(app);
+        }
+    });
+}
+
+pub fn terminal_mode() -> Option<i32> {
+    let args: Vec<_> = std::env::args().collect();
+    if args.get(1).map(String::as_str) != Some("project")
+        || args.get(2).map(String::as_str) != Some("shell")
+    {
+        return None;
+    }
+    let result = (|| {
+        let root =
+            app_data_dir().map_err(|_| devforge_projects::ProjectError::StorageUnavailable)?;
+        let store = devforge_projects::project::ProjectStore::open(root.join("projects"))?;
+        let packages = devforge_runtime::package::PackageStore::open(
+            root.join("runtimes"),
+            devforge_runtime::package::Limits::default(),
+        )?;
+        devforge_projects::terminal::shell(
+            &store,
+            args.get(3)
+                .ok_or(devforge_projects::ProjectError::InvalidProject)?,
+            &devforge_projects::project::Catalog::bundled(),
+            &packages,
+            workspace::secrets(&root).as_ref(),
+        )
+    })();
+    Some(result.unwrap_or_else(|e| {
+        eprintln!("{}", serde_json::json!({"error":e}));
+        1
+    }))
 }

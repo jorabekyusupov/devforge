@@ -1,0 +1,21 @@
+{
+  "host": "posix",
+  "real_native_webview": true,
+  "ipc_mocked": false,
+  "secret_store": "private filesystem E2E adapter; production uses OS credentials",
+  "import_error_recovery": true,
+  "parallel_projects_and_database": true,
+  "version_switch_preserves_B_pid": true,
+  "close_to_tray_preserves_services": true,
+  "ru_uz_en_and_dark_persistence": true,
+  "minimum_window_no_horizontal_overflow": true,
+  "logs_filtering_redacted": true,
+  "quit_stops_owned_services": true,
+  "forced_app_crash_cleanup_and_recovery": true,
+  "passed": true,
+  "verification_host": {
+    "os": "Darwin",
+    "architecture": "arm64"
+  },
+  "source_scope": "task-local native check before hosted final-source CI"
+}

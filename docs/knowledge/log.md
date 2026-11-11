@@ -2,6 +2,8 @@
 
 ## 2026-11-11
 
+- **M5 implementation**: [Kundalik boshqaruv](m5-daily-workspace-results.md), shared coordinator, scoped lifecycle va real UI controls yaratildi. Native Mac backend/UI sinovlari yuritilmoqda; hosted Windows/final acceptance pending.
+
 - **M4 yakuni**: [Serving natijalari](m4-serving-results.md), owned domains, Caddy/PHP-FPM/CGI/Vite, scoped CA va fixed-target hosts/trust helper yaratildi. Source6f3033e native Mac Chrome va Windows Edge'da Laravel13.42/DB/TLS/secure-cookie/upload/WSS HMR/restart/fallback hamda cleanup bilan o'tdi. Full CI har OS'da51 Rust,8 frontend,3 locale va desktop build bilan o'tdi. Mac nontrusting metadata retention, native credential UI va M5/M6 gate'lari alohida saqlandi.
 
 - **M3 yakuniy native dalil**: Full CI64e9911 macOS/Windows'da39 Rust testi, frontend/locale va native binary build bilan o'tdi. Actual Mac8/Windows6 paket,2 project, Laravel13.42 migration/worker, PHP8.4->8.5, PG/PDO/isolation/restart va env backup sinovlari o'tdi. Windows CMD quoting hamda credential roundtrip testi o'tdi; token/path/fixture regressiyalari va ochiq GUI/minimum OS gate'lari [hisobotda](m3-project-environments-results.md) saqlandi.

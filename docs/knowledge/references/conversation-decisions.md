@@ -198,3 +198,10 @@ commit/push'ni vakolatlaydi. Native GitHub Actions uchun source avval push qilin
 actual natijalar yakuniy evidence commit'ida yoziladi. Foydalanuvchining Mac
 hosts/trust sozlamalari avtomatik o'zgartirilmaydi; elevated integratsiya testi
 disposable CI VM'da bajariladi.
+
+## M5 kundalik boshqaruv
+
+Foydalanuvchi M5 bosqichini bajarishni topshirdi. Mavjud reja bo'yicha Projects,
+runtimes, services/logs, per-project lifecycle, tray/Quit, uch til va real
+verification ishlari davom ettiriladi. Oldingi code/test/OKF/push yetkazish
+ko'rsatmasi saqlanadi; M6 installer/release scope'iga o'tilmaydi.

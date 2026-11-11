@@ -9,15 +9,43 @@ use std::{
 pub struct Tree {
     pub child: Child,
     finished: bool,
+    #[cfg(target_os = "macos")]
+    watchdog: Option<Child>,
 }
 #[cfg(unix)]
 impl Tree {
     pub fn spawn(command: &mut Command) -> Result<Self> {
         use std::os::unix::process::CommandExt;
         command.process_group(0);
+        #[allow(unused_mut)]
+        let mut child = command.spawn().map_err(|_| RuntimeError::SpawnFailed)?;
+        #[cfg(target_os = "macos")]
+        let watchdog = match Command::new("/bin/sh")
+            .args([
+                "-c",
+                "IFS= read -r released && exit 0; /bin/kill -KILL -- \"-$1\" 2>/dev/null",
+                "devforge-owner-watch",
+                &child.id().to_string(),
+            ])
+            .env_clear()
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .process_group(0)
+            .spawn()
+        {
+            Ok(guard) => Some(guard),
+            Err(_) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(RuntimeError::SpawnFailed);
+            }
+        };
         Ok(Self {
-            child: command.spawn().map_err(|_| RuntimeError::SpawnFailed)?,
+            child,
             finished: false,
+            #[cfg(target_os = "macos")]
+            watchdog,
         })
     }
     pub fn exited(&mut self) -> Result<bool> {
@@ -64,6 +92,13 @@ impl Tree {
         self.signal(libc::SIGKILL)?;
         let code = self.child.wait()?.code();
         self.finished = true;
+        #[cfg(target_os = "macos")]
+        if let Some(mut guard) = self.watchdog.take() {
+            if let Some(mut pipe) = guard.stdin.take() {
+                let _ = pipe.write_all(b"released\n");
+            }
+            let _ = guard.wait();
+        }
         Ok(code)
     }
 }
@@ -216,6 +251,13 @@ impl Drop for Tree {
         #[cfg(unix)]
         if !self.finished {
             let _ = self.signal(libc::SIGKILL);
+            #[cfg(target_os = "macos")]
+            if let Some(mut guard) = self.watchdog.take() {
+                if let Some(mut pipe) = guard.stdin.take() {
+                    let _ = pipe.write_all(b"released\n");
+                }
+                let _ = guard.wait();
+            }
             let _ = self.child.wait();
         }
     }
