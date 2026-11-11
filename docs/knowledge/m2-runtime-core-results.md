@@ -61,6 +61,11 @@ sources:
 
 # Natija
 
+Bu M2 dalil snapshot'idir. [M3](m3-project-environments-results.md) keyinchalik
+Project bindings, verified non-native resource'lar, optional secret redaction va
+service-specific graceful shutdown kontraktini qo'shdi. Quyidagi M2 davridagi
+"Project binding hali yo'q" kabi yozuvlar tarixiy kontekstda olinadi.
+
 Foydalanuvchi M2 implementation, test, OKF va push'ni topshirdi.[^request]
 `crates/runtime` Tauri'dan mustaqil paket va jarayon yadrosini beradi. CLI shu
 production qatlamga ulandi. Desktop'da runtime boshqaruv UI/IPC hali yo'q;

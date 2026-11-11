@@ -13,6 +13,16 @@ fn main() {
     let args: Vec<_> = std::env::args().skip(1).collect();
     let mode = args.first().map(String::as_str).unwrap_or("ready");
     match mode {
+        "secret" => {
+            let value = std::env::var("APP_TEST_SECRET").unwrap();
+            let middle = value.len() / 2;
+            io::stdout().write_all(&value.as_bytes()[..middle]).unwrap();
+            io::stdout().flush().unwrap();
+            thread::sleep(Duration::from_millis(30));
+            println!("{}", &value[middle..]);
+            eprintln!("{value}");
+            std::process::exit(17);
+        }
         "echo" => {
             println!(
                 "{}",

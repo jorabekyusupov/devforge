@@ -34,6 +34,7 @@ pub enum Archive {
     TarXz,
     Zip,
     ZipTarXz { member: String },
+    File { path: String },
 }
 
 /// Caller supplies a reviewed/pinned catalog. A digest supplied by an untrusted
@@ -50,6 +51,8 @@ pub struct Package {
     pub sha256: String,
     pub archive: Archive,
     pub executables: BTreeMap<String, String>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub resources: BTreeMap<String, String>,
 }
 impl Package {
     pub fn key(&self) -> Result<String> {
@@ -66,11 +69,11 @@ impl Package {
             || !component(&self.variant)
             || self.sha256.len() != 64
             || !self.sha256.bytes().all(|b| b.is_ascii_hexdigit())
-            || self.executables.is_empty()
+            || (self.executables.is_empty() && self.resources.is_empty())
         {
             return Err(RuntimeError::InvalidPackage);
         }
-        for (name, path) in &self.executables {
+        for (name, path) in self.executables.iter().chain(self.resources.iter()) {
             if !component(name) {
                 return Err(RuntimeError::InvalidPackage);
             }
@@ -78,6 +81,9 @@ impl Package {
         }
         if let Archive::ZipTarXz { member } = &self.archive {
             relative_path(member)?;
+        }
+        if let Archive::File { path } = &self.archive {
+            relative_path(path)?;
         }
         // Length-prefixed JSON avoids ambiguous hyphen joins and path collisions.
         let id =
@@ -123,6 +129,8 @@ struct Receipt {
     schema: u32,
     package: Package,
     hashes: BTreeMap<String, String>,
+    #[serde(default)]
+    resource_hashes: BTreeMap<String, String>,
 }
 
 pub struct PackageStore {
@@ -140,6 +148,24 @@ pub struct VerifiedExecutable {
     sha256: String,
     // Shared OS lease lasts as long as any process/handle uses this package.
     _lease: Arc<File>,
+}
+#[derive(Clone)]
+pub struct VerifiedResource {
+    path: PathBuf,
+    sha256: String,
+    _lease: Arc<File>,
+}
+impl VerifiedResource {
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+    pub fn check(&self) -> Result<()> {
+        if hash_file(&self.path)? == self.sha256 {
+            Ok(())
+        } else {
+            Err(RuntimeError::ExecutableChanged)
+        }
+    }
 }
 impl VerifiedExecutable {
     pub fn path(&self) -> &Path {
@@ -317,6 +343,9 @@ impl PackageStore {
                 for name in package.executables.keys() {
                     self.executable(package, name)?.check()?;
                 }
+                for name in package.resources.keys() {
+                    self.resource(package, name)?.check()?;
+                }
                 progress(InstallProgress {
                     stage: InstallStage::Installed,
                     bytes: 0,
@@ -373,10 +402,19 @@ impl PackageStore {
                 }
                 hashes.insert(name.clone(), hash_file(&executable)?);
             }
+            let mut resource_hashes = BTreeMap::new();
+            for (name, path) in &package.resources {
+                let path = fs::canonicalize(payload.join(relative_path(path)?))?;
+                if !path.starts_with(&payload) || !path.is_file() {
+                    return Err(RuntimeError::UnsafeArchive);
+                }
+                resource_hashes.insert(name.clone(), hash_file(&path)?);
+            }
             let receipt = Receipt {
                 schema: 1,
                 package: package.clone(),
                 hashes,
+                resource_hashes,
             };
             write_new(
                 &payload.join(".devforge-receipt.json"),
@@ -454,6 +492,32 @@ impl PackageStore {
         };
         executable.check()?;
         Ok(executable)
+    }
+    pub fn resource(&self, package: &Package, name: &str) -> Result<VerifiedResource> {
+        if package.target != Target::current()? {
+            return Err(RuntimeError::UnsupportedTarget);
+        }
+        let lease = self.lease(&package.key()?, false)?;
+        let (root, receipt) = self.receipt(package)?;
+        let relative = package
+            .resources
+            .get(name)
+            .ok_or(RuntimeError::InvalidPackage)?;
+        let path = fs::canonicalize(root.join(relative_path(relative)?))?;
+        if !path.starts_with(&root) {
+            return Err(RuntimeError::UnsafeArchive);
+        }
+        let resource = VerifiedResource {
+            path: dunce::simplified(&path).to_owned(),
+            sha256: receipt
+                .resource_hashes
+                .get(name)
+                .ok_or(RuntimeError::IntegrityMismatch)?
+                .clone(),
+            _lease: Arc::new(lease),
+        };
+        resource.check()?;
+        Ok(resource)
     }
     pub fn remove(&self, package: &Package) -> Result<()> {
         let _lock = self.lock()?;

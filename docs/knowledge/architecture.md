@@ -64,6 +64,11 @@ M2'da [runtime yadrosi](m2-runtime-core-results.md) `crates/runtime`da yaratildi
 immutable package store, process supervisor, OS process tree adapterlari va CLI
 ulanishi mavjud. U Tauri'dan mustaqil; desktop hali bu qatlamni boshqarmaydi.
 
+M3'da [loyiha muhitlari](m3-project-environments-results.md) `crates/projects`da
+yaratildi: registry, inspection, context resolver, secret references va owned DB
+lifecycle. Project CLI shu qatlamni chaqiradi. GUI command'lari M5'da ulanadi;
+bloklovchi library amallari o'shanda worker thread'da bajarilishi kerak.
+
 Web-server/proxy integratsiyasi, DNS, huquqli yordamchi jarayon, standalone
 supervisor daemon va installer hali amalga oshirilmagan. Ularning oldingi
 takliflari ishlayotgan feature deb talqin qilinmaydi.

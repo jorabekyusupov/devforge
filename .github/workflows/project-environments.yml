@@ -1,0 +1,28 @@
+name: Native project environments
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Native runner to exercise
+        type: choice
+        default: all
+        options: [all, macos, windows]
+permissions:
+  contents: read
+jobs:
+  project-smoke:
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - run: rustup show
+      - name: Two project runtimes, owned PostgreSQL roles and persistence
+        if: inputs.target == 'all' || startsWith(matrix.os, inputs.target)
+        run: cargo run -p devforge-projects --example project_smoke -- empty-cache m3-result.json --download-missing --laravel
+      - name: Native Windows ephemeral credential roundtrip and cleanup
+        if: runner.os == 'Windows' && (inputs.target == 'all' || inputs.target == 'windows')
+        run: cargo test -p devforge-platform native_secret_roundtrip_removes_its_ephemeral_item -- --ignored

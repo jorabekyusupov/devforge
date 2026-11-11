@@ -100,5 +100,29 @@
       "invalid_process": "Jarayon sozlamalari noto‘g‘ri.",
       "log_failed": "Jarayon loglarini saqlab bo‘lmadi."
     }
+  },
+  "project": {
+    "errors": {
+      "invalid_project": "Bu papka qo‘llanadigan Laravel loyihasi emas.",
+      "invalid_manifest": "Loyiha manifesti yo‘q yoki noto‘g‘ri.",
+      "unsupported_constraint": "Ko‘rsatilgan versiya cheklovi qo‘llanmaydi.",
+      "incompatible_php": "Tanlangan PHP versiyasi loyihaga mos emas.",
+      "incompatible_node": "Tanlangan Node versiyasi loyihaga mos emas.",
+      "duplicate_project": "Bu loyiha allaqachon ro‘yxatga olingan.",
+      "not_found": "Loyiha yoki instance topilmadi.",
+      "stale_revision": "Sozlamalar o‘zgargan. Yangilab, qayta urinib ko‘ring.",
+      "storage_unavailable": "Loyiha metama’lumotini o‘qib yoki saqlab bo‘lmadi.",
+      "secret_unavailable": "Maxfiy ma’lumotlar saqlagichi mavjud emas yoki kerakli qiymat yo‘q.",
+      "invalid_environment": "Bu muhit o‘zgaruvchisini bu yerdan sozlab bo‘lmaydi.",
+      "runtime_unavailable": "Kerakli runtime o‘rnatilmagan yoki kompyuterga mos emas.",
+      "execution_failed": "Loyiha buyrug‘i xato bilan yakunlandi.",
+      "database_unavailable": "DevForge bazasi bilan bog‘lanib bo‘lmadi.",
+      "database_conflict": "Baza egasi loyihaga mos emas.",
+      "instance_busy": "Baza instance’i yoki loyiha amali hozir ishlatilmoqda.",
+      "recovery_required": "Uzilgan boshlang‘ich sozlash alohida tiklashni talab qiladi.",
+      "invalid_env_file": "Muhit fayli noto‘g‘ri, ikki ma’noli yoki ramziy havola.",
+      "env_file_changed": "Muhit fayli o‘zgartirish tayyorlangandan keyin o‘zgargan.",
+      "terminal_unavailable": "Loyiha terminalini ochib bo‘lmadi."
+    }
   }
 }

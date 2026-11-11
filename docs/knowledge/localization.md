@@ -115,6 +115,10 @@ Plural tanlovi CLDR/ICU'ga mos vosita bilan bajarilsin; faqat inglizchadagi
 
 # M1'da tanlangan yechim
 
+M3'da20 ta stable project error code uchun `project.errors` uch katalogga qo'shildi.
+Rust mapping va katalog lint ularni tekshiradi. CLI machine JSON code beradi;
+Project GUI error flow'lari hali M5 acceptance'iga tegishli.
+
 `shared/locales/registry.json` canonical manba: `en`, `ru`, `uz-Latn`, `uz` alias'i
 va `en` fallback. Shu katalogdagi locale JSON'lari i18next/react-i18next orqali
 frontend'ga, Tauri build script orqali native shell'ga kiritiladi. Til ro'yxati

@@ -47,8 +47,9 @@ yoki ommaviy release tayyorligi bundan kelib chiqmaydi.
 yopilmagan. Keyin M1 alohida topshirildi: [desktop poydevori va natijalari](m1-foundation-results.md)
 yozildi; macOS ARM64 native tekshiruvi bor, Windows/Intel gate'lari ochiq.
 [M2 runtime yadrosi](m2-runtime-core-results.md) va uning mavjud hostdagi
-sinovlari yaratildi; ochiq qabul gate'lari hisobotda ajratilgan. M3-M6 hali
-bajarilmagan. Quyidagi bosqich ta'riflari natijalar bilan aralashtirilmaydi.
+sinovlari yaratildi; ochiq qabul gate'lari hisobotda ajratilgan.
+[M3 loyiha muhitlari](m3-project-environments-results.md) implementation va mavjud
+host sinovlari ham qo'shildi; M4-M6 hali bajarilmagan. Quyidagi bosqich ta'riflari natijalar bilan aralashtirilmaydi.
 
 # 1. MVP chegarasi
 
@@ -287,8 +288,8 @@ qamrovi, ru/uz/en holati va blocker'lar ko'rsatiladi. Knowledge status'lari kod
 dalili bilan yangilanadi; [yuritish siyosati](knowledge-policy.md) bajariladi.
 Read-only planning tekshiruvlari desktop implementatsiya dalili deb ko'rsatilmaydi.
 
-**Keyingi implementation yo'nalishi:** M1/M2 ochiq platforma/lifecycle gate'larini
-yopish va alohida topshiriqda M3 loyiha importi hamda DB binding'ni yozish.
+**Keyingi implementation yo'nalishi:** M1-M3 ochiq platforma/lifecycle gate'larini
+yopish va alohida topshiriqda M4 domen/HTTPS/Laravel serving'ni yozish.
 M0 release/runtime gate'lari ham ochiq qoladi; asoslanmagan muddat va'dasi yo'q.
 
 [^request]: Suhbat manbasining aniq MVP reja bo'limi.

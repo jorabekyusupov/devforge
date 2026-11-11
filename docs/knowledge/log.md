@@ -2,6 +2,7 @@
 
 ## 2026-11-11
 
+- **M3 loyiha muhitlari**: [Natijalar](m3-project-environments-results.md) va `crates/projects` yaratildi: read-only import, PHP/npm constraint'lari, persistent binding/context, secret references, explicit env patch/backup va owned PostgreSQL DB/role. Mac'da39 Rust testi va2 loyiha native smoke o'tdi; hosted qamrov yakuniy dalil bilan to'ldiriladi.
 - **M2 runtime yadrosi**: [natijalar](m2-runtime-core-results.md), pinned catalog, staged package store, cancellation/limits, executable leases, process-group/Job adapterlari, readiness va bounded restart/loglar, CLI install/probe/remove yaratildi. macOS fixture/regression va 8 real paket smoke dalillari saqlandi. Windows CI hamda to'liq lifecycle/release qamrovi hisobotda alohida ko'rsatiladi.
 - **M2 hosted CI**: macOS26 ARM64 va Windows hosted job'lari28 Rust testi, frontend/locale, fmt/clippy, native desktop binary build va OKF strict bilan o'tdi. M1'ning tarixiy Windows build gate'i yangi dalilga bog'landi; GUI/credential/minimum OS talablari yopilgan deb ko'rsatilmaydi.
 - **M2 real Windows regressiyasi**: publisher smoke npm script argumentidagi Windows verbatim path uchun EISDIR topdi. Canonical containment'ni saqlagan holda external executable/cwd path soddalashtirildi. Yakuniy37777ed CI ikkala OS'da o'tdi; hosted Mac8 va Windows6 paket, har birida11 probe va2 parallel Node HTTP sinovi o'tdi. Dastlabki failure va fix dalillari saqlandi.

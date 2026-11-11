@@ -1,4 +1,5 @@
 mod log;
+mod redact;
 mod tree;
 use crate::{Cancellation, Result, RuntimeError, package::VerifiedExecutable, relative_path};
 pub use log::{LogChunk, LogPolicy};
@@ -75,10 +76,14 @@ pub struct Snapshot {
     pub pid: Option<u32>,
     pub restarts: u32,
     pub failure: Option<RuntimeError>,
+    pub exit_code: Option<i32>,
     pub history: VecDeque<Transition>,
 }
 impl Snapshot {
     fn set(&mut self, state: Observed, pid: Option<u32>, failure: Option<RuntimeError>) {
+        if state == Observed::Starting && pid.is_none() {
+            self.exit_code = None;
+        }
         self.observed = state;
         self.pid = pid;
         self.failure = failure;
@@ -135,6 +140,18 @@ impl Supervisor {
         })
     }
     pub fn start(&mut self, spec: ProcessSpec) -> Result<()> {
+        self.start_redacted(spec, Vec::new())
+    }
+    pub fn start_redacted(&mut self, spec: ProcessSpec, secrets: Vec<String>) -> Result<()> {
+        if secrets.len() > 128 || secrets.iter().any(|s| s.is_empty() || s.len() > 16384) {
+            return Err(RuntimeError::InvalidProcess);
+        }
+        let secrets = Arc::new(
+            secrets
+                .into_iter()
+                .map(zeroize::Zeroizing::new)
+                .collect::<Vec<_>>(),
+        );
         let id = relative_path(&spec.id)?;
         if id.components().count() != 1
             || spec.id.len() > 80
@@ -169,6 +186,7 @@ impl Supervisor {
             pid: None,
             restarts: 0,
             failure: None,
+            exit_code: None,
             history: VecDeque::new(),
         };
         snapshot.set(Observed::Starting, None, None);
@@ -180,7 +198,7 @@ impl Supervisor {
         let key = spec.id.clone();
         let worker = thread::Builder::new()
             .name(format!("devforge-{}", spec.id))
-            .spawn(move || run(spec, worker_state, worker_logs, worker_stop))?;
+            .spawn(move || run(spec, worker_state, worker_logs, worker_stop, secrets))?;
         self.processes.insert(
             key,
             Managed {
@@ -220,6 +238,21 @@ impl Supervisor {
             .ok_or(RuntimeError::InvalidProcess)?
             .stop
             .cancel();
+        Ok(())
+    }
+    /// A service-specific adapter will perform its own authenticated/owned stop.
+    /// Mark the following exit expected without prematurely killing the process.
+    pub fn expect_exit(&self, id: &str) -> Result<()> {
+        let mut s = self
+            .processes
+            .get(id)
+            .ok_or(RuntimeError::InvalidProcess)?
+            .state
+            .lock()
+            .unwrap();
+        s.desired_running = false;
+        let pid = s.pid;
+        s.set(Observed::Stopping, pid, None);
         Ok(())
     }
     pub fn stop(&mut self, id: &str) -> Result<Snapshot> {
@@ -264,15 +297,20 @@ fn run(
     state: Arc<Mutex<Snapshot>>,
     logs: Arc<Mutex<log::Logs>>,
     stop: Cancellation,
+    secrets: Arc<Vec<zeroize::Zeroizing<String>>>,
 ) {
     loop {
         if stop.is_cancelled() {
             break;
         }
         set(&state, Observed::Starting, None, None);
-        let failure = attempt(&spec, &state, &logs, &stop);
+        let failure = attempt(&spec, &state, &logs, &stop, &secrets);
         if stop.is_cancelled() {
             break;
+        }
+        if !state.lock().unwrap().desired_running {
+            set(&state, Observed::Stopped, None, None);
+            return;
         }
         match failure {
             Ok(()) => {
@@ -306,19 +344,28 @@ fn reader(
     ready: Arc<AtomicBool>,
     failed: Arc<AtomicBool>,
     readiness: Readiness,
+    secrets: Arc<Vec<zeroize::Zeroizing<String>>>,
 ) -> JoinHandle<()> {
     thread::spawn(move || {
+        let mut redactor = redact::Redactor::new(&secrets);
         let mut bytes = [0; 4096];
         let mut tail = Vec::new();
         loop {
             let n = match pipe.read(&mut bytes) {
-                Ok(0) => break,
+                Ok(0) => {
+                    let tail = redactor.push(&[], true);
+                    if !tail.is_empty() && logs.lock().unwrap().push(stream, &tail).is_err() {
+                        failed.store(true, Ordering::Relaxed);
+                    }
+                    break;
+                }
                 Ok(n) => n,
                 Err(_) => {
                     failed.store(true, Ordering::Relaxed);
                     break;
                 }
             };
+            let safe = redactor.push(&bytes[..n], false);
             if let Readiness::Output {
                 stream: wanted,
                 needle,
@@ -331,7 +378,7 @@ fn reader(
                 if tail.len() > keep {
                     tail.drain(..tail.len() - keep);
                 }
-                if logs.lock().unwrap().push(stream, &bytes[..n]).is_err() {
+                if !safe.is_empty() && logs.lock().unwrap().push(stream, &safe).is_err() {
                     failed.store(true, Ordering::Relaxed);
                 }
                 if matched {
@@ -339,7 +386,7 @@ fn reader(
                 }
                 continue;
             }
-            if logs.lock().unwrap().push(stream, &bytes[..n]).is_err() {
+            if !safe.is_empty() && logs.lock().unwrap().push(stream, &safe).is_err() {
                 failed.store(true, Ordering::Relaxed);
             }
         }
@@ -350,6 +397,7 @@ fn attempt(
     state: &Mutex<Snapshot>,
     logs: &Arc<Mutex<log::Logs>>,
     stop: &Cancellation,
+    secrets: &Arc<Vec<zeroize::Zeroizing<String>>>,
 ) -> Result<()> {
     spec.executable.check()?;
     let mut command = Command::new(spec.executable.path());
@@ -373,6 +421,7 @@ fn attempt(
         ready.clone(),
         failed.clone(),
         spec.readiness.clone(),
+        secrets.clone(),
     );
     let stderr = reader(
         tree.child.stderr.take().unwrap(),
@@ -381,6 +430,7 @@ fn attempt(
         ready.clone(),
         failed.clone(),
         spec.readiness.clone(),
+        secrets.clone(),
     );
     let deadline = Instant::now() + spec.readiness_timeout;
     let mut is_ready = false;
@@ -411,6 +461,7 @@ fn attempt(
     } else {
         spec.stop_grace
     });
+    state.lock().unwrap().exit_code = code.as_ref().ok().copied().flatten();
     drop(tree);
     let _ = stdout.join();
     let _ = stderr.join();

@@ -1,0 +1,23 @@
+[package]
+name = "devforge-projects"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+devforge-core.workspace = true
+devforge-runtime.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+rusqlite = { version = "0.41.1", default-features = false, features = ["bundled"] }
+composer-semver = "0.2.0"
+node-semver = "2.2.0"
+postgres = "0.19.14"
+postgres-protocol = "0.6.12"
+uuid = { version = "1.29.2", features = ["v4"] }
+zeroize = "1.9.0"
+tempfile = "3.27.0"
+dunce = "1.0.5"
+
+[dev-dependencies]
+devforge-platform.workspace = true

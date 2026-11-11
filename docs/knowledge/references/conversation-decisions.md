@@ -175,3 +175,14 @@ M1 push'dagi qayta test qilmaslik ko'rsatmasi o'sha yetkazishga tegishli edi;
 ushbu yangi topshiriq M2 uchun testni aniq so'raydi. GitHub Actions read-only
 tekshiruvida yoqilganligi aniqlandi; M2 push'dan keyingi CI natijasi real dalilga
 qarab yoziladi. Mahalliy Windows VM va GUI tekshiruvi bundan kelib chiqmaydi.
+
+## M3 bosqichiga o'tish
+
+M2 yakunidagi kod, test, OKF va push topshirilganidan keyin foydalanuvchi:
+
+> m3ga o't
+
+Bu mavjud MVP rejasidagi M3 implementation'ini davom ettirish sifatida olindi.
+Loyiha importi, runtime binding, PostgreSQL va scoped CLI doirasida kod/test/OKF
+ishlari bajariladi; oldingi yetkazish oqimi bo'yicha commit/push va native CI
+davom ettiriladi. M4 serving yoki M5 desktop UI hajmiga avtomatik kengaytirilmaydi.

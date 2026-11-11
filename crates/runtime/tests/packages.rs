@@ -263,6 +263,46 @@ fn invalid_catalog_and_unowned_root_are_rejected() {
 }
 
 #[test]
+fn verified_non_native_resources_are_leased_and_old_receipts_still_open() {
+    let f = Fixture::new();
+    let mut p = f.package.clone();
+    std::fs::write(&f.archive, b"verified non-native composer fixture").unwrap();
+    p.sha256 = hash_file(&f.archive).unwrap();
+    p.kind = "composer".into();
+    p.executables.clear();
+    p.resources
+        .insert("composer".into(), "composer.phar".into());
+    p.archive = Archive::File {
+        path: "composer.phar".into(),
+    };
+    f.store
+        .install_cached(&p, &f.archive, &Cancellation::default(), |_| {})
+        .unwrap();
+    let resource = f.store.resource(&p, "composer").unwrap();
+    assert_eq!(f.store.remove(&p).err(), Some(RuntimeError::Busy));
+    assert_eq!(
+        fs::read(resource.path()).unwrap(),
+        b"verified non-native composer fixture"
+    );
+    drop(resource);
+    f.store.remove(&p).unwrap();
+    let f = Fixture::new();
+    let installed = f
+        .store
+        .install_cached(&f.package, &f.archive, &Cancellation::default(), |_| {})
+        .unwrap();
+    let path = installed.directory.join(".devforge-receipt.json");
+    let mut receipt: serde_json::Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+    receipt.as_object_mut().unwrap().remove("resource_hashes");
+    receipt["package"]
+        .as_object_mut()
+        .unwrap()
+        .remove("resources");
+    fs::write(path, serde_json::to_vec(&receipt).unwrap()).unwrap();
+    assert!(f.store.executable(&f.package, "fixture").is_ok());
+}
+
+#[test]
 fn download_rejects_plain_http_and_failure_never_activates() {
     let f = Fixture::new();
     let mut p = f.package.clone();

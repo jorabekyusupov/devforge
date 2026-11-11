@@ -4,7 +4,8 @@ A macOS and Windows desktop foundation for managing local development environmen
 The desktop provides local preferences, diagnostics, native menus/tray, and
 Russian, Uzbek Latin, and English interfaces. M2 adds a Rust runtime package store
 and process supervisor, exposed through the library and CLI. Project management
-and runtime controls in the desktop belong to later phases.
+and database bindings are now available through M3's library/CLI. Their desktop
+controls belong to the later UI phase.
 
 ## Development
 
@@ -42,7 +43,9 @@ artifacts are development builds, not signed/public releases.
 - `crates/platform`: SQLite migrations, OS paths, native credential adapter.
 - `crates/runtime`: pinned packages, safe staged installation, cancellation,
   executable leases, owned process groups/jobs, readiness/restarts, bounded logs.
-- `crates/cli`: `devforge doctor`, sharing the real storage/diagnostics layer.
+- `crates/projects`: Laravel inspection/registry, scoped runtime context, native
+  secret references, owned PostgreSQL clusters/roles and explicit `.env` patches.
+- `crates/cli`: doctor, runtime and project commands using the shared services.
 - `apps/desktop`: React presentation and a narrow Rust/Tauri IPC shell.
 - `shared/locales`: canonical registry and catalogs used by both WebView and native
   menus. Add a locale/catalog and rebuild; no per-language Rust/UI branch is needed.
@@ -64,7 +67,7 @@ when no native connection is present; they do not fake desktop persistence.
 
 ## M2 runtime core
 
-The reviewed development catalog is `runtime/m2-catalog.json`, derived from M0
+The current development catalog is `runtime/catalog.json`, derived from M0
 publisher digests/layouts. These are feasibility candidates; licensing, signing,
 minimum OS and native runtime release gates remain open. The CLI uses exact IDs:
 
@@ -106,6 +109,88 @@ With an empty cache, pass `--download-missing` explicitly to fetch the pinned
 publisher artifacts. The manually dispatched `runtime-candidates.yml` workflow
 runs this native smoke on macOS and Windows; it is separate from routine CI so
 ordinary source pushes do not repeatedly download all third-party candidates.
+
+## M3 project environments
+
+Import checks Laravel's `composer.json`/`public/index.php` and optional
+`package.json` without running scripts, installing dependencies, migrating data or
+editing `.env`. Composer-style PHP constraints and npm-style Node constraints use
+their respective parsers. This is declared version validation, not a full Composer
+dependency/extension solver. Exact package IDs are persisted for each project.
+
+The following commands assume `devforge` is built from `crates/cli` and on PATH:
+
+```sh
+devforge project inspect /path/to/laravel
+devforge project import /path/to/laravel <php-package-id> <node-package-id> "My project"
+devforge project list
+devforge project configure <project-id> <php-package-id> <node-package-id> "My project"
+devforge project doctor <project-id>
+devforge project exec <project-id> php -- -v
+devforge project exec <project-id> composer -- --version
+devforge project exec <project-id> artisan -- --version
+devforge project exec <project-id> npm -- --version
+devforge project exec <project-id> queue -- --once --stop-when-empty
+devforge project terminal <project-id>
+```
+
+Install the selected PHP/Node packages first. Composer uses the pinned resource
+package for this host. On macOS, `php-web` resolves the matching PHP-FPM package;
+on Windows it uses the selected package's PHP-CGI. Both use the same project INI
+and environment. Serving/proxy readiness is M4, not a version probe.
+
+Use a PostgreSQL catalog ID ending in `-server`, which adds verified `pg_ctl`
+without changing earlier M2 package identities or receipts:
+
+```sh
+devforge runtime install <postgres-server-package-id>
+devforge project db-init <postgres-server-package-id>
+devforge project db-serve <instance-id>
+```
+
+`db-serve` is an explicit foreground owner. Keep it running in one console; enter
+`quit` or send Ctrl+C for verified `pg_ctl` fast shutdown. In another console:
+
+```sh
+devforge project db-provision <project-id> <instance-id>
+devforge project db-check <project-id>
+devforge project env-plan <project-id>
+devforge project env-apply <project-id>
+```
+
+Each project receives a distinct database and nonprivileged login role. SCRAM
+passwords live in the OS credential store; SQLite holds references only. Loopback
+HBA and database ACLs reject cross-project connections. Data is stored separately
+from binaries. `forget` unregisters metadata while preserving the folder, bindings,
+credentials and database data. It does not drop a database.
+
+`env-plan` reports keys with hidden values. Only `env-apply` writes selected DB
+keys, keeps a private backup and rejects changed, duplicate or symlink `.env`
+files. Existing DB URLs are explicitly cleared so they cannot override the new
+binding. Other content is preserved. Custom environment values can be piped to
+`project env-set <project-id> <NAME>`; they also use the secret store. Runtime/loader
+variables are reserved. Known secret values are redacted before memory/disk logs,
+including across read boundaries; this is not a sandbox for hostile application
+code or a detector for unknown/encoded secrets printed by a project.
+
+`project shell` launches a clean project shell in the current console;
+`project terminal` opens a new native console that invokes it. PHP/Composer/Artisan
+shims include the selected INI, Node/npm resolve the selected package, and leases
+last until the shell exits. Global PATH and shell profiles are not changed.
+
+M3 checks use temporary projects/data and test-only secret adapters:
+
+```sh
+cargo test -p devforge-projects -p devforge-runtime
+cargo run -p devforge-projects --example project_smoke -- /path/to/m0/artifacts report.json
+```
+
+`--download-missing` explicitly downloads pinned artifacts; `--laravel` additionally
+creates a disposable real Laravel skeleton with Composer scripts/plugins disabled,
+then explicitly runs migrations, an empty queue worker and a PHP version switch.
+The manually dispatched `project-environments.yml` workflow exercises this on
+macOS and Windows. The shell probe checks native command resolution; opening the
+actual Terminal/console window is a separate GUI acceptance check.
 
 ## Evidence and project knowledge
 

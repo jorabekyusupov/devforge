@@ -1,0 +1,13 @@
+{
+  "host": "macOS ARM64",
+  "commands": [
+    "import",
+    "list",
+    "doctor",
+    "forget",
+    "list"
+  ],
+  "passed": true,
+  "project_env_unchanged": true,
+  "scope": "CLI parsing/persistent registry with no installed runtimes; native credential store not accessed"
+}

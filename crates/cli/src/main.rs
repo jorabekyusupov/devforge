@@ -1,8 +1,19 @@
 use devforge_core::SettingsRepository;
 use devforge_platform::{SqliteSettings, app_data_dir, diagnostics};
+mod project;
 mod runtime;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    if std::env::args().nth(1).as_deref() == Some("project") {
+        match project::run() {
+            Ok(0) => return Ok(()),
+            Ok(code) => std::process::exit(code),
+            Err(error) => {
+                eprintln!("{}", serde_json::json!({"error":error}));
+                std::process::exit(1);
+            }
+        }
+    }
     if std::env::args().nth(1).as_deref() == Some("runtime") {
         if let Err(error) = runtime::run() {
             eprintln!("{}", serde_json::json!({"error":error}));

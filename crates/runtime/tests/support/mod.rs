@@ -38,6 +38,7 @@ impl Fixture {
             sha256: hash_file(&archive).unwrap(),
             archive: Archive::TarGz,
             executables: BTreeMap::from([("fixture".into(), "bin/fixture.exe".into())]),
+            resources: BTreeMap::new(),
         };
         Self {
             temp,

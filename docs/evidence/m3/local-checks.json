@@ -1,0 +1,45 @@
+{
+  "date": "2026-11-11",
+  "host": {
+    "os": "macOS",
+    "version": "27.2",
+    "architecture": "arm64"
+  },
+  "checks": [
+    {
+      "command": "scripts/with_rust.sh cargo test --workspace",
+      "passed": 39,
+      "ignored": 1,
+      "exit_code": 0
+    },
+    {
+      "command": "scripts/with_rust.sh cargo clippy --workspace --all-targets -- -D warnings",
+      "exit_code": 0
+    },
+    {
+      "command": "scripts/with_rust.sh cargo fmt --all -- --check",
+      "exit_code": 0
+    },
+    {
+      "command": "npm run check:locales",
+      "exit_code": 0,
+      "catalogs": 3
+    },
+    {
+      "command": "/tmp/devforge-okf-validator-env/bin/python scripts/validate_knowledge.py --strict --json",
+      "documents": 17,
+      "errors": 0,
+      "warnings": 0,
+      "exit_code": 0
+    }
+  ],
+  "native_fixture_report": "macos-project-smoke.json",
+  "native_fixture_scope": "Two generated Laravel-shaped fixtures, actual PHP/Node/Composer/PostgreSQL and PDO. Initial local run did not include --laravel; hosted Laravel results are separate.",
+  "cli_report": "cli-registry-smoke.json",
+  "limitations": [
+    "Native terminal GUI window not exercised",
+    "Windows hosted validation pending",
+    "Interrupted cluster initialization preserved for explicit recovery; no automated destructive reset",
+    "Known-value log redaction, not a hostile-code or encoded-secret sandbox"
+  ]
+}

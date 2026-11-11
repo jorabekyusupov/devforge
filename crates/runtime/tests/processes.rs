@@ -236,6 +236,35 @@ fn uncooperative_process_is_forced_down_after_grace_and_can_restart() {
 fn alive(pid: u32) -> bool {
     unsafe { libc::kill(pid as i32, 0) == 0 }
 }
+
+#[test]
+fn project_secret_output_is_redacted_before_memory_and_disk_and_exit_code_is_retained() {
+    let f = Fixture::new();
+    f.install();
+    let root = f.temp.path().join("logs");
+    let mut s = Supervisor::open(&root).unwrap();
+    let mut spec = f.spec("secret", "secret");
+    let value = "sensitive-cross-chunk-fixture-password";
+    spec.environment
+        .insert("APP_TEST_SECRET".into(), value.into());
+    spec.readiness = Readiness::SuccessfulExit;
+    s.start_redacted(spec, vec![value.into()]).unwrap();
+    let state = s.wait_terminal("secret", Duration::from_secs(5)).unwrap();
+    assert_eq!(state.exit_code, Some(17));
+    let text = s
+        .logs("secret")
+        .unwrap()
+        .0
+        .into_iter()
+        .map(|l| l.text)
+        .collect::<String>();
+    assert!(!text.contains(value));
+    assert!(text.contains("[REDACTED]"));
+    s.stop("secret").unwrap();
+    let disk = fs::read_to_string(root.join("secret.log")).unwrap();
+    assert!(!disk.contains(value));
+    assert!(disk.contains("[REDACTED]"));
+}
 #[cfg(windows)]
 fn alive(pid: u32) -> bool {
     use windows_sys::Win32::{Foundation::*, System::Threading::*};

@@ -100,5 +100,29 @@
       "invalid_process": "The process configuration is invalid.",
       "log_failed": "Process logs could not be saved."
     }
+  },
+  "project": {
+    "errors": {
+      "invalid_project": "This folder is not a supported Laravel project.",
+      "invalid_manifest": "A project manifest is missing or invalid.",
+      "unsupported_constraint": "A declared version constraint is unsupported.",
+      "incompatible_php": "The selected PHP version does not match this project.",
+      "incompatible_node": "The selected Node version does not match this project.",
+      "duplicate_project": "This project is already registered.",
+      "not_found": "The requested project or instance was not found.",
+      "stale_revision": "The configuration changed. Reload it and try again.",
+      "storage_unavailable": "Project metadata could not be saved or read.",
+      "secret_unavailable": "The native credential store is unavailable or a required secret is missing.",
+      "invalid_environment": "This environment variable cannot be configured here.",
+      "runtime_unavailable": "A required runtime is missing or does not match this computer.",
+      "execution_failed": "The project command failed.",
+      "database_unavailable": "The owned database is unavailable.",
+      "database_conflict": "Database ownership does not match this project.",
+      "instance_busy": "The database instance or project operation is already in use.",
+      "recovery_required": "The interrupted instance needs explicit recovery.",
+      "invalid_env_file": "The environment file is invalid, ambiguous or a symbolic link.",
+      "env_file_changed": "The environment file changed after the patch was prepared.",
+      "terminal_unavailable": "The project terminal could not be opened."
+    }
   }
 }

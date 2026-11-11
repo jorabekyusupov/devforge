@@ -7,7 +7,7 @@ use std::{collections::BTreeMap, path::PathBuf, time::Duration};
 pub fn run() -> Result<()> {
     let args: Vec<_> = std::env::args().skip(2).collect();
     let catalog: serde_json::Value =
-        serde_json::from_str(include_str!("../../../runtime/m2-catalog.json"))
+        serde_json::from_str(include_str!("../../../runtime/catalog.json"))
             .map_err(|_| RuntimeError::InvalidPackage)?;
     if args.first().map(String::as_str) == Some("catalog") {
         println!("{}", serde_json::to_string_pretty(&catalog).unwrap());

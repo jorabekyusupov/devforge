@@ -211,6 +211,11 @@ pub(crate) fn extract(
         links: Vec::new(),
     };
     match format {
+        Archive::File { path } => {
+            let relative = extractor.name(path)?;
+            let mut file = File::open(source)?;
+            extractor.file(&relative, file.metadata()?.len(), &mut file, 0o644)?;
+        }
         Archive::TarGz => extractor.tar(flate2::read::GzDecoder::new(File::open(source)?))?,
         Archive::TarXz => extractor.tar(lzma_rust2::XzReader::new_mem_limit(
             File::open(source)?,
