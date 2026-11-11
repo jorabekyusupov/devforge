@@ -438,6 +438,14 @@ fn run(s: &Session, args: &[String]) -> Result<()> {
         json!({"executed":false})
     };
     serving.stop()?;
+    assert!(
+        !serving.status().running
+            && serving
+                .status()
+                .sites
+                .iter()
+                .all(|s| !s.certificate_active && !s.php_ready && !s.vite_ready)
+    );
     assert!(!ap.join("public/hot").exists());
     // Foreign listeners remain open throughout a full restart with explicit alternate ports.
     let foreign_http = TcpListener::bind(("127.0.0.1", 0))?;

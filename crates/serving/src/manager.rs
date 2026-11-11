@@ -421,6 +421,7 @@ impl Serving {
                 .snapshot("caddy")
                 .is_ok_and(|s| s.observed == Observed::Ready);
         for site in &mut status.sites {
+            site.certificate_active &= status.running;
             site.php_ready = self
                 .supervisor
                 .snapshot(&format!("exec-{}-php-web", site.project_id))
@@ -455,7 +456,7 @@ impl Serving {
         self.status.running = false;
         crate::atomic(
             &self.status_file,
-            &serde_json::to_vec_pretty(&self.status).unwrap(),
+            &serde_json::to_vec_pretty(&self.status()).unwrap(),
         )?;
         Ok(())
     }
