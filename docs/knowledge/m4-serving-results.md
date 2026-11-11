@@ -80,7 +80,10 @@ Windows'da hosts/CA install va exact cleanup o'tdi, ammo fixture elevated
 process'da tayyorlangani uchun unprivileged child uning metadata'sini yoza olmadi.
 Prepare ham run kabi test-only restricted token'da bajarishga o'tkazildi;
 Composer'ga yuboriladigan Windows canonical verbatim path normal formaga keltirildi;
-OS hisob/ACL/security siyosati o'zgartirilmaydi. Browser acceptance hali davom etmoqda.[^laravel-local][^browser-driver]
+OS hisob/ACL/security siyosati o'zgartirilmaydi. Edge channel lookup restricted project environment'da PROGRAMFILES yo'qligi
+sabab installed browser'ni topmagan. Standard OS ProgramFiles path'lari minimal
+base env allowlist'iga qo'shildi; global PATH o'zgartirilmadi. Upload fixture
+file-input/submit accessible nomlari ajratildi. Browser acceptance hali davom etmoqda.[^laravel-local][^browser-driver]
 
 Dastlabki native CI Windows mandatory file-lock semantics va Windows-only lint
 regressiyasini topdi. Hosts read/recheck endi locked handle orqali bajariladi,
@@ -104,7 +107,9 @@ certificate'ini hash orqali o'chiradi va untrusted/absent holatini tekshiradi.
 OS authorization siyosati o'zgartirilmaydi. Nontrusting admin metadata qolishi
 mumkinligi helper effect'ida `may_retain_nontrusting_record` bilan ochiq beriladi;
 metadata'ni jismonan tozalash GUI/uninstall gate'ida qoladi. Yangi usulning
-native natijasi hali pending. Bu ilk run'lar acceptance pass emas. Hosted macOS Chrome va Windows Edge .test/OS trust/
+Mac'da yangi removal hosts restore, certificate absence va untrusted holati bilan
+o'tdi. TLS, secure cookie va WSS HMR ham upload bosqichigacha o'tdi; to'liq
+suite yakuni hali pending. Bu ilk run'lar to'liq acceptance pass emas. Hosted macOS Chrome va Windows Edge .test/OS trust/
 secure cookie/upload/Vite HMR natijalari faqat actual CI tugagach shu hujjatga
 kiritiladi. Workflow mavjudligi uning muvaffaqiyatli o'tganiga dalil emas.[^native]
 

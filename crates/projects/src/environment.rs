@@ -72,6 +72,9 @@ fn validate(name: &str, value: &str) -> Result<()> {
         "USERPROFILE",
         "APPDATA",
         "LOCALAPPDATA",
+        "ProgramFiles",
+        "ProgramFiles(x86)",
+        "ProgramW6432",
         "SYSTEMROOT",
         "WINDIR",
         "TEMP",
@@ -120,6 +123,9 @@ pub(crate) fn base() -> BTreeMap<OsString, OsString> {
         "USERPROFILE",
         "APPDATA",
         "LOCALAPPDATA",
+        "ProgramFiles",
+        "ProgramFiles(x86)",
+        "ProgramW6432",
     ] {
         if let Some(value) = std::env::var_os(key) {
             env.insert(key.into(), value);
