@@ -82,7 +82,10 @@ impl Context {
     pub fn frontend(mut self) -> Self {
         self.environment.retain(|name, _| {
             let key = name.to_string_lossy();
-            !key.starts_with("DB_") && key != "DATABASE_URL" && key != "APP_KEY"
+            !key.starts_with("DB_")
+                && !key.starts_with("DEVFORGE_INSPECTOR_")
+                && key != "DATABASE_URL"
+                && key != "APP_KEY"
         });
         self
     }
@@ -213,6 +216,17 @@ impl Context {
             std::env::join_paths(paths.iter().map(|path| dunce::simplified(path)))
                 .map_err(|_| E::InvalidEnvironment)?,
         );
+        if let Some(session) =
+            devforge_inspector::read_session(&store.root, id).map_err(|_| E::StorageUnavailable)?
+        {
+            sensitive.push(session.token.clone());
+            environment.insert(
+                "DEVFORGE_INSPECTOR_ENDPOINT".into(),
+                session.endpoint.into(),
+            );
+            environment.insert("DEVFORGE_INSPECTOR_TOKEN".into(), session.token.into());
+            environment.insert("DEVFORGE_INSPECTOR_PROJECT".into(), id.into());
+        }
         Ok(Self {
             project,
             php,
@@ -236,7 +250,7 @@ impl Context {
         &self.ini
     }
     pub fn invocation(
-        self,
+        mut self,
         tool: Tool,
         args: Vec<OsString>,
         catalog: &Catalog,
@@ -246,6 +260,8 @@ impl Context {
         let mut resources = Vec::new();
         let executable = match tool {
             Tool::Node | Tool::Npm => {
+                self.environment
+                    .retain(|key, _| !key.to_string_lossy().starts_with("DEVFORGE_INSPECTOR_"));
                 if tool == Tool::Npm {
                     let npm = if cfg!(windows) {
                         self.node

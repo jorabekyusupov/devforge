@@ -7,7 +7,8 @@
     "diagnostics": "Diagnostics",
     "main": "Main navigation",
     "runtimes": "Runtimes",
-    "services": "Services & logs"
+    "services": "Services & logs",
+    "inspector": "Inspector"
   },
   "common": {
     "saved": "Saved automatically",
@@ -273,7 +274,13 @@
       "database_in_use": "Running projects still use this service. Stop them first.",
       "not_running": "Start the project before opening its URL.",
       "open_failed": "The target could not be opened. For editor actions, install VS Code and its URL handler.",
-      "shutdown_failed": "Some owned services could not stop. Check logs and retry Quit."
+      "shutdown_failed": "Some owned services could not stop. Check logs and retry Quit.",
+      "inspection_unavailable": "Inspection storage/listener is unavailable. Retry.",
+      "inspection_stop_first": "Stop this project before installing the companion.",
+      "inspection_package_conflict": "The integration folder contains conflicting files. Inspect it before retrying.",
+      "inspection_install_failed": "Companion installation failed. Check project dependencies and retry.",
+      "inspection_package_missing": "Install the Laravel companion first.",
+      "inspection_probe_failed": "Could not inspect the selected PHP. Check its runtime."
     }
   },
   "runtimes": {
@@ -283,5 +290,63 @@
   "services": {
     "title": "Services & logs",
     "description": "Shared database services and process output."
+  },
+  "inspector": {
+    "title": "Inspector",
+    "description": "Requests, queries, jobs and dumps from your local projects.",
+    "project": "Project",
+    "install": "Install companion",
+    "enable": "Enable capture",
+    "pause": "Pause capture",
+    "clear": "Clear events",
+    "kind": "Event",
+    "all": "All events",
+    "search": "Search events…",
+    "name": "Name",
+    "duration": "Duration",
+    "events": "Captured events",
+    "details": "Event details",
+    "empty": "No matching events",
+    "setupHint": "Install the local Laravel companion, then enable capture.",
+    "waitHint": "Open a page or dispatch a job in this project to capture events.",
+    "enableHint": "Enable capture to inspect this project.",
+    "noProjects": "Add a Laravel project first",
+    "localHint": "Opt-in for local/testing projects. No request bodies, headers or SQL bindings. Capture ends when DevForge quits; re-enable it after reopening.",
+    "recording": "Capture enabled",
+    "paused": "Capture paused",
+    "retention": "Latest 200 events within 24 hours · payload budget 16 MiB",
+    "contextTime": "Context time",
+    "queries": "Captured queries / SQL time",
+    "memory": "Peak PHP memory",
+    "patterns": "Query fingerprints in this context",
+    "calls": "Calls",
+    "repeated": "Repeated query · potential N+1",
+    "slow": "Slow query ≥100 ms",
+    "payload": "Captured data",
+    "selectEvent": "Select an event to view its context.",
+    "heuristic": "Repeated queries are a diagnostic hint, not proof of N+1. Values are redacted best-effort; use local test data.",
+    "truncated": "This context reached its capture limit; details may be incomplete.",
+    "phpCapability": "PHP / Xdebug capability",
+    "probe": "Check selected PHP",
+    "probeHint": "Check whether the selected PHP includes Xdebug.",
+    "xdebugPresent": "Xdebug is loaded. Its current version/mode is shown; native debugger configuration is separate.",
+    "xdebugMissing": "Xdebug is not loaded in this runtime. Request/SQL profiling works; function-level Xdebug control requires a compatible extension.",
+    "loadFailed": "Could not load inspection data. Retry.",
+    "operationFailed": "Inspector operation failed. Check runtime and project state.",
+    "installTitle": "Install Laravel companion?",
+    "installHint": "Stop this project first. This adds .devforge/laravel-inspector, changes composer.json/composer.lock and vendor, and runs package:discover. Composer scripts/plugins are disabled during require. Only install into a trusted local project. No .env changes.",
+    "clearTitle": "Clear this project’s captured events?",
+    "clearHint": "Only Inspector history for this project is removed. Project files and databases remain unchanged.",
+    "kinds": {
+      "request": "Request",
+      "query": "Query",
+      "job": "Job",
+      "log": "Log",
+      "dump": "Dump",
+      "exception": "Exception"
+    },
+    "pages": "Event pages",
+    "previous": "Previous",
+    "next": "Next"
   }
 }

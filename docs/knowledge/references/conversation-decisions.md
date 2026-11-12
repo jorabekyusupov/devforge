@@ -232,3 +232,11 @@ birinchiga qoy». Avvalgi M12 debugging/profiling birinchi, avvalgi M7 barqaror 
 oxirgi qilindi. Bajarish tartibi uchun yangi M7-M15 raqamlari va eski-yangi moslik
 [roadmap'da](../post-mvp-roadmap.md) saqlandi. Tartib user ko'rsatmasiga asoslangan;
 feature tafsilotlari taklif, implementatsiya boshlangani yoki public publish ruxsati emas.
+
+## Yangi M7 implementatsiyasi
+
+Foydalanuvchi «m7dan boshla» deb qayta tartiblangan debugging/profiling bosqichini
+boshlashni topshirdi. Collector/companion va request/query profiling birinchi
+ishlaydigan qatlam; native Xdebug availability va function-profiler support
+haqiqiy runtime dalilisiz bajarilgan deb belgilanmaydi. Oldingi native tests,
+OKF reconciliation va yakuniy push ketma-ketligi saqlanadi.

@@ -98,6 +98,16 @@ pub async fn workspace_snapshot(state: tauri::State<'_, State>) -> Result<View, 
         .map_err(|_| State::failure("storage_unavailable"))?
 }
 #[tauri::command]
+pub async fn inspector_snapshot(
+    state: tauri::State<'_, State>,
+    id: String,
+) -> Result<serde_json::Value, Error> {
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || state.with(|w| w.inspector_view(&id)))
+        .await
+        .map_err(|_| State::failure("inspection_unavailable"))?
+}
+#[tauri::command]
 pub async fn workspace_command(
     state: tauri::State<'_, State>,
     command: Command,

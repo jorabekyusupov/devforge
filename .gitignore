@@ -22,3 +22,5 @@ apps/desktop/src-tauri/tauri.internal.generated.json
 /m4-private-fixture/
 /m4-session.json
 /m4-result.json
+
+/m7-fixture/

@@ -8,9 +8,10 @@ guidance was verified separately; ui-taste's operate/craft guidance owns the lay
 - Target: [generated Settings reference](reference/settings-target.png), 1536×1024.
   The target includes illustrative native titlebar chrome; actual OS chrome is used
   in the app, never painted a second time into the WebView.
-- Shell: restrained sidebar, contextual heading, useful working area. Settings is
-  the first working surface. Projects explicitly communicates its current limit;
-  no invented running services, project data, or decorative dashboards.
+- Shell: restrained sidebar, contextual heading, useful working area. Settings established
+  the identity; M5 Projects/Runtimes/Services and M7 Inspector use real backend data.
+  Operational pages use the current responsive205-250px sidebar; no invented
+  running services, project data, or decorative dashboards.
 - Typography: system UI sans (SF/Segoe UI); monospace only for paths and machine
   identifiers. Fonts work offline and support Cyrillic/Uzbek Latin.
 - Light palette: warm-white canvas, soft-grey sidebar, slate text, teal #0F766E.

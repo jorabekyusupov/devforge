@@ -102,7 +102,7 @@ fn validate(name: &str, value: &str) -> Result<()> {
             .all(|b| b.is_ascii_uppercase() || b.is_ascii_digit() || b == b'_')
         || name.as_bytes()[0].is_ascii_digit()
         || reserved.contains(&name)
-        || ["DB_", "PG", "LD_", "DYLD_"]
+        || ["DB_", "PG", "LD_", "DYLD_", "DEVFORGE_"]
             .iter()
             .any(|p| name.starts_with(p))
         || value.len() > 4096

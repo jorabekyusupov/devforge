@@ -71,7 +71,44 @@ export interface Failure {
   scope: string;
   code: string;
 }
+export type InspectionKind =
+  "request" | "query" | "job" | "log" | "dump" | "exception";
+export interface InspectionEvent {
+  sequence: number;
+  received_ms: number;
+  kind: InspectionKind;
+  context: string;
+  name: string;
+  duration_ms: number;
+  data: unknown;
+}
+export interface InspectionProfile {
+  captured_queries: number;
+  sql_ms: number;
+  duration_ms: number | null;
+  peak_memory_bytes: number | null;
+  truncated: boolean;
+  patterns: {
+    sql: string;
+    count: number;
+    total_ms: number;
+    slow: boolean;
+    repeated: boolean;
+  }[];
+}
+export interface InspectionView {
+  capture: { enabled: boolean; events: InspectionEvent[] };
+  companion_installed: boolean;
+  php_capability?: {
+    loaded: boolean;
+    version: string | null;
+    mode: string | null;
+    php: string;
+  } | null;
+  profiles: Record<string, InspectionProfile>;
+}
 export interface WorkspaceBackend {
+  inspector?(id: string): Promise<InspectionView>;
   snapshot(): Promise<{ snapshot: Snapshot; busy: boolean }>;
   execute(command: Command): Promise<Record<string, unknown>>;
   cancel(): Promise<void>;
@@ -91,6 +128,11 @@ export type ProjectInput = {
   queue: boolean;
 };
 export type Command =
+  | {
+      action: "inspector_install" | "inspector_clear" | "inspector_probe";
+      id: string;
+    }
+  | { action: "inspector_capture"; id: string; enabled: boolean }
   | { action: "refresh_runtimes" }
   | ({ action: "import"; path: string } & ProjectInput)
   | ({ action: "configure"; id: string; revision: number } & ProjectInput)

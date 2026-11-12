@@ -9,6 +9,7 @@ import {
   Server,
   Settings2,
   Power,
+  ScanSearch,
 } from "lucide-react";
 import {
   desktopBackend,
@@ -20,9 +21,16 @@ import {
 } from "./bridge";
 import { SettingsPage } from "./pages/SettingsPage";
 import { WorkspacePage } from "./pages/WorkspacePage";
+import { InspectorPage } from "./pages/InspectorPage";
 import { DiagnosticsPage } from "./pages/DiagnosticsPage";
 
-type Page = "projects" | "runtimes" | "services" | "settings" | "diagnostics";
+type Page =
+  | "inspector"
+  | "projects"
+  | "runtimes"
+  | "services"
+  | "settings"
+  | "diagnostics";
 const validPage = (value: string): Page => {
   const route = value.split("?")[0];
   return [
@@ -31,6 +39,7 @@ const validPage = (value: string): Page => {
     "services",
     "settings",
     "diagnostics",
+    "inspector",
   ].includes(route)
     ? (route as Page)
     : "projects";
@@ -135,9 +144,14 @@ export function App({ backend = desktopBackend }: { backend?: Backend }) {
     if (loading || !snapshot || backend !== desktopBackend) return;
     let second = 0;
     const first = requestAnimationFrame(() => {
-      second = requestAnimationFrame(() => { void reportStartupReady(); });
+      second = requestAnimationFrame(() => {
+        void reportStartupReady();
+      });
     });
-    return () => { cancelAnimationFrame(first); cancelAnimationFrame(second); };
+    return () => {
+      cancelAnimationFrame(first);
+      cancelAnimationFrame(second);
+    };
   }, [loading, snapshot, backend]);
 
   if (loading)
@@ -151,6 +165,7 @@ export function App({ backend = desktopBackend }: { backend?: Backend }) {
     { id: "projects", icon: Folder, group: "workspace" },
     { id: "runtimes", icon: Layers, group: "workspace" },
     { id: "services", icon: Server, group: "workspace" },
+    { id: "inspector", icon: ScanSearch, group: "workspace" },
     { id: "settings", icon: Settings2, group: "application" },
     { id: "diagnostics", icon: Activity, group: "application" },
   ] as const;
@@ -212,7 +227,7 @@ export function App({ backend = desktopBackend }: { backend?: Backend }) {
           <p className="breadcrumb">
             <span>
               {t(
-                ["projects", "runtimes", "services"].includes(page)
+                ["projects", "runtimes", "services", "inspector"].includes(page)
                   ? "nav.workspace"
                   : "nav.application",
               )}
@@ -276,6 +291,8 @@ export function App({ backend = desktopBackend }: { backend?: Backend }) {
             mode={page as "projects" | "runtimes" | "services"}
           />
         )}
+
+        {page === "inspector" && <InspectorPage backend={backend.workspace} />}
 
         {page === "diagnostics" && (
           <DiagnosticsPage snapshot={snapshot} busy={busy} onRefresh={load} />

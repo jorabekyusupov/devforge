@@ -311,6 +311,7 @@ pub fn run() {
             startup_ready,
             save_settings,
             workspace::workspace_snapshot,
+            workspace::inspector_snapshot,
             workspace::workspace_command,
             workspace::workspace_cancel,
             workspace::open_project,

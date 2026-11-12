@@ -2,6 +2,8 @@
 
 ## 2026-11-12
 
+- **M7 boshlandi:** [Inspector](m7-inspector-results.md), authenticated local collector, bounded event store, Laravel companion va opt-in desktop controls yozildi. Actual local HTTP/SQL/dump/dd/job/exception/isolation o'tdi. Native GUI/final CI va Xdebug provider coverage ochiq.
+
 - **Keyingi roadmap qayta tartiblandi:** [M7-M15](post-mvp-roadmap.md) yangi raqamlashda debugging/profiling bilan boshlanadi (oldingi M12), yakuniy beta/tarqatish bilan tugaydi (oldingi M7). M0-M6 tarixi saqlandi; doimiy test va data preservation har bosqichda qoladi. Bu reja yangilanishi, kod implementatsiyasi emas.
 
 - **MVP rejasidagi M6 holati yangilandi:** eskirgan «M6 hali bajarilmagan» qaydi actual M6 hisobotiga moslandi. Ichki paketlar/native acceptance va Windows tester handoff bajarilgani qayd etildi; signed public release hamda ochiq platforma/licensing tekshiruvlari alohida saqlandi. Product testlari takrorlanmadi.

@@ -1,6 +1,7 @@
 use devforge_core::SettingsRepository;
 use devforge_platform::{SqliteSettings, app_data_dir, diagnostics};
 mod distribution;
+mod inspector;
 mod project;
 mod runtime;
 mod site;
@@ -14,6 +15,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
     let _operation = devforge_platform::distribution::OperationLease::acquire(&app_data_dir()?)?;
+    if std::env::args().nth(1).as_deref() == Some("inspect") {
+        return inspector::run();
+    }
     if std::env::args().nth(1).as_deref() == Some("site") {
         if let Err(error) = site::run() {
             eprintln!("{}", serde_json::json!({"error":error}));
@@ -40,7 +44,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     if std::env::args().nth(1).as_deref() != Some("doctor") {
         eprintln!(
-            "Usage: devforge doctor | site list|configure|remove|authority|system-plan|serve | runtime catalog|install|probe|remove <id> [archive|executable]"
+            "Usage: devforge doctor | inspect <project-id> | site list|configure|remove|authority|system-plan|serve | runtime catalog|install|probe|remove <id> [archive|executable]"
         );
         std::process::exit(2);
     }

@@ -7,7 +7,8 @@
     "diagnostics": "Diagnostika",
     "main": "Asosiy navigatsiya",
     "runtimes": "Runtime’lar",
-    "services": "Xizmatlar va loglar"
+    "services": "Xizmatlar va loglar",
+    "inspector": "Inspektor"
   },
   "common": {
     "saved": "Avtomatik saqlandi",
@@ -273,7 +274,13 @@
       "database_in_use": "Xizmatni loyihalar ishlatyapti. Avval ularni to‘xtating.",
       "not_running": "Manzilni ochishdan oldin loyihani ishga tushiring.",
       "open_failed": "Ochib bo‘lmadi. Muharrir uchun VS Code va uning URL handler’ini o‘rnating.",
-      "shutdown_failed": "Ayrim xizmatlar to‘xtamadi. Loglarni tekshirib, Chiqish amalini takrorlang."
+      "shutdown_failed": "Ayrim xizmatlar to‘xtamadi. Loglarni tekshirib, Chiqish amalini takrorlang.",
+      "inspection_unavailable": "Inspektor storage/listener’i mavjud emas. Qayta urining.",
+      "inspection_stop_first": "Paketni o‘rnatishdan oldin loyihani to‘xtating.",
+      "inspection_package_conflict": "Integratsiya katalogida mos kelmaydigan fayllar bor. Avval uni tekshiring.",
+      "inspection_install_failed": "Paket o‘rnatilmadi. Loyiha bog‘liqliklarini tekshirib, qayta urining.",
+      "inspection_package_missing": "Avval Laravel paketini o‘rnating.",
+      "inspection_probe_failed": "Tanlangan PHP’ni tekshirib bo‘lmadi. Runtime’ni tekshiring."
     }
   },
   "runtimes": {
@@ -283,5 +290,63 @@
   "services": {
     "title": "Xizmatlar va loglar",
     "description": "Umumiy baza xizmatlari va jarayon loglari."
+  },
+  "inspector": {
+    "title": "Inspektor",
+    "description": "Lokal loyihalarning request, SQL, job va dump hodisalari.",
+    "project": "Loyiha",
+    "install": "Laravel paketini o‘rnatish",
+    "enable": "Yig‘ishni yoqish",
+    "pause": "Yig‘ishni to‘xtatish",
+    "clear": "Hodisalarni tozalash",
+    "kind": "Hodisa",
+    "all": "Barcha hodisalar",
+    "search": "Hodisalarni qidirish…",
+    "name": "Nomi",
+    "duration": "Vaqt",
+    "events": "Yig‘ilgan hodisalar",
+    "details": "Hodisa tafsilotlari",
+    "empty": "Mos hodisa yo‘q",
+    "setupHint": "Lokal Laravel paketini o‘rnating, keyin yig‘ishni yoqing.",
+    "waitHint": "Hodisalarni ko‘rish uchun loyihada sahifa oching yoki job yuboring.",
+    "enableHint": "Loyihani tekshirish uchun yig‘ishni yoqing.",
+    "noProjects": "Avval Laravel loyihasini qo‘shing",
+    "localHint": "Faqat local/testing uchun ixtiyoriy yig‘ish. Request body/header va SQL bindings yuborilmaydi. DevForge’dan chiqishda sessiya tugaydi; qayta ochganda yana yoqing.",
+    "recording": "Yig‘ish yoqilgan",
+    "paused": "Yig‘ish to‘xtatilgan",
+    "retention": "24 soat ichidagi oxirgi 200 hodisa · ma’lumot limiti 16 MiB",
+    "contextTime": "Kontekst vaqti",
+    "queries": "Yig‘ilgan SQL / vaqti",
+    "memory": "PHP eng yuqori xotirasi",
+    "patterns": "Shu kontekstdagi SQL shablonlari",
+    "calls": "Chaqiruvlar",
+    "repeated": "Takroriy SQL · ehtimoliy N+1",
+    "slow": "Sekin SQL ≥100 ms",
+    "payload": "Yig‘ilgan ma’lumot",
+    "selectEvent": "Kontekstini ko‘rish uchun hodisani tanlang.",
+    "heuristic": "Takroriy SQL — N+1 uchun taxminiy belgi. Qiymatlar imkon qadar yashiriladi; lokal sinov ma’lumotidan foydalaning.",
+    "truncated": "Kontekst hodisalari limitga yetdi; tafsilotlar to‘liq bo‘lmasligi mumkin.",
+    "phpCapability": "PHP / Xdebug imkoniyati",
+    "probe": "Tanlangan PHP’ni tekshirish",
+    "probeHint": "Tanlangan PHP’da Xdebug borligini tekshiring.",
+    "xdebugPresent": "Xdebug yuklangan. Versiya va rejimi ko‘rsatilgan; debugger sozlamasi alohida boshqariladi.",
+    "xdebugMissing": "Bu runtime’da Xdebug yuklanmagan. Request/SQL profiling ishlaydi; Xdebug boshqaruvi uchun mos extension kerak.",
+    "loadFailed": "Inspektor ma’lumotini yuklab bo‘lmadi. Qayta urining.",
+    "operationFailed": "Inspektor amali bajarilmadi. Runtime va loyiha holatini tekshiring.",
+    "installTitle": "Laravel paketi o‘rnatilsinmi?",
+    "installHint": "Avval loyihani to‘xtating. .devforge/laravel-inspector qo‘shiladi, composer.json/composer.lock va vendor o‘zgaradi, package:discover bajariladi. Require vaqtida scripts/plugins o‘chirilgan. Ishonchli lokal loyihada bajaring. .env o‘zgarmaydi.",
+    "clearTitle": "Shu loyiha hodisalari tozalansinmi?",
+    "clearHint": "Faqat Inspektor tarixi olib tashlanadi. Loyiha fayllari va bazalar saqlanadi.",
+    "kinds": {
+      "request": "Request",
+      "query": "SQL",
+      "job": "Job",
+      "log": "Log",
+      "dump": "Dump",
+      "exception": "Xatolik"
+    },
+    "pages": "Hodisa sahifalari",
+    "previous": "Oldingi",
+    "next": "Keyingi"
   }
 }

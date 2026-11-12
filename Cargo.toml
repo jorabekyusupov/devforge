@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/core", "crates/platform", "crates/runtime", "crates/projects", "crates/serving", "crates/workspace", "crates/cli", "apps/desktop/src-tauri"]
+members = ["crates/inspector", "crates/core", "crates/platform", "crates/runtime", "crates/projects", "crates/serving", "crates/workspace", "crates/cli", "apps/desktop/src-tauri"]
 resolver = "2"
 
 [workspace.package]
@@ -10,6 +10,7 @@ rust-version = "1.99"
 [workspace.dependencies]
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+devforge-inspector = { path = "crates/inspector" }
 devforge-core = { path = "crates/core" }
 devforge-platform = { path = "crates/platform" }
 devforge-runtime = { path = "crates/runtime" }

@@ -25,6 +25,8 @@ mavzuni tanlang, so'ng faqat tegishli hujjatlar va ularning manbalarini o'qing.
 
 ## Manba va yuritish
 
+- [M7 Inspector](m7-inspector-results.md) - Laravel companion, opt-in event capture, request/query profiling va verification holati.
+
 - [M6 distributiv va qabul](m6-distribution-results.md) - ichki paketlash, data preservation, Windows tester HTML qo'llanmasi va ochiq release gate holati.
 - [M5 kundalik boshqaruv](m5-daily-workspace-results.md) - real desktop controls, project lifecycle va macOS/Windows native GUI dalillari.
 - [M4 domen va serving](m4-serving-results.md) - domain/HTTPS/hosts helper, Caddy/PHP/Vite orchestration va macOS Chrome/Windows Edge native dalillari.

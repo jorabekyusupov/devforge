@@ -23,7 +23,9 @@ Foydalanuvchi avval taklif qilingan M12 debugging/profiling bosqichini birinchi,
 M7 barqaror beta bosqichini oxirgi o'ringa ko'chirishni topshirdi.[^request]
 Ushbu tartib ko'rsatmasi tasdiqlangan; quyidagi funksional tafsilotlar hali reja
 va implementatsiya dalili emas. Hujjatning `decision_status: proposed` qiymati shu
-feature tafsilotlariga tegishli. Bu topshiriq dastur kodini yozishni boshlamaydi.
+feature tafsilotlariga tegishli. Qayta tartiblash topshirig'i kodni boshlamagan;
+keyingi «m7dan boshla» ko'rsatmasi M7 implementatsiyasini vakolatladi. Joriy
+holat [M7 natijalarida](m7-inspector-results.md); M8-M15 tafsilotlari taklif bo'lib qoladi.
 
 M0-M6 tarixiy raqamlari saqlanadi. Keyingi ishlar bajarish ketma-ketligi bo'yicha
 qayta raqamlandi: oldingi M12 endi M7, oldingi M7 endi M15. Eski raqamlar faqat

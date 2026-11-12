@@ -12,6 +12,8 @@ use std::{
     path::{Path, PathBuf},
     sync::Arc,
 };
+#[path = "support/inspector.rs"]
+mod inspector;
 #[cfg(windows)]
 #[path = "../../projects/examples/support/windows_unprivileged.rs"]
 mod windows_unprivileged;
@@ -22,6 +24,37 @@ fn main() -> Result<()> {
         std::process::exit(code);
     }
     let args: Vec<_> = std::env::args().skip(1).collect();
+    if args.first().map(String::as_str) == Some("inspect-ui-prepare") {
+        let data = PathBuf::from(args.get(1).ok_or("fixture required")?).join("data");
+        let secrets = Arc::new(devforge_workspace::testing::FixtureSecrets::open(
+            data.join("e2e-secrets.json"),
+        ));
+        let w = Workspace::open(&data, secrets.clone())?;
+        let b = w
+            .projects
+            .list()?
+            .into_iter()
+            .find(|p| p.name == "Studio")
+            .ok_or("Studio missing")?;
+        exec(
+            &w,
+            secrets.as_ref(),
+            &b.id,
+            Tool::Composer,
+            vec![
+                "remove".into(),
+                "--dev".into(),
+                "devforge/laravel-inspector".into(),
+                "--no-scripts".into(),
+                "--no-plugins".into(),
+                "--no-interaction".into(),
+            ],
+        )?;
+        return Ok(());
+    }
+    if args.first().map(String::as_str) == Some("inspect-native") {
+        return inspector::run(Path::new(args.get(1).ok_or("fixture required")?));
+    }
     if args.first().map(String::as_str) == Some("run") {
         // Test-only ordinary-user launcher for the packaged installer harness.
         let status = std::process::Command::new(args.get(1).ok_or("program required")?)

@@ -43,6 +43,10 @@ export const desktopBackend: Backend = {
     return listen<string>("workspace-exit-error", (e) => callback(e.payload));
   },
   workspace: {
+    async inspector(id) {
+      ensureDesktop();
+      return invoke("inspector_snapshot", { id });
+    },
     async snapshot() {
       ensureDesktop();
       return invoke("workspace_snapshot");
@@ -80,5 +84,5 @@ export const desktopBackend: Backend = {
   },
 };
 
-/** Opt-in local startup report; production has no diagnostic HTTP endpoint. */
+/** Opt-in local startup report; production has no browser-automation HTTP endpoint. */
 export const reportStartupReady = () => invoke("startup_ready").catch(() => {});

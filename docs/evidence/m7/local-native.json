@@ -1,0 +1,21 @@
+{
+  "dd_preserves_exit_and_records_dump": true,
+  "enable_B_preserves_A_pids": true,
+  "history_persists_capture_off_after_reopen": true,
+  "host": {
+    "arch": "aarch64",
+    "os": "macos"
+  },
+  "normalized_sql_slow_and_repeated_hints": true,
+  "passed": true,
+  "pause_stops_capture": true,
+  "php_capability": {
+    "loaded": false,
+    "mode": null,
+    "php": "8.5.12",
+    "version": null
+  },
+  "project_isolation_and_scoped_clear": true,
+  "real_laravel_http_sql_log_dump_job_exception": true,
+  "sentinel_redacted": true
+}

@@ -1042,6 +1042,7 @@ version = "0.1.0"
 dependencies = [
  "ctrlc",
  "devforge-core",
+ "devforge-inspector",
  "devforge-platform",
  "devforge-projects",
  "devforge-runtime",
@@ -1079,6 +1080,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "devforge-inspector"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "regex",
+ "reqwest",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokio",
+ "uuid",
+]
+
+[[package]]
 name = "devforge-platform"
 version = "0.1.0"
 dependencies = [
@@ -1097,6 +1113,7 @@ version = "0.1.0"
 dependencies = [
  "composer-semver",
  "devforge-core",
+ "devforge-inspector",
  "devforge-platform",
  "devforge-runtime",
  "dunce",
@@ -1162,6 +1179,7 @@ name = "devforge-workspace"
 version = "0.1.0"
 dependencies = [
  "devforge-core",
+ "devforge-inspector",
  "devforge-platform",
  "devforge-projects",
  "devforge-runtime",

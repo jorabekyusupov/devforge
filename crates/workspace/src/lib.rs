@@ -123,6 +123,19 @@ pub struct Snapshot {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "action", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Command {
+    InspectorInstall {
+        id: String,
+    },
+    InspectorCapture {
+        id: String,
+        enabled: bool,
+    },
+    InspectorClear {
+        id: String,
+    },
+    InspectorProbe {
+        id: String,
+    },
     RefreshRuntimes,
     Import {
         path: PathBuf,
@@ -209,6 +222,8 @@ pub struct Workspace {
     preferences: Preferences,
     runtime_cache: Vec<Runtime>,
     history: Vec<Log>,
+    inspector: Option<devforge_inspector::Collector>,
+    php_capabilities: BTreeMap<String, serde_json::Value>,
 }
 impl Workspace {
     pub fn open(
@@ -243,6 +258,8 @@ impl Workspace {
             root,
             runtime_cache: vec![],
             history: vec![],
+            inspector: None,
+            php_capabilities: BTreeMap::new(),
         };
         w.refresh_runtimes()?;
         Ok(w)
@@ -314,6 +331,140 @@ impl Workspace {
         cancel: &Cancellation,
     ) -> Result<serde_json::Value> {
         match command {
+            Command::InspectorInstall { id } => {
+                if self.sessions.contains_key(&id) {
+                    return Err(error("inspection_stop_first"));
+                }
+                let project = self.projects.get(&id)?;
+                devforge_inspector::materialize(&project.path)
+                    .map_err(|_| error("inspection_package_conflict"))?;
+                for (tool, args) in [
+                    (
+                        Tool::Composer,
+                        vec![
+                            "config",
+                            "repositories.devforge-inspector",
+                            r#"{"type":"path","url":".devforge/laravel-inspector","options":{"symlink":false}}"#,
+                        ],
+                    ),
+                    (
+                        Tool::Composer,
+                        vec![
+                            "require",
+                            "--dev",
+                            "devforge/laravel-inspector:0.1.0",
+                            "--no-scripts",
+                            "--no-plugins",
+                            "--no-interaction",
+                        ],
+                    ),
+                    (
+                        Tool::Composer,
+                        vec![
+                            "reinstall",
+                            "devforge/laravel-inspector",
+                            "--no-scripts",
+                            "--no-plugins",
+                            "--no-interaction",
+                        ],
+                    ),
+                    (Tool::Artisan, vec!["package:discover", "--no-interaction"]),
+                ] {
+                    if cancel.is_cancelled() {
+                        return Err(error("inspection_install_failed"));
+                    }
+                    let result = Context::resolve(
+                        &self.projects,
+                        &id,
+                        &self.catalog,
+                        &self.packages,
+                        self.secrets.as_ref(),
+                    )?
+                    .invocation(
+                        tool,
+                        args.into_iter().map(Into::into).collect(),
+                        &self.catalog,
+                        &self.packages,
+                    )?
+                    .run(self.projects.root().join("inspection-install-logs"))?;
+                    if !result.success {
+                        return Err(error("inspection_install_failed"));
+                    }
+                }
+                Ok(serde_json::json!({"installed":true}))
+            }
+            Command::InspectorCapture { id, enabled } => {
+                let project = self.projects.get(&id)?;
+                if enabled
+                    && !project
+                        .path
+                        .join("vendor/devforge/laravel-inspector/src/InspectorServiceProvider.php")
+                        .is_file()
+                {
+                    return Err(error("inspection_package_missing"));
+                }
+                let running = self.sessions.contains_key(&id);
+                if running {
+                    self.stop(&id)?;
+                }
+                if enabled && self.inspector.is_none() {
+                    self.inspector = Some(
+                        devforge_inspector::Collector::open(
+                            &self.root.join("inspector"),
+                            self.projects.root(),
+                        )
+                        .map_err(|_| error("inspection_unavailable"))?,
+                    );
+                }
+                if let Some(inspector) = self.inspector.as_mut() {
+                    if enabled {
+                        inspector.enable(&id)
+                    } else {
+                        inspector.disable(&id)
+                    }
+                    .map_err(|_| error("inspection_unavailable"))?;
+                }
+                if running {
+                    self.start(&id)?;
+                }
+                Ok(serde_json::json!({"enabled":enabled}))
+            }
+            Command::InspectorClear { id } => {
+                self.projects.get(&id)?;
+                if self.inspector.is_none() {
+                    self.inspector = Some(
+                        devforge_inspector::Collector::open(
+                            &self.root.join("inspector"),
+                            self.projects.root(),
+                        )
+                        .map_err(|_| error("inspection_unavailable"))?,
+                    );
+                }
+                self.inspector
+                    .as_ref()
+                    .unwrap()
+                    .clear(&id)
+                    .map_err(|_| error("inspection_unavailable"))?;
+                Ok(serde_json::json!({"cleared":true}))
+            }
+            Command::InspectorProbe { id } => {
+                let result=Context::resolve(&self.projects,&id,&self.catalog,&self.packages,self.secrets.as_ref())?
+                    .invocation(Tool::Php,vec!["-r".into(),r#"echo json_encode(['loaded'=>extension_loaded('xdebug'),'version'=>phpversion('xdebug')?:null,'mode'=>ini_get('xdebug.mode')?:null,'php'=>PHP_VERSION]);"#.into()],&self.catalog,&self.packages)?
+                    .run(self.projects.root().join("inspection-probe-logs"))?;
+                if !result.success {
+                    return Err(error("inspection_probe_failed"));
+                }
+                let text = result
+                    .logs
+                    .iter()
+                    .filter(|l| l.stream == "stdout")
+                    .map(|l| l.text.as_str())
+                    .collect::<String>();
+                let value: serde_json::Value =
+                    serde_json::from_str(&text).map_err(|_| error("inspection_probe_failed"))?;
+                self.php_capabilities.insert(id, value.clone());
+                Ok(value)
+            }
             Command::RefreshRuntimes => {
                 self.refresh_runtimes()?;
                 Ok(serde_json::json!({"refreshed":true}))
@@ -620,7 +771,20 @@ impl Workspace {
         for (_, mut server) in std::mem::take(&mut self.databases) {
             server.stop()?;
         }
+        self.inspector.take();
         Ok(())
+    }
+    pub fn inspector_view(&self, id: &str) -> Result<serde_json::Value> {
+        let p = self.projects.get(id)?;
+        let capture = if let Some(i) = &self.inspector {
+            i.view(id)
+        } else {
+            devforge_inspector::read(&self.root.join("inspector"), id)
+        }
+        .map_err(|_| error("inspection_unavailable"))?;
+        Ok(
+            serde_json::json!({"profiles":devforge_inspector::profile::analyze(&capture.events),"capture":capture,"companion_installed":p.path.join("vendor/devforge/laravel-inspector/src/InspectorServiceProvider.php").is_file(),"php_capability":self.php_capabilities.get(id)}),
+        )
     }
     pub fn snapshot(&self) -> Result<Snapshot> {
         let sites = self.sites.sites()?;
