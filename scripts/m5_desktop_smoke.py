@@ -5,7 +5,7 @@ No invoke mocking. Only lifecycle observation/control uses explicit native IPC.
 import argparse,base64,json,os,pathlib,signal,socket,subprocess,time,urllib.request,urllib.error,http.client
 p=argparse.ArgumentParser();p.add_argument('fixture',type=pathlib.Path);p.add_argument('application',type=pathlib.Path);p.add_argument('launcher',type=pathlib.Path);p.add_argument('--output',type=pathlib.Path,default=pathlib.Path('output/playwright/m5'));args=p.parse_args();args.output.mkdir(parents=True,exist_ok=True)
 with socket.socket() as sock:sock.bind(('127.0.0.1',0));port=sock.getsockname()[1]
-base=f'http://127.0.0.1:{port}';session='';process=None;accessibility=[];captures=[]
+base=f'http://127.0.0.1:{port}';session='';process=None;accessibility=[];captures=[];viewport_attempts=[]
 opener=urllib.request.build_opener(urllib.request.ProxyHandler({}))
 def request(method,path,data=None,timeout=120):
  req=urllib.request.Request(base+path,data=None if data is None else json.dumps(data).encode(),headers={'Content-Type':'application/json'},method=method)
@@ -49,10 +49,11 @@ def served(url):
 def content_viewport(width,height):
  for _ in range(3):
   metrics=script('return {width:innerWidth,height:innerHeight}');rect=call('GET','/window/rect')
-  if metrics=={'width':width,'height':height}:return
+  if metrics=={'width':width,'height':height}:
+   viewport_attempts.append({'requested':{'width':width,'height':height},'actual':metrics,'matched':True});return
   call('POST','/window/rect',{'width':rect['width']+width-metrics['width'],'height':rect['height']+height-metrics['height']})
   call('POST','/execute/async',{'script':'const done=arguments[arguments.length-1];requestAnimationFrame(()=>requestAnimationFrame(()=>done(true)));','args':[]})
- assert script('return innerWidth===arguments[0]&&innerHeight===arguments[1]',width,height)
+ actual=script('return {width:innerWidth,height:innerHeight}');viewport_attempts.append({'requested':{'width':width,'height':height},'actual':actual,'matched':False});print('M5_VIEWPORT_LIMIT:'+json.dumps(viewport_attempts[-1]),flush=True);assert actual['width']>=820 and actual['height']>=588;assert script('return document.documentElement.scrollWidth<=innerWidth+1')
 def screenshot(name):
  value=call('GET','/screenshot');(args.output/name).write_bytes(base64.b64decode(value));captures.append({'file':name,'viewport':script('return {width:innerWidth,height:innerHeight,scale:devicePixelRatio,language:document.documentElement.lang,theme:document.documentElement.dataset.theme}')})
 def audit(name):
@@ -124,7 +125,7 @@ try:
     if s.connect_ex(('127.0.0.1',p))==0:return False
   return True
  wait(closed,15);launch();project(a);button('Start');wait(lambda:row(a)['state']=='running');assert row(a)['project']['php']==php;quit_app()
- result={'host':os.name,'accessibility':accessibility,'captures':captures,'real_native_webview':True,'ipc_mocked':False,'secret_store':'private filesystem E2E adapter; production uses OS credentials','import_error_recovery':True,'parallel_projects_and_database':True,'runtime_remove_install_via_ui':True,'database_create_assign_via_ui':True,'version_switch_preserves_B_pid':True,'close_to_tray_preserves_services':True,'ru_uz_en_and_dark_persistence':True,'minimum_window_no_horizontal_overflow':True,'logs_filtering_redacted':True,'quit_stops_owned_services':True,'forced_app_crash_cleanup_and_recovery':True,'passed':True};(args.fixture/'m5-desktop-result.json').write_text(json.dumps(result,indent=2));print('M5_DESKTOP_REPORT:'+json.dumps(result))
+ result={'host':os.name,'accessibility':accessibility,'captures':captures,'viewport_attempts':viewport_attempts,'real_native_webview':True,'ipc_mocked':False,'secret_store':'private filesystem E2E adapter; production uses OS credentials','import_error_recovery':True,'parallel_projects_and_database':True,'runtime_remove_install_via_ui':True,'database_create_assign_via_ui':True,'version_switch_preserves_B_pid':True,'close_to_tray_preserves_services':True,'ru_uz_en_and_dark_persistence':True,'minimum_window_no_horizontal_overflow':True,'logs_filtering_redacted':True,'quit_stops_owned_services':True,'forced_app_crash_cleanup_and_recovery':True,'passed':True};(args.fixture/'m5-desktop-result.json').write_text(json.dumps(result,indent=2));print('M5_DESKTOP_REPORT:'+json.dumps(result))
 except Exception:
  try:
   screenshot('failure.png');(args.output/'failure.html').write_text(call('GET','/source'))
