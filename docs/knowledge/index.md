@@ -25,7 +25,7 @@ mavzuni tanlang, so'ng faqat tegishli hujjatlar va ularning manbalarini o'qing.
 
 ## Manba va yuritish
 
-- [M10 takrorlanadigan muhit](m10-reproducible-results.md) - portable YAML, exact pins, local secret links, reviewed CLI setup va recovery; platform dalillari alohida.
+- [M10 takrorlanadigan muhit](m10-reproducible-results.md) - portable YAML, exact pins, local secret links, reviewed CLI setup va recovery;3 native target qabul va scoped cheklovlar bilan.
 
 - [M9 baza va xizmatlar](m9-services-results.md) - MySQL, per-project Garnet, Laravel service profiles, staged backup va retained connections;3 native target qabul, Intel MySQL va M15 gate chegaralari bilan.
 

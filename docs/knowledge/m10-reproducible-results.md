@@ -42,6 +42,15 @@ sources:
   - id: example
     resource: ../examples/devforge.yaml
     title: Credential-free pinned portable example
+  - id: native-ci
+    resource: ../evidence/m10/ci-native.json
+    title: Three immutable-source native reports and verified ZIP digests
+  - id: core-ci
+    resource: ../evidence/m10/ci-core.json
+    title: macOS Windows core counts and strict validator results
+  - id: attempts
+    resource: ../evidence/m10/ci-attempts.json
+    title: Initial Windows fixture failure and successful followup
   - id: yaml
     resource: https://docs.rs/serde-saphyr/2.1.1/serde_saphyr/
     title: Official YAML parser options budget and opt-in feature boundaries
@@ -50,7 +59,7 @@ sources:
 # Scope va holat
 
 Foydalanuvchi M10 ni boshlashni so'radi. Roadmap'dagi CLI-first kontrakt yaratildi;
-local va hosted native acceptance holati quyida yuritiladi. M10 yangi desktop
+local va hosted native acceptance uch targetda muvaffaqiyatli yakunlandi. M10 yangi desktop
 config editor emas: mavjud GUI orqali tayyorlangan loyiha keyin ishga tushiriladi.
 M11 avtomatik boshlanmaydi. Schema/pin/journal detali assistant implementation
 yechimi; ularning har biri alohida user technology-version talabi emas.
@@ -139,10 +148,10 @@ CI fixture adapter faqat explicit test-support build'da mavjud.
 # Tekshiruv holati
 
 Focused parser/pin, unsafe env/ref, stale review, subset dotenv write, lease va
-legacy JSON tests bor. Local native CLI ikkita alohida app-store va checkout'da
+legacy JSON tests o'tdi. Native CLI ikkita alohida app-store va checkout'da
 Laravel13, exact packages, PostgreSQL/Garnet, secret isolation, rerun preservation,
-key preservation, failed dependency retry va cancellation'ni tekshiryapti.
-Final HTTP va hosted three-target dalillari phase-close'da qo'shiladi. Bu literal
+key preservation, failed dependency retry va pre-cancel'ni tekshirdi. HTTP orqali
+PHP version,512M memory setting va secret environment ham tekshirildi. Bu literal
 Mac archive'ni Windows'ga ko'chirish emas: har OS'da ikkita mustaqil store/path
 scenario va portable pins barcha target'lar uchun tekshiriladi.
 
@@ -150,3 +159,55 @@ GUI source o'zgarmadi; M10 uchun yangi native GUI/axe pass da'vo qilinmaydi.
 Existing desktop build va frontend regression checks alohida. M9'dagi10 axe/cases
 historical evidence bo'lib qoladi. M7.2 Xdebug va M15 release/minimum-OS/signing/
 licensing/native-dialog gate'lari ushbu task bilan yopilmaydi.
+
+# Yakuniy qabul va reconciliation
+
+Frozen product source `16bdbe93fa0b07b73a0247013ba17f1c35cfb982`:
+
+| Target | Native job | Natija |
+| --- | --- | --- |
+| macOS ARM64 | [131569365113](https://github.com/jorabekyusupov/devforge/actions/runs/43329207430/job/131569365113) | passed |
+| macOS Intel | [131569365384](https://github.com/jorabekyusupov/devforge/actions/runs/43329207430/job/131569365384) | passed |
+| Windows x64 | [131569365390](https://github.com/jorabekyusupov/devforge/actions/runs/43329207430/job/131569365390) | passed |
+
+Har target real CLI subprocess'larida bir xil portable YAML bilan ikki local store,
+local secret qiymatlari farqi, default/no-env-write va explicit env patch, exact
+package selection, Laravel/PostgreSQL/Garnet PHP, HTTP environment, Composer/npm
+hook'lari bajarilmasligi, stale secret review, invalid composer.lock'dan keyin
+journal/retry, old key/DB/cache instance saqlanishi tekshirildi. Pre-cancel signal
+objekti data saqlanishini tekshiradi; actual mid-command OS signal regressiyasi
+bu M10 probe'da alohida takrorlanmadi (existing process supervisor/M8 evidence
+saqlanadi). Forgotten project qayta import bo'lganda journal'dagi boshqa project
+cache'i qayta biriktirilmaydi; old cache data/record saqlanib yangi owner yaratiladi.
+
+Initial `ecb996d` Windows fixture path'da `.exe` yo'qligi sabab runtime'dan oldin
+yiqildi; ikkala initial Mac job o'tdi. Followup helper Windows suffix'ini to'g'riladi,
+cache journal reuse'iga project-owner guard qo'shdi va APP_KEY preview'ni
+`preserve_existing` qilib aniqlashtirdi. First failure [attempt yozuvida](../evidence/m10/ci-attempts.json)
+saqlandi; final native run umumiy success. Har uch downloaded ZIP digest'i publisher
+GitHub artifact SHA256 metadata'ga teng, individual report JSON'lari ham hash qilindi.
+
+[Core run43329211920](https://github.com/jorabekyusupov/devforge/actions/runs/43329211920)
+shu source'da macOS va Windows uchun har OS83 Rust passed/1 credential fixture
+ignored,27 frontend,3 locale catalog, locale regressions, packaging checks,
+Clippy `-D warnings`, native default desktop build va strict OKF25/0/0 o'tkazdi.
+Local default CLI va default-feature desktop debug build ham o'tdi; test-support
+credential fallback production binary'da yoqilmagan. Yakuniy documentation push
+uchun passing product suite'lari yana bajarilmadi.
+
+| Claim | Reconciliation | Manba va chegara |
+| --- | --- | --- |
+| Portable exact runtime contract | matching | Manifest parse/pins tests, Windows PHP provider revision mapping, verified native package selections. Caddy pin app-selected provider bilan tekshiriladi. |
+| Secrets faqat local refs | matching | Export/plan redaction tests, local Root-specific aliases va revision, two-store PHP getenv checks. Project code secretni o'qiy oladi; raw credential YAML'da yo'q. |
+| Env changes reviewed and preserved | matching | Digest snapshot guards, reviewed subset test, no-write flag, existing key preservation va private backups; template copy butun file, preview key-level/redacted. |
+| Recovery/idempotency | matching / bounded | Repeated setup DB/cache IDs saqlaydi, dependency failure+retry, pre-cancel, forgotten owner recovery. Cross-resource atomic rollback yo'q; pending initialization manual recovery. |
+| Legacy metadata | changed compatibly forward | schema3 va default missing JSON field, old ProjectStore upgrade tests. Older build refusal source guard bor; actual app downgrade strategy M15'dadir. |
+| Native platform support | matching / scoped | Real CLI, PHP/HTTP, PG/Garnet all3 targets. M10 MySQL end-to-end scenario alohida qayta bajarilmadi; M9 adapter evidence, typed selection va Intel capability gap saqlanadi. |
+| Desktop/localization | unchanged UI | Default native builds, frontend regressions va3 catalogs. New CLI JSON stable codes; GUI config editor/GUI acceptance bu scope'da yo'q. |
+| Release/system integration | unverified/open | Signing, minimum OS, actual credential/system dialogs, redistribution va Windows non-ASCII user profile/AppData M15 gate'lari saqlanadi. |
+
+Status jurnali failure/completion'dan keyin CLI orqali o'qiladi; exclusive setup
+ketayotgan paytda boshqa CLI session (shu jumladan status) `manifest_busy` qaytarishi
+mumkin. Private native fixtures temp directories bilan ajratilib, owned processes
+sinov oxirida to'xtatiladi. Public reports'da secret values yoki database dumps yo'q.
+M11 boshlanmadi; yangi installer/public release nashr qilinmadi.

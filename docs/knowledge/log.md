@@ -2,7 +2,7 @@
 
 ## 2026-11-13
 
-- **M10 boshlandi:** [Takrorlanadigan muhit](m10-reproducible-results.md), schema1 YAML/pins, local credential links, CLI review/setup/status va stage journal yaratildi. Native platform qabul va yakuniy reconciliation davom etmoqda.
+- **M10 functional qabul:** [Takrorlanadigan muhit](m10-reproducible-results.md), pinned YAML, local credential links, reviewed CLI setup, env guards va recovery journal yaratildi. ARM64/Intel/Windows real CLI, ikki store, Laravel PG/Garnet va HTTP o‘tdi. Core har OS83 Rust/27 frontend; strict25/0/0. Windows fixture `.exe` va forgotten-cache ownership followup, uch verified artifact digest hamda source reconciliation saqlandi. GUI editor va M11 boshlanmadi; M15 gate‘lari ochiq.
 
 - **M9 functional qabul:** [Database/services](m9-services-results.md), owned MySQL, dedicated Garnet/.NET, cache/queue profiles, staged backups va retained connections yaratildi. ARM64/Windows MySQL va Intel PG/Garnet native backend/UI o‘tdi;10 axe/0 per target. Core har OS75 Rust/27 frontend/3 locale/6 packaging; strict24/0/0. Windows monitor PID failure va `--no-monitor` fix, uch verified artifact digest, source/text boundary va cleanup qayd etildi. Intel MySQL hamda M15 release gates ochiq; M10 boshlanmadi.
 

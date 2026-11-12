@@ -6,6 +6,11 @@
       "windows_job": 131565717616,
       "outcome": "fixture failed before runtime tests because the CLI argument lacked .exe for fs::canonicalize",
       "followup": "Native helper adds .exe only on Windows. Also add stale-journal project-owner filter and forgotten-registration acceptance; APP_KEY preview explicitly reports preservation."
+    },
+    {
+      "source": "16bdbe93fa0b07b73a0247013ba17f1c35cfb982",
+      "run": 43329207430,
+      "outcome": "all three native targets passed, including Windows .exe path, no-env-write flag and forgotten-project cache ownership recovery"
     }
   ]
 }

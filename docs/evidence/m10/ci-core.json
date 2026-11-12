@@ -1,0 +1,32 @@
+{
+  "source": "16bdbe93fa0b07b73a0247013ba17f1c35cfb982",
+  "run": 43329211920,
+  "jobs": [
+    {
+      "target": "windows",
+      "job": 131569382869,
+      "conclusion": "success",
+      "rust_passed": 83,
+      "rust_ignored": 1,
+      "frontend_passed": 27,
+      "okf": {
+        "documents": 25,
+        "errors": 0,
+        "warnings": 0
+      }
+    },
+    {
+      "target": "macos",
+      "job": 131569383348,
+      "conclusion": "success",
+      "rust_passed": 83,
+      "rust_ignored": 1,
+      "frontend_passed": 27,
+      "okf": {
+        "documents": 25,
+        "errors": 0,
+        "warnings": 0
+      }
+    }
+  ]
+}

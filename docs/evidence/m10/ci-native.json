@@ -1,0 +1,109 @@
+{
+  "run": 43329207430,
+  "conclusion": "success",
+  "source": "16bdbe93fa0b07b73a0247013ba17f1c35cfb982",
+  "platforms": [
+    {
+      "target": "macos-arm64",
+      "source": "16bdbe93fa0b07b73a0247013ba17f1c35cfb982",
+      "job": 131569365113,
+      "conclusion": "success",
+      "url": "https://github.com/jorabekyusupov/devforge/actions/runs/43329207430/job/131569365113",
+      "artifact": {
+        "id": 13993778125,
+        "sha256": "149afaa9b7a1dccf46e4dd526e76ed292ebef24992a6aff4031427066448dd8e",
+        "download_verified": true
+      },
+      "report_sha256": "80070c96a56e4cf30d8bffcb3de66de0309c091352727e951cb3c5cf7ee3143a",
+      "report": {
+        "cancel_preserves_data": true,
+        "cli_operation_lease": true,
+        "dependency_failure_and_resume": true,
+        "env_untouched_without_flag": true,
+        "forgotten_project_journal_rebind": true,
+        "http_php_environment": true,
+        "local_secret_isolation": true,
+        "native_gui": "M10 CLI-only scope; desktop UI unchanged",
+        "no_composer_scripts": true,
+        "no_npm_scripts": true,
+        "pinned_runtimes_two_machine_stores": true,
+        "private_fixture_removed_on_exit": true,
+        "real_cli": true,
+        "real_postgresql_and_garnet_php": true,
+        "redacted_preview": true,
+        "repeated_setup_keeps_db_cache_and_key": true,
+        "schema_roundtrip": true,
+        "stale_secret_review_rejected": true,
+        "target": "macos-arm64"
+      }
+    },
+    {
+      "target": "macos-x64",
+      "source": "16bdbe93fa0b07b73a0247013ba17f1c35cfb982",
+      "job": 131569365384,
+      "conclusion": "success",
+      "url": "https://github.com/jorabekyusupov/devforge/actions/runs/43329207430/job/131569365384",
+      "artifact": {
+        "id": 13995801064,
+        "sha256": "1cecb7e8dbb53cdd5809afeebe9e00469a7143308771df5a42445ce393d111f7",
+        "download_verified": true
+      },
+      "report_sha256": "2c02fa2ce6621058ac4d99bfe738bdd93349b57ab7ef77ebd601d4bd0ecb1ce7",
+      "report": {
+        "cancel_preserves_data": true,
+        "cli_operation_lease": true,
+        "dependency_failure_and_resume": true,
+        "env_untouched_without_flag": true,
+        "forgotten_project_journal_rebind": true,
+        "http_php_environment": true,
+        "local_secret_isolation": true,
+        "native_gui": "M10 CLI-only scope; desktop UI unchanged",
+        "no_composer_scripts": true,
+        "no_npm_scripts": true,
+        "pinned_runtimes_two_machine_stores": true,
+        "private_fixture_removed_on_exit": true,
+        "real_cli": true,
+        "real_postgresql_and_garnet_php": true,
+        "redacted_preview": true,
+        "repeated_setup_keeps_db_cache_and_key": true,
+        "schema_roundtrip": true,
+        "stale_secret_review_rejected": true,
+        "target": "macos-x64"
+      }
+    },
+    {
+      "target": "windows-x64",
+      "source": "16bdbe93fa0b07b73a0247013ba17f1c35cfb982",
+      "job": 131569365390,
+      "conclusion": "success",
+      "url": "https://github.com/jorabekyusupov/devforge/actions/runs/43329207430/job/131569365390",
+      "artifact": {
+        "id": 13994272980,
+        "sha256": "91b5a0428fa210f3258f254e11c77e4faf7c4b941420f73be27970a0b82cec0e",
+        "download_verified": true
+      },
+      "report_sha256": "1007d64da92faff1d33b1a0aa0ddce6f5ccd9e3c794604f302f7e5eb32feba19",
+      "report": {
+        "cancel_preserves_data": true,
+        "cli_operation_lease": true,
+        "dependency_failure_and_resume": true,
+        "env_untouched_without_flag": true,
+        "forgotten_project_journal_rebind": true,
+        "http_php_environment": true,
+        "local_secret_isolation": true,
+        "native_gui": "M10 CLI-only scope; desktop UI unchanged",
+        "no_composer_scripts": true,
+        "no_npm_scripts": true,
+        "pinned_runtimes_two_machine_stores": true,
+        "private_fixture_removed_on_exit": true,
+        "real_cli": true,
+        "real_postgresql_and_garnet_php": true,
+        "redacted_preview": true,
+        "repeated_setup_keeps_db_cache_and_key": true,
+        "schema_roundtrip": true,
+        "stale_secret_review_rejected": true,
+        "target": "windows-x64"
+      }
+    }
+  ]
+}
