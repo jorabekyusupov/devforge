@@ -325,7 +325,7 @@
     "payload": "Yig‘ilgan ma’lumot",
     "selectEvent": "Kontekstini ko‘rish uchun hodisani tanlang.",
     "heuristic": "Takroriy SQL — N+1 uchun taxminiy belgi. Qiymatlar imkon qadar yashiriladi; lokal sinov ma’lumotidan foydalaning.",
-    "truncated": "Kontekst hodisalari limitga yetdi; tafsilotlar to‘liq bo‘lmasligi mumkin.",
+    "truncated": "Hodisalar to‘liq yig‘ilmadi; kontekstning ayrim tafsilotlari yetishmasligi mumkin.",
     "phpCapability": "PHP / Xdebug imkoniyati",
     "probe": "Tanlangan PHP’ni tekshirish",
     "probeHint": "Tanlangan PHP’da Xdebug borligini tekshiring.",

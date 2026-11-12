@@ -60,12 +60,7 @@ fn late_ack_summary(
         }
         Ok(batches)
     });
-    let source = w
-        .projects
-        .get(id)?
-        .path
-        .join(".devforge/laravel-inspector/src/Capture.php");
-    let result = exec(w,secrets,id,Tool::Php,vec!["-r".into(),r#"function config($key){return null;} require $argv[1]; $c=new DevForge\Inspector\Capture($argv[2],str_repeat('a',64),str_repeat('b',32)); $c->begin('request','late-ack'); $c->dump(['marker'=>'first-batch']); $c->finish(['status'=>200]);"#.into(), source.into_os_string(), endpoint.into()]);
+    let result = exec(w,secrets,id,Tool::Php,vec!["-r".into(),r#"function config($key){return null;} require '.devforge/laravel-inspector/src/Capture.php'; $c=new DevForge\Inspector\Capture($argv[1],str_repeat('a',64),str_repeat('b',32)); $c->begin('request','late-ack'); $c->dump(['marker'=>'first-batch']); $c->finish(['status'=>200]);"#.into(), endpoint.into()]);
     let batches = server
         .join()
         .map_err(|_| "late ACK fixture thread failed")??;

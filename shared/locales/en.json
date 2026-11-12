@@ -325,7 +325,7 @@
     "payload": "Captured data",
     "selectEvent": "Select an event to view its context.",
     "heuristic": "Repeated queries are a diagnostic hint, not proof of N+1. Values are redacted best-effort; use local test data.",
-    "truncated": "This context reached its capture limit; details may be incomplete.",
+    "truncated": "This capture is incomplete; some context details may be missing.",
     "phpCapability": "PHP / Xdebug capability",
     "probe": "Check selected PHP",
     "probeHint": "Check whether the selected PHP includes Xdebug.",
