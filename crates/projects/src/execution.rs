@@ -111,6 +111,19 @@ impl Context {
         self.environment.insert("DATABASE_URL".into(), "".into());
         Ok(self)
     }
+    /// Dependency tooling does not require an already-installed Redis client.
+    /// Scripts remain a caller policy; M10 invokes only fixed no-script commands.
+    pub fn tooling(
+        store: &ProjectStore,
+        id: &str,
+        catalog: &Catalog,
+        packages: &PackageStore,
+        secrets: &dyn SecretStore,
+    ) -> Result<Self> {
+        let mut project = store.get(id)?;
+        project.services = Default::default();
+        Self::prepare(project, store, catalog, packages, secrets)
+    }
     pub fn resolve(
         store: &ProjectStore,
         id: &str,
@@ -151,6 +164,7 @@ impl Context {
             php_constraint: "*".into(),
             node_constraint: "*".into(),
             environment_names: vec![],
+            environment_references: Default::default(),
             revision: 0,
             active: true,
             php_settings: Default::default(),

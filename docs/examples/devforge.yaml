@@ -1,0 +1,55 @@
+# Generated example from the reviewed bundled catalog. No credential values.
+schema: 1
+project:
+  name: Example
+  domain: example.devforge.test
+  https: false
+  vite: false
+  queue: false
+runtimes:
+  php: 8.5.12
+  node: 24.22.2
+  composer: 2.11.2
+database:
+  engine: postgresql
+  version: 18.6.0
+redis:
+  version: 2.2.11
+  dotnet: 10.0.15
+services:
+  cache: redis
+  queue: redis
+php_settings:
+  memory_limit: 512M
+environment:
+  API_TOKEN: api_token
+setup:
+  composer: true
+  npm: true
+  create_env: true
+  generate_key: true
+  predis: true
+pins:
+  php-8.5.12-cli-macos-arm64: cfbb53b904bb29f553c23cb51dfb9ec82bb69adaf9aeb6df8b6da29ea9f03553
+  php-8.5.12-fpm-macos-arm64: b11e25657f6190b86453a6989c631b25ed041329e9cdf6f85189d653133ce970
+  node-v24.22.2-macos-arm64: aa9549349e47dffaa42dcf95d6e06ade8c4bdafc980979883b88767670df385a
+  node-v24.22.2-macos-x64: d5e336d588c45be0c37dbd52cc29895593009ca4997a77a1fd02815131ed0e52
+  node-v24.22.2-windows-x64: ca1bff5d8ead13c9f2ea404a176db46bd430704d5b5113734049fa365e7799e2
+  caddy-v2.11.9-macos-arm64: d075afc620376679a77b453399bf7ada264cab3280b2833e4ed1372abc0c1c13
+  caddy-v2.11.9-macos-x64: 22af256a2cc45606f6bfa8786cd89130529331319665926f4e972234a658fb30
+  caddy-v2.11.9-windows-x64: ad93112d335ee687100c4c9f11bced16ca590377976b7fe7883882b9e797e472
+  php-8.5.12-1-windows-x64: 2a36a2edcb7a5b9252f638fd5e4cf84d7f6e066092654220dc0b63e5cf4e9723
+  php-8.5.12-cli-macos-x64: 32c08d8d793d939c960f944d92abe16350dddf0ea79418256fa76633e110ce2b
+  php-8.5.12-fpm-macos-x64: 7c166125797e536d6cda9a8267eb89fffd294b4f49878bb586dadbba713a879a
+  postgresql-18.6.0-macos-arm64-server: 8f6ed6f38195b50a40712ada8b2a12060b6193c1a6977a6eb5cff053bb5a1b89
+  postgresql-18.6.0-macos-x64-server: 690941008aac9ee360820fde9bb7870a4f3dcac5e9e2f9e45e42333a436ad0f9
+  postgresql-18.6.0-windows-x64-server: b7ef2d03588e0439f0d0a2250f43905f7464f1e96ace47703ceaf79094198150
+  composer-2.11.2-macos-arm64: dd158c0afd41d15fac89e1b4e47b5d42911fe316c3687cd5edac98319b25d028
+  composer-2.11.2-macos-x64: dd158c0afd41d15fac89e1b4e47b5d42911fe316c3687cd5edac98319b25d028
+  composer-2.11.2-windows-x64: dd158c0afd41d15fac89e1b4e47b5d42911fe316c3687cd5edac98319b25d028
+  dotnet-10.0.15-macos-arm64: 3211be3138d83af7a389649b50443c3d9015972ef8e228e2612230a3bd1d715d
+  dotnet-10.0.15-macos-x64: c89c0fc6b95b3c42394eb726ae333f15ac41d65553e16ef6290e5a5ea30e9e85
+  dotnet-10.0.15-windows-x64: c9f219ad2ec570478f4b1950ae56f88a48e76cabba75e7f54764a1d8a9009e87
+  garnet-2.2.11-macos-arm64: ea75c57f1bbf525ac6cd192d01aee8901e2a7af25c25fd7a35cad59f0f6a2033
+  garnet-2.2.11-macos-x64: 56a4c4171ba3d65abeca0a95aee173dc90ff611eb9b60babfbb3f7f1e64d8a7f
+  garnet-2.2.11-windows-x64: 3b44713d8c7cfa0bfb960c1ae0460ca41ecff783bfc414f474d8dbe8905bae63

@@ -58,6 +58,14 @@ fn lease_file(root: &Path, name: &str) -> std::io::Result<File> {
         .open(root.join(name))
 }
 impl OperationLease {
+    /// Reproducible setup owns configuration across GUI/CLI lifetimes.
+    pub fn exclusive(root: &Path) -> std::io::Result<Self> {
+        let file = lease_file(root, "operations.lock")?;
+        file.try_lock()
+            .map_err(|_| std::io::Error::from(std::io::ErrorKind::WouldBlock))?;
+        Ok(Self { _file: file })
+    }
+
     pub fn acquire(root: &Path) -> std::io::Result<Self> {
         let file = lease_file(root, "operations.lock")?;
         file.try_lock_shared().map_err(|e| match e {
@@ -163,6 +171,17 @@ mod tests {
             std::fs::read(root.path().join("database-sentinel")).unwrap(),
             b"preserve"
         );
+    }
+    #[test]
+    fn setup_excludes_gui_and_other_cli_sessions() {
+        let root = tempfile::tempdir().unwrap();
+        let shared = OperationLease::acquire(root.path()).unwrap();
+        assert!(OperationLease::exclusive(root.path()).is_err());
+        drop(shared);
+        let exclusive = OperationLease::exclusive(root.path()).unwrap();
+        assert!(OperationLease::acquire(root.path()).is_err());
+        drop(exclusive);
+        assert!(OperationLease::acquire(root.path()).is_ok());
     }
     #[test]
     fn cli_sessions_coexist_and_block_removal_until_every_session_exits() {

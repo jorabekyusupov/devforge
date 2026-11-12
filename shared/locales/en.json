@@ -343,7 +343,19 @@
       "setup_composer_required": "Install Composer dependencies before initializing a new Laravel database.",
       "service_consent_required": "Review and confirm the service change.",
       "service_unavailable": "The service is unavailable for this platform.",
-      "redis_client_failed": "Predis installation failed. Check project Composer requirements."
+      "redis_client_failed": "Predis installation failed. Check project Composer requirements.",
+      "manifest_invalid": "The devforge.yaml format is invalid. Check schema, exact versions and allowed fields.",
+      "manifest_runtime_unavailable": "An exact runtime or package pin is unavailable for this platform. Review the bundled catalog.",
+      "manifest_secret_missing": "Provide the missing local secret with config secret, then create a new plan.",
+      "manifest_secret_invalid": "Use a valid local secret reference and a value up to 4096 bytes via stdin.",
+      "manifest_secret_unavailable": "The local credential store is unavailable. Retry after restoring access.",
+      "manifest_busy": "Close DevForge and other CLI sessions before changing the repository environment.",
+      "manifest_review_changed": "The approved plan is stale. Run config plan again and review the new digest.",
+      "manifest_file_exists": "The configuration file already exists. Review it before exporting to a new file.",
+      "manifest_env_multiline": "A multiline secret cannot be written to .env. Use managed process environment instead.",
+      "manifest_redis_client_missing": "Install Predis or enable its explicit setup option before selecting Redis drivers.",
+      "manifest_dependency_failed": "Dependency setup failed. Check config status and the private tool logs; fix and review a fresh plan.",
+      "manifest_usage": "Usage: config init|export|plan|setup|secret|status. Setup requires --review and --trust."
     }
   },
   "runtimes": {

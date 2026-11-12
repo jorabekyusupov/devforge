@@ -259,3 +259,14 @@ yangilash va yakuniy push cadence saqlanadi. M10 avtomatik boshlanmaydi. Provide
 va implementation tanlovlari assistant ishchi yechimi, individual technology
 version'lari alohida user talabi emas. Native dalil va capability gap
 [M9 hisobotida](../m9-services-results.md) qayd etiladi.
+
+## M10 topshirigi
+
+Foydalanuvchi keyingi bosqichni boshlashni so'radi:
+
+> m10 ni boshla barcha ishlar tugagandan song
+
+M10 roadmap'dagi reviewed reproducible environment/CLI scope'ini bajaradi.
+Bosqich oxirida tests, OKF/source reconciliation va final push cadence saqlanadi;
+M11 avtomatik boshlanmaydi. Implementatsiya va cheklovlar
+[M10 hisobotida](../m10-reproducible-results.md) yuritiladi.

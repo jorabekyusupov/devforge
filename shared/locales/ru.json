@@ -347,7 +347,19 @@
       "setup_composer_required": "Установите зависимости Composer перед инициализацией новой базы Laravel.",
       "service_consent_required": "Проверьте и подтвердите изменение сервиса.",
       "service_unavailable": "Сервис недоступен для этой платформы.",
-      "redis_client_failed": "Не удалось установить Predis. Проверьте требования Composer проекта."
+      "redis_client_failed": "Не удалось установить Predis. Проверьте требования Composer проекта.",
+      "manifest_invalid": "Некорректный devforge.yaml. Проверьте схему, точные версии и разрешённые поля.",
+      "manifest_runtime_unavailable": "Точная версия или pin пакета недоступны для платформы. Проверьте каталог.",
+      "manifest_secret_missing": "Задайте недостающий локальный секрет через config secret и создайте новый план.",
+      "manifest_secret_invalid": "Используйте корректное имя секрета и значение до 4096 байт через stdin.",
+      "manifest_secret_unavailable": "Локальное хранилище учётных данных недоступно. Восстановите доступ и повторите.",
+      "manifest_busy": "Закройте DevForge и другие CLI-сеансы перед изменением окружения.",
+      "manifest_review_changed": "Подтверждённый план устарел. Выполните config plan и проверьте новый digest.",
+      "manifest_file_exists": "Файл конфигурации существует. Проверьте его и экспортируйте в новый файл.",
+      "manifest_env_multiline": "Многострочный секрет нельзя записать в .env. Используйте окружение управляемого процесса.",
+      "manifest_redis_client_missing": "Установите Predis или включите его явную установку перед выбором Redis.",
+      "manifest_dependency_failed": "Установка зависимостей не выполнена. Проверьте config status и локальные логи, исправьте и создайте новый план.",
+      "manifest_usage": "Использование: config init|export|plan|setup|secret|status. Для setup нужны --review и --trust."
     }
   },
   "runtimes": {

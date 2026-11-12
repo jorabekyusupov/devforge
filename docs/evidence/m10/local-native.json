@@ -1,0 +1,19 @@
+{
+  "cancel_preserves_data": true,
+  "cli_operation_lease": true,
+  "dependency_failure_and_resume": true,
+  "http_php_environment": true,
+  "local_secret_isolation": true,
+  "native_gui": "M10 CLI-only scope; desktop UI unchanged",
+  "no_composer_scripts": true,
+  "pinned_runtimes_two_machine_stores": true,
+  "private_fixture_removed_on_exit": true,
+  "real_cli": true,
+  "real_postgresql_and_garnet_php": true,
+  "redacted_preview": true,
+  "repeated_setup_keeps_db_cache_and_key": true,
+  "schema_roundtrip": true,
+  "stale_secret_review_rejected": true,
+  "target": "macos-arm64",
+  "source_scope": "Local working tree before final test-only npm-hook/no-env-write cases and canonical Windows scope hardening; frozen-source CI follows."
+}

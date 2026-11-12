@@ -50,6 +50,8 @@ pub struct Project {
     pub php_constraint: String,
     pub node_constraint: String,
     pub environment_names: Vec<String>,
+    #[serde(default)]
+    pub environment_references: BTreeMap<String, String>,
     pub revision: u64,
     pub active: bool,
     #[serde(default)]
@@ -163,7 +165,7 @@ impl ProjectStore {
         connection.busy_timeout(Duration::from_secs(3))?;
         connection.pragma_update(None, "foreign_keys", true)?;
         let version: u32 = connection.pragma_query_value(None, "user_version", |r| r.get(0))?;
-        if version > 2 {
+        if version > 3 {
             return Err(E::StorageUnavailable);
         }
         if version == 0 {
@@ -171,6 +173,9 @@ impl ProjectStore {
         }
         if version <= 1 {
             connection.execute_batch("BEGIN IMMEDIATE; CREATE TABLE database_binding_history(project_id TEXT NOT NULL REFERENCES projects(id),binding_key TEXT NOT NULL,record TEXT NOT NULL,PRIMARY KEY(project_id,binding_key)); CREATE TABLE cache_instances(id TEXT PRIMARY KEY,record TEXT NOT NULL); PRAGMA user_version=2; COMMIT;")?;
+        }
+        if version <= 2 {
+            connection.pragma_update(None, "user_version", 3)?;
         }
         Ok(Self { connection, root })
     }
@@ -220,6 +225,7 @@ impl ProjectStore {
             php_constraint: checked.php_constraint,
             node_constraint: checked.node_constraint,
             environment_names: Vec::new(),
+            environment_references: Default::default(),
             revision: 1,
             active: true,
             php_settings: Default::default(),

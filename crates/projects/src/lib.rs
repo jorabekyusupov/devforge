@@ -6,6 +6,7 @@ pub mod database_store;
 pub mod env_file;
 pub mod environment;
 pub mod execution;
+pub mod manifest;
 pub mod mysql_service;
 pub mod php_settings;
 pub mod project;

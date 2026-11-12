@@ -350,3 +350,65 @@ are described in [M9 results](docs/knowledge/m9-services-results.md).
 MySQL's current portable package is available for macOS ARM64 and Windows x64.
 Intel Mac uses PostgreSQL and Garnet in this phase. Native CI and release limitations
 are tracked separately; this source change does not publish a new installer.
+
+## M10 reproducible environments
+
+`devforge.yaml` is a versioned team contract for a checked-out Laravel repository.
+It contains exact PHP/Node/Composer/service versions, platform-specific publisher
+package SHA256 pins, site/PHP settings, fixed dependency actions and logical secret
+names. It contains no credential values, machine paths, ports, instance IDs or
+arbitrary hooks. See [the example](docs/examples/devforge.yaml).
+
+The M10 workflow uses the existing CLI; the desktop configuration editor is not
+part of this phase. Quit DevForge through its Quit action (closing the window keeps
+services alive) before `config setup` or `config secret`. A process lease rejects
+concurrent GUI/CLI activity. Run an installed CLI, or build from source with
+`./scripts/with_rust.sh cargo build -p devforge-cli`.
+
+```text
+devforge config export <registered-project-id>
+devforge config init <project-folder> 8.5.12 24.22.2 2.11.2
+devforge config plan <project-folder> --write-env
+devforge config secret <project-folder> api_token
+devforge config setup <project-folder> --review <plan-digest> --write-env --trust
+devforge config status <project-folder>
+```
+
+Use either export for a registered project or init for a new manifest; neither
+replaces an existing file. Export accepts an optional destination as its third
+argument. Review the manifest before committing it to the team's repository.
+On another device, clone the repository, supply missing secrets and review its
+local plan before setup. `config secret` reads at most4096 bytes from stdin, never
+from an argument. For example, pipe a password-manager/CI secret into stdin;
+Unix `printf '%s' "$LOCAL_TOKEN" | devforge config secret "$project" api_token`, or
+PowerShell `$env:LOCAL_TOKEN | devforge config secret $project api_token`.
+
+Plans return schema1 JSON, redacted key actions, template/key-generation flags,
+settings, exact packages, downloads, local secret availability and a review digest.
+Config/project/lockfile/`.env` changes and secret rotations invalidate prior plans.
+Pin mismatches fail before execution; URLs or package scripts cannot be supplied
+through YAML. `setup` requires an explicit trusted-repository flag, always disables
+Composer plugins/scripts and npm scripts, and never runs database migrations.
+Predis setup is opt-in and adds the client only when absent; the repository's
+Composer/npm locks still control its application libraries.
+
+Without `--write-env`, every `.env` file remains untouched, including key generation
+and template copying. With it, only reviewed manifest variables and managed DB/cache
+keys are patched; existing APP_KEY is preserved, unrelated lines stay, changes get
+private backups, and stale/duplicate/symlink files are refused. Multiline local
+secrets can be used in managed process environments but cannot be written to `.env`.
+Existing local variables not declared by the manifest are preserved; removing an
+entry does not delete local credentials or rewrite unrelated `.env` keys.
+
+Setup registers the project, prepares packages/dependencies, provisions isolated
+local services, and then exits; it does not leave unowned background processes.
+Open the desktop to start the prepared project. Database changes retain old data
+and connections, without copying or migrating SQL. A stage journal supports review
+and retry after failure/cancellation; this is not an all-or-nothing SQL/filesystem
+transaction. Pending interrupted service initialization needs recovery, not forced
+reinitialization. Host DNS/trust/elevation is handled by the existing explicit HTTPS
+flow. The MySQL Intel-Mac capability gap remains visible during planning.
+
+Project metadata upgrades to schema3 for local credential links; older records
+remain readable by the new app. Older app builds refuse the new metadata schema;
+this is not a tested downgrade/rollback strategy. See the M15 release gates.

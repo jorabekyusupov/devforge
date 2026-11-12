@@ -343,7 +343,19 @@
       "setup_composer_required": "Yangi Laravel bazasini tayyorlashdan oldin Composer bog‘liqliklarini o‘rnating.",
       "service_consent_required": "Xizmat o‘zgarishini ko‘rib chiqib tasdiqlang.",
       "service_unavailable": "Ushbu platformada xizmat mavjud emas.",
-      "redis_client_failed": "Predis o‘rnatilmadi. Loyiha Composer talablarini tekshiring."
+      "redis_client_failed": "Predis o‘rnatilmadi. Loyiha Composer talablarini tekshiring.",
+      "manifest_invalid": "devforge.yaml formati yaroqsiz. Schema, aniq versiyalar va ruxsat etilgan maydonlarni tekshiring.",
+      "manifest_runtime_unavailable": "Ushbu platforma uchun aniq runtime yoki paket pini mavjud emas. Katalogni tekshiring.",
+      "manifest_secret_missing": "Yetishmayotgan lokal secretni config secret orqali kiriting va yangi reja oling.",
+      "manifest_secret_invalid": "To‘g‘ri secret nomi va 4096 baytgacha qiymatni stdin orqali kiriting.",
+      "manifest_secret_unavailable": "Lokal credential store ochilmadi. Kirishni tiklab qayta urinib ko‘ring.",
+      "manifest_busy": "Repository muhitini o‘zgartirishdan oldin DevForge va boshqa CLI sessiyalarini yoping.",
+      "manifest_review_changed": "Tasdiqlangan reja eskirgan. config plan orqali yangi digestni ko‘rib chiqing.",
+      "manifest_file_exists": "Konfiguratsiya fayli mavjud. Uni tekshirib yangi faylga eksport qiling.",
+      "manifest_env_multiline": "Ko‘p qatorli secretni .env ga yozib bo‘lmaydi. Boshqariladigan jarayon muhitidan foydalaning.",
+      "manifest_redis_client_missing": "Redis drayverlarini tanlashdan oldin Predis o‘rnating yoki setup parametrini yoqing.",
+      "manifest_dependency_failed": "Dependency setup bajarilmadi. config status va lokal loglarni tekshirib tuzating, so‘ng yangi reja oling.",
+      "manifest_usage": "Foydalanish: config init|export|plan|setup|secret|status. Setup uchun --review va --trust kerak."
     }
   },
   "runtimes": {

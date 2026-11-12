@@ -156,6 +156,13 @@ impl SiteStore {
             &serde_json::to_vec_pretty(&m).unwrap(),
         )
     }
+    /// Holds the same project-session lease as serving while offline setup mutates configuration.
+    pub fn project_mutation_guard(&self, id: &str) -> Result<File> {
+        if id.len() != 32 || !id.bytes().all(|b| b.is_ascii_hexdigit()) {
+            return Err(E::InvalidDomain);
+        }
+        self.lock(&format!("session-{id}.lock"))
+    }
     pub(crate) fn lock(&self, name: &str) -> Result<File> {
         let f = OpenOptions::new()
             .create(true)

@@ -116,16 +116,19 @@ impl EnvPlan {
             .map(|(_, value)| value.trim());
         Ok((true, key.is_some_and(|v| !empty_value(v))))
     }
+    pub fn original_hash(&self) -> String {
+        use sha2::{Digest, Sha256};
+        let bytes = serde_json::to_vec(&self.old.as_ref().map(|v| v.as_slice())).unwrap();
+        Sha256::digest(bytes)
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect()
+    }
     pub fn changed_keys(&self) -> &[String] {
         &self.keys
     }
     pub fn build(store: &ProjectStore, id: &str, secrets: &dyn SecretStore) -> Result<Self> {
-        let project = store.get(id)?;
         let c = store.credentials(id, secrets)?;
-        let path = project.path.join(".env");
-        let old = read(&path)?.map(Zeroizing::new);
-        let text = std::str::from_utf8(old.as_ref().map_or(&[], |v| v.as_slice()))
-            .map_err(|_| E::InvalidEnvFile)?;
         let values = BTreeMap::from([
             ("DB_CONNECTION", c.engine.driver().to_owned()),
             ("DB_HOST", "127.0.0.1".to_owned()),
@@ -136,18 +139,115 @@ impl EnvPlan {
             ("DB_URL", String::new()),
             ("DATABASE_URL", String::new()),
         ]);
+        Self::overrides(
+            store,
+            id,
+            values
+                .into_iter()
+                .map(|(k, v)| (k.to_string(), v))
+                .collect(),
+        )
+    }
+    /// Explicit managed profile patch. Preview exposes key names only.
+    pub fn profile(
+        store: &ProjectStore,
+        id: &str,
+        secrets: &dyn SecretStore,
+        names: &[String],
+    ) -> Result<Self> {
+        let mut p = store.get(id)?;
+        p.environment_names.retain(|n| names.contains(n));
+        let mut environment = crate::environment::load(&p, secrets)?
+            .into_iter()
+            .map(|(k, v)| (k, std::ffi::OsString::from(v.as_str())))
+            .collect::<BTreeMap<_, _>>();
+        let mut sensitive = vec![];
+        crate::cache::apply_environment(store, &p, secrets, &mut environment, &mut sensitive)?;
+        let mut values = environment
+            .into_iter()
+            .map(|(k, v)| {
+                (
+                    k.to_string_lossy().to_string(),
+                    v.to_string_lossy().to_string(),
+                )
+            })
+            .collect::<BTreeMap<_, _>>();
+        if store.binding(id)?.is_some() {
+            let c = store.credentials(id, secrets)?;
+            values.extend([
+                ("DB_CONNECTION".into(), c.engine.driver().into()),
+                ("DB_HOST".into(), "127.0.0.1".into()),
+                ("DB_PORT".into(), c.port.to_string()),
+                ("DB_DATABASE".into(), c.binding.database.clone()),
+                ("DB_USERNAME".into(), c.binding.role.clone()),
+                ("DB_PASSWORD".into(), c.password.to_string()),
+                ("DB_URL".into(), String::new()),
+                ("DATABASE_URL".into(), String::new()),
+            ]);
+        }
+        Self::overrides(store, id, values)
+    }
+    pub fn preview(path: &std::path::Path, keys: &[String]) -> Result<Vec<(String, String)>> {
+        let old = read(&path.join(".env"))?;
+        let text = std::str::from_utf8(old.as_deref().unwrap_or_default())
+            .map_err(|_| E::InvalidEnvFile)?;
+        let mut seen = HashSet::new();
+        for line in text.lines() {
+            if let Some((name, _)) = assignment(line).split_once('=')
+                && keys.iter().any(|k| k == name.trim())
+                && !seen.insert(name.trim().to_string())
+            {
+                return Err(E::InvalidEnvFile);
+            }
+        }
+        Ok(keys
+            .iter()
+            .map(|k| {
+                (
+                    k.clone(),
+                    if seen.contains(k) {
+                        "replace_redacted"
+                    } else {
+                        "add_redacted"
+                    }
+                    .into(),
+                )
+            })
+            .collect())
+    }
+    pub fn overrides(
+        store: &ProjectStore,
+        id: &str,
+        values: BTreeMap<String, String>,
+    ) -> Result<Self> {
+        let p = store.get(id)?;
+        let path = p.path.join(".env");
+        let old = read(&path)?.map(Zeroizing::new);
+        let text = std::str::from_utf8(old.as_ref().map_or(&[], |v| v.as_slice()))
+            .map_err(|_| E::InvalidEnvFile)?;
+        for (name, value) in &values {
+            if name.is_empty()
+                || name.as_bytes()[0].is_ascii_digit()
+                || !name
+                    .bytes()
+                    .all(|c| c.is_ascii_uppercase() || c.is_ascii_digit() || c == b'_')
+                || value.contains(['\r', '\n', '\0'])
+            {
+                return Err(E::InvalidEnvFile);
+            }
+        }
         let newline = if text.contains("\r\n") { "\r\n" } else { "\n" };
         let mut seen = HashSet::new();
         let mut next = Zeroizing::new(String::new());
         for line in text.split_inclusive('\n') {
-            let stripped = line.trim_end_matches(['\r', '\n']);
-            let trimmed = stripped.trim_start();
-            let trimmed = trimmed.strip_prefix("export ").unwrap_or(trimmed);
-            if let Some((name, _)) = trimmed.split_once('=')
+            if let Some((name, _)) = assignment(line).split_once('=')
                 && let Some(value) = values.get(name.trim())
             {
                 if !seen.insert(name.trim().to_owned()) {
                     return Err(E::InvalidEnvFile);
+                }
+                if line.starts_with('\u{feff}') {
+                    next.push('\u{feff}');
                 }
                 next.push_str(&format!(
                     "{}=\"{}\"{}",
@@ -160,7 +260,7 @@ impl EnvPlan {
             }
         }
         for (name, value) in &values {
-            if !seen.contains(*name) {
+            if !seen.contains(name) {
                 if !next.is_empty() && !next.ends_with('\n') {
                     next.push_str(newline);
                 }
@@ -172,8 +272,24 @@ impl EnvPlan {
             path,
             old,
             next: Zeroizing::new(next.as_bytes().to_vec()),
-            keys: values.keys().map(|s| s.to_string()).collect(),
+            keys: values.keys().cloned().collect(),
         })
+    }
+    pub fn apply_if_changed(self, store: &ProjectStore) -> Result<Applied> {
+        if self
+            .old
+            .as_ref()
+            .is_some_and(|v| v.as_slice() == self.next.as_slice())
+        {
+            if read(&self.path)?.as_deref() != self.old.as_ref().map(|v| v.as_slice()) {
+                return Err(E::EnvFileChanged);
+            }
+            return Ok(Applied {
+                backup: None,
+                changed_keys: vec![],
+            });
+        }
+        self.apply(store)
     }
     pub fn apply(self, store: &ProjectStore) -> Result<Applied> {
         let _lock = store.operation_lock()?;
@@ -262,6 +378,13 @@ pub(crate) fn app_key_secret(path: &std::path::Path) -> Result<Option<Zeroizing<
 fn read(path: &std::path::Path) -> Result<Option<Vec<u8>>> {
     match fs::symlink_metadata(path) {
         Ok(m) => {
+            #[cfg(windows)]
+            {
+                use std::os::windows::fs::MetadataExt;
+                if m.file_attributes() & 0x400 != 0 {
+                    return Err(E::InvalidEnvFile);
+                }
+            }
             if !m.is_file() || m.file_type().is_symlink() || m.len() > 1024 * 1024 {
                 return Err(E::InvalidEnvFile);
             }

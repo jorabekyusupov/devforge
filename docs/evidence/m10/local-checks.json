@@ -1,0 +1,8 @@
+{
+  "rust_passed": 83,
+  "rust_ignored": 1,
+  "frontend_passed": 27,
+  "strict_okf_documents": 25,
+  "clippy_all_targets_test_support": true,
+  "scope": "Local working tree; final immutable-source hosted checks tracked separately."
+}

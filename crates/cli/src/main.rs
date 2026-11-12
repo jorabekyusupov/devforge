@@ -1,5 +1,6 @@
 use devforge_core::SettingsRepository;
 use devforge_platform::{SqliteSettings, app_data_dir, diagnostics};
+mod config;
 mod distribution;
 mod inspector;
 mod project;
@@ -11,6 +12,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         if let Err(error) = distribution::run() {
             eprintln!("{}", serde_json::json!({"error":error.to_string()}));
             std::process::exit(3);
+        }
+        return Ok(());
+    }
+    if std::env::args().nth(1).as_deref() == Some("config") {
+        if let Err(error) = config::run() {
+            eprintln!("{}", serde_json::json!({"error":error}));
+            std::process::exit(1);
         }
         return Ok(());
     }
@@ -44,7 +52,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     if std::env::args().nth(1).as_deref() != Some("doctor") {
         eprintln!(
-            "Usage: devforge doctor | inspect <project-id> | site list|configure|remove|authority|system-plan|serve | runtime catalog|install|probe|remove <id> [archive|executable]"
+            "Usage: devforge config init|export|plan|setup|secret|status | doctor | inspect <project-id> | site list|configure|remove|authority|system-plan|serve | runtime catalog|install|probe|remove <id> [archive|executable]"
         );
         std::process::exit(2);
     }

@@ -5,7 +5,7 @@ use crate::{
 use devforge_core::SecretStore;
 use std::{collections::BTreeMap, ffi::OsString};
 use zeroize::Zeroizing;
-pub(crate) fn key(project: &Project, name: &str) -> String {
+pub fn key(project: &Project, name: &str) -> String {
     format!("project/{}/env/{name}", project.id)
 }
 pub fn set(
@@ -33,6 +33,7 @@ pub fn set(
     secrets
         .set(&reference, value)
         .map_err(|_| E::SecretUnavailable)?;
+    p.environment_references.remove(name);
     if !p.environment_names.iter().any(|v| v == name) {
         p.environment_names.push(name.into());
         p.environment_names.sort();
@@ -55,14 +56,19 @@ pub(crate) fn load(
     for name in &project.environment_names {
         validate(name, "")?;
         let value = secrets
-            .get(&key(project, name))
+            .get(
+                project
+                    .environment_references
+                    .get(name)
+                    .unwrap_or(&key(project, name)),
+            )
             .map_err(|_| E::SecretUnavailable)?
             .ok_or(E::SecretUnavailable)?;
         values.insert(name.into(), Zeroizing::new(value));
     }
     Ok(values)
 }
-fn validate(name: &str, value: &str) -> Result<()> {
+pub fn validate(name: &str, value: &str) -> Result<()> {
     let reserved = [
         "PATH",
         "PATHEXT",
@@ -148,4 +154,38 @@ pub(crate) fn base() -> BTreeMap<OsString, OsString> {
         env.insert("NoDefaultCurrentDirectoryInExePath".into(), "1".into());
     }
     env
+}
+
+/// Bind an already-provisioned local credential item. No value enters metadata.
+pub fn link(
+    store: &ProjectStore,
+    secrets: &dyn SecretStore,
+    id: &str,
+    revision: u64,
+    name: &str,
+    reference: &str,
+) -> Result<Project> {
+    let _lock = store.operation_lock()?;
+    let mut p = store.get(id)?;
+    if p.revision != revision {
+        return Err(E::StaleRevision);
+    }
+    let value = Zeroizing::new(
+        secrets
+            .get(reference)
+            .map_err(|_| E::SecretUnavailable)?
+            .ok_or(E::SecretUnavailable)?,
+    );
+    validate(name, &value)?;
+    if p.environment_names.len() >= 64 && !p.environment_names.iter().any(|v| v == name) {
+        return Err(E::InvalidEnvironment);
+    }
+    if !p.environment_names.iter().any(|v| v == name) {
+        p.environment_names.push(name.into());
+        p.environment_names.sort();
+    }
+    p.environment_references
+        .insert(name.into(), reference.into());
+    store.save(&mut p, revision)?;
+    Ok(p)
 }
