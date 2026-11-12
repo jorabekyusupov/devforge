@@ -180,6 +180,40 @@ pub async fn choose_project_directory(
     .await
     .map_err(|_| State::failure("open_failed"))?
 }
+#[tauri::command]
+pub async fn choose_backup_file(
+    app: tauri::AppHandle,
+    preferences: tauri::State<'_, crate::AppState>,
+    save: bool,
+) -> Result<Option<PathBuf>, Error> {
+    use tauri_plugin_dialog::DialogExt;
+    let preferences = preferences.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let snapshot = preferences
+            .snapshot(None)
+            .map_err(|_| State::failure("storage_unavailable"))?;
+        let bundle: serde_json::Value = serde_json::from_str(crate::BUNDLE).unwrap();
+        let key = if save { "export" } else { "import" };
+        let title = bundle["catalogs"][snapshot.resolved_locale]["services"][key]
+            .as_str()
+            .unwrap_or("DevForge");
+        let dialog = app
+            .dialog()
+            .file()
+            .set_title(title)
+            .add_filter("DevForge", &["dfbackup"]);
+        let selected = if save {
+            dialog.set_file_name("backup.dfbackup").blocking_save_file()
+        } else {
+            dialog.blocking_pick_file()
+        };
+        selected
+            .map(|p| p.into_path().map_err(|_| State::failure("open_failed")))
+            .transpose()
+    })
+    .await
+    .map_err(|_| State::failure("open_failed"))?
+}
 pub fn quit(app: &tauri::AppHandle) {
     let state = app.state::<State>().inner().clone();
     if state.quitting.swap(true, Ordering::SeqCst) {

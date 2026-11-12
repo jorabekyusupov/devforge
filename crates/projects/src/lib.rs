@@ -1,8 +1,12 @@
 //! Project-scoped application services; all blocking I/O belongs on a worker.
+pub mod backup;
+pub mod cache;
 pub mod database;
+pub mod database_store;
 pub mod env_file;
 pub mod environment;
 pub mod execution;
+pub mod mysql_service;
 pub mod php_settings;
 pub mod project;
 pub mod terminal;
@@ -27,6 +31,9 @@ pub enum ProjectError {
     DatabaseConflict,
     InstanceBusy,
     RecoveryRequired,
+    BackupDestinationExists,
+    InvalidBackup,
+    BackupUnsupported,
     InvalidEnvFile,
     EnvFileChanged,
     TerminalUnavailable,
@@ -102,6 +109,9 @@ mod localization_tests {
                 super::ProjectError::DatabaseConflict,
                 super::ProjectError::InstanceBusy,
                 super::ProjectError::RecoveryRequired,
+                super::ProjectError::InvalidBackup,
+                super::ProjectError::BackupUnsupported,
+                super::ProjectError::BackupDestinationExists,
                 super::ProjectError::InvalidEnvFile,
                 super::ProjectError::EnvFileChanged,
                 super::ProjectError::TerminalUnavailable,

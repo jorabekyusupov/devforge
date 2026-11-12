@@ -199,6 +199,7 @@ fn spec(
         executable.path().parent().unwrap().as_os_str().to_owned(),
     );
     Ok(ProcessSpec {
+        input: None,
         id: id.into(),
         executable,
         args,

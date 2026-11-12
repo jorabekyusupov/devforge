@@ -63,6 +63,7 @@ pub fn run() -> Result<()> {
             );
             let mut supervisor = Supervisor::open(root.join("process-logs"))?;
             supervisor.start(ProcessSpec {
+                input: None,
                 id: "cli-probe".into(),
                 executable,
                 args: vec![version_flag.into()],

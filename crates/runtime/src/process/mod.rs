@@ -45,6 +45,7 @@ impl Default for RestartPolicy {
 }
 #[derive(Clone)]
 pub struct ProcessSpec {
+    pub input: Option<PathBuf>,
     pub id: String,
     pub executable: VerifiedExecutable,
     pub args: Vec<OsString>,
@@ -413,6 +414,38 @@ fn attempt(
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
+    if let Some(path) = &spec.input {
+        let mut options = OpenOptions::new();
+        options.read(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK);
+        }
+        #[cfg(windows)]
+        {
+            use std::os::windows::fs::OpenOptionsExt;
+            options.custom_flags(0x00200000);
+        }
+        let file = options
+            .open(path)
+            .map_err(|_| RuntimeError::InvalidProcess)?;
+        let metadata = file.metadata().map_err(|_| RuntimeError::InvalidProcess)?;
+        if !metadata.is_file()
+            || metadata.file_type().is_symlink()
+            || metadata.len() > 4 * 1024 * 1024 * 1024
+        {
+            return Err(RuntimeError::InvalidProcess);
+        }
+        #[cfg(windows)]
+        {
+            use std::os::windows::fs::MetadataExt;
+            if metadata.file_attributes() & 0x400 != 0 {
+                return Err(RuntimeError::InvalidProcess);
+            }
+        }
+        command.stdin(Stdio::from(file));
+    }
     let mut tree = tree::Tree::spawn(&mut command)?;
     let pid = tree.child.id();
     set(state, Observed::Starting, Some(pid), None);

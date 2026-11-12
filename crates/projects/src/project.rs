@@ -54,6 +54,8 @@ pub struct Project {
     pub active: bool,
     #[serde(default)]
     pub php_settings: crate::php_settings::PhpSettings,
+    #[serde(default)]
+    pub services: crate::cache::ServiceSelection,
 }
 #[derive(Debug, Clone, Serialize)]
 pub struct Inspection {
@@ -161,11 +163,14 @@ impl ProjectStore {
         connection.busy_timeout(Duration::from_secs(3))?;
         connection.pragma_update(None, "foreign_keys", true)?;
         let version: u32 = connection.pragma_query_value(None, "user_version", |r| r.get(0))?;
-        if version > 1 {
+        if version > 2 {
             return Err(E::StorageUnavailable);
         }
         if version == 0 {
             connection.execute_batch("BEGIN IMMEDIATE; CREATE TABLE projects(id TEXT PRIMARY KEY, path_key TEXT NOT NULL, active INTEGER NOT NULL, revision INTEGER NOT NULL, record TEXT NOT NULL); CREATE UNIQUE INDEX active_project_path ON projects(path_key) WHERE active=1; CREATE TABLE instances(id TEXT PRIMARY KEY,record TEXT NOT NULL); CREATE TABLE database_bindings(project_id TEXT PRIMARY KEY REFERENCES projects(id),instance_id TEXT NOT NULL REFERENCES instances(id),record TEXT NOT NULL); PRAGMA user_version=1; COMMIT;")?;
+        }
+        if version <= 1 {
+            connection.execute_batch("BEGIN IMMEDIATE; CREATE TABLE database_binding_history(project_id TEXT NOT NULL REFERENCES projects(id),binding_key TEXT NOT NULL,record TEXT NOT NULL,PRIMARY KEY(project_id,binding_key)); CREATE TABLE cache_instances(id TEXT PRIMARY KEY,record TEXT NOT NULL); PRAGMA user_version=2; COMMIT;")?;
         }
         Ok(Self { connection, root })
     }
@@ -218,6 +223,7 @@ impl ProjectStore {
             revision: 1,
             active: true,
             php_settings: Default::default(),
+            services: Default::default(),
         };
         self.connection.execute("INSERT INTO projects VALUES(?1,?2,1,1,?3)",params![project.id,key,serde_json::to_string(&project).unwrap()]).map_err(|e|if matches!(e,rusqlite::Error::SqliteFailure(ref e,_) if e.code==rusqlite::ErrorCode::ConstraintViolation){E::DuplicateProject}else{E::StorageUnavailable})?;
         Ok(project)

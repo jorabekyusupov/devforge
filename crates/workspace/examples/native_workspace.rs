@@ -16,6 +16,8 @@ use std::{
 mod inspector;
 #[path = "support/onboarding.rs"]
 mod onboarding;
+#[path = "support/services.rs"]
+mod services;
 #[cfg(windows)]
 #[path = "../../projects/examples/support/windows_unprivileged.rs"]
 mod windows_unprivileged;
@@ -26,6 +28,12 @@ fn main() -> Result<()> {
         std::process::exit(code);
     }
     let args: Vec<_> = std::env::args().skip(1).collect();
+    if args.first().map(String::as_str) == Some("services-retention") {
+        return services::retention(Path::new(args.get(1).ok_or("fixture required")?));
+    }
+    if args.first().map(String::as_str) == Some("services-native") {
+        return services::run(Path::new(args.get(1).ok_or("fixture required")?));
+    }
     if args.first().map(String::as_str) == Some("setup-ui-reset") {
         return onboarding::reset_ui(Path::new(args.get(1).ok_or("fixture required")?));
     }

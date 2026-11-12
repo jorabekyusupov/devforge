@@ -143,6 +143,7 @@ fn flooded_logs_are_bounded_rotated_and_drained_from_both_streams() {
     let mut s = Supervisor::open(&root).unwrap();
     let mut spec = f.spec("flood", "flood");
     spec.logs = LogPolicy {
+        capture: true,
         memory_bytes: 8192,
         file_bytes: 8192,
         files: 3,
@@ -313,5 +314,46 @@ fn tcp_readiness_waits_for_listener_and_rejects_non_loopback() {
     assert_eq!(
         supervisor.start(bad).err(),
         Some(RuntimeError::InvalidProcess)
+    );
+}
+
+#[test]
+fn private_file_input_is_delivered_without_capturing_payload() {
+    let f = Fixture::new();
+    f.install();
+    let path = f.temp.path().join("input.sql");
+    fs::write(&path, b"sensitive database row\n").unwrap();
+    let mut supervisor = Supervisor::open(f.temp.path().join("stdin-logs")).unwrap();
+    let mut spec = f.spec("stdin", "stdin");
+    spec.input = Some(path);
+    spec.readiness = Readiness::SuccessfulExit;
+    spec.logs.capture = false;
+    supervisor.start(spec).unwrap();
+    let result = supervisor
+        .wait_terminal("stdin", Duration::from_secs(5))
+        .unwrap();
+    assert_eq!(result.observed, Observed::Succeeded);
+    assert!(supervisor.logs("stdin").unwrap().0.is_empty());
+    assert!(
+        !fs::read_to_string(f.temp.path().join("stdin-logs/stdin.log"))
+            .unwrap()
+            .contains("sensitive")
+    );
+}
+#[test]
+fn directory_input_is_refused_without_starting_child() {
+    let f = Fixture::new();
+    f.install();
+    let mut supervisor = Supervisor::open(f.temp.path().join("input-logs")).unwrap();
+    let mut spec = f.spec("input", "echo");
+    spec.input = Some(f.temp.path().to_path_buf());
+    spec.readiness = Readiness::SuccessfulExit;
+    supervisor.start(spec).unwrap();
+    assert_eq!(
+        supervisor
+            .wait_terminal("input", Duration::from_secs(5))
+            .unwrap()
+            .observed,
+        Observed::Failed
     );
 }

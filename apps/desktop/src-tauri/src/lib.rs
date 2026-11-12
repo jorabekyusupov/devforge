@@ -316,6 +316,7 @@ pub fn run() {
             workspace::workspace_cancel,
             workspace::open_project,
             workspace::choose_project_directory,
+            workspace::choose_backup_file,
             workspace::quit_application,
             workspace::main_window_action
         ])

@@ -172,3 +172,130 @@ fn secret_environment_values_never_enter_sqlite_or_metadata() {
         );
     }
 }
+
+#[test]
+fn schema_one_and_pre_service_project_records_upgrade_without_losing_bindings() {
+    let root = tempfile::tempdir().unwrap();
+    let catalog = Catalog::bundled();
+    let php = selection(&catalog, "php", "8.4");
+    let node = selection(&catalog, "node", "v22");
+    let path = root.path().join("legacy");
+    project(&path, "^8.3", "*");
+    let metadata = root.path().join("metadata");
+    let store = ProjectStore::open(&metadata).unwrap();
+    let p = store
+        .import(&path, "legacy", &php, &node, &catalog)
+        .unwrap();
+    drop(store);
+    let connection = rusqlite::Connection::open(metadata.join("projects.sqlite3")).unwrap();
+    let raw: String = connection
+        .query_row("SELECT record FROM projects WHERE id=?1", [&p.id], |r| {
+            r.get(0)
+        })
+        .unwrap();
+    let mut record: serde_json::Value = serde_json::from_str(&raw).unwrap();
+    record.as_object_mut().unwrap().remove("services");
+    connection
+        .execute(
+            "UPDATE projects SET record=?1 WHERE id=?2",
+            rusqlite::params![record.to_string(), p.id],
+        )
+        .unwrap();
+    connection
+        .execute_batch(
+            "DROP TABLE cache_instances;DROP TABLE database_binding_history;PRAGMA user_version=1",
+        )
+        .unwrap();
+    drop(connection);
+    let store = ProjectStore::open(&metadata).unwrap();
+    let actual = store.get(&p.id).unwrap();
+    assert_eq!(actual.php, php);
+    assert!(!actual.services.uses_redis());
+    assert!(store.cache_instances().unwrap().is_empty());
+    assert!(store.binding_history(&p.id).unwrap().is_empty());
+    let legacy:devforge_projects::database::Instance=serde_json::from_value(serde_json::json!({"id":"old","package":"pg","port":5432,"admin":"owned","secret_ref":"old-ref","ready":true})).unwrap();
+    assert_eq!(
+        legacy.engine,
+        devforge_projects::database::Engine::Postgresql
+    );
+}
+
+#[test]
+fn staged_generations_preserve_active_binding_and_use_engine_specific_role_limits() {
+    use devforge_projects::database::{Engine, Instance};
+    let root = tempfile::tempdir().unwrap();
+    let catalog = Catalog::bundled();
+    let php = selection(&catalog, "php", "8.4");
+    let node = selection(&catalog, "node", "v22");
+    let path = root.path().join("project");
+    project(&path, "^8.3", "*");
+    let metadata = root.path().join("metadata");
+    let store = ProjectStore::open(&metadata).unwrap();
+    let p = store.import(&path, "A", &php, &node, &catalog).unwrap();
+    let connection = rusqlite::Connection::open(metadata.join("projects.sqlite3")).unwrap();
+    for (id, engine) in [("pg", Engine::Postgresql), ("mysql", Engine::Mysql)] {
+        let i = Instance {
+            engine,
+            id: id.into(),
+            package: id.into(),
+            port: 1,
+            admin: "admin".into(),
+            secret_ref: "admin-ref".into(),
+            ready: true,
+        };
+        connection
+            .execute(
+                "INSERT INTO instances VALUES(?1,?2)",
+                rusqlite::params![id, serde_json::to_string(&i).unwrap()],
+            )
+            .unwrap();
+    }
+    let secrets = Secrets::default();
+    let mut pg = store.staged_binding(&p.id, "pg", &secrets).unwrap();
+    assert_eq!(pg.role, pg.database);
+    let mut mysql = store.staged_binding(&p.id, "mysql", &secrets).unwrap();
+    assert!(mysql.role.len() <= 32);
+    assert_ne!(pg.secret_ref, mysql.secret_ref);
+    assert!(store.binding(&p.id).unwrap().is_none());
+    assert!(store.retained_binding(&p.id, "pg").unwrap().is_none());
+    assert_eq!(
+        store.activate_binding(&p.id, Some(&pg)).err(),
+        Some(ProjectError::RecoveryRequired)
+    );
+    pg.ready = true;
+    mysql.ready = true;
+    store.activate_binding(&p.id, Some(&pg)).unwrap();
+    store.activate_binding(&p.id, Some(&mysql)).unwrap();
+    assert_eq!(
+        store.binding(&p.id).unwrap().unwrap().database,
+        mysql.database
+    );
+    assert_eq!(
+        store
+            .retained_binding(&p.id, "pg")
+            .unwrap()
+            .unwrap()
+            .database,
+        pg.database
+    );
+    let mut bad = pg.clone();
+    bad.project_id = "another-project".into();
+    assert_eq!(
+        store.activate_binding(&p.id, Some(&bad)).err(),
+        Some(ProjectError::DatabaseConflict)
+    );
+    assert_eq!(
+        store.binding(&p.id).unwrap().unwrap().database,
+        mysql.database
+    );
+    store.activate_binding(&p.id, None).unwrap();
+    assert!(store.binding(&p.id).unwrap().is_none());
+    assert_eq!(
+        store
+            .retained_binding(&p.id, "mysql")
+            .unwrap()
+            .unwrap()
+            .database,
+        mysql.database
+    );
+}

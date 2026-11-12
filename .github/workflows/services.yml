@@ -1,0 +1,59 @@
+name: Native database and cache services
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Native target
+        type: choice
+        default: all
+        options: [all, macos-arm64, macos-x64, windows-x64]
+permissions:
+  contents: read
+jobs:
+  services:
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(inputs.target == 'windows-x64' && '[{"os":"windows-latest","target":"windows-x64"}]' || inputs.target == 'macos-arm64' && '[{"os":"macos-15","target":"macos-arm64"}]' || inputs.target == 'macos-x64' && '[{"os":"macos-15-intel","target":"macos-x64"}]' || '[{"os":"macos-15","target":"macos-arm64"},{"os":"macos-15-intel","target":"macos-x64"},{"os":"windows-latest","target":"windows-x64"}]') }}
+    runs-on: ${{ matrix.os }}
+    env:
+      PYTHONUTF8: '1'
+      PYTHONIOENCODING: utf-8
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24.22.2'
+          cache: npm
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.13'
+      - run: rustup show
+      - run: npm ci
+      - name: Owned process persistence and failed SQL restore isolation
+        run: cargo run --release -p devforge-projects --example services_smoke
+      - name: Real Laravel PG PHP Node fixture
+        run: cargo run --release -p devforge-workspace --example native_workspace --features test-support -- m9-fixture empty-cache
+      - name: MySQL PostgreSQL backups Garnet versions Laravel cache and Lua queues
+        run: target/release/examples/native_workspace services-native m9-fixture
+      - name: Build fixed-purpose system helper for native review availability
+        run: cargo build -p devforge-serving --bin devforge-helper
+      - name: Native debug-only WebDriver acceptance desktop
+        run: npm run tauri -- build --debug --no-bundle --features e2e
+      - name: Real WKWebView or WebView2 service controls and accessibility
+        env:
+          WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: --disable-gpu
+        run: python scripts/m9_desktop_smoke.py m9-fixture target/debug/devforge-desktop target/release/examples/native_workspace
+      - name: Preserve only public reports and native captures
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: m9-${{ matrix.target }}
+          retention-days: 7
+          path: |
+            m9-fixture/m9-native-result.json
+            m9-fixture/m9-native-failure.json
+            m9-fixture/m9-desktop-result.json
+            output/playwright/m9/*.png
+          if-no-files-found: warn

@@ -13,6 +13,13 @@ fn main() {
     let args: Vec<_> = std::env::args().skip(1).collect();
     let mode = args.first().map(String::as_str).unwrap_or("ready");
     match mode {
+        "stdin" => {
+            use std::io::Read;
+            let mut bytes = String::new();
+            io::stdin().read_to_string(&mut bytes).unwrap();
+            assert_eq!(bytes, "sensitive database row\n");
+            print!("{bytes}");
+        }
         "tcp" => {
             thread::sleep(Duration::from_millis(150));
             let listener =

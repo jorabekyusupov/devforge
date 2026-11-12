@@ -1,0 +1,369 @@
+{
+  "schema": 1,
+  "checked_local_date": "2026-11-13",
+  "packages": [
+    {
+      "id": "mysql-8.4.13-macos-arm64",
+      "kind": "mysql",
+      "version": "8.4.13",
+      "variant": "server",
+      "target": "macos-arm64",
+      "url": "https://cdn.mysql.com/Downloads/MySQL-8.4/mysql-8.4.13-macos15-arm64.tar.gz",
+      "sha256": "f324f8950e24d4147470bbc6a6ef0b90ef93b91d3fc74154b3d2ba085b44912a",
+      "archive": {
+        "kind": "tar_gz"
+      },
+      "executables": {
+        "mysqld": "mysql-8.4.13-macos15-arm64/bin/mysqld",
+        "mysql": "mysql-8.4.13-macos15-arm64/bin/mysql",
+        "mysqldump": "mysql-8.4.13-macos15-arm64/bin/mysqldump"
+      },
+      "provenance": {
+        "authentication": "Oracle detached GPG signature verified for ARM64 and Windows archives",
+        "fingerprint": "BCA43417C3B485DD128EC6D4B7B3B788A8D3785C",
+        "license": "GPL-2.0; runtime is a separate download; public redistribution review remains open"
+      }
+    },
+    {
+      "id": "mysql-8.4.13-windows-x64",
+      "kind": "mysql",
+      "version": "8.4.13",
+      "variant": "server",
+      "target": "windows-x64",
+      "url": "https://cdn.mysql.com/Downloads/MySQL-8.4/mysql-8.4.13-winx64.zip",
+      "sha256": "e9cd98b1d23f122987b1afca26ad942efec5891481103d48ae3cde237fa3ea54",
+      "archive": {
+        "kind": "zip"
+      },
+      "executables": {
+        "mysqld": "mysql-8.4.13-winx64/bin/mysqld.exe",
+        "mysql": "mysql-8.4.13-winx64/bin/mysql.exe",
+        "mysqldump": "mysql-8.4.13-winx64/bin/mysqldump.exe"
+      },
+      "provenance": {
+        "authentication": "Oracle detached GPG signature verified for ARM64 and Windows archives",
+        "fingerprint": "BCA43417C3B485DD128EC6D4B7B3B788A8D3785C",
+        "license": "GPL-2.0; runtime is a separate download; public redistribution review remains open"
+      }
+    },
+    {
+      "id": "dotnet-10.0.15-macos-arm64",
+      "kind": "dotnet",
+      "version": "10.0.15",
+      "variant": "default",
+      "target": "macos-arm64",
+      "url": "https://builds.dotnet.microsoft.com/dotnet/Runtime/10.0.15/dotnet-runtime-10.0.15-osx-arm64.tar.gz",
+      "sha256": "3211be3138d83af7a389649b50443c3d9015972ef8e228e2612230a3bd1d715d",
+      "archive": {
+        "kind": "tar_gz"
+      },
+      "executables": {
+        "dotnet": "dotnet"
+      },
+      "provenance": {
+        "authentication": "Official .NET release-metadata SHA512 verified before deriving the catalog SHA256",
+        "metadata": "https://builds.dotnet.microsoft.com/dotnet/release-metadata/10.0/releases.json",
+        "license": "MIT and bundled third party notices"
+      }
+    },
+    {
+      "id": "dotnet-10.0.15-macos-x64",
+      "kind": "dotnet",
+      "version": "10.0.15",
+      "variant": "default",
+      "target": "macos-x64",
+      "url": "https://builds.dotnet.microsoft.com/dotnet/Runtime/10.0.15/dotnet-runtime-10.0.15-osx-x64.tar.gz",
+      "sha256": "c89c0fc6b95b3c42394eb726ae333f15ac41d65553e16ef6290e5a5ea30e9e85",
+      "archive": {
+        "kind": "tar_gz"
+      },
+      "executables": {
+        "dotnet": "dotnet"
+      },
+      "provenance": {
+        "authentication": "Official .NET release-metadata SHA512 verified before deriving the catalog SHA256",
+        "metadata": "https://builds.dotnet.microsoft.com/dotnet/release-metadata/10.0/releases.json",
+        "license": "MIT and bundled third party notices"
+      }
+    },
+    {
+      "id": "dotnet-10.0.15-windows-x64",
+      "kind": "dotnet",
+      "version": "10.0.15",
+      "variant": "default",
+      "target": "windows-x64",
+      "url": "https://builds.dotnet.microsoft.com/dotnet/Runtime/10.0.15/dotnet-runtime-10.0.15-win-x64.zip",
+      "sha256": "c9f219ad2ec570478f4b1950ae56f88a48e76cabba75e7f54764a1d8a9009e87",
+      "archive": {
+        "kind": "zip"
+      },
+      "executables": {
+        "dotnet": "dotnet.exe"
+      },
+      "provenance": {
+        "authentication": "Official .NET release-metadata SHA512 verified before deriving the catalog SHA256",
+        "metadata": "https://builds.dotnet.microsoft.com/dotnet/release-metadata/10.0/releases.json",
+        "license": "MIT and bundled third party notices"
+      }
+    },
+    {
+      "id": "garnet-2.2.11-macos-arm64",
+      "kind": "garnet",
+      "version": "2.2.11",
+      "variant": "server",
+      "target": "macos-arm64",
+      "url": "https://github.com/microsoft/garnet/releases/download/v2.2.11/osx-arm64-based.tar.xz",
+      "sha256": "ea75c57f1bbf525ac6cd192d01aee8901e2a7af25c25fd7a35cad59f0f6a2033",
+      "archive": {
+        "kind": "tar_xz"
+      },
+      "executables": {
+        "garnet": "net10.0/GarnetServer"
+      },
+      "provenance": {
+        "authentication": "Publisher GitHub release asset SHA256 metadata; installer verifies the pinned digest",
+        "license": "MIT",
+        "compatibility": "Native providers for all three targets; Laravel cache lock and queue Lua tested separately; not a claim of complete Redis compatibility"
+      }
+    },
+    {
+      "id": "garnet-2.2.11-macos-x64",
+      "kind": "garnet",
+      "version": "2.2.11",
+      "variant": "server",
+      "target": "macos-x64",
+      "url": "https://github.com/microsoft/garnet/releases/download/v2.2.11/osx-x64-based.tar.xz",
+      "sha256": "56a4c4171ba3d65abeca0a95aee173dc90ff611eb9b60babfbb3f7f1e64d8a7f",
+      "archive": {
+        "kind": "tar_xz"
+      },
+      "executables": {
+        "garnet": "net10.0/GarnetServer"
+      },
+      "provenance": {
+        "authentication": "Publisher GitHub release asset SHA256 metadata; installer verifies the pinned digest",
+        "license": "MIT",
+        "compatibility": "Native providers for all three targets; Laravel cache lock and queue Lua tested separately; not a claim of complete Redis compatibility"
+      }
+    },
+    {
+      "id": "garnet-2.2.11-windows-x64",
+      "kind": "garnet",
+      "version": "2.2.11",
+      "variant": "server",
+      "target": "windows-x64",
+      "url": "https://github.com/microsoft/garnet/releases/download/v2.2.11/win-x64-based-readytorun.zip",
+      "sha256": "3b44713d8c7cfa0bfb960c1ae0460ca41ecff783bfc414f474d8dbe8905bae63",
+      "archive": {
+        "kind": "zip"
+      },
+      "executables": {
+        "garnet": "net10.0/GarnetServer.exe"
+      },
+      "provenance": {
+        "authentication": "Publisher GitHub release asset SHA256 metadata; installer verifies the pinned digest",
+        "license": "MIT",
+        "compatibility": "Native providers for all three targets; Laravel cache lock and queue Lua tested separately; not a claim of complete Redis compatibility"
+      }
+    },
+    {
+      "id": "postgresql-tools-18.6-macos-arm64",
+      "kind": "postgresql-tools",
+      "version": "18.6",
+      "variant": "client",
+      "target": "macos-arm64",
+      "url": "https://get.enterprisedb.com/postgresql/postgresql-18.6-1-osx-binaries.zip",
+      "sha256": "2a6739fccbbc36474cb2446e4e7b4f377abb8471653d3a294e4e5092271e4796",
+      "archive": {
+        "kind": "zip_files",
+        "files": {
+          "pgsql/bin/pg_dump": "pgsql/bin/pg_dump",
+          "pgsql/lib/libcrypto.3.dylib": "pgsql/lib/libcrypto.3.dylib",
+          "pgsql/lib/libpq.5.dylib": "pgsql/lib/libpq.5.dylib",
+          "pgsql/lib/libssl.3.dylib": "pgsql/lib/libssl.3.dylib",
+          "pgsql/lib/libgssapi_krb5.2.2.dylib": "pgsql/lib/libgssapi_krb5.2.2.dylib",
+          "pgsql/lib/libkrb5.3.3.dylib": "pgsql/lib/libkrb5.3.3.dylib",
+          "pgsql/lib/libcom_err.3.0.dylib": "pgsql/lib/libcom_err.3.0.dylib",
+          "pgsql/lib/libkrb5support.1.1.dylib": "pgsql/lib/libkrb5support.1.1.dylib",
+          "pgsql/lib/libk5crypto.3.1.dylib": "pgsql/lib/libk5crypto.3.1.dylib",
+          "pgsql/lib/libzstd.1.dylib": "pgsql/lib/libzstd.1.dylib",
+          "pgsql/lib/libzstd.1.5.7.dylib": "pgsql/lib/libzstd.1.5.7.dylib",
+          "pgsql/lib/libz.1.3.2.dylib": "pgsql/lib/libz.1.3.2.dylib",
+          "pgsql/lib/liblz4.1.10.0.dylib": "pgsql/lib/liblz4.1.10.0.dylib",
+          "pgsql/bin/pg_restore": "pgsql/bin/pg_restore",
+          "pgsql/server_license.txt": "pgsql/server_license.txt",
+          "pgsql/commandlinetools_3rd_party_licenses.txt": "pgsql/commandlinetools_3rd_party_licenses.txt"
+        }
+      },
+      "executables": {
+        "pg_dump": "pgsql/bin/pg_dump",
+        "pg_restore": "pgsql/bin/pg_restore"
+      },
+      "provenance": {
+        "authentication": "EDB HTTPS download and locally computed SHA256; no publisher checksum/signature asserted",
+        "selection": "Exact binaries, regular runtime libraries and publisher license notices selected; no installer execution",
+        "license": "PostgreSQL and bundled commandline third party licenses retained"
+      }
+    },
+    {
+      "id": "postgresql-tools-18.6-macos-x64",
+      "kind": "postgresql-tools",
+      "version": "18.6",
+      "variant": "client",
+      "target": "macos-x64",
+      "url": "https://get.enterprisedb.com/postgresql/postgresql-18.6-1-osx-binaries.zip",
+      "sha256": "2a6739fccbbc36474cb2446e4e7b4f377abb8471653d3a294e4e5092271e4796",
+      "archive": {
+        "kind": "zip_files",
+        "files": {
+          "pgsql/bin/pg_dump": "pgsql/bin/pg_dump",
+          "pgsql/lib/libcrypto.3.dylib": "pgsql/lib/libcrypto.3.dylib",
+          "pgsql/lib/libpq.5.dylib": "pgsql/lib/libpq.5.dylib",
+          "pgsql/lib/libssl.3.dylib": "pgsql/lib/libssl.3.dylib",
+          "pgsql/lib/libgssapi_krb5.2.2.dylib": "pgsql/lib/libgssapi_krb5.2.2.dylib",
+          "pgsql/lib/libkrb5.3.3.dylib": "pgsql/lib/libkrb5.3.3.dylib",
+          "pgsql/lib/libcom_err.3.0.dylib": "pgsql/lib/libcom_err.3.0.dylib",
+          "pgsql/lib/libkrb5support.1.1.dylib": "pgsql/lib/libkrb5support.1.1.dylib",
+          "pgsql/lib/libk5crypto.3.1.dylib": "pgsql/lib/libk5crypto.3.1.dylib",
+          "pgsql/lib/libzstd.1.dylib": "pgsql/lib/libzstd.1.dylib",
+          "pgsql/lib/libzstd.1.5.7.dylib": "pgsql/lib/libzstd.1.5.7.dylib",
+          "pgsql/lib/libz.1.3.2.dylib": "pgsql/lib/libz.1.3.2.dylib",
+          "pgsql/lib/liblz4.1.10.0.dylib": "pgsql/lib/liblz4.1.10.0.dylib",
+          "pgsql/bin/pg_restore": "pgsql/bin/pg_restore",
+          "pgsql/server_license.txt": "pgsql/server_license.txt",
+          "pgsql/commandlinetools_3rd_party_licenses.txt": "pgsql/commandlinetools_3rd_party_licenses.txt"
+        }
+      },
+      "executables": {
+        "pg_dump": "pgsql/bin/pg_dump",
+        "pg_restore": "pgsql/bin/pg_restore"
+      },
+      "provenance": {
+        "authentication": "EDB HTTPS download and locally computed SHA256; no publisher checksum/signature asserted",
+        "selection": "Exact binaries, regular runtime libraries and publisher license notices selected; no installer execution",
+        "license": "PostgreSQL and bundled commandline third party licenses retained"
+      }
+    },
+    {
+      "id": "postgresql-tools-18.6-windows-x64",
+      "kind": "postgresql-tools",
+      "version": "18.6",
+      "variant": "client",
+      "target": "windows-x64",
+      "url": "https://get.enterprisedb.com/postgresql/postgresql-18.6-1-windows-x64-binaries.zip",
+      "sha256": "fbe23da234ee31547bf8a36d29dfd81e82b849df2d2b78d2eecb43d360252f8c",
+      "archive": {
+        "kind": "zip_files",
+        "files": {
+          "pgsql/bin/pg_dump.exe": "pgsql/bin/pg_dump.exe",
+          "pgsql/bin/pg_restore.exe": "pgsql/bin/pg_restore.exe",
+          "pgsql/bin/icudt77.dll": "pgsql/bin/icudt77.dll",
+          "pgsql/bin/icuin77.dll": "pgsql/bin/icuin77.dll",
+          "pgsql/bin/icuio77.dll": "pgsql/bin/icuio77.dll",
+          "pgsql/bin/icutu77.dll": "pgsql/bin/icutu77.dll",
+          "pgsql/bin/icuuc77.dll": "pgsql/bin/icuuc77.dll",
+          "pgsql/bin/libcrypto-3-x64.dll": "pgsql/bin/libcrypto-3-x64.dll",
+          "pgsql/bin/libcurl.dll": "pgsql/bin/libcurl.dll",
+          "pgsql/bin/libecpg_compat.dll": "pgsql/bin/libecpg_compat.dll",
+          "pgsql/bin/libecpg.dll": "pgsql/bin/libecpg.dll",
+          "pgsql/bin/libiconv-2.dll": "pgsql/bin/libiconv-2.dll",
+          "pgsql/bin/libintl-9.dll": "pgsql/bin/libintl-9.dll",
+          "pgsql/bin/liblz4.dll": "pgsql/bin/liblz4.dll",
+          "pgsql/bin/libpgtypes.dll": "pgsql/bin/libpgtypes.dll",
+          "pgsql/bin/libpq.dll": "pgsql/bin/libpq.dll",
+          "pgsql/bin/libssl-3-x64.dll": "pgsql/bin/libssl-3-x64.dll",
+          "pgsql/bin/libwinpthread-1.dll": "pgsql/bin/libwinpthread-1.dll",
+          "pgsql/bin/libxml2.dll": "pgsql/bin/libxml2.dll",
+          "pgsql/bin/libxslt.dll": "pgsql/bin/libxslt.dll",
+          "pgsql/bin/libzstd.dll": "pgsql/bin/libzstd.dll",
+          "pgsql/bin/testplug.dll": "pgsql/bin/testplug.dll",
+          "pgsql/bin/wxbase3211u_net_vc_x64_custom.dll": "pgsql/bin/wxbase3211u_net_vc_x64_custom.dll",
+          "pgsql/bin/wxbase3211u_vc_x64_custom.dll": "pgsql/bin/wxbase3211u_vc_x64_custom.dll",
+          "pgsql/bin/wxbase3211u_xml_vc_x64_custom.dll": "pgsql/bin/wxbase3211u_xml_vc_x64_custom.dll",
+          "pgsql/bin/wxmsw3211u_adv_vc_x64_custom.dll": "pgsql/bin/wxmsw3211u_adv_vc_x64_custom.dll",
+          "pgsql/bin/wxmsw3211u_aui_vc_x64_custom.dll": "pgsql/bin/wxmsw3211u_aui_vc_x64_custom.dll",
+          "pgsql/bin/wxmsw3211u_core_vc_x64_custom.dll": "pgsql/bin/wxmsw3211u_core_vc_x64_custom.dll",
+          "pgsql/bin/wxmsw3211u_html_vc_x64_custom.dll": "pgsql/bin/wxmsw3211u_html_vc_x64_custom.dll",
+          "pgsql/bin/wxmsw3211u_xrc_vc_x64_custom.dll": "pgsql/bin/wxmsw3211u_xrc_vc_x64_custom.dll",
+          "pgsql/bin/zlib1.dll": "pgsql/bin/zlib1.dll",
+          "pgsql/server_license.txt": "pgsql/server_license.txt",
+          "pgsql/commandlinetools_3rd_party_licenses.txt": "pgsql/commandlinetools_3rd_party_licenses.txt"
+        }
+      },
+      "executables": {
+        "pg_dump": "pgsql/bin/pg_dump.exe",
+        "pg_restore": "pgsql/bin/pg_restore.exe"
+      },
+      "provenance": {
+        "authentication": "EDB HTTPS download and locally computed SHA256; no publisher checksum/signature asserted",
+        "selection": "Exact binaries, regular runtime libraries and publisher license notices selected; no installer execution",
+        "license": "PostgreSQL and bundled commandline third party licenses retained"
+      }
+    },
+    {
+      "id": "garnet-2.2.10-macos-arm64",
+      "kind": "garnet",
+      "version": "2.2.10",
+      "variant": "server",
+      "target": "macos-arm64",
+      "url": "https://github.com/microsoft/garnet/releases/download/v2.2.10/osx-arm64-based.tar.xz",
+      "sha256": "bcdb783475a7ceb1172e7b2e874bd171f42789bd4361f8794bdb47232da16b59",
+      "archive": {
+        "kind": "tar_xz"
+      },
+      "executables": {
+        "garnet": "net10.0/GarnetServer"
+      },
+      "provenance": {
+        "authentication": "Publisher GitHub release asset SHA256 metadata; installer verifies the pinned digest",
+        "license": "MIT",
+        "compatibility": "Native providers for all three targets; Laravel cache lock and queue Lua tested separately; not a claim of complete Redis compatibility"
+      }
+    },
+    {
+      "id": "garnet-2.2.10-macos-x64",
+      "kind": "garnet",
+      "version": "2.2.10",
+      "variant": "server",
+      "target": "macos-x64",
+      "url": "https://github.com/microsoft/garnet/releases/download/v2.2.10/osx-x64-based.tar.xz",
+      "sha256": "da8a75512ec6ace7faa679697e6a1fe0387e01d2fbff608b731a624e57ff8f81",
+      "archive": {
+        "kind": "tar_xz"
+      },
+      "executables": {
+        "garnet": "net10.0/GarnetServer"
+      },
+      "provenance": {
+        "authentication": "Publisher GitHub release asset SHA256 metadata; installer verifies the pinned digest",
+        "license": "MIT",
+        "compatibility": "Native providers for all three targets; Laravel cache lock and queue Lua tested separately; not a claim of complete Redis compatibility"
+      }
+    },
+    {
+      "id": "garnet-2.2.10-windows-x64",
+      "kind": "garnet",
+      "version": "2.2.10",
+      "variant": "server",
+      "target": "windows-x64",
+      "url": "https://github.com/microsoft/garnet/releases/download/v2.2.10/win-x64-based-readytorun.zip",
+      "sha256": "e4766e78885b594dbb1636aacbc573236c34aebf14783eba1296e5edac5a9b58",
+      "archive": {
+        "kind": "zip"
+      },
+      "executables": {
+        "garnet": "net10.0/GarnetServer.exe"
+      },
+      "provenance": {
+        "authentication": "Publisher GitHub release asset SHA256 metadata; installer verifies the pinned digest",
+        "license": "MIT",
+        "compatibility": "Native providers for all three targets; Laravel cache lock and queue Lua tested separately; not a claim of complete Redis compatibility"
+      }
+    }
+  ],
+  "gates": [
+    "Current MySQL ARM64 and Windows only; official current Intel portable binary absent. PostgreSQL and Garnet on Intel.",
+    "macOS package OS floors and public runtime redistribution remain M15 release gates.",
+    "Garnet is framework-dependent: managed .NET10, FileStream storage and isolated ACL are required."
+  ]
+}

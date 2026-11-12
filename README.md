@@ -330,3 +330,23 @@ acceptance gate. See [M8 evidence and limitations](docs/knowledge/m8-project-set
 Publication can leave a preserved partial new directory on disk/crash failure;
 setup never replaces an existing destination. SSH/private Git authentication and
 recursive submodule workflows require their own client setup/coverage.
+
+## M9 databases and cache
+
+Services now manages owned PostgreSQL/MySQL instances and dedicated per-project
+Garnet processes. Install the chosen server package in Runtimes, create an instance
+in Services, then select the project connection. Garnet creation downloads its
+managed .NET dependency; Redis-compatible Laravel drivers require the explicit
+Predis installation action. Project cache/queue settings apply to DevForge contexts.
+Database-backed Laravel drivers still require the project's migrations.
+
+Stop the project before switching connections, changing drivers or restoring data.
+Backups use `.dfbackup` archives (managed PostgreSQL/MySQL only); a restore creates
+a new limited-role database and retains the prior connection. Use Retained databases
+to reactivate it. Imported SQL must be trusted. Export uses a new filename, without
+overwriting an existing file. Exact engine/version and MySQL InnoDB table-only limits
+are described in [M9 results](docs/knowledge/m9-services-results.md).
+
+MySQL's current portable package is available for macOS ARM64 and Windows x64.
+Intel Mac uses PostgreSQL and Garnet in this phase. Native CI and release limitations
+are tracked separately; this source change does not publish a new installer.

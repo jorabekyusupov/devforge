@@ -1,0 +1,20 @@
+{
+  "cache_restart_persistence": true,
+  "cross_project_cache_rejected": true,
+  "environment_unchanged": true,
+  "intel_mysql": "no_current_official_binary; not selected",
+  "laravel_cache_lock_flush_isolation": true,
+  "laravel_queue_lua": true,
+  "mysql": true,
+  "parallel_garnet_versions": [
+    "2.2.11",
+    "2.2.10"
+  ],
+  "parallel_php_database_services": true,
+  "postgresql_staged_restore": true,
+  "predis": "^3.7.1",
+  "target": "macos-arm64",
+  "retained_connection_reactivation": true,
+  "project_default_preserves_history": true,
+  "evidence_scope": "Working-tree native acceptance plus focused services-retention command; hosted immutable-source evidence pending."
+}

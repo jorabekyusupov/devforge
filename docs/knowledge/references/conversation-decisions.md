@@ -247,3 +247,15 @@ Foydalanuvchi «M8 ni boshla barcha ishlar tugagandan song» deb loyihani tez
 tayyorlash bosqichini boshlashni topshirdi. Oldingi test, OKF reconciliation va
 yakuniy push ish tartibi davom ettirildi. M7.2 Xdebug scope bu topshiriq bilan
 yopilgan deb belgilanmadi.
+
+## M9 topshirigi
+
+2026-11-13 suhbat davomida foydalanuvchi M9 ni boshlashni so'radi:
+
+> M9ni boshla barcha ishlar tugagandan song
+
+Roadmap M9 database/services scope bajariladi; oldingi bosqichlardagi test, OKF
+yangilash va yakuniy push cadence saqlanadi. M10 avtomatik boshlanmaydi. Provider
+va implementation tanlovlari assistant ishchi yechimi, individual technology
+version'lari alohida user talabi emas. Native dalil va capability gap
+[M9 hisobotida](../m9-services-results.md) qayd etiladi.

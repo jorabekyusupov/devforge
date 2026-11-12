@@ -1,0 +1,12 @@
+{
+  "rust_passed": 75,
+  "rust_ignored": 1,
+  "frontend_passed": 27,
+  "locale_catalogs": 3,
+  "locale_regressions": 3,
+  "packaging_tests": 6,
+  "clippy_all_targets_test_support": true,
+  "native_axe_cases": 10,
+  "native_axe_violations": 0,
+  "source_note": "Local working-tree checks and native UI evidence. Final output-size guard and project-label correction await immutable-source CI acceptance."
+}

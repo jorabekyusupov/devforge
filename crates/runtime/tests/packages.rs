@@ -332,3 +332,38 @@ fn download_rejects_plain_http_and_failure_never_activates() {
         0
     );
 }
+
+#[test]
+fn selected_zip_members_exclude_unrelated_content_and_cannot_escape() {
+    let f = Fixture::new();
+    let binary = fs::read(env!("CARGO_BIN_EXE_devforge-process-fixture")).unwrap();
+    zip_files(
+        &f.archive,
+        vec![
+            ("publisher/bin/tool", binary),
+            ("unrelated/readme", b"omit".to_vec()),
+        ],
+    );
+    let mut p = f.package.clone();
+    p.archive = Archive::ZipFiles {
+        files: std::collections::BTreeMap::from([(
+            "bin/fixture.exe".into(),
+            "publisher/bin/tool".into(),
+        )]),
+    };
+    p.sha256 = hash_file(&f.archive).unwrap();
+    let installed = f
+        .store
+        .install_cached(&p, &f.archive, &Cancellation::default(), |_| {})
+        .unwrap();
+    assert!(installed.directory.join("bin/fixture.exe").is_file());
+    assert!(!installed.directory.join("unrelated").exists());
+    let mut invalid = p;
+    invalid.archive = Archive::ZipFiles {
+        files: std::collections::BTreeMap::from([(
+            "../escape".into(),
+            "publisher/bin/tool".into(),
+        )]),
+    };
+    assert_eq!(invalid.key().err(), Some(RuntimeError::UnsafeArchive));
+}

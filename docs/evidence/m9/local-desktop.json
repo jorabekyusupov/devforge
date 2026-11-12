@@ -1,0 +1,236 @@
+{
+  "platform": "posix",
+  "checks": {
+    "restore_cancel_preserves_active_database": true,
+    "actual_tauri_staged_restore": true,
+    "retained_connection_review": true,
+    "keyboard_focus": true,
+    "preferences_relaunch": true
+  },
+  "accessibility": [
+    {
+      "case": "services-en-light",
+      "violations": []
+    },
+    {
+      "case": "restore-review",
+      "violations": []
+    },
+    {
+      "case": "retained-review",
+      "violations": []
+    },
+    {
+      "case": "services-ru-light",
+      "violations": []
+    },
+    {
+      "case": "services-ru-minimum",
+      "violations": []
+    },
+    {
+      "case": "services-uz-Latn-light",
+      "violations": []
+    },
+    {
+      "case": "services-uz-Latn-minimum",
+      "violations": []
+    },
+    {
+      "case": "services-en-light",
+      "violations": []
+    },
+    {
+      "case": "services-en-minimum",
+      "violations": []
+    },
+    {
+      "case": "services-en-dark",
+      "violations": []
+    }
+  ],
+  "captures": [
+    {
+      "file": "services-en-light.png",
+      "viewport": {
+        "height": 1024,
+        "language": "en",
+        "scale": 2,
+        "theme": "light",
+        "width": 1536
+      }
+    },
+    {
+      "file": "services-restore-review.png",
+      "viewport": {
+        "height": 1024,
+        "language": "en",
+        "scale": 2,
+        "theme": "light",
+        "width": 1536
+      }
+    },
+    {
+      "file": "services-ru-light.png",
+      "viewport": {
+        "height": 1024,
+        "language": "ru",
+        "scale": 2,
+        "theme": "light",
+        "width": 1536
+      }
+    },
+    {
+      "file": "services-ru-minimum.png",
+      "viewport": {
+        "height": 620,
+        "language": "ru",
+        "scale": 2,
+        "theme": "light",
+        "width": 820
+      }
+    },
+    {
+      "file": "services-uz-Latn-light.png",
+      "viewport": {
+        "height": 1024,
+        "language": "uz-Latn",
+        "scale": 2,
+        "theme": "light",
+        "width": 1536
+      }
+    },
+    {
+      "file": "services-uz-Latn-minimum.png",
+      "viewport": {
+        "height": 620,
+        "language": "uz-Latn",
+        "scale": 2,
+        "theme": "light",
+        "width": 820
+      }
+    },
+    {
+      "file": "services-en-light.png",
+      "viewport": {
+        "height": 1024,
+        "language": "en",
+        "scale": 2,
+        "theme": "light",
+        "width": 1536
+      }
+    },
+    {
+      "file": "services-en-minimum.png",
+      "viewport": {
+        "height": 620,
+        "language": "en",
+        "scale": 2,
+        "theme": "light",
+        "width": 820
+      }
+    },
+    {
+      "file": "services-en-dark.png",
+      "viewport": {
+        "height": 1024,
+        "language": "en",
+        "scale": 2,
+        "theme": "dark",
+        "width": 1536
+      }
+    }
+  ],
+  "viewport_attempts": [
+    {
+      "requested": {
+        "width": 1536,
+        "height": 1024
+      },
+      "actual": {
+        "height": 1024,
+        "width": 1536
+      },
+      "matched": true
+    },
+    {
+      "requested": {
+        "width": 1536,
+        "height": 1024
+      },
+      "actual": {
+        "height": 1024,
+        "width": 1536
+      },
+      "matched": true
+    },
+    {
+      "requested": {
+        "width": 820,
+        "height": 620
+      },
+      "actual": {
+        "height": 620,
+        "width": 820
+      },
+      "matched": true
+    },
+    {
+      "requested": {
+        "width": 1536,
+        "height": 1024
+      },
+      "actual": {
+        "height": 1024,
+        "width": 1536
+      },
+      "matched": true
+    },
+    {
+      "requested": {
+        "width": 820,
+        "height": 620
+      },
+      "actual": {
+        "height": 620,
+        "width": 820
+      },
+      "matched": true
+    },
+    {
+      "requested": {
+        "width": 1536,
+        "height": 1024
+      },
+      "actual": {
+        "height": 1024,
+        "width": 1536
+      },
+      "matched": true
+    },
+    {
+      "requested": {
+        "width": 820,
+        "height": 620
+      },
+      "actual": {
+        "height": 620,
+        "width": 820
+      },
+      "matched": true
+    },
+    {
+      "requested": {
+        "width": 1536,
+        "height": 1024
+      },
+      "actual": {
+        "height": 1024,
+        "width": 1536
+      },
+      "matched": true
+    }
+  ],
+  "native": "WKWebView or WebView2, embedded debug-only W3C WebDriver",
+  "file_dialogs": "not automated; export/import core verified separately"
+}

@@ -1,9 +1,10 @@
 //! Shared daily-workspace orchestration. No Tauri or UI types, no credentials in DTOs.
+mod services;
 pub mod setup;
 mod system_setup;
 use devforge_core::SecretStore;
 use devforge_projects::{
-    database::{Binding, Instance, RunningPostgres},
+    database::{Binding, Instance, RunningDatabase},
     execution::{Context, Invocation, Tool},
     project::{Catalog, Project, ProjectStore, compatible, inspect},
     terminal,
@@ -112,6 +113,8 @@ pub struct Row {
     pub serving: Option<SiteStatus>,
     pub queue_state: Option<String>,
     pub database: Option<Binding>,
+    pub backups: Vec<devforge_projects::backup::Manifest>,
+    pub database_history: Vec<Binding>,
 }
 #[derive(Clone, Serialize)]
 pub struct Database {
@@ -132,6 +135,7 @@ pub struct Snapshot {
     pub projects: Vec<Row>,
     pub runtimes: Vec<Runtime>,
     pub databases: Vec<Database>,
+    pub caches: Vec<services::Cache>,
     pub logs: Vec<Log>,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -235,6 +239,60 @@ pub enum Command {
     TestDatabase {
         id: String,
     },
+    ActivateDatabaseGeneration {
+        id: String,
+        instance: String,
+        database: String,
+        consent: bool,
+    },
+    UnbindDatabase {
+        id: String,
+        consent: bool,
+    },
+    InstallRedisClient {
+        id: String,
+        consent: bool,
+    },
+    SwitchDatabase {
+        id: String,
+        instance: String,
+        consent: bool,
+    },
+    StartDatabase {
+        instance: String,
+    },
+    CreateCache {
+        id: String,
+        package: String,
+    },
+    StartCache {
+        instance: String,
+    },
+    StopCache {
+        instance: String,
+    },
+    ConfigureServices {
+        id: String,
+        revision: u64,
+        selection: devforge_projects::cache::ServiceSelection,
+    },
+    CreateBackup {
+        id: String,
+    },
+    ExportBackup {
+        id: String,
+        backup: String,
+        path: PathBuf,
+    },
+    ImportBackup {
+        id: String,
+        path: PathBuf,
+    },
+    RestoreBackup {
+        id: String,
+        backup: String,
+        consent: bool,
+    },
     StopDatabase {
         instance: String,
     },
@@ -268,7 +326,8 @@ pub struct Workspace {
     pub catalog: Catalog,
     secrets: Arc<dyn SecretStore + Send + Sync>,
     sessions: BTreeMap<String, Session>,
-    databases: BTreeMap<String, RunningPostgres>,
+    databases: BTreeMap<String, RunningDatabase>,
+    caches: BTreeMap<String, devforge_projects::cache::RunningCache>,
     preferences: Preferences,
     runtime_cache: Vec<Runtime>,
     history: Vec<Log>,
@@ -306,6 +365,7 @@ impl Workspace {
             secrets,
             sessions: BTreeMap::new(),
             databases: BTreeMap::new(),
+            caches: BTreeMap::new(),
             preferences,
             root,
             runtime_cache: vec![],
@@ -383,6 +443,61 @@ impl Workspace {
         cancel: &Cancellation,
     ) -> Result<serde_json::Value> {
         match command {
+            Command::ActivateDatabaseGeneration {
+                id,
+                instance,
+                database,
+                consent,
+            } => self.activate_generation(&id, &instance, &database, consent),
+            Command::UnbindDatabase { id, consent } => {
+                self.require_stopped(&id)?;
+                if !consent {
+                    return Err(error("service_consent_required"));
+                }
+                self.projects.activate_binding(&id, None)?;
+                Ok(serde_json::json!({"unbound":true}))
+            }
+            Command::InstallRedisClient { id, consent } => {
+                self.install_redis_client(&id, consent, cancel)
+            }
+            Command::SwitchDatabase {
+                id,
+                instance,
+                consent,
+            } => self.switch_database(&id, &instance, consent),
+            Command::StartDatabase { instance } => {
+                self.ensure_database(&instance)?;
+                Ok(serde_json::json!({"started":true}))
+            }
+            Command::CreateCache { id, package } => self.create_cache(&id, &package, cancel),
+            Command::StartCache { instance } => {
+                self.ensure_cache(&instance)?;
+                Ok(serde_json::json!({"started":true}))
+            }
+            Command::StopCache { instance } => self.stop_cache(&instance),
+            Command::ConfigureServices {
+                id,
+                revision,
+                selection,
+            } => {
+                self.require_stopped(&id)?;
+                self.projects.save_services(&id, revision, selection)?;
+                Ok(serde_json::json!({"saved":true}))
+            }
+            Command::CreateBackup { id } => self.create_backup(&id, cancel),
+            Command::ExportBackup { id, backup, path } => {
+                self.projects.export_backup(&id, &backup, &path)?;
+                Ok(serde_json::json!({"exported":true}))
+            }
+            Command::ImportBackup { id, path } => {
+                let m = self.projects.import_backup(&id, &path)?;
+                Ok(serde_json::to_value(m).unwrap())
+            }
+            Command::RestoreBackup {
+                id,
+                backup,
+                consent,
+            } => self.restore_backup(&id, &backup, consent, cancel),
             Command::CreateProject { input } => self.create_project(input, cancel),
             Command::PrepareProject { id, options } => self.prepare_project(&id, &options, cancel),
             Command::PhpDiagnostics { id } => self.php_diagnostics(&id, cancel),
@@ -711,7 +826,7 @@ impl Workspace {
     }
     fn ensure_database(&mut self, id: &str) -> Result<()> {
         if !self.databases.contains_key(id) {
-            let server = RunningPostgres::start(
+            let server = RunningDatabase::start(
                 &self.projects,
                 id,
                 &self.catalog,
@@ -726,7 +841,16 @@ impl Workspace {
         if self.sessions.contains_key(id) {
             return Err(error("already_running"));
         }
-        self.projects.get(id)?;
+        let project = self.projects.get(id)?;
+        if project.services.uses_redis() {
+            self.ensure_cache(
+                project
+                    .services
+                    .redis_instance
+                    .as_deref()
+                    .ok_or_else(|| error("database_unbound"))?,
+            )?;
+        }
         if let Some(binding) = self.projects.binding(id)? {
             self.ensure_database(&binding.instance_id)?;
         }
@@ -851,6 +975,9 @@ impl Workspace {
         for (_, mut server) in std::mem::take(&mut self.databases) {
             server.stop()?;
         }
+        for (_, mut server) in std::mem::take(&mut self.caches) {
+            server.stop()?;
+        }
         self.inspector.take();
         Ok(())
     }
@@ -951,6 +1078,8 @@ impl Workspace {
                 state: state.into(),
                 serving,
                 queue_state,
+                backups: self.projects.backups(&project.id)?,
+                database_history: self.projects.binding_history(&project.id)?,
                 database,
                 project,
             });
@@ -965,7 +1094,7 @@ impl Workspace {
                     for chunk in server.logs() {
                         logs.push(Log {
                             project_id: None,
-                            process: format!("postgres:{}", instance.id),
+                            process: format!("{}:{}", instance.engine.driver(), instance.id),
                             stream: chunk.stream.into(),
                             text: chunk.text,
                         });
@@ -1001,6 +1130,7 @@ impl Workspace {
             projects: rows,
             runtimes: self.runtime_cache.clone(),
             databases,
+            caches: self.cache_snapshot()?,
             logs,
         })
     }

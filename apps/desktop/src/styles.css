@@ -1568,3 +1568,25 @@ dialog {
   .setup-sources { grid-template-columns: 1fr; }
   .setup-dialog .setup-sources label { padding: 12px; }
 }
+
+.service-config-grid { display: flex; flex-wrap: wrap; gap: 16px; align-items: end; }
+.service-config-grid label { flex: 1 1 180px; min-width: 0; }
+.service-config-grid select { width: 100%; }
+.backup-section { margin-top: 24px; border-top: 1px solid var(--border); padding-top: 20px; }
+.backup-id { overflow-wrap: anywhere; font-size: 12px; }
+.service-row .database-controls { flex-wrap: wrap; justify-content: end; }
+.workspace-content[data-mode="services"] select {
+  appearance: none;
+  -webkit-appearance: none;
+  min-height: 38px;
+  padding: 8px 32px 8px 12px;
+  font-size: 14px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%2364748b' stroke-width='1.7' viewBox='0 0 24 24'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 16px;
+}
+.workspace-content[data-mode="services"] .service-row { margin-top: 0; padding: 12px 0; }
+.workspace-content[data-mode="services"] .service-row p { margin: 4px 0 0; }
+.service-project-panel details > summary { margin-top: 12px; font-weight: 600; }
+.service-project-panel details > p { line-height: 1.5; }

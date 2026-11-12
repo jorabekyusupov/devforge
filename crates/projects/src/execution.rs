@@ -87,6 +87,7 @@ impl Context {
         self.environment.retain(|name, _| {
             let key = name.to_string_lossy();
             !key.starts_with("DB_")
+                && !key.starts_with("REDIS_")
                 && !key.starts_with("DEVFORGE_INSPECTOR_")
                 && key != "DATABASE_URL"
                 && key != "APP_KEY"
@@ -153,6 +154,7 @@ impl Context {
             revision: 0,
             active: true,
             php_settings: Default::default(),
+            services: Default::default(),
         };
         compatible(
             &crate::project::Inspection {
@@ -196,6 +198,7 @@ impl Context {
                 "fileinfo",
                 "curl",
                 "pdo_pgsql",
+                "pdo_mysql",
                 "pdo_sqlite",
                 "sqlite3",
                 "intl",
@@ -257,7 +260,7 @@ impl Context {
             let credentials = store.credentials(id, secrets)?;
             sensitive.push(credentials.password.to_string());
             for (key, value) in [
-                ("DB_CONNECTION", "pgsql".to_owned()),
+                ("DB_CONNECTION", credentials.engine.driver().to_owned()),
                 ("DB_HOST", "127.0.0.1".to_owned()),
                 ("DB_PORT", credentials.port.to_string()),
                 ("DB_DATABASE", binding.database),
@@ -269,6 +272,13 @@ impl Context {
                 environment.insert(key.into(), value.into());
             }
         }
+        crate::cache::apply_environment(
+            store,
+            &project,
+            secrets,
+            &mut environment,
+            &mut sensitive,
+        )?;
         let mut paths = vec![
             node.path().parent().unwrap().to_path_buf(),
             php.path().parent().unwrap().to_path_buf(),
@@ -428,6 +438,7 @@ impl Context {
         };
         prefix.extend(args);
         let spec = ProcessSpec {
+            input: None,
             id: format!("exec-{}-{}", self.project.id, tool.name()),
             executable,
             args: prefix,

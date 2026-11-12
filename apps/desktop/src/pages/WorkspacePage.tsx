@@ -1,3 +1,4 @@
+import { ProjectServices } from "../components/ProjectServices";
 import { WorkspaceModal as Modal } from "../components/WorkspaceModal";
 import {
   CreateProjectDialog,
@@ -121,7 +122,11 @@ export function WorkspacePage({
         .includes(mode === "services" ? query.toLocaleLowerCase() : ""),
   );
   return (
-    <section className="workspace-content" aria-busy={api.busy}>
+    <section
+      className="workspace-content"
+      data-mode={mode}
+      aria-busy={api.busy}
+    >
       {api.error && !adding && !creating && !tool && !confirm && (
         <div className="notice error" role="alert">
           <AlertCircle aria-hidden="true" />
@@ -145,15 +150,27 @@ export function WorkspacePage({
               ? `work.operations.${api.pending.action}`
               : "work.working",
           )}
-          {["install", "create_project", "prepare_project"].includes(
-            api.pending?.action ?? "",
-          ) && (
+          {[
+            "install",
+            "create_project",
+            "prepare_project",
+            "create_backup",
+            "restore_backup",
+            "install_redis_client",
+          ].includes(api.pending?.action ?? "") && (
             <button onClick={() => void api.cancel()}>
               {t("work.cancel")}
             </button>
           )}
         </div>
       )}
+      {mode === "services" &&
+        api.result &&
+        api.result.connected === undefined && (
+          <p role="status" className="notice">
+            {t("services.completed")}
+          </p>
+        )}
       {api.result?.connected !== undefined && (
         <p role="status" className="notice">
           <CheckCircle2 aria-hidden="true" />
@@ -428,6 +445,12 @@ export function WorkspacePage({
             snapshot={api.snapshot}
             busy={api.busy}
             run={api.run}
+          />
+          <ProjectServices
+            snapshot={api.snapshot}
+            busy={api.busy}
+            run={api.run}
+            backend={backend}
           />
           <div className="section-toolbar">
             <h2>{t("work.logs")}</h2>
@@ -847,13 +870,14 @@ function ProjectDetail({
               <option value="">{t("work.selectDatabase")}</option>
               {snapshot.databases.map((d) => (
                 <option key={d.instance.id} value={d.instance.id}>
-                  PostgreSQL · {d.instance.port}
+                  {d.instance.engine === "mysql" ? "MySQL" : "PostgreSQL"} ·{" "}
+                  {d.instance.port}
                 </option>
               ))}
             </select>
           </label>
           <button
-            disabled={busy || active || !instance}
+            disabled={busy || active || !instance || !!row.database}
             onClick={() =>
               void run({ action: "bind_database", id: p.id, instance })
             }
@@ -924,7 +948,9 @@ function DatabaseServices({
   const { t } = useTranslation();
   const list =
     snapshot?.runtimes.filter(
-      (r) => r.kind === "postgresql" && r.variant === "server",
+      (r) =>
+        (r.kind === "postgresql" || r.kind === "mysql") &&
+        r.variant === "server",
     ) ?? [];
   const [selected, setSelected] = useState("");
   const value = selected || list[0]?.id || "";
@@ -944,7 +970,7 @@ function DatabaseServices({
           >
             {list.map((p) => (
               <option key={p.id} value={p.id}>
-                {p.version}
+                {p.kind === "mysql" ? "MySQL" : "PostgreSQL"} · {p.version}
                 {p.installed ? "" : ` · ${t("work.states.missing")}`}
               </option>
             ))}
@@ -968,17 +994,28 @@ function DatabaseServices({
       {snapshot?.databases.map((d) => (
         <div className="service-row" key={d.instance.id}>
           <div>
-            <strong>PostgreSQL · {d.instance.port}</strong>
+            <strong>
+              {d.instance.engine === "mysql" ? "MySQL" : "PostgreSQL"} ·{" "}
+              {
+                snapshot.runtimes.find((r) => r.id === d.instance.package)
+                  ?.version
+              }{" "}
+              · {d.instance.port}
+            </strong>
             <p>{t("work.projectUsers", { count: d.users })}</p>
           </div>
           <StateBadge value={d.state} />
           <button
-            disabled={busy || d.users > 0 || d.state === "stopped"}
+            disabled={busy || d.users > 0 || !d.instance.ready}
             onClick={() =>
-              void run({ action: "stop_database", instance: d.instance.id })
+              void run({
+                action:
+                  d.state === "stopped" ? "start_database" : "stop_database",
+                instance: d.instance.id,
+              })
             }
           >
-            {t("work.stop")}
+            {t(d.state === "stopped" ? "work.start" : "work.stop")}
           </button>
         </div>
       ))}

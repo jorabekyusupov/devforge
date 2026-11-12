@@ -127,7 +127,7 @@ impl EnvPlan {
         let text = std::str::from_utf8(old.as_ref().map_or(&[], |v| v.as_slice()))
             .map_err(|_| E::InvalidEnvFile)?;
         let values = BTreeMap::from([
-            ("DB_CONNECTION", "pgsql".to_owned()),
+            ("DB_CONNECTION", c.engine.driver().to_owned()),
             ("DB_HOST", "127.0.0.1".to_owned()),
             ("DB_PORT", c.port.to_string()),
             ("DB_DATABASE", c.binding.database.clone()),
@@ -396,6 +396,7 @@ mod tests {
         let store = ProjectStore::open(root.path().join("metadata")).unwrap();
         let p = store.import(&path, "Fixture", php, node, &c).unwrap();
         let instance = Instance {
+            engine: crate::database::Engine::Postgresql,
             id: "fixture".into(),
             package: "fixture".into(),
             port: 12345,

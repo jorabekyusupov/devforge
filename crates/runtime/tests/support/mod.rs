@@ -59,6 +59,7 @@ impl Fixture {
     }
     pub fn spec(&self, id: &str, mode: &str) -> ProcessSpec {
         ProcessSpec {
+            input: None,
             id: id.into(),
             executable: self.store.executable(&self.package, "fixture").unwrap(),
             args: vec![mode.into()],

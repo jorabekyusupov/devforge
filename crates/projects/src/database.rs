@@ -22,6 +22,8 @@ use zeroize::Zeroizing;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Instance {
+    #[serde(default)]
+    pub engine: Engine,
     pub id: String,
     pub package: String,
     pub port: u16,
@@ -38,13 +40,103 @@ pub struct Binding {
     pub secret_ref: String,
     pub ready: bool,
 }
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Engine {
+    #[default]
+    Postgresql,
+    Mysql,
+}
+impl Engine {
+    pub fn driver(self) -> &'static str {
+        match self {
+            Self::Postgresql => "pgsql",
+            Self::Mysql => "mysql",
+        }
+    }
+}
+pub enum RunningDatabase {
+    Postgresql(RunningPostgres),
+    Mysql(crate::mysql_service::RunningMySql),
+}
+impl RunningDatabase {
+    pub fn start(
+        store: &ProjectStore,
+        id: &str,
+        catalog: &Catalog,
+        packages: &PackageStore,
+        secrets: &dyn SecretStore,
+    ) -> Result<Self> {
+        match store.instance(id)?.engine {
+            Engine::Postgresql => Ok(Self::Postgresql(RunningPostgres::start(
+                store, id, catalog, packages, secrets,
+            )?)),
+            Engine::Mysql => Ok(Self::Mysql(crate::mysql_service::RunningMySql::start(
+                store, id, catalog, packages, secrets,
+            )?)),
+        }
+    }
+    pub fn provision(
+        &mut self,
+        store: &ProjectStore,
+        project: &Project,
+        secrets: &dyn SecretStore,
+    ) -> Result<Binding> {
+        match self {
+            Self::Postgresql(s) => s.provision(store, project, secrets),
+            Self::Mysql(s) => s.provision(store, project, secrets),
+        }
+    }
+    pub fn provision_staged(
+        &mut self,
+        store: &ProjectStore,
+        project: &str,
+        secrets: &dyn SecretStore,
+    ) -> Result<Binding> {
+        let instance = match self {
+            Self::Postgresql(s) => &s.instance.id,
+            Self::Mysql(s) => &s.instance.id,
+        };
+        let b = store.staged_binding(project, instance, secrets)?;
+        let _lock = store.operation_lock()?;
+        let ready = match self {
+            Self::Postgresql(s) => provision_binding(store, &s.instance.id, project, b, secrets)?,
+            Self::Mysql(s) => s.provision_binding(store, b, secrets)?,
+        };
+        store.retain_binding(&ready)?;
+        Ok(ready)
+    }
+    pub fn stop(&mut self) -> Result<()> {
+        match self {
+            Self::Postgresql(s) => s.stop(),
+            Self::Mysql(s) => s.stop(),
+        }
+    }
+    pub fn status(&self) -> Option<devforge_runtime::process::Snapshot> {
+        match self {
+            Self::Postgresql(s) => s.status(),
+            Self::Mysql(s) => s.status(),
+        }
+    }
+    pub fn logs(&self) -> Vec<devforge_runtime::process::LogChunk> {
+        match self {
+            Self::Postgresql(s) => s.logs(),
+            Self::Mysql(s) => s.logs(),
+        }
+    }
+}
 pub struct Credentials {
+    pub(crate) engine: Engine,
+    pub(crate) root: PathBuf,
     pub(crate) binding: Binding,
     pub(crate) port: u16,
     pub(crate) password: Zeroizing<String>,
 }
 impl Credentials {
     pub fn connect(&self) -> Result<Client> {
+        if self.engine != Engine::Postgresql {
+            return Err(E::DatabaseUnavailable);
+        }
         connect(
             &self.binding.role,
             &self.password,
@@ -52,7 +144,22 @@ impl Credentials {
             self.port,
         )
     }
+    pub fn mysql(&self) -> Result<mysql::Conn> {
+        if self.engine != Engine::Mysql {
+            return Err(E::DatabaseUnavailable);
+        }
+        crate::mysql_service::connect(
+            &self.binding.role,
+            &self.password,
+            Some(&self.binding.database),
+            self.port,
+            &self.root,
+        )
+    }
     pub fn connection_test(&self) -> Result<bool> {
+        if self.engine == Engine::Mysql {
+            return crate::mysql_service::connection_test(self);
+        }
         Ok(self
             .connect()?
             .query_one(
@@ -63,6 +170,9 @@ impl Credentials {
             .get(0))
     }
     pub fn rejects_database(&self, name: &str) -> bool {
+        if self.engine == Engine::Mysql {
+            return crate::mysql_service::rejects_database(self, name);
+        }
         connect(&self.binding.role, &self.password, name, self.port).is_err()
     }
 }
@@ -121,6 +231,8 @@ impl ProjectStore {
                 .ok_or(E::SecretUnavailable)?,
         );
         Ok(Credentials {
+            engine: instance.engine,
+            root: self.root.join("databases").join(&instance.id),
             binding,
             port: instance.port,
             password,
@@ -134,6 +246,11 @@ impl ProjectStore {
         packages: &PackageStore,
         secrets: &dyn SecretStore,
     ) -> Result<Instance> {
+        if catalog.get(package_id)?.kind == "mysql" {
+            return crate::mysql_service::initialize(
+                self, package_id, port, catalog, packages, secrets,
+            );
+        }
         if administrator_enabled()? {
             return Err(E::AdministratorUnsupported);
         }
@@ -148,6 +265,7 @@ impl ProjectStore {
         let port = chosen.local_addr()?.port();
         drop(chosen);
         let mut instance = Instance {
+            engine: Engine::Postgresql,
             id: id.clone(),
             package: package_id.into(),
             port,
@@ -174,6 +292,7 @@ impl ProjectStore {
         let env = server_env(&initdb);
         supervisor.start_redacted(
             ProcessSpec {
+                input: None,
                 id: "initdb".into(),
                 executable: initdb,
                 args: vec![
@@ -278,6 +397,7 @@ impl RunningPostgres {
         let environment = server_env(&executable);
         supervisor.start_redacted(
             ProcessSpec {
+                input: None,
                 id: "postgres".into(),
                 executable,
                 args: vec![
@@ -364,6 +484,7 @@ impl RunningPostgres {
         let pg_ctl = self.pg_ctl.as_ref().ok_or(E::DatabaseUnavailable)?.clone();
         self.supervisor.start_redacted(
             ProcessSpec {
+                input: None,
                 id: "pg-stop".into(),
                 executable: pg_ctl.clone(),
                 args: vec![
@@ -523,7 +644,7 @@ pub fn provision_on_running(
             instance_id: instance.id.clone(),
             database: format!("df_{}", project.id),
             role: format!("df_{}", project.id),
-            secret_ref: format!("project/{}/database", project.id),
+            secret_ref: format!("project/{}/database/{}", project.id, instance.id),
             ready: false,
         };
         let password = crate::password();
@@ -536,13 +657,53 @@ pub fn provision_on_running(
         )?;
         b
     };
+    binding = provision_binding(store, instance_id, &project.id, binding, secrets)?;
+    store.connection.execute(
+        "UPDATE database_bindings SET record=?1 WHERE project_id=?2",
+        params![serde_json::to_string(&binding).unwrap(), project.id],
+    )?;
+    Ok(binding)
+}
+
+pub fn provision_binding(
+    store: &ProjectStore,
+    instance_id: &str,
+    project_id: &str,
+    mut binding: Binding,
+    secrets: &dyn SecretStore,
+) -> Result<Binding> {
+    let instance = store.instance(instance_id)?;
+    if instance.engine != Engine::Postgresql
+        || !instance.ready
+        || binding.instance_id != instance_id
+        || binding.project_id != project_id
+    {
+        return Err(E::DatabaseConflict);
+    }
+    let admin_password = Zeroizing::new(
+        secrets
+            .get(&instance.secret_ref)
+            .map_err(|_| E::SecretUnavailable)?
+            .ok_or(E::SecretUnavailable)?,
+    );
+    let mut identity = connect(&instance.admin, &admin_password, "postgres", instance.port)?;
+    let location: String = identity
+        .query_one("SHOW data_directory", &[])
+        .map_err(|_| E::DatabaseUnavailable)?
+        .get(0);
+    if fs::canonicalize(location)?
+        != fs::canonicalize(store.root.join("databases").join(instance_id).join("data"))?
+    {
+        return Err(E::DatabaseConflict);
+    }
+    drop(identity);
     let password = Zeroizing::new(
         secrets
             .get(&binding.secret_ref)
             .map_err(|_| E::SecretUnavailable)?
             .ok_or(E::SecretUnavailable)?,
     );
-    let marker = format!("devforge:{}:{}", instance.id, project.id);
+    let marker = format!("devforge:{}:{}", instance.id, project_id);
     let mut client = connect(&instance.admin, &admin_password, "postgres", instance.port)?;
     let existing=client.query_opt("SELECT shobj_description(oid,'pg_authid'),rolsuper,rolcreatedb,rolcreaterole,rolreplication,rolbypassrls FROM pg_roles WHERE rolname=$1",&[&binding.role]).map_err(|_|E::DatabaseUnavailable)?;
     if let Some(row) = existing {
@@ -582,15 +743,13 @@ pub fn provision_on_running(
     }
     client.batch_execute(&format!("REVOKE ALL ON DATABASE {} FROM PUBLIC; GRANT CONNECT,TEMPORARY ON DATABASE {} TO {}; COMMENT ON DATABASE {} IS {}; ALTER DATABASE {} ALLOW_CONNECTIONS true;",ident(&binding.database),ident(&binding.database),ident(&binding.role),ident(&binding.database),literal(&marker),ident(&binding.database))).map_err(|_|E::DatabaseUnavailable)?;
     let credentials = Credentials {
+        engine: Engine::Postgresql,
+        root: store.root.join("databases").join(instance_id),
         binding: binding.clone(),
         port: instance.port,
         password,
     };
     credentials.connection_test()?;
     binding.ready = true;
-    store.connection.execute(
-        "UPDATE database_bindings SET record=?1 WHERE project_id=?2",
-        params![serde_json::to_string(&binding).unwrap(), project.id],
-    )?;
     Ok(binding)
 }

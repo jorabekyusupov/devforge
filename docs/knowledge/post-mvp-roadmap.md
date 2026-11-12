@@ -25,7 +25,7 @@ Ushbu tartib ko'rsatmasi tasdiqlangan; quyidagi funksional tafsilotlar hali reja
 va implementatsiya dalili emas. Hujjatning `decision_status: proposed` qiymati shu
 feature tafsilotlariga tegishli. Qayta tartiblash topshirig'i kodni boshlamagan;
 keyingi «m7dan boshla» ko'rsatmasi M7 implementatsiyasini vakolatladi. Joriy
-holat [M7 natijalarida](m7-inspector-results.md); M8 keyingi user topshirig'i bilan boshlandi; M9-M15 tafsilotlari taklif bo'lib qoladi.
+holat [M7 natijalarida](m7-inspector-results.md); M8 keyingi user topshirig'i bilan boshlandi; M9 user topshirigi bilan boshlandi; M10-M15 tafsilotlari taklif bo'lib qoladi.
 
 M7.1 uchun Laravel companion, opt-in Inspector va request/query profiling kodi
 yaratildi. Native platforma dalillari va cheklovlari o'sha hisobotda yuritiladi.
@@ -36,7 +36,7 @@ M8 Laravel/Git wizard, preparation, PHP settings/diagnostics, recent/favorites
 va HTTPS review bilan functional native qabuldan o'tdi; actual source/job
 matritsasi [M8 natijalarida](m8-project-setup-results.md). System authorization
 dialoglari va release/minimum-OS/profile gate'lari M15'da qoladi. Keyingi reja
-M9 bo'lib, bu yozuv uning implementatsiyasini avtomatik boshlamaydi.
+M9 foydalanuvchi topshirigi bilan boshlandi; joriy implementatsiya va qabul holati [M9 natijalarida](m9-services-results.md). Bu M10 boshlanishini anglatmaydi.
 
 M0-M6 tarixiy raqamlari saqlanadi. Keyingi ishlar bajarish ketma-ketligi bo'yicha
 qayta raqamlandi: oldingi M12 endi M7, oldingi M7 endi M15. Eski raqamlar faqat

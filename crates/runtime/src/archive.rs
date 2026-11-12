@@ -17,6 +17,7 @@ struct Extractor<'a> {
     bytes: u64,
     names: HashSet<String>,
     links: Vec<(PathBuf, String)>,
+    directories: HashSet<PathBuf>,
 }
 impl Extractor<'_> {
     fn name(&mut self, name: &str) -> Result<PathBuf> {
@@ -76,8 +77,14 @@ impl Extractor<'_> {
         Ok(())
     }
     fn tar(&mut self, reader: impl Read) -> Result<()> {
+        let mut entry_count = 0;
         let mut archive = tar::Archive::new(reader);
         for item in archive.entries().map_err(|_| RuntimeError::UnsafeArchive)? {
+            entry_count += 1;
+            if entry_count > self.limits.entries {
+                return Err(RuntimeError::LimitExceeded);
+            }
+            self.cancel.check()?;
             let mut item = item.map_err(|_| RuntimeError::UnsafeArchive)?;
             let name = item
                 .path()
@@ -87,9 +94,14 @@ impl Extractor<'_> {
             if name == "." || name == "./" {
                 continue;
             }
-            let relative = self.name(&name)?;
             let kind = item.header().entry_type();
+            let candidate = relative_path(&name)?;
+            if kind.is_dir() && self.directories.contains(&candidate) {
+                continue;
+            }
+            let relative = self.name(&name)?;
             if kind.is_dir() {
+                self.directories.insert(relative.clone());
                 fs::create_dir_all(self.root.join(relative))?;
             } else if kind.is_file() {
                 let size = item.size();
@@ -209,6 +221,7 @@ pub(crate) fn extract(
         bytes: 0,
         names: HashSet::new(),
         links: Vec::new(),
+        directories: HashSet::new(),
     };
     match format {
         Archive::File { path } => {
@@ -223,6 +236,26 @@ pub(crate) fn extract(
             256 * 1024,
         ))?,
         Archive::Zip => extractor.zip(source)?,
+        Archive::ZipFiles { files } => {
+            let mut archive = zip::ZipArchive::new(File::open(source)?)
+                .map_err(|_| RuntimeError::UnsafeArchive)?;
+            for (destination, member) in files {
+                relative_path(member)?;
+                let relative = extractor.name(destination)?;
+                let mut item = archive
+                    .by_name(member)
+                    .map_err(|_| RuntimeError::UnsafeArchive)?;
+                if item.is_dir() || item.is_symlink() {
+                    return Err(RuntimeError::UnsafeArchive);
+                }
+                let size = item.size();
+                let mode = item.unix_mode().unwrap_or(0o644);
+                if mode & 0o170000 != 0 && mode & 0o170000 != 0o100000 {
+                    return Err(RuntimeError::UnsafeArchive);
+                }
+                extractor.file(&relative, size, &mut item, mode)?;
+            }
+        }
         Archive::ZipTarXz { member } => {
             let mut archive = zip::ZipArchive::new(File::open(source)?)
                 .map_err(|_| RuntimeError::UnsafeArchive)?;

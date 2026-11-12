@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 export interface Project {
+  services?: ServiceSelection;
   php_settings?: PhpSettings;
   id: string;
   name: string;
@@ -32,6 +33,7 @@ export interface Binding {
   database: string;
   role: string;
   secret_ref: string;
+  ready?: boolean;
 }
 export interface Row {
   navigation?: { favorite: boolean; last_opened_ms: number };
@@ -53,6 +55,8 @@ export interface Row {
   } | null;
   queue_state: string | null;
   database: Binding | null;
+  backups?: Backup[];
+  database_history?: Binding[];
 }
 export interface Log {
   project_id: string | null;
@@ -60,8 +64,37 @@ export interface Log {
   stream: string;
   text: string;
 }
+export interface ServiceSelection {
+  cache: "project" | "file" | "database" | "redis";
+  queue: "project" | "sync" | "database" | "redis";
+  redis_instance: string | null;
+}
+export interface Backup {
+  id: string;
+  engine: string;
+  version: string;
+  bytes: number;
+  created: number;
+  project: string;
+}
+export interface Cache {
+  instance: {
+    id: string;
+    project_id: string;
+    package: string;
+    port: number;
+    ready: boolean;
+  };
+  state: string;
+}
 export interface Database {
-  instance: { id: string; package: string; port: number; ready: boolean };
+  instance: {
+    id: string;
+    package: string;
+    port: number;
+    ready: boolean;
+    engine?: "mysql" | "postgresql";
+  };
   state: string;
   users: number;
 }
@@ -70,6 +103,7 @@ export interface Snapshot {
   projects: Row[];
   runtimes: Runtime[];
   databases: Database[];
+  caches?: Cache[];
   logs: Log[];
 }
 export interface Failure {
@@ -186,6 +220,7 @@ export interface WorkspaceBackend {
   execute(command: Command): Promise<Record<string, unknown>>;
   cancel(): Promise<void>;
   browse(): Promise<string | null>;
+  chooseBackup?(save: boolean): Promise<string | null>;
   open(
     id: string,
     target: "browser" | "editor" | "terminal" | "folder",
@@ -201,6 +236,36 @@ export type ProjectInput = {
   queue: boolean;
 };
 export type Command =
+  | {
+      action: "activate_database_generation";
+      id: string;
+      instance: string;
+      database: string;
+      consent: boolean;
+    }
+  | { action: "unbind_database"; id: string; consent: boolean }
+  | { action: "install_redis_client"; id: string; consent: boolean }
+  | {
+      action: "switch_database";
+      id: string;
+      instance: string;
+      consent: boolean;
+    }
+  | {
+      action: "start_database" | "start_cache" | "stop_cache";
+      instance: string;
+    }
+  | { action: "create_cache"; id: string; package: string }
+  | {
+      action: "configure_services";
+      id: string;
+      revision: number;
+      selection: ServiceSelection;
+    }
+  | { action: "create_backup"; id: string }
+  | { action: "export_backup"; id: string; backup: string; path: string }
+  | { action: "import_backup"; id: string; path: string }
+  | { action: "restore_backup"; id: string; backup: string; consent: boolean }
   | { action: "create_project"; input: CreateInput }
   | { action: "prepare_project"; id: string; options: PrepareOptions }
   | {

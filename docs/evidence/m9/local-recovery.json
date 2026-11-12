@@ -1,0 +1,10 @@
+{
+  "cache_persistence": true,
+  "mysql": true,
+  "staged_restore": true,
+  "original_preserved": true,
+  "failed_restore_preserves_active": true,
+  "client_shell_escape_rejected": true,
+  "export_verified": true,
+  "import_restore_isolated": true
+}

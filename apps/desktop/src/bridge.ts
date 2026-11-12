@@ -59,6 +59,10 @@ export const desktopBackend: Backend = {
       ensureDesktop();
       return invoke("workspace_cancel");
     },
+    async chooseBackup(save) {
+      ensureDesktop();
+      return invoke("choose_backup_file", { save });
+    },
     async browse() {
       ensureDesktop();
       return invoke("choose_project_directory");

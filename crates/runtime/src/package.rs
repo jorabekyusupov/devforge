@@ -33,6 +33,7 @@ pub enum Archive {
     TarGz,
     TarXz,
     Zip,
+    ZipFiles { files: BTreeMap<String, String> },
     ZipTarXz { member: String },
     File { path: String },
 }
@@ -81,6 +82,15 @@ impl Package {
         }
         if let Archive::ZipTarXz { member } = &self.archive {
             relative_path(member)?;
+        }
+        if let Archive::ZipFiles { files } = &self.archive {
+            if files.is_empty() || files.len() > 1000 {
+                return Err(RuntimeError::InvalidPackage);
+            }
+            for (destination, member) in files {
+                relative_path(destination)?;
+                relative_path(member)?;
+            }
         }
         if let Archive::File { path } = &self.archive {
             relative_path(path)?;

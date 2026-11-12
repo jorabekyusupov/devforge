@@ -350,6 +350,7 @@ impl Serving {
             }
         }
         manager.supervisor.start(ProcessSpec {
+            input: None,
             id: "caddy-validate".into(),
             executable: executable.clone(),
             args: vec![
@@ -379,6 +380,7 @@ impl Serving {
         drop(http);
         drop(https);
         manager.supervisor.start(ProcessSpec {
+            input: None,
             id: "caddy".into(),
             executable,
             args: vec![

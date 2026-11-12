@@ -9,6 +9,7 @@ use std::{
 
 #[derive(Debug, Clone, Copy)]
 pub struct LogPolicy {
+    pub capture: bool,
     pub memory_bytes: usize,
     pub file_bytes: u64,
     pub files: usize,
@@ -16,6 +17,7 @@ pub struct LogPolicy {
 impl Default for LogPolicy {
     fn default() -> Self {
         Self {
+            capture: true,
             memory_bytes: 64 * 1024,
             file_bytes: 1024 * 1024,
             files: 3,
@@ -80,6 +82,9 @@ impl Logs {
         Ok(())
     }
     pub fn push(&mut self, stream: &'static str, bytes: &[u8]) -> Result<()> {
+        if !self.policy.capture {
+            return Ok(());
+        }
         let text = String::from_utf8_lossy(bytes).into_owned();
         self.bytes += text.len();
         self.chunks.push_back(LogChunk { stream, text });
