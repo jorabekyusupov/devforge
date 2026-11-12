@@ -87,6 +87,8 @@ def main():
             wait(lambda:ready.exists() and ready.stat().st_size>0)
             startup=json.loads(ready.read_text());startup['parent_wall_ms']=(time.monotonic()-started)*1000
             assert startup['release'] and startup['locale']==locale and startup['native_ui_synced']
+            secondary=subprocess.run([str(application)],capture_output=True,timeout=30)
+            assert secondary.returncode==0 and process.poll() is None
             blocked=subprocess.run([str(cli),'distribution','check-stopped'],capture_output=True,text=True)
             assert blocked.returncode!=0
             if windows:
@@ -117,6 +119,7 @@ def main():
             process.kill();process.wait(timeout=30);process=None;wait(lambda:subprocess.run([str(cli),'distribution','check-stopped'],capture_output=True).returncode==0)
         report['checks']['running_app_blocks_uninstall']=True if windows else 'CLI preflight blocks; Finder Trash cannot execute app hooks'
         report['checks']['three_locales_release_native_shell']=True
+        report['checks']['second_launch_keeps_original_process']=True
         install();assert digest(db)==before and (project/'keep.txt').read_text()=='user project survives';verify_preserved()
         report['checks']['same_version_reinstall_preserves_project_db']=True
         run(str(cli),'distribution','check-uninstall');uninstall()

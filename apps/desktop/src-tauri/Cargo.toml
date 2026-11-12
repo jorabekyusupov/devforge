@@ -33,3 +33,5 @@ devforge-projects.workspace = true
 devforge-runtime.workspace = true
 tauri-plugin-dialog = "2.8.4"
 tauri-plugin-wdio-webdriver = {version="1.5.1", optional=true}
+
+tauri-plugin-single-instance = "2.5.5"

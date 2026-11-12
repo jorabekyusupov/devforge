@@ -255,10 +255,6 @@ pub fn run() {
         &app_data_dir().expect("app data directory"),
     )
     .expect("DevForge installer is using its data directory");
-    let desktop_lease = devforge_platform::distribution::AppLease::acquire(
-        &app_data_dir().expect("app data directory"),
-    )
-    .expect("DevForge is already running or its data directory is unavailable");
     #[cfg(feature = "e2e")]
     {
         assert!(
@@ -270,12 +266,27 @@ pub fn run() {
     #[allow(unused_mut)]
     let mut context = tauri::generate_context!();
     #[cfg(feature = "e2e")]
-    for window in &mut context.config_mut().app.windows {
-        window.incognito = true;
+    {
+        use std::hash::{Hash, Hasher};
+        let mut hash = std::collections::hash_map::DefaultHasher::new();
+        app_data_dir()
+            .expect("isolated data directory")
+            .hash(&mut hash);
+        context.config_mut().identifier = format!("com.devforge.desktop.e2e.a{:x}", hash.finish());
+        for window in &mut context.config_mut().app.windows {
+            window.incognito = true;
+        }
     }
 
     let builder = tauri::Builder::default()
-        .manage(desktop_lease)
+        .plugin(tauri_plugin_single_instance::init(|app, _, _| {
+            // Relaunch only restores the existing window; arguments are not executed.
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+                let _ = window.unminimize();
+                let _ = window.set_focus();
+            }
+        }))
         .manage(operation_lease)
         .manage(probe)
         .plugin(tauri_plugin_dialog::init());
@@ -317,6 +328,11 @@ pub fn run() {
             }
         })
         .setup(|app| {
+            // Single-instance detection runs before setup. Keep an independent
+            // data-root lease for installer/CLI lifecycle checks.
+            app.manage(devforge_platform::distribution::AppLease::acquire(
+                &app_data_dir()?,
+            )?);
             #[cfg(feature = "e2e")]
             eprintln!("E2E_PHASE: native window created");
             let bundle: serde_json::Value = serde_json::from_str(BUNDLE)?;

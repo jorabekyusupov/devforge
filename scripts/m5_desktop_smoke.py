@@ -106,7 +106,7 @@ try:
  click('a[href="#projects"]');project(a)
 
  # Native close-to-tray must preserve services. Restore using the same main-window adapter.
- invoke('main_window_action',{'action':'close'});wait(lambda:invoke('main_window_action',{'action':'status'}) is False);assert row(a)['state']=='running' and [(name,status['pid']) for name,status in row(b)['processes']]==b_pids;invoke('main_window_action',{'action':'show'});wait(lambda:invoke('main_window_action',{'action':'status'}) is True)
+ invoke('main_window_action',{'action':'close'});wait(lambda:invoke('main_window_action',{'action':'status'}) is False);assert row(a)['state']=='running' and [(name,status['pid']) for name,status in row(b)['processes']]==b_pids;before_relaunch_pid=snap()['host_pid'];relaunch_env=os.environ.copy();relaunch_env['DEVFORGE_DATA_DIR']=str((args.fixture/'data').resolve());relaunch_env['TAURI_WEBDRIVER_PORT']=str(port);subprocess.run([str(args.launcher.resolve()),'run',str(args.application.resolve())],env=relaunch_env,check=True,timeout=30);wait(lambda:invoke('main_window_action',{'action':'status'}) is True);assert snap()['host_pid']==before_relaunch_pid
  # Source-matched visual evidence and text expansion at the minimum supported size.
  content_viewport(1487,1058);project(a);screenshot('projects-light.png');audit('projects-light')
  for language in ['ru','uz-Latn','en']:
@@ -143,7 +143,7 @@ try:
     if s.connect_ex(('127.0.0.1',p))==0:return False
   return True
  wait(closed,15);launch();project(a);button('Start');wait(lambda:row(a)['state']=='running');assert row(a)['project']['php']==php;quit_app()
- result={'performance':performance,'host':os.name,'accessibility':accessibility,'captures':captures,'viewport_attempts':viewport_attempts,'real_native_webview':True,'ipc_mocked':False,'secret_store':'private filesystem E2E adapter; production uses OS credentials','import_error_recovery':True,'parallel_projects_and_database':True,'runtime_remove_install_via_ui':True,'database_create_assign_via_ui':True,'version_switch_preserves_B_pid':True,'close_to_tray_preserves_services':True,'ru_uz_en_and_dark_persistence':True,'minimum_window_no_horizontal_overflow':True,'logs_filtering_redacted':True,'quit_stops_owned_services':True,'forced_app_crash_cleanup_and_recovery':True,'passed':True};(args.fixture/'m5-desktop-result.json').write_text(json.dumps(result,indent=2));print('M5_DESKTOP_REPORT:'+json.dumps(result))
+ result={'performance':performance,'host':os.name,'accessibility':accessibility,'captures':captures,'viewport_attempts':viewport_attempts,'real_native_webview':True,'ipc_mocked':False,'secret_store':'private filesystem E2E adapter; production uses OS credentials','import_error_recovery':True,'parallel_projects_and_database':True,'runtime_remove_install_via_ui':True,'database_create_assign_via_ui':True,'version_switch_preserves_B_pid':True,'second_launch_restores_same_process':True,'close_to_tray_preserves_services':True,'ru_uz_en_and_dark_persistence':True,'minimum_window_no_horizontal_overflow':True,'logs_filtering_redacted':True,'quit_stops_owned_services':True,'forced_app_crash_cleanup_and_recovery':True,'passed':True};(args.fixture/'m5-desktop-result.json').write_text(json.dumps(result,indent=2));print('M5_DESKTOP_REPORT:'+json.dumps(result))
 except Exception:
  try:
   screenshot('failure.png');(args.output/'failure.html').write_text(call('GET','/source'))
