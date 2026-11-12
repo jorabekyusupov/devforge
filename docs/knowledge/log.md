@@ -2,6 +2,8 @@
 
 ## 2026-11-12
 
+- **MVP rejasidagi M6 holati yangilandi:** eskirgan «M6 hali bajarilmagan» qaydi actual M6 hisobotiga moslandi. Ichki paketlar/native acceptance va Windows tester handoff bajarilgani qayd etildi; signed public release hamda ochiq platforma/licensing tekshiruvlari alohida saqlandi. Product testlari takrorlanmadi.
+
 - **Windows tester handoff:** M6'dan o'tgan installer hash bilan qayta tekshirildi; Uzbek HTML qo'llanma, checksum va build-info bilan alohida ZIP tayyorlandi. HTML ikki viewport'da ko'rildi, ZIP/file hash'lar tekshirildi. App code o'zgarmadi, product testlar qayta ishlatilmadi; fresh build deb ko'rsatilmadi.
 
 - **M6 ichki distributiv:** [Paketlash va qabul](m6-distribution-results.md), macOS ARM64/Intel DMG va Windows x64 per-user NSIS yaratildi. Uch targetda9 locale kombinatsiyasi, data-preserving install/reinstall/uninstall, same-process relaunch, real queue log-burst va native GUI/crash recovery o'tdi. Core56 Rust/13 frontend/3 locale per OS, final Windows6 packaging contracts; owned hosts/CA cleanup ikkala OS'da tekshirildi. Artifact ZIP/installer hashes solishtirildi. Signing, minimum OS, native credential/system dialogs, interrupted-install va licensing gate'lari ochiq; public publish yo'q.

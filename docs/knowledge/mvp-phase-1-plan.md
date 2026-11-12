@@ -9,6 +9,9 @@ sources:
   - id: request
     resource: /references/conversation-decisions.md
     title: MVP uchun aniq reja tuzish topshirig'i
+  - id: m6-results
+    resource: /m6-distribution-results.md
+    title: M6 ichki distributiv native acceptance va ochiq release gate'lari
   - id: windows-php
     resource: https://www.php.net/downloads.php?os=windows
     title: Windows PHP builds and requirements
@@ -52,7 +55,12 @@ sinovlari yaratildi; ochiq qabul gate'lari hisobotda ajratilgan.
 host sinovlari ham qo'shildi. [M4 serving backend](m4-serving-results.md)
 yaratildi; Mac Chrome va Windows Edge native acceptance, full test/build va
 actual port/trust cheklovlari shu hisobotda qayd etildi. [M5 kundalik boshqaruv](m5-daily-workspace-results.md) va actual macOS/Windows
-native GUI/backend acceptance qo'shildi. M6 hali bajarilmagan. Quyidagi bosqich ta'riflari natijalar bilan aralashtirilmaydi.
+native GUI/backend acceptance qo'shildi.
+[M6 paketlash va qabul sinovi](m6-distribution-results.md) ham bajarildi: macOS
+ARM64/Intel va Windows x64 ichki paketlari native sinovlardan o'tdi, Windows tester
+uchun o'zbekcha HTML qo'llanmali ZIP tayyorlandi. M6 holati — **ichki distributiv
+va native acceptance bajarilgan; signed public release uchun ochiq gate'lar bor**.[^m6-results]
+Quyidagi bosqich ta'riflari, bajarilgan natijalar va qolgan tekshirishlar alohida talqin qilinadi.
 
 # 1. MVP chegarasi
 
@@ -239,7 +247,26 @@ Haqiqiy log, yo'l va loyiha nomi tarjima qilinmaydi; tushuntirish matnlari tarji
 
 ## M6. Paketlash va MVP qabul sinovi
 
-**Ishlar:**
+**Joriy holat (2026-11-12): ichki paketlash va native qabul sinovlari bajarilgan.**[^m6-results]
+
+- macOS ARM64 va Intel uchun DMG/app, Windows x64 uchun per-user NSIS installer yaratildi.
+- Uch targetda ru/uz/en — jami9 OS/arch/til kombinatsiyasi, install/reinstall/uninstall,
+  ma'lumot saqlanishi, same-process relaunch, native GUI va crash recovery tekshirildi.
+  Windows native dalili Server2025 x64'dan; u minimum Windows11 desktop sinovi emas.
+- Owned hosts/CA cleanup macOS va Windows'da tekshirildi. Release startup/main-process
+  CPU/RAM hamda debug-E2E install/log-burst frame o'lchovlari alohida qayd etildi.
+- Windows tester ZIP'i tekshirilgan installer, o'zbekcha HTML qo'llanma, checksum va
+  build-info bilan tayyorlandi; handoff uchun app qayta compile qilinmadi.
+
+**Ochiq qolgan tekshirishlar:** signing/notarization va Windows Authenticode;
+minimum macOS13.5/Windows11 desktop; missing prerequisite/network-failure va
+interrupted-install/power-loss; native credential/system dialoglari va optional
+editor/file-picker; Mac inactive trust metadata'ni jismoniy olib tashlash;
+project/dependency/provider license va redistribution review. Automatic updater,
+cross-version migration/rollback va public publish amalga oshirilmagan.
+To'liq dalillar, exact versiyalar va cheklovlar [M6 hisobotida](m6-distribution-results.md).
+
+**Rejadagi ishlar:**
 
 - Har target uchun installable artifact, prerequisite detection va owned
   resurslar cleanup'ini tayyorlang. DevForge uninstall loyihalar/DB data'ni
@@ -305,3 +332,5 @@ M0 release/runtime gate'lari ham ochiq qoladi; asoslanmagan muddat va'dasi yo'q.
 [^postgres]: PostgreSQL rasmiy sayti platformalar bo'yicha paket va source manbalarini ko'rsatadi.
 [^i18next]: react-i18next i18next'ning React integration'idir; aniq versiya implementation vaqtida tanlanadi.
 [^packaging]: Tauri platforma distributivlari va signing jarayonini hujjatlashtiradi.
+
+[^m6-results]: Actual target/job/artifact manbalari va tester handoff bilan tasdiqlangan ichki natija; public release yoki minimum OS certification emas.
