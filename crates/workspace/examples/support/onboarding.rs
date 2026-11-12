@@ -191,12 +191,31 @@ pub fn run(root: &Path) -> Result<()> {
     };
     let hosts_before = fs::read(devforge_serving::system::hosts_path()?)?;
     eprintln!("M8_PHASE: create official Laravel using selected PHP Node Composer");
-    let result = w.execute(
+    let result = match w.execute(
         Command::CreateProject {
             input: input.clone(),
         },
         &Cancellation::default(),
-    )?;
+    ) {
+        Ok(value) => value,
+        Err(e) => {
+            let logs = w
+                .snapshot()?
+                .logs
+                .into_iter()
+                .filter(|l| l.process == "source")
+                .rev()
+                .take(12)
+                .collect::<Vec<_>>();
+            let diagnostic = json!({"stage":"source","error":e,"redacted_logs":logs});
+            fs::write(
+                root.join("m8-native-failure.json"),
+                serde_json::to_vec_pretty(&diagnostic)?,
+            )?;
+            eprintln!("M8_NATIVE_FAILURE:{diagnostic}");
+            return Err(e.into());
+        }
+    };
     let fresh_id = result["project_id"].as_str().unwrap().to_owned();
     let fresh = w.projects.get(&fresh_id)?;
     let initial_key = key(&fresh.path)?;

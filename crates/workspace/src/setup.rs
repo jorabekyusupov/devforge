@@ -373,7 +373,14 @@ impl Workspace {
                 .as_bytes()
                 .to_vec(),
         )?;
-        let tooling = ProjectStore::open(stage.path().join("tooling"))?;
+        // Configuration belongs to app data, not the user's source parent.
+        // In particular Windows PHP cannot reliably open a non-ASCII -c file.
+        let bootstrap_root = self.root.join("setup-context");
+        fs::create_dir_all(&bootstrap_root)?;
+        let bootstrap = tempfile::Builder::new()
+            .prefix("bootstrap-")
+            .tempdir_in(bootstrap_root)?;
+        let tooling = ProjectStore::open(bootstrap.path())?;
         let context = self.tooling(&tooling, stage.path(), &input.php, &input.node)?;
         let payload = stage.path().join("payload");
         match &input.source {

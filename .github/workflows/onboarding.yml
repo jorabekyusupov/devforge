@@ -51,6 +51,7 @@ jobs:
           retention-days: 7
           path: |
             m8-fixture/m8-native-result.json
+            m8-fixture/m8-native-failure.json
             m8-fixture/m8-desktop-result.json
             output/playwright/m8/*.png
           if-no-files-found: warn
