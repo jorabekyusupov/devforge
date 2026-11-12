@@ -33,6 +33,21 @@ fn main() -> Result<()> {
             .status()?;
         std::process::exit(status.code().unwrap_or(1));
     }
+    if args.first().map(String::as_str) == Some("log-burst") {
+        let data = PathBuf::from(args.get(1).ok_or("fixture required")?).join("data");
+        let secrets = Arc::new(devforge_workspace::testing::FixtureSecrets::open(
+            data.join("e2e-secrets.json"),
+        ));
+        let w = Workspace::open(&data, secrets.clone())?;
+        let id = args.get(2).ok_or("project required")?;
+        let project = w.projects.get(id)?;
+        fs::write(
+            project.path.join("app/Jobs/M6LogBurst.php"),
+            r#"<?php namespace App\Jobs;class M6LogBurst implements \Illuminate\Contracts\Queue\ShouldQueue {use \Illuminate\Foundation\Bus\Dispatchable,\Illuminate\Queue\InteractsWithQueue,\Illuminate\Bus\Queueable,\Illuminate\Queue\SerializesModels;public function handle():void{for($i=0;$i<2000;$i++){fwrite(STDOUT,"M6_LOG_BURST $i\n");usleep(1000);}fwrite(STDOUT,"M6_LOG_BURST_DONE\n");}}"#,
+        )?;
+        exec(&w,secrets.as_ref(),id,Tool::Php,vec!["-r".into(),r#"require 'vendor/autoload.php';$app=require 'bootstrap/app.php';$app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();dispatch(new App\Jobs\M6LogBurst);"#.into()])?;
+        return Ok(());
+    }
     if args.first().map(String::as_str) == Some("launch") {
         let root = PathBuf::from(&args[2]);
         let output = fs::File::create(root.join("desktop.log"))?;

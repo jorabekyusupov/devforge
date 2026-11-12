@@ -50,7 +50,16 @@ def main():
         application=installed/'DevForge.app/Contents/MacOS/devforge-desktop';cli=installed/'DevForge.app/Contents/MacOS/devforge'
     process=None
     try:
+        # Denied targets use existing OS protections; do not change ACLs/TCC/UAC.
+        if windows:
+            denied=pathlib.Path(os.environ['WINDIR'])/'System32'/('DevForge-M6-denied-'+str(os.getpid()))
+            denied_attempt=subprocess.run([str(installer),'/S','/D='+str(denied)],capture_output=True,timeout=60)
+        else:
+            denied=mount/'Denied-DevForge.app'
+            denied_attempt=subprocess.run(['ditto',str(mount/'DevForge.app'),str(denied)],capture_output=True,timeout=60)
+        assert denied_attempt.returncode!=0 and not denied.exists()
         install();assert application.exists();assert cli.exists()
+        report['checks']['permission_denied_target_then_retry']=True
         report['checks']['first_install']=True
         report['prerequisites']=json.loads(run(str(cli),'distribution','prerequisites',capture_output=True,text=True).stdout)
         run(str(cli),'distribution','check-uninstall')
@@ -60,6 +69,9 @@ def main():
         def owned_data_hashes():
             return {str(p.relative_to(data)):digest(p) for folder in ['projects','databases'] for p in (data/folder).rglob('*') if p.is_file()} if data.exists() else {}
         native_before=owned_data_hashes();report['preserved_existing_project_db_files']=len(native_before)
+        def verify_preserved():
+            current=owned_data_hashes()
+            assert all(current.get(key)==value for key,value in native_before.items())
         # The standard Windows uninstaller's data-removal paths must also survive
         # with the application's actual default roots, beyond the fixture override.
         default_sentinels=[]
@@ -105,10 +117,10 @@ def main():
             process.kill();process.wait(timeout=30);process=None;wait(lambda:subprocess.run([str(cli),'distribution','check-stopped'],capture_output=True).returncode==0)
         report['checks']['running_app_blocks_uninstall']=True if windows else 'CLI preflight blocks; Finder Trash cannot execute app hooks'
         report['checks']['three_locales_release_native_shell']=True
-        install();assert digest(db)==before and (project/'keep.txt').read_text()=='user project survives';assert all(owned_data_hashes().get(key)==value for key,value in native_before.items())
+        install();assert digest(db)==before and (project/'keep.txt').read_text()=='user project survives';verify_preserved()
         report['checks']['same_version_reinstall_preserves_project_db']=True
         run(str(cli),'distribution','check-uninstall');uninstall()
-        assert digest(db)==before and (project/'keep.txt').exists();assert all(owned_data_hashes().get(key)==value for key,value in native_before.items())
+        assert digest(db)==before and (project/'keep.txt').exists();verify_preserved()
         report['checks']['uninstall_preserves_project_db']=True
         install();run(str(cli),'doctor',stdout=subprocess.DEVNULL);assert digest(db)==before;uninstall()
         report['checks']['reinstall_after_uninstall']=True

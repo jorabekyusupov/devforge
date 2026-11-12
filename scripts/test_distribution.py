@@ -1,6 +1,11 @@
-import json,pathlib,unittest
+import json,pathlib,unittest,sys
+from scripts.package_desktop import run
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 class DistributionContracts(unittest.TestCase):
+    def test_cargo_metadata_preserves_unicode_on_windows_codepages(self):
+        source="import sys;sys.stdout.buffer.write('Иван / O‘zbek / 日本語'.encode('utf-8'))"
+        result=run(sys.executable,'-c',source,capture_output=True,text=True)
+        self.assertEqual(result.stdout,'Иван / O‘zbek / 日本語')
     def test_uninstaller_cannot_delete_application_data(self):
         template=(ROOT/'distribution/windows/installer.nsi').read_text()
         self.assertNotIn('DeleteAppDataCheckbox',template)

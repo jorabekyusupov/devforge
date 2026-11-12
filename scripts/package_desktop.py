@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Reproducible internal packaging. Never publishes or enables automatic updates."""
-import argparse, hashlib, json, os, pathlib, platform, shutil, subprocess, sys
+import argparse, hashlib, json, os, pathlib, shutil, subprocess, sys
+from urllib.parse import quote
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 def run(*args, **kw):
+    if kw.get("text"): kw.setdefault("encoding", "utf-8")
     try:
         return subprocess.run(args, cwd=ROOT, check=True, **kw)
     except subprocess.CalledProcessError as error:
@@ -16,6 +18,8 @@ def prepare(target, profile='release'):
     generated.mkdir(parents=True)
     metadata = json.loads(run('cargo','metadata','--locked','--format-version','1','--offline','--filter-platform',target, capture_output=True, text=True).stdout)
     packages=[]; missing=[]
+    packaging_notices=generated/'notices/packaging';packaging_notices.mkdir(parents=True)
+    for text in (ROOT/'distribution/windows').glob('TAURI-LICENSE-*'):shutil.copy2(text,packaging_notices/text.name)
     for pkg in metadata['packages']:
         if pkg['source'] is None: continue
         identity=f"{pkg['name']}-{pkg['version']}"
@@ -25,7 +29,7 @@ def prepare(target, profile='release'):
         for p in texts:
             out=generated/'notices'/'cargo'/identity/p.name;out.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(p,out)
         packages.append({'type':'library','name':pkg['name'],'version':pkg['version'],'purl':f"pkg:cargo/{pkg['name']}@{pkg['version']}",'licenses':[{'expression':pkg['license']}] if pkg.get('license') else [],'properties':[{'name':'devforge:scope','value':'cargo-lock-inventory-not-link-map'}]})
-    lock=json.loads((ROOT/'package-lock.json').read_text())
+    lock=json.loads((ROOT/'package-lock.json').read_text(encoding='utf-8'))
     for key,pkg in lock['packages'].items():
         if not key.startswith('node_modules/') or pkg.get('dev') or pkg.get('link'):continue
         parent=ROOT/key;name=key.split('node_modules/')[-1];identity=name.replace('/','_')+'-'+pkg['version']
@@ -33,7 +37,7 @@ def prepare(target, profile='release'):
         if not texts:missing.append(identity)
         for p in texts:
             out=generated/'notices'/'npm'/identity/p.name;out.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(p,out)
-        packages.append({'type':'library','name':name,'version':pkg['version'],'purl':f"pkg:npm/{name}@{pkg['version']}",'licenses':[{'expression':pkg['license']}] if pkg.get('license') else []})
+        packages.append({'type':'library','name':name,'version':pkg['version'],'purl':f"pkg:npm/{quote(name,safe='/')}@{pkg['version']}",'licenses':[{'expression':pkg['license']}] if pkg.get('license') else []})
     (generated/'sbom.cdx.json').write_text(json.dumps({'bomFormat':'CycloneDX','specVersion':'1.6','version':1,'components':packages},indent=2))
     shutil.copy2(ROOT/'runtime/catalog.json',generated/'runtime-catalog.json')
     (generated/'distribution.json').write_text(json.dumps({'schema':1,'channel':'internal-unsigned','target':target,'version':next(p['version'] for p in metadata['packages'] if p['name']=='devforge-desktop'),'public_release_allowed':False,'managed_runtime_archives_bundled':False,'gates':['os-signing-notarization','redistribution-license-review','minimum-os-native-acceptance'],'missing_root_license_texts':missing,'sbom_scope':'Cargo lock inventory and production npm dependencies; not a binary linkage attestation','runtime_redistribution_gate':'Open: upstream runtime archives are fetched on demand; transitive provider notices/reproducibility require review'},indent=2))
@@ -51,7 +55,7 @@ def main():
     if not args.prepare_only:run('cargo','build','--locked','--release','-p','devforge-cli','-p','devforge-serving','--bin','devforge','--bin','devforge-helper')
     prepare(target)
     if args.prepare_only:return
-    config=json.loads((ROOT/'distribution/bundle.json').read_text())
+    config=json.loads((ROOT/'distribution/bundle.json').read_text(encoding='utf-8'))
     if 'apple' in target:
         config['bundle'].update({'targets':['app','dmg'],'macOS':{'signingIdentity':'-'}})
     if (ROOT/'target/release/bundle').exists(): shutil.rmtree(ROOT/'target/release/bundle')

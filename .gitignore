@@ -17,3 +17,8 @@ apps/desktop/src-tauri/binaries/*
 distribution/generated/
 output/distribution/
 apps/desktop/src-tauri/tauri.internal.generated.json
+
+/m6-fixture/
+/m4-private-fixture/
+/m4-session.json
+/m4-result.json

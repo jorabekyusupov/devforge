@@ -97,6 +97,14 @@ try:
  # Real sessions, database test and changing A while B's worker keeps its PID.
  project(a);button('Start');wait(lambda:row(a)['state']=='running');project(b);button('Start');wait(lambda:row(b)['state']=='running');b_url=row(b)['serving']['preferred_url'];before=served(b_url);b_pids=[(name,status['pid']) for name,status in row(b)['processes']];project(a);button('Test connection');settled();wait(lambda:script("return document.body.textContent.includes('Database connection succeeded.')"));php=next(r['id'] for r in snap()['snapshot']['runtimes'] if r['kind']=='php' and r['id']!=row(a)['project']['php'] and r['variant']!='fpm');select('.project-detail select[name=php]',php);button('Save changes');wait(lambda:row(a)['project']['php']==php and row(a)['state']=='running');assert [(name,status['pid']) for name,status in row(b)['processes']]==b_pids;project(a)
  print('M5_UI_PHASE: parallel sessions and version switch passed',flush=True)
+ # M6 actual process-output burst, with live bounded IPC logs and native frames.
+ click('a[href="#services"]');begin_frames()
+ subprocess.run([str(args.launcher),'log-burst',str(args.fixture),a],check=True)
+ wait(lambda:any('M6_LOG_BURST_DONE' in l['text'] for l in snap()['snapshot']['logs']),30)
+ end_frames('2000_lines_real_laravel_queue_stdout')
+ burst=snap()['snapshot']['logs'];assert len(burst)<=500 and sum(len(l['text'].encode()) for l in burst)<=256*1024
+ click('a[href="#projects"]');project(a)
+
  # Native close-to-tray must preserve services. Restore using the same main-window adapter.
  invoke('main_window_action',{'action':'close'});wait(lambda:invoke('main_window_action',{'action':'status'}) is False);assert row(a)['state']=='running' and [(name,status['pid']) for name,status in row(b)['processes']]==b_pids;invoke('main_window_action',{'action':'show'});wait(lambda:invoke('main_window_action',{'action':'status'}) is True)
  # Source-matched visual evidence and text expansion at the minimum supported size.
@@ -105,7 +113,7 @@ try:
   click('a[href="#settings"]');click(f'input[type=radio][value="{language}"]');wait(lambda:script('return document.documentElement.lang===arguments[0]',language));click('a[href="#projects"]');project(a);call('POST','/window/rect',{'width':820,'height':620});assert script('return document.documentElement.scrollWidth<=innerWidth+1');screenshot(f'projects-small-{language}.png');audit(f'projects-small-{language}')
  click('a[href="#settings"]');click('input[type=radio][value=dark]');wait(lambda:script("return document.documentElement.dataset.theme==='dark'"));click('a[href="#projects"]');project(a);screenshot('projects-dark.png');audit('projects-dark');button('Stop');wait(lambda:row(a)['state']=='stopped');assert [(name,status['pid']) for name,status in row(b)['processes']]==b_pids;assert next(d for d in snap()['snapshot']['databases'] if d['instance']['id']==row(b)['database']['instance_id'])['state']=='ready';assert any(l['process']=='queue' for l in snap()['snapshot']['logs'])
  # Log filters are owned text controls, not translated raw output.
- click('a[href="#services"]');fill('.section-toolbar input[type=search]','DEVFORGE_QUEUE_READY');wait(lambda:script("return document.querySelector('.log-viewer').textContent.includes('DEVFORGE_QUEUE_READY')"));assert script("return !document.querySelector('.log-viewer').textContent.includes('0123456789abcdef0123456789abcdef')")
+ click('a[href="#services"]');fill('.section-toolbar input[type=search]','M6_LOG_BURST_DONE');wait(lambda:script("return document.querySelector('.log-viewer').textContent.includes('M6_LOG_BURST_DONE')"));assert script("return !document.querySelector('.log-viewer').textContent.includes('0123456789abcdef0123456789abcdef')")
  # Concurrent real Laravel HTTP load while the bounded native log viewer refreshes.
  from concurrent.futures import ThreadPoolExecutor
  begin_frames()
