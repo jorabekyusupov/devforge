@@ -224,3 +224,11 @@ Foydalanuvchi: «windows uchun build qilib ber testrovshikga tashlayman foydalan
 uchun yo'riqnoma ham htmlda o'zbek tilida». Mavjud verified installer product
 source'i o'zgarmagani tekshirilib, tester uchun ZIP va o'zbekcha HTML qo'llanma
 tayyorlandi. Testerga bevosita xabar/fayl yuborish yoki public release qilinmadi.
+
+## M6 dan keyingi bosqichlarni qayta tartiblash
+
+Foydalanuvchi: «M7 ohirgi bosqichga qoy endi qolganini boshqattan tartibla m12
+birinchiga qoy». Avvalgi M12 debugging/profiling birinchi, avvalgi M7 barqaror beta
+oxirgi qilindi. Bajarish tartibi uchun yangi M7-M15 raqamlari va eski-yangi moslik
+[roadmap'da](../post-mvp-roadmap.md) saqlandi. Tartib user ko'rsatmasiga asoslangan;
+feature tafsilotlari taklif, implementatsiya boshlangani yoki public publish ruxsati emas.

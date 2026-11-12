@@ -107,6 +107,10 @@ Bu tanlovlar M0'dan o'tgach implementation qarori sifatida qayd etiladi.
 # 3. Bajarish ketma-ketligi
 
 M0 -> M1 -> M2 -> M3 -> M4 -> M5 -> M6.
+
+M6'dan keyingi rivojlanish [alohida M7-M15 roadmap](post-mvp-roadmap.md) bilan
+yuritiladi: debugging/profiling birinchi, yakuniy beta va tarqatish oxirgi. Bu
+M0-M6 tarixini yoki MVP birinchi bosqich chegarasini qayta raqamlamaydi.
 Har bosqich ikkala OS va uch tilni tegishli qatlamda qamrab oladi. Birinchi
 platformada hammasini tugatib, ikkinchisini keyin port qilish rejalashtirilmaydi.
 
