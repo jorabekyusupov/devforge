@@ -135,6 +135,8 @@ pub fn reset_ui(root: &Path) -> Result<()> {
     Ok(())
 }
 pub fn run(root: &Path) -> Result<()> {
+    let canonical_root = fs::canonicalize(root)?;
+    let root = canonical_root.as_path();
     let data = root.join("data");
     let secrets = Arc::new(devforge_workspace::testing::FixtureSecrets::open(
         data.join("e2e-secrets.json"),
