@@ -38,3 +38,14 @@ jobs:
         env:
           WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: --disable-gpu
         run: python scripts/m5_desktop_smoke.py m5-fixture target/debug/devforge-desktop target/debug/examples/native_workspace
+      - name: Preserve only native captures and public test reports
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2, node24
+        with:
+          name: m5-${{ runner.os }}
+          path: |
+            output/playwright/m5/*.png
+            m5-fixture/m5-native-result.json
+            m5-fixture/m5-desktop-result.json
+          if-no-files-found: warn
+          retention-days: 7
