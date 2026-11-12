@@ -31,7 +31,11 @@ final class Capture
     {
         if ($this->scope === null) return;
         $scope = $this->scope;
-        $this->emit($scope['kind'], $scope['name'], (hrtime(true) - $scope['start']) / 1e6, array_merge($data, ['query_count' => $scope['queries'], 'sql_ms' => round($scope['sql_ms'], 3), 'peak_memory_bytes' => memory_get_peak_usage(true), 'truncated' => $this->count >= 500]), true);
+        // A late acknowledgement may trip the circuit after events were accepted.
+        // Preserve one bounded final-summary attempt and disclose incomplete capture.
+        $incomplete = $this->offline;
+        $this->offline = false;
+        $this->emit($scope['kind'], $scope['name'], (hrtime(true) - $scope['start']) / 1e6, array_merge($data, ['query_count' => $scope['queries'], 'sql_ms' => round($scope['sql_ms'], 3), 'peak_memory_bytes' => memory_get_peak_usage(true), 'truncated' => $incomplete || $this->count >= 500]), true);
         $this->flush(); $this->scope = null;
         if ($this->parents !== []) [$this->scope, $this->count, $this->offline] = array_pop($this->parents);
     }

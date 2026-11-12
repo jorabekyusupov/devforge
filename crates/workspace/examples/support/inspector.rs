@@ -1,4 +1,82 @@
 use super::*;
+fn late_ack_summary(
+    w: &Workspace,
+    secrets: &dyn devforge_core::SecretStore,
+    id: &str,
+) -> Result<()> {
+    use std::{
+        io::{BufRead, BufReader, Read, Write},
+        net::TcpListener,
+        time::{Duration, Instant},
+    };
+    let listener = TcpListener::bind("127.0.0.1:0")?;
+    listener.set_nonblocking(true)?;
+    let endpoint = format!(
+        "http://127.0.0.1:{}/v1/events",
+        listener.local_addr()?.port()
+    );
+    let server = std::thread::spawn(move || -> std::io::Result<Vec<serde_json::Value>> {
+        let mut until = Instant::now() + Duration::from_secs(120);
+        let mut batches = Vec::new();
+        while batches.len() < 2 && Instant::now() < until {
+            let (mut socket, _) = match listener.accept() {
+                Ok(s) => s,
+                Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                    std::thread::sleep(Duration::from_millis(5));
+                    continue;
+                }
+                Err(e) => return Err(e),
+            };
+            socket.set_read_timeout(Some(Duration::from_secs(1)))?;
+            let mut reader = BufReader::new(&mut socket);
+            let mut size = 0;
+            for _ in 0..64 {
+                let mut line = String::new();
+                reader.read_line(&mut line)?;
+                if line == "\r\n" {
+                    break;
+                }
+                if let Some(value) = line.to_ascii_lowercase().strip_prefix("content-length:") {
+                    size = value
+                        .trim()
+                        .parse::<usize>()
+                        .map_err(std::io::Error::other)?;
+                }
+            }
+            if size == 0 || size > 128 * 1024 {
+                return Err(std::io::Error::other("invalid test batch"));
+            }
+            let mut body = vec![0; size];
+            reader.read_exact(&mut body)?;
+            batches.push(serde_json::from_slice(&body).map_err(std::io::Error::other)?);
+            drop(reader);
+            if batches.len() == 1 {
+                until = Instant::now() + Duration::from_secs(5);
+                std::thread::sleep(Duration::from_millis(120));
+            }
+            let _ = socket.write_all(
+                b"HTTP/1.1 202 Accepted\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+            );
+        }
+        Ok(batches)
+    });
+    let source = w
+        .projects
+        .get(id)?
+        .path
+        .join(".devforge/laravel-inspector/src/Capture.php");
+    let result = exec(w,secrets,id,Tool::Php,vec!["-r".into(),r#"function config($key){return null;} require $argv[1]; $c=new DevForge\Inspector\Capture($argv[2],str_repeat('a',64),str_repeat('b',32)); $c->begin('request','late-ack'); $c->dump(['marker'=>'first-batch']); $c->finish(['status'=>200]);"#.into(), source.into_os_string(), endpoint.into()]);
+    let batches = server
+        .join()
+        .map_err(|_| "late ACK fixture thread failed")??;
+    result?;
+    assert_eq!(batches.len(), 2, "lost final summary after late ACK");
+    let summary = &batches[1]["events"][0];
+    assert_eq!(summary["kind"], "request");
+    assert_eq!(summary["data"]["truncated"], true);
+    eprintln!("M7_PHASE: late acknowledgement retains a marked final summary");
+    Ok(())
+}
 pub fn run(root: &Path) -> Result<()> {
     let data = root.join("data");
     let secrets = Arc::new(devforge_workspace::testing::FixtureSecrets::open(
@@ -41,6 +119,7 @@ pub fn run(root: &Path) -> Result<()> {
 \Illuminate\Support\Facades\Route::get('/inspector-error',function(){throw new \RuntimeException('token=M7_PRIVATE_SENTINEL');});
 "#)?;
     }
+    late_ack_summary(&w, secrets.as_ref(), &a.id)?;
     fs::write(a.path.join("app/Jobs/M7InspectorJob.php"),br#"<?php namespace App\Jobs;class M7InspectorJob implements \Illuminate\Contracts\Queue\ShouldQueue{use \Illuminate\Foundation\Bus\Dispatchable,\Illuminate\Queue\InteractsWithQueue,\Illuminate\Bus\Queueable,\Illuminate\Queue\SerializesModels;public function handle():void{\Illuminate\Support\Facades\DB::select('select 1');\Illuminate\Support\Facades\Log::info('M7 job completed');dump(['token'=>'M7_PRIVATE_SENTINEL','marker'=>'job-dump']);}}"#)?;
     w.execute(
         Command::InspectorCapture {
@@ -228,7 +307,7 @@ pub fn run(root: &Path) -> Result<()> {
             .is_empty()
     );
     assert_eq!(reopened.inspector_view(&b.id)?["capture"]["enabled"], false);
-    let report = json!({"host":{"os":std::env::consts::OS,"arch":std::env::consts::ARCH},"real_laravel_http_sql_log_dump_job_exception":true,"dd_preserves_exit_and_records_dump":true,"normalized_sql_slow_and_repeated_hints":true,"sentinel_redacted":true,"project_isolation_and_scoped_clear":true,"enable_B_preserves_A_pids":true,"pause_stops_capture":true,"history_persists_capture_off_after_reopen":true,"php_capability":capability,"passed":true});
+    let report = json!({"host":{"os":std::env::consts::OS,"arch":std::env::consts::ARCH},"late_ack_preserves_marked_final_summary":true,"real_laravel_http_sql_log_dump_job_exception":true,"dd_preserves_exit_and_records_dump":true,"normalized_sql_slow_and_repeated_hints":true,"sentinel_redacted":true,"project_isolation_and_scoped_clear":true,"enable_B_preserves_A_pids":true,"pause_stops_capture":true,"history_persists_capture_off_after_reopen":true,"php_capability":capability,"passed":true});
     fs::write(
         root.join("m7-native-result.json"),
         serde_json::to_vec_pretty(&report)?,

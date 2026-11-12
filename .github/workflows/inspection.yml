@@ -53,4 +53,5 @@ jobs:
             m7-fixture/m7-native-result.json
             m7-fixture/m7-desktop-result.json
             output/playwright/m7/*.png
+            output/playwright/m7/failure-inspection.json
           if-no-files-found: warn

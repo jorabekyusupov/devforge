@@ -68,6 +68,7 @@ def audit(name):
  script(axe.read_text())
  results=call('POST','/execute/async',{'script':"const done=arguments[arguments.length-1];window.axe.run(document,{runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21aa']}}).then(r=>done(r.violations.map(v=>({id:v.id,impact:v.impact,nodes:v.nodes.map(n=>({target:n.target,summary:n.failureSummary}))}))),e=>done({error:String(e)}));",'args':[]})
  accessibility.append({'case':name,'violations':results});assert results==[],results
+ print('M7_UI_PHASE: accessibility passed '+name,flush=True)
 def launch():
  global process,session,port,base,opener
  with socket.socket() as sock:sock.bind(('127.0.0.1',0));port=sock.getsockname()[1]
@@ -101,6 +102,13 @@ try:
  quit_app();launch();click('a[href="#inspector"]');select('.inspector-project select',b);wait(lambda:script("return !!document.querySelector('.event-select')"));assert script("return document.querySelector('.inspection-state').textContent.includes('Capture paused')");quit_app()
  report={'passed':True,'native_webview':True,'ipc_mocked':False,'real_companion_install_confirmation':True,'install_B_preserves_A_pids':True,'real_events_and_context_profiles':True,'filters_and_dump_redaction':True,'clear_confirmation_and_project_scope':True,'xdebug_probe':True,'ru_uz_en':True,'capture_paused_history_preserved_on_reopen':True,'accessibility':accessibility,'captures':captures,'viewport_attempts':viewport_attempts};(args.fixture/'m7-desktop-result.json').write_text(json.dumps(report,indent=2));print('M7_DESKTOP_REPORT:'+json.dumps(report))
 except Exception:
+ try:
+  project_id=script("return document.querySelector('.inspector-project select')?.value")
+  view=invoke('inspector_snapshot',{'id':project_id}) if project_id else None
+  if view:
+   diagnostic={'capture_enabled':view['capture']['enabled'],'events':[{key:e[key] for key in ['kind','context','sequence']} for e in view['capture']['events']],'profiles':{context:{key:profile[key] for key in ['captured_queries','duration_ms','truncated']} for context,profile in view['profiles'].items()}}
+   (args.output/'failure-inspection.json').write_text(json.dumps(diagnostic,indent=2))
+ except Exception:pass
  try:screenshot('failure.png');(args.output/'failure.html').write_text(call('GET','/source'))
  except Exception:pass
  raise
