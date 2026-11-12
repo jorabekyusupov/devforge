@@ -36,7 +36,11 @@ export function WorkspacePage({
 }) {
   const { t, i18n } = useTranslation();
   const api = useWorkspace(backend);
-  const [query, setQuery] = useState(""),
+  const [queries, setQueries] = useState({
+      projects: "",
+      runtimes: "",
+      services: "",
+    }),
     [selected, setSelected] = useState(
       () =>
         new URLSearchParams(location.hash.split("?")[1]).get("project") ?? "",
@@ -44,6 +48,9 @@ export function WorkspacePage({
     [adding, setAdding] = useState(false),
     [confirm, setConfirm] = useState<Command | null>(null),
     [stream, setStream] = useState("all");
+  const query = queries[mode];
+  const setQuery = (value: string) =>
+    setQueries((current) => ({ ...current, [mode]: value }));
   const projects = [...(api.snapshot?.projects ?? [])].sort((a, b) =>
     a.project.name.localeCompare(b.project.name, i18n.language),
   );

@@ -5,7 +5,7 @@ No invoke mocking. Only lifecycle observation/control uses explicit native IPC.
 import argparse,base64,json,os,pathlib,signal,socket,subprocess,time,urllib.request,urllib.error,http.client
 p=argparse.ArgumentParser();p.add_argument('fixture',type=pathlib.Path);p.add_argument('application',type=pathlib.Path);p.add_argument('launcher',type=pathlib.Path);p.add_argument('--output',type=pathlib.Path,default=pathlib.Path('output/playwright/m5'));args=p.parse_args();args.output.mkdir(parents=True,exist_ok=True)
 with socket.socket() as sock:sock.bind(('127.0.0.1',0));port=sock.getsockname()[1]
-base=f'http://127.0.0.1:{port}';session='';process=None
+base=f'http://127.0.0.1:{port}';session='';process=None;accessibility=[];captures=[]
 opener=urllib.request.build_opener(urllib.request.ProxyHandler({}))
 def request(method,path,data=None,timeout=120):
  req=urllib.request.Request(base+path,data=None if data is None else json.dumps(data).encode(),headers={'Content-Type':'application/json'},method=method)
@@ -47,7 +47,12 @@ def served(url):
  from urllib.parse import urlparse
  u=urlparse(url);conn=http.client.HTTPConnection('127.0.0.1',u.port or 80,timeout=4);conn.request('GET',u.path or '/',headers={'Host':u.netloc});r=conn.getresponse();data=r.read();conn.close();assert r.status==200,(r.status,data[:200]);return json.loads(data)
 def screenshot(name):
- value=call('GET','/screenshot');(args.output/name).write_bytes(base64.b64decode(value))
+ value=call('GET','/screenshot');(args.output/name).write_bytes(base64.b64decode(value));captures.append({'file':name,'viewport':script('return {width:innerWidth,height:innerHeight,scale:devicePixelRatio,language:document.documentElement.lang,theme:document.documentElement.dataset.theme}')})
+def audit(name):
+ axe=pathlib.Path(__file__).resolve().parent.parent/'node_modules/axe-core/axe.min.js'
+ script(axe.read_text())
+ results=call('POST','/execute/async',{'script':"const done=arguments[arguments.length-1];window.axe.run(document,{runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21aa']}}).then(r=>done(r.violations.map(v=>({id:v.id,impact:v.impact,nodes:v.nodes.map(n=>({target:n.target,summary:n.failureSummary}))}))),e=>done({error:String(e)}));",'args':[]})
+ accessibility.append({'case':name,'violations':results});assert results==[],results
 def launch():
  global process,session,port,base,opener
  with socket.socket() as sock:sock.bind(('127.0.0.1',0));port=sock.getsockname()[1]
@@ -71,16 +76,20 @@ try:
  notes=args.fixture/'Notes fixture';notes.mkdir(exist_ok=True);(notes/'public').mkdir(exist_ok=True);(notes/'composer.json').write_text('{"require":{"php":"^8.3","laravel/framework":"^13"}}');(notes/'public/index.php').write_text("<?php header('Content-Type: application/json');echo json_encode(['php'=>PHP_VERSION]);")
  fill('dialog input[name=path]',str(notes.resolve()));click('dialog button[type=submit]');wait(lambda:not script("return !!document.querySelector('dialog')"));settled();assert len(snap()['snapshot']['projects'])==3
  print('M5_UI_PHASE: import passed',flush=True)
+ # Install/remove through the actual Runtimes view, then assign a newly created DB to Notes.
+ click('a[href="#runtimes"]');fill('.workspace-toolbar input[type=search]','composer');wait(lambda:script("return document.querySelectorAll('.runtime-table tbody tr').length===1"));click('.runtime-table tbody button');wait(lambda:script("return document.querySelector('dialog')?.open"));click('dialog button.danger');wait(lambda:not script("return !!document.querySelector('dialog')"));settled();wait(lambda:script("return document.querySelector('.runtime-table tbody button')?.textContent.trim()==='Install'"));click('.runtime-table tbody button');settled();wait(lambda:all(r['installed'] for r in snap()['snapshot']['runtimes'] if r['kind']=='composer'))
+ click('a[href="#services"]');before_databases={d['instance']['id'] for d in snap()['snapshot']['databases']};click('.work-panel .section-toolbar button.primary');settled();new_database=wait(lambda:next((d['instance']['id'] for d in snap()['snapshot']['databases'] if d['instance']['id'] not in before_databases),None));click('a[href="#projects"]');notes_id=next(r['project']['id'] for r in snap()['snapshot']['projects'] if r['project']['name']=='Notes');project(notes_id);select('.database-controls select',new_database);button('Assign database');settled();wait(lambda:row(notes_id)['database'] and row(notes_id)['database']['instance_id']==new_database);button('Test connection');settled()
+ print('M5_UI_PHASE: runtime install and DB assignment passed',flush=True)
  # Real sessions, database test and changing A while B's worker keeps its PID.
  project(a);button('Start');wait(lambda:row(a)['state']=='running');project(b);button('Start');wait(lambda:row(b)['state']=='running');b_url=row(b)['serving']['preferred_url'];before=served(b_url);b_pids=[(name,status['pid']) for name,status in row(b)['processes']];project(a);button('Test connection');settled();wait(lambda:script("return document.body.textContent.includes('Database connection succeeded.')"));php=next(r['id'] for r in snap()['snapshot']['runtimes'] if r['kind']=='php' and r['id']!=row(a)['project']['php'] and r['variant']!='fpm');select('.project-detail select[name=php]',php);button('Save changes');wait(lambda:row(a)['project']['php']==php and row(a)['state']=='running');assert [(name,status['pid']) for name,status in row(b)['processes']]==b_pids;project(a)
  print('M5_UI_PHASE: parallel sessions and version switch passed',flush=True)
  # Native close-to-tray must preserve services. Restore using the same main-window adapter.
  invoke('main_window_action',{'action':'close'});wait(lambda:invoke('main_window_action',{'action':'status'}) is False);assert row(a)['state']=='running' and [(name,status['pid']) for name,status in row(b)['processes']]==b_pids;invoke('main_window_action',{'action':'show'});wait(lambda:invoke('main_window_action',{'action':'status'}) is True)
  # Source-matched visual evidence and text expansion at the minimum supported size.
- call('POST','/window/rect',{'width':1487,'height':1058});project(a);screenshot('projects-light.png')
+ call('POST','/window/rect',{'width':1487,'height':1058});project(a);screenshot('projects-light.png');audit('projects-light')
  for language in ['ru','uz-Latn','en']:
-  click('a[href="#settings"]');click(f'input[type=radio][value="{language}"]');wait(lambda:script('return document.documentElement.lang===arguments[0]',language));click('a[href="#projects"]');project(a);call('POST','/window/rect',{'width':820,'height':620});assert script('return document.documentElement.scrollWidth<=innerWidth+1');screenshot(f'projects-small-{language}.png')
- click('a[href="#settings"]');click('input[type=radio][value=dark]');wait(lambda:script("return document.documentElement.dataset.theme==='dark'"));click('a[href="#projects"]');project(a);screenshot('projects-dark.png');button('Stop');wait(lambda:row(a)['state']=='stopped');assert [(name,status['pid']) for name,status in row(b)['processes']]==b_pids;assert snap()['snapshot']['databases'][0]['state']=='ready';assert any(l['process']=='queue' for l in snap()['snapshot']['logs'])
+  click('a[href="#settings"]');click(f'input[type=radio][value="{language}"]');wait(lambda:script('return document.documentElement.lang===arguments[0]',language));click('a[href="#projects"]');project(a);call('POST','/window/rect',{'width':820,'height':620});assert script('return document.documentElement.scrollWidth<=innerWidth+1');screenshot(f'projects-small-{language}.png');audit(f'projects-small-{language}')
+ click('a[href="#settings"]');click('input[type=radio][value=dark]');wait(lambda:script("return document.documentElement.dataset.theme==='dark'"));click('a[href="#projects"]');project(a);screenshot('projects-dark.png');audit('projects-dark');button('Stop');wait(lambda:row(a)['state']=='stopped');assert [(name,status['pid']) for name,status in row(b)['processes']]==b_pids;assert snap()['snapshot']['databases'][0]['state']=='ready';assert any(l['process']=='queue' for l in snap()['snapshot']['logs'])
  # Log filters are owned text controls, not translated raw output.
  click('a[href="#services"]');fill('.section-toolbar input[type=search]','DEVFORGE_QUEUE_READY');wait(lambda:script("return document.querySelector('.log-viewer').textContent.includes('DEVFORGE_QUEUE_READY')"));assert script("return !document.querySelector('.log-viewer').textContent.includes('0123456789abcdef0123456789abcdef')")
  running_ports=[d['instance']['port'] for d in snap()['snapshot']['databases']]
@@ -105,7 +114,7 @@ try:
     if s.connect_ex(('127.0.0.1',p))==0:return False
   return True
  wait(closed,15);launch();project(a);button('Start');wait(lambda:row(a)['state']=='running');assert row(a)['project']['php']==php;quit_app()
- result={'host':os.name,'real_native_webview':True,'ipc_mocked':False,'secret_store':'private filesystem E2E adapter; production uses OS credentials','import_error_recovery':True,'parallel_projects_and_database':True,'version_switch_preserves_B_pid':True,'close_to_tray_preserves_services':True,'ru_uz_en_and_dark_persistence':True,'minimum_window_no_horizontal_overflow':True,'logs_filtering_redacted':True,'quit_stops_owned_services':True,'forced_app_crash_cleanup_and_recovery':True,'passed':True};(args.fixture/'m5-desktop-result.json').write_text(json.dumps(result,indent=2));print('M5_DESKTOP_REPORT:'+json.dumps(result))
+ result={'host':os.name,'accessibility':accessibility,'captures':captures,'real_native_webview':True,'ipc_mocked':False,'secret_store':'private filesystem E2E adapter; production uses OS credentials','import_error_recovery':True,'parallel_projects_and_database':True,'runtime_remove_install_via_ui':True,'database_create_assign_via_ui':True,'version_switch_preserves_B_pid':True,'close_to_tray_preserves_services':True,'ru_uz_en_and_dark_persistence':True,'minimum_window_no_horizontal_overflow':True,'logs_filtering_redacted':True,'quit_stops_owned_services':True,'forced_app_crash_cleanup_and_recovery':True,'passed':True};(args.fixture/'m5-desktop-result.json').write_text(json.dumps(result,indent=2));print('M5_DESKTOP_REPORT:'+json.dumps(result))
 except Exception:
  try:
   screenshot('failure.png');(args.output/'failure.html').write_text(call('GET','/source'))

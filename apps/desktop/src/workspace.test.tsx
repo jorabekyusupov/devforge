@@ -202,4 +202,35 @@ describe("daily workspace", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("cancelled");
     expect(screen.getByRole("button", { name: "Install" })).toBeEnabled();
   });
+  it("keeps search filters independent between operational pages", async () => {
+    const b = backend();
+    const engine = await createEngine();
+    await engine.changeLanguage("en");
+    const view = render(
+      <I18nextProvider i18n={engine}>
+        <WorkspacePage backend={b.api} mode="runtimes" />
+      </I18nextProvider>,
+    );
+    const user = userEvent.setup();
+    await user.type(
+      screen.getByRole("searchbox", { name: "Search runtimes…" }),
+      "node",
+    );
+    view.rerender(
+      <I18nextProvider i18n={engine}>
+        <WorkspacePage backend={b.api} mode="projects" />
+      </I18nextProvider>,
+    );
+    expect(
+      screen.getByRole("searchbox", { name: "Search projects…" }),
+    ).toHaveValue("");
+    view.rerender(
+      <I18nextProvider i18n={engine}>
+        <WorkspacePage backend={b.api} mode="runtimes" />
+      </I18nextProvider>,
+    );
+    expect(
+      screen.getByRole("searchbox", { name: "Search runtimes…" }),
+    ).toHaveValue("node");
+  });
 });
