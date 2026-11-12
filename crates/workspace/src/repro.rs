@@ -506,7 +506,20 @@ impl Workspace {
         }
         keys.sort();
         keys.dedup();
-        let env = EnvPlan::preview(path, &keys)?;
+        let mut env = EnvPlan::preview(path, &keys)?;
+        if m.setup.generate_key {
+            let keep = EnvPlan::application_status(path)?.1;
+            for (name, action) in &mut env {
+                if name == "APP_KEY" {
+                    *action = if keep {
+                        "preserve_existing"
+                    } else {
+                        "generate_if_empty_redacted"
+                    }
+                    .into();
+                }
+            }
+        }
         if write_env {
             for s in &secrets {
                 if s.available {
@@ -808,6 +821,7 @@ impl Workspace {
                     .and_then(|i| self.projects.cache_instance(&i).ok())
                     .filter(|i| {
                         i.ready
+                            && i.project_id == id
                             && i.package == *package
                             && Some(&i.runtime) == plan.packages.get("dotnet")
                     });
@@ -819,6 +833,7 @@ impl Workspace {
                     .and_then(|i| self.projects.cache_instance(i).ok())
                     .filter(|i| {
                         i.ready
+                            && i.project_id == id
                             && i.package == *package
                             && Some(&i.runtime) == plan.packages.get("dotnet")
                     })

@@ -31,7 +31,7 @@ fn redacted_plan_is_stale_after_secret_env_or_config_changes() {
         r#"{"require":{"php":"^8.3","laravel/framework":"^13"}}"#,
     )
     .unwrap();
-    fs::write(path.join(".env"), "UNRELATED=preserve\n").unwrap();
+    fs::write(path.join(".env"), "UNRELATED=preserve\nAPP_KEY=preserved\n").unwrap();
     let secrets = Arc::new(Secrets::default());
     let mut w = Workspace::open(temp.path().join("data"), secrets.clone()).unwrap();
     w.manifest_init(&path, "8.5.12", "24.22.2", "2.11.2")
@@ -39,6 +39,7 @@ fn redacted_plan_is_stale_after_secret_env_or_config_changes() {
     let file = path.join("devforge.yaml");
     let mut m = devforge_projects::manifest::Manifest::parse(&fs::read(&file).unwrap()).unwrap();
     m.environment.insert("API_TOKEN".into(), "token".into());
+    m.setup.generate_key = true;
     fs::write(&file, m.yaml().unwrap()).unwrap();
     let plan = w.manifest_plan(&path, true).unwrap();
     assert_eq!(plan.blockers, vec!["manifest_secret_missing"]);
@@ -46,6 +47,12 @@ fn redacted_plan_is_stale_after_secret_env_or_config_changes() {
         .unwrap();
     let approved = w.manifest_plan(&path, true).unwrap();
     assert!(approved.blockers.is_empty());
+    assert!(
+        approved
+            .env
+            .iter()
+            .any(|(name, action)| name == "APP_KEY" && action == "preserve_existing")
+    );
     let json = serde_json::to_string(&approved).unwrap();
     assert!(!json.contains("private-DO-NOT-EXPORT"));
     assert!(json.contains("API_TOKEN"));

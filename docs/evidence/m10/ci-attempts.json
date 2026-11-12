@@ -1,0 +1,11 @@
+{
+  "attempts": [
+    {
+      "source": "ecb996d614b73beaba4c50900318c4a84b76d4a0",
+      "run": 43328134445,
+      "windows_job": 131565717616,
+      "outcome": "fixture failed before runtime tests because the CLI argument lacked .exe for fs::canonicalize",
+      "followup": "Native helper adds .exe only on Windows. Also add stale-journal project-owner filter and forgotten-registration acceptance; APP_KEY preview explicitly reports preservation."
+    }
+  ]
+}

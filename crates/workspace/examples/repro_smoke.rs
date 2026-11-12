@@ -121,7 +121,11 @@ fn main() -> Result<()> {
         std::process::exit(code);
     }
     let args = std::env::args().skip(1).collect::<Vec<_>>();
-    let exe = fs::canonicalize(args.first().ok_or("CLI required")?)?;
+    let mut cli_path = PathBuf::from(args.first().ok_or("CLI required")?);
+    if cfg!(windows) && cli_path.extension().is_none() {
+        cli_path.set_extension("exe");
+    }
+    let exe = fs::canonicalize(cli_path)?;
     let cache = PathBuf::from(args.get(1).ok_or("cache required")?);
     let report = PathBuf::from(args.get(2).ok_or("report required")?);
     let temp = tempfile::tempdir()?;
@@ -561,7 +565,46 @@ fn run(root: &Path, exe: &Path, cache: &Path) -> Result<serde_json::Value> {
         "manifest_busy"
     );
     drop(lease);
+    let old_cache = target_p.services.redis_instance.clone().unwrap();
+    let latest = target_w.projects.get(&target_p.id)?;
+    target_w.execute(
+        Command::Forget {
+            id: latest.id,
+            revision: latest.revision,
+        },
+        &Default::default(),
+    )?;
+    target_w.shutdown()?;
+    drop(target_w);
+    drop(target_s);
+    let plan = command(exe, &b, "plan", &clone, &["--write-env"], None, true)?;
+    command(
+        exe,
+        &b,
+        "setup",
+        &clone,
+        &[
+            "--review",
+            plan["digest"].as_str().unwrap(),
+            "--write-env",
+            "--trust",
+        ],
+        None,
+        true,
+    )?;
+    let (mut rebuilt, _) = open(&b)?;
+    let fresh = rebuilt.projects.list()?.remove(0);
+    assert_ne!(fresh.id, target_p.id);
+    assert_ne!(
+        fresh.services.redis_instance.as_deref(),
+        Some(old_cache.as_str())
+    );
+    assert_eq!(
+        rebuilt.projects.cache_instance(&old_cache)?.project_id,
+        target_p.id
+    );
+    rebuilt.shutdown()?;
     Ok(
-        serde_json::json!({"target":target,"http_php_environment":true,"real_cli":true,"schema_roundtrip":true,"pinned_runtimes_two_machine_stores":true,"local_secret_isolation":true,"redacted_preview":true,"env_untouched_without_flag":true,"stale_secret_review_rejected":true,"repeated_setup_keeps_db_cache_and_key":true,"real_postgresql_and_garnet_php":true,"no_composer_scripts":true,"no_npm_scripts":true,"dependency_failure_and_resume":true,"cancel_preserves_data":true,"cli_operation_lease":true,"private_fixture_removed_on_exit":true,"native_gui":"M10 CLI-only scope; desktop UI unchanged"}),
+        serde_json::json!({"target":target,"http_php_environment":true,"real_cli":true,"schema_roundtrip":true,"forgotten_project_journal_rebind":true,"pinned_runtimes_two_machine_stores":true,"local_secret_isolation":true,"redacted_preview":true,"env_untouched_without_flag":true,"stale_secret_review_rejected":true,"repeated_setup_keeps_db_cache_and_key":true,"real_postgresql_and_garnet_php":true,"no_composer_scripts":true,"no_npm_scripts":true,"dependency_failure_and_resume":true,"cancel_preserves_data":true,"cli_operation_lease":true,"private_fixture_removed_on_exit":true,"native_gui":"M10 CLI-only scope; desktop UI unchanged"}),
     )
 }
