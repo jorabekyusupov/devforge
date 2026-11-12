@@ -1,5 +1,9 @@
 # DevForge bilim bazasi tarixi
 
+## 2026-11-13
+
+- **M8 boshlandi:** [Project setup](m8-project-setup-results.md), Laravel/Git creation, scoped dependency/env/key preparation, cancellation/recovery, PHP diagnostics/settings, recent/favorites va HTTPS review yaratildi. Local actual backend va WKWebView13 axe holati o'tdi. Hosted matrix va final reconciliation yuritilmoqda; OS authorization dialogs/M15 va M7.2 gate'lari alohida ochiq.
+
 ## 2026-11-12
 
 - **M7.1 qabul qilindi:** [Inspector](m7-inspector-results.md), authenticated local collector, Laravel companion, real request/SQL/job/log/dump/dd/exception va application profiling yaratildi. macOS ARM64/Intel va Windows x64'da backend va haqiqiy WebView UI o'tdi; har targetda7 axe/0 finding. Core per-OS62 Rust/17 frontend/3 locale/6 packaging checks o'tdi. Windows keyboard scroll va late-ACK summary xatolari tuzatildi; eski failure'lar va fixture path correction saqlandi. Uch final artifact hash/report'lari solishtirildi, CLI read-only history tekshirildi. Strict OKF22 hujjat/0 error/0 warning. M7.2 Xdebug extension/debugger/function-profiler va M15 release gate'lari ochiq; M7 to'liq yopilmadi. Yakuniy docs push uchun product suite takrorlanmaydi.

@@ -240,3 +240,10 @@ boshlashni topshirdi. Collector/companion va request/query profiling birinchi
 ishlaydigan qatlam; native Xdebug availability va function-profiler support
 haqiqiy runtime dalilisiz bajarilgan deb belgilanmaydi. Oldingi native tests,
 OKF reconciliation va yakuniy push ketma-ketligi saqlanadi.
+
+## M8 implementatsiyasi
+
+Foydalanuvchi «M8 ni boshla barcha ishlar tugagandan song» deb loyihani tez
+tayyorlash bosqichini boshlashni topshirdi. Oldingi test, OKF reconciliation va
+yakuniy push ish tartibi davom ettirildi. M7.2 Xdebug scope bu topshiriq bilan
+yopilgan deb belgilanmadi.

@@ -1,4 +1,6 @@
 //! Shared daily-workspace orchestration. No Tauri or UI types, no credentials in DTOs.
+pub mod setup;
+mod system_setup;
 use devforge_core::SecretStore;
 use devforge_projects::{
     database::{Binding, Instance, RunningPostgres},
@@ -20,7 +22,7 @@ use std::{
     collections::BTreeMap,
     fs,
     path::{Path, PathBuf},
-    sync::Arc,
+    sync::{Arc, Mutex},
     thread,
     time::{Duration, Instant},
 };
@@ -28,6 +30,8 @@ use std::{
 pub struct Error {
     pub scope: &'static str,
     pub code: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub project_id: Option<String>,
 }
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -40,6 +44,7 @@ impl From<devforge_projects::ProjectError> for Error {
         Self {
             scope: "project",
             code: e.to_string(),
+            project_id: None,
         }
     }
 }
@@ -48,6 +53,7 @@ impl From<devforge_serving::ServingError> for Error {
         Self {
             scope: "serving",
             code: e.to_string(),
+            project_id: None,
         }
     }
 }
@@ -56,6 +62,7 @@ impl From<devforge_runtime::RuntimeError> for Error {
         Self {
             scope: "runtime",
             code: e.to_string(),
+            project_id: None,
         }
     }
 }
@@ -68,6 +75,7 @@ fn error(code: &str) -> Error {
     Error {
         scope: "workspace",
         code: code.into(),
+        project_id: None,
     }
 }
 pub type Result<T> = std::result::Result<T, Error>;
@@ -79,6 +87,8 @@ pub struct Development {
 struct Preferences {
     schema: u32,
     development: BTreeMap<String, Development>,
+    #[serde(default)]
+    navigation: BTreeMap<String, setup::Navigation>,
 }
 #[derive(Clone, Serialize)]
 pub struct Runtime {
@@ -91,6 +101,9 @@ pub struct Runtime {
 }
 #[derive(Clone, Serialize)]
 pub struct Row {
+    pub setup_owned: bool,
+    pub navigation: setup::Navigation,
+    pub php_diagnostics: Option<serde_json::Value>,
     pub processes: Vec<(String, devforge_runtime::process::Snapshot)>,
     pub project: Project,
     pub site: Option<Site>,
@@ -115,6 +128,7 @@ pub struct Log {
 }
 #[derive(Clone, Serialize, Default)]
 pub struct Snapshot {
+    pub starter_constraint: String,
     pub projects: Vec<Row>,
     pub runtimes: Vec<Runtime>,
     pub databases: Vec<Database>,
@@ -123,6 +137,40 @@ pub struct Snapshot {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "action", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Command {
+    CreateProject {
+        input: setup::CreateInput,
+    },
+    PrepareProject {
+        id: String,
+        options: setup::PrepareOptions,
+    },
+    PhpDiagnostics {
+        id: String,
+    },
+    PhpSettings {
+        id: String,
+        revision: u64,
+        settings: devforge_projects::php_settings::PhpSettings,
+    },
+    Favorite {
+        id: String,
+        favorite: bool,
+    },
+    Visit {
+        id: String,
+    },
+    HttpsPreview {
+        id: String,
+    },
+    HttpsExport {
+        id: String,
+    },
+    HttpsApply {
+        id: String,
+        ticket: String,
+        digest: String,
+        consent: bool,
+    },
     InspectorInstall {
         id: String,
     },
@@ -211,6 +259,8 @@ impl Drop for Session {
     }
 }
 pub struct Workspace {
+    pub progress: Arc<Mutex<Option<setup::Progress>>>,
+    diagnostics: BTreeMap<String, serde_json::Value>,
     root: PathBuf,
     pub projects: ProjectStore,
     pub sites: SiteStore,
@@ -247,6 +297,8 @@ impl Workspace {
             }
         };
         let mut w = Self {
+            progress: Arc::new(Mutex::new(None)),
+            diagnostics: BTreeMap::new(),
             projects: ProjectStore::open(root.join("projects"))?,
             sites: SiteStore::open(root.join("serving"))?,
             packages: PackageStore::open(root.join("runtimes"), Limits::default())?,
@@ -331,6 +383,30 @@ impl Workspace {
         cancel: &Cancellation,
     ) -> Result<serde_json::Value> {
         match command {
+            Command::CreateProject { input } => self.create_project(input, cancel),
+            Command::PrepareProject { id, options } => self.prepare_project(&id, &options, cancel),
+            Command::PhpDiagnostics { id } => self.php_diagnostics(&id, cancel),
+            Command::PhpSettings {
+                id,
+                revision,
+                settings,
+            } => self.save_php_settings(&id, revision, settings, cancel),
+            Command::Favorite { id, favorite } => {
+                self.navigation(&id, Some(favorite), false)?;
+                Ok(serde_json::json!({"saved":true}))
+            }
+            Command::Visit { id } => {
+                self.navigation(&id, None, true)?;
+                Ok(serde_json::json!({"saved":true}))
+            }
+            Command::HttpsPreview { id } => self.https_preview(&id),
+            Command::HttpsExport { id } => self.https_export(&id),
+            Command::HttpsApply {
+                id,
+                ticket,
+                digest,
+                consent,
+            } => self.https_apply(&id, &ticket, &digest, consent),
             Command::InspectorInstall { id } => {
                 if self.sessions.contains_key(&id) {
                     return Err(error("inspection_stop_first"));
@@ -496,6 +572,7 @@ impl Workspace {
                     .development
                     .insert(p.id.clone(), Development { queue });
                 self.save()?;
+                self.navigation(&p.id, None, true)?;
                 Ok(serde_json::json!({"project_id":p.id}))
             }
             Command::Configure {
@@ -546,6 +623,8 @@ impl Workspace {
                 self.projects.forget(&id, revision)?;
                 self.sites.remove(&id)?;
                 self.preferences.development.remove(&id);
+                self.preferences.navigation.remove(&id);
+                self.diagnostics.remove(&id);
                 self.save()?;
                 Ok(serde_json::json!({"data_preserved":true}))
             }
@@ -732,6 +811,7 @@ impl Workspace {
             }
         }
         self.sessions.insert(id.into(), session);
+        self.navigation(id, None, true)?;
         Ok(())
     }
     pub fn stop(&mut self, id: &str) -> Result<()> {
@@ -847,6 +927,19 @@ impl Workspace {
             }
             let database = self.projects.binding(&project.id)?;
             rows.push(Row {
+                setup_owned: self
+                    .projects
+                    .root()
+                    .join("setup-owned")
+                    .join(format!("{}.json", project.id))
+                    .is_file(),
+                navigation: self
+                    .preferences
+                    .navigation
+                    .get(&project.id)
+                    .cloned()
+                    .unwrap_or_default(),
+                php_diagnostics: self.diagnostics.get(&project.id).cloned(),
                 processes,
                 site: sites.iter().find(|s| s.project_id == project.id).cloned(),
                 development: self
@@ -899,13 +992,23 @@ impl Workspace {
         logs.truncate(500);
         logs.reverse();
         Ok(Snapshot {
+            starter_constraint: self
+                .catalog
+                .defaults
+                .get("laravel")
+                .cloned()
+                .unwrap_or_default(),
             projects: rows,
             runtimes: self.runtime_cache.clone(),
             databases,
             logs,
         })
     }
-    pub fn open_target(&self, id: &str, target: &str) -> Result<()> {
+    pub fn open_target(&mut self, id: &str, target: &str) -> Result<()> {
+        self.open_target_inner(id, target)?;
+        self.navigation(id, None, true)
+    }
+    fn open_target_inner(&self, id: &str, target: &str) -> Result<()> {
         let project = self.projects.get(id)?;
         if target == "terminal" {
             let mut context = Context::resolve(

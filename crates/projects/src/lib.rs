@@ -3,6 +3,7 @@ pub mod database;
 pub mod env_file;
 pub mod environment;
 pub mod execution;
+pub mod php_settings;
 pub mod project;
 pub mod terminal;
 use serde::{Deserialize, Serialize};

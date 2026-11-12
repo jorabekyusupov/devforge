@@ -303,3 +303,30 @@ uses Laravel13. Xdebug capability detection is implemented; extension installati
 interactive debugging and function-level profiling remain later M7 work.
 `devforge inspect <project-id>` reads captured history and context summaries as JSON
 without starting a collector or printing its credentials.
+
+## M8 project setup
+
+**New project** creates a Laravel project or clones a Git repository into a new
+folder. Choose installed PHP/Node runtimes, review the domain/HTTPS selection
+and approve preparation actions. **Add project** keeps the existing read-only
+import flow. The Laravel starter constraint comes from the runtime catalog.
+
+**Prepare project** installs Composer/npm dependencies and can create a missing
+`.env` and empty `APP_KEY`. Existing keys are preserved and changed environment
+files get private backups. Scripts are off by default; allowing them still
+respects the project's npm policy. Composer plugins stay disabled. New Laravel
+projects can initialize their own SQLite database; existing Git-project databases
+are not silently migrated. Operations show actual stages and can be cancelled;
+registered partial projects retry preparation without cloning again.
+
+**PHP settings** changes only the selected project's INI and restarts it when
+running. Diagnostics show the actual PHP/extension/Composer platform state.
+Favorites and recently used projects survive app restarts.
+
+**HTTPS setup** reviews owned domain entries and the exact local CA fingerprint
+before invoking the packaged fixed-purpose helper with OS authorization. Preview
+does not install trust. Real system authorization dialogs remain a manual M15
+acceptance gate. See [M8 evidence and limitations](docs/knowledge/m8-project-setup-results.md).
+Publication can leave a preserved partial new directory on disk/crash failure;
+setup never replaces an existing destination. SSH/private Git authentication and
+recursive submodule workflows require their own client setup/coverage.

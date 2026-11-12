@@ -4,6 +4,7 @@ use crate::{
 };
 use devforge_core::SecretStore;
 use devforge_runtime::{
+    Cancellation,
     package::{PackageStore, Target, VerifiedExecutable, VerifiedResource},
     process::{LogChunk, LogPolicy, Observed, ProcessSpec, Readiness, RestartPolicy, Supervisor},
 };
@@ -19,6 +20,7 @@ pub enum Tool {
     Composer,
     Artisan,
     Queue,
+    Git,
 }
 impl Tool {
     pub fn parse(s: &str) -> Result<Self> {
@@ -30,6 +32,7 @@ impl Tool {
             "composer" => Ok(Self::Composer),
             "artisan" => Ok(Self::Artisan),
             "queue" => Ok(Self::Queue),
+            "git" => Ok(Self::Git),
             _ => Err(E::RuntimeUnavailable),
         }
     }
@@ -42,6 +45,7 @@ impl Tool {
             Self::Composer => "composer",
             Self::Artisan => "artisan",
             Self::Queue => "queue",
+            Self::Git => "git",
         }
     }
 }
@@ -89,6 +93,23 @@ impl Context {
         });
         self
     }
+    pub fn setup_sqlite(mut self, path: &std::path::Path) -> Result<Self> {
+        let parent = std::fs::canonicalize(path.parent().ok_or(E::InvalidProject)?)?;
+        if !parent.starts_with(&self.project.path) {
+            return Err(E::InvalidProject);
+        }
+        self.environment
+            .retain(|name, _| !name.to_string_lossy().starts_with("DB_") && name != "DATABASE_URL");
+        self.environment
+            .insert("DB_CONNECTION".into(), "sqlite".into());
+        self.environment.insert(
+            "DB_DATABASE".into(),
+            dunce::simplified(path).as_os_str().to_owned(),
+        );
+        self.environment.insert("DB_URL".into(), "".into());
+        self.environment.insert("DATABASE_URL".into(), "".into());
+        Ok(self)
+    }
     pub fn resolve(
         store: &ProjectStore,
         id: &str,
@@ -103,6 +124,56 @@ impl Context {
             catalog.get(&project.php)?,
             catalog.get(&project.node)?,
         )?;
+        Self::prepare(project, store, catalog, packages, secrets)
+    }
+    /// Unregistered tooling context: all configuration lives in the caller-owned
+    /// temporary store, and no user's project/environment is imported or changed.
+    pub fn bootstrap(
+        store: &ProjectStore,
+        path: &std::path::Path,
+        php: &str,
+        node: &str,
+        catalog: &Catalog,
+        packages: &PackageStore,
+        secrets: &dyn SecretStore,
+    ) -> Result<Self> {
+        let path = std::fs::canonicalize(path).map_err(|_| E::InvalidProject)?;
+        if !path.is_dir() {
+            return Err(E::InvalidProject);
+        }
+        let project = Project {
+            id: crate::id(),
+            name: "Setup tooling".into(),
+            path: path.clone(),
+            php: php.into(),
+            node: node.into(),
+            php_constraint: "*".into(),
+            node_constraint: "*".into(),
+            environment_names: vec![],
+            revision: 0,
+            active: true,
+            php_settings: Default::default(),
+        };
+        compatible(
+            &crate::project::Inspection {
+                path,
+                php_constraint: "*".into(),
+                node_constraint: "*".into(),
+                has_package_json: false,
+            },
+            catalog.get(php)?,
+            catalog.get(node)?,
+        )?;
+        Self::prepare(project, store, catalog, packages, secrets)
+    }
+    fn prepare(
+        project: Project,
+        store: &ProjectStore,
+        catalog: &Catalog,
+        packages: &PackageStore,
+        secrets: &dyn SecretStore,
+    ) -> Result<Self> {
+        let id = project.id.as_str();
         let php = packages.executable(catalog.get(&project.php)?, "php")?;
         let node = packages.executable(catalog.get(&project.node)?, "node")?;
         let config = store.root.join("config").join(id);
@@ -115,6 +186,7 @@ impl Context {
             id,
             ini_path(&config.join("sessions"))?
         );
+        text.push_str(&project.php_settings.ini()?);
         if cfg!(windows) {
             let ext = php.path().parent().unwrap().join("ext");
             text.push_str(&format!("extension_dir={}\n", ini_path(&ext)?));
@@ -124,6 +196,8 @@ impl Context {
                 "fileinfo",
                 "curl",
                 "pdo_pgsql",
+                "pdo_sqlite",
+                "sqlite3",
                 "intl",
                 "sodium",
                 "zip",
@@ -141,6 +215,9 @@ impl Context {
         file.persist(&ini).map_err(|_| E::StorageUnavailable)?;
         let mut environment = crate::environment::base();
         let mut sensitive = Vec::new();
+        if let Some(key) = crate::env_file::app_key_secret(&project.path)? {
+            sensitive.push(key.to_string());
+        }
         for (key, value) in crate::environment::load(&project, secrets)? {
             if !value.is_empty() {
                 sensitive.push(value.to_string());
@@ -259,7 +336,7 @@ impl Context {
         let mut prefix = Vec::new();
         let mut resources = Vec::new();
         let executable = match tool {
-            Tool::Node | Tool::Npm => {
+            Tool::Node | Tool::Npm | Tool::Git => {
                 self.environment
                     .retain(|key, _| !key.to_string_lossy().starts_with("DEVFORGE_INSPECTOR_"));
                 if tool == Tool::Npm {
@@ -282,6 +359,23 @@ impl Context {
                         return Err(E::RuntimeUnavailable);
                     }
                     prefix.push(npm.into_os_string());
+                }
+                if tool == Tool::Git {
+                    let executable = find_git()?;
+                    // Git inherits M2's owned process group/Job through verified
+                    // Node. No shell command or user-supplied JavaScript is used.
+                    prefix.extend(["-e".into(),r#"const cp=require('node:child_process');const child=cp.spawn(process.argv[1],process.argv.slice(2),{stdio:'inherit',shell:false,windowsHide:true});child.on('error',()=>process.exit(127));child.on('exit',code=>process.exit(code===null?1:code));"#.into(),executable.into_os_string()]);
+                    self.environment
+                        .insert("GIT_TERMINAL_PROMPT".into(), "0".into());
+                    self.environment
+                        .insert("GCM_INTERACTIVE".into(), "never".into());
+                    self.environment.insert(
+                        "GIT_SSH_COMMAND".into(),
+                        "ssh -o BatchMode=yes -o StrictHostKeyChecking=yes".into(),
+                    );
+                    if let Some(v) = std::env::var_os("SSH_AUTH_SOCK") {
+                        self.environment.insert("SSH_AUTH_SOCK".into(), v);
+                    }
                 }
                 self.node.clone()
             }
@@ -382,9 +476,33 @@ impl Invocation {
         self.spec.executable.path()
     }
     pub fn run(&self, logs: impl AsRef<std::path::Path>) -> Result<ExecutionResult> {
+        self.run_cancellable(logs, &Cancellation::default())
+    }
+    pub fn run_cancellable(
+        &self,
+        logs: impl AsRef<std::path::Path>,
+        cancel: &Cancellation,
+    ) -> Result<ExecutionResult> {
+        if cancel.is_cancelled() {
+            return Err(E::ExecutionFailed);
+        }
         let mut supervisor = Supervisor::open(logs)?;
         supervisor.start_redacted(self.spec.clone(), self.context.sensitive.clone())?;
-        let state = supervisor.wait_terminal(&self.spec.id, Duration::from_secs(310))?;
+        let until = std::time::Instant::now() + Duration::from_secs(310);
+        let state = loop {
+            let state = supervisor.snapshot(&self.spec.id)?;
+            if matches!(
+                state.observed,
+                Observed::Succeeded | Observed::Failed | Observed::Stopped
+            ) {
+                break state;
+            }
+            if cancel.is_cancelled() || std::time::Instant::now() > until {
+                supervisor.stop(&self.spec.id)?;
+                return Err(E::ExecutionFailed);
+            }
+            std::thread::sleep(Duration::from_millis(25));
+        };
         let (logs, dropped_bytes) = supervisor.logs(&self.spec.id)?;
         supervisor.stop(&self.spec.id)?;
         Ok(ExecutionResult {
@@ -394,6 +512,18 @@ impl Invocation {
             dropped_bytes,
         })
     }
+}
+pub fn find_git() -> Result<PathBuf> {
+    let name = if cfg!(windows) { "git.exe" } else { "git" };
+    std::env::var_os("PATH")
+        .and_then(|path| {
+            std::env::split_paths(&path)
+                .filter(|p| p.is_absolute())
+                .map(|p| p.join(name))
+                .find(|p| p.is_file())
+        })
+        .and_then(|p| dunce::canonicalize(p).ok())
+        .ok_or(E::RuntimeUnavailable)
 }
 fn ini_path(path: &std::path::Path) -> Result<String> {
     let text = dunce::simplified(path).to_string_lossy().replace('\\', "/");

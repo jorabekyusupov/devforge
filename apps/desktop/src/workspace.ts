@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 export interface Project {
+  php_settings?: PhpSettings;
   id: string;
   name: string;
   path: string;
@@ -33,6 +34,9 @@ export interface Binding {
   secret_ref: string;
 }
 export interface Row {
+  navigation?: { favorite: boolean; last_opened_ms: number };
+  php_diagnostics?: PhpDiagnostics | null;
+  setup_owned?: boolean;
   project: Project;
   site: Site | null;
   development: { queue: boolean };
@@ -62,6 +66,7 @@ export interface Database {
   users: number;
 }
 export interface Snapshot {
+  starter_constraint?: string;
   projects: Row[];
   runtimes: Runtime[];
   databases: Database[];
@@ -70,6 +75,70 @@ export interface Snapshot {
 export interface Failure {
   scope: string;
   code: string;
+  project_id?: string;
+}
+export interface PhpSettings {
+  memory_limit: string | null;
+  upload_mb: number | null;
+  post_mb: number | null;
+  execution_seconds: number | null;
+  timezone: string | null;
+}
+export interface PhpDiagnostics {
+  platform_check_available: boolean;
+  platform_requirements: { name: string; version: string; status: string }[];
+  version: string;
+  sapi: string;
+  ini: string;
+  extensions: string[];
+  pdo_drivers: string[];
+  settings: Record<string, string>;
+  environment_exists: boolean;
+  app_key_present: boolean;
+  vendor_present: boolean;
+}
+export interface PrepareOptions {
+  composer: boolean;
+  npm: boolean;
+  create_env: boolean;
+  generate_key: boolean;
+  run_scripts: boolean;
+  initialize_sqlite: boolean;
+  trusted: boolean;
+}
+export type SetupSource =
+  | { kind: "laravel"; version: string }
+  | { kind: "git"; repository: string; branch: string | null };
+export interface CreateInput {
+  source: SetupSource;
+  parent: string;
+  folder: string;
+  name: string;
+  php: string;
+  node: string;
+  domain: string;
+  https: boolean;
+  options: PrepareOptions;
+}
+export interface SetupProgress {
+  stage: string;
+  project_id: string | null;
+}
+export interface HttpsReview {
+  preview: {
+    domain: string;
+    https_enabled: boolean;
+    fingerprint: string;
+    system_trusted: boolean;
+    hosts_path: string;
+    hosts_ready: boolean;
+    domains: string[];
+    elevation_required: boolean;
+    helper_available: boolean;
+  };
+  ticket: string;
+  digest: string;
+  applied: boolean;
 }
 export type InspectionKind =
   "request" | "query" | "job" | "log" | "dump" | "exception";
@@ -109,7 +178,11 @@ export interface InspectionView {
 }
 export interface WorkspaceBackend {
   inspector?(id: string): Promise<InspectionView>;
-  snapshot(): Promise<{ snapshot: Snapshot; busy: boolean }>;
+  snapshot(): Promise<{
+    snapshot: Snapshot;
+    busy: boolean;
+    operation?: SetupProgress | null;
+  }>;
   execute(command: Command): Promise<Record<string, unknown>>;
   cancel(): Promise<void>;
   browse(): Promise<string | null>;
@@ -128,6 +201,26 @@ export type ProjectInput = {
   queue: boolean;
 };
 export type Command =
+  | { action: "create_project"; input: CreateInput }
+  | { action: "prepare_project"; id: string; options: PrepareOptions }
+  | {
+      action: "php_diagnostics" | "https_preview" | "https_export" | "visit";
+      id: string;
+    }
+  | {
+      action: "php_settings";
+      id: string;
+      revision: number;
+      settings: PhpSettings;
+    }
+  | { action: "favorite"; id: string; favorite: boolean }
+  | {
+      action: "https_apply";
+      id: string;
+      ticket: string;
+      digest: string;
+      consent: boolean;
+    }
   | {
       action: "inspector_install" | "inspector_clear" | "inspector_probe";
       id: string;
@@ -159,6 +252,7 @@ export function useWorkspace(backend?: WorkspaceBackend) {
     [pending, setPending] = useState<Command | null>(null),
     [remoteBusy, setRemoteBusy] = useState(false),
     [result, setResult] = useState<Record<string, unknown> | null>(null);
+  const [operation, setOperation] = useState<SetupProgress | null>(null);
   const alive = useRef(true),
     working = useRef(false);
   const refresh = useCallback(async () => {
@@ -171,6 +265,7 @@ export function useWorkspace(backend?: WorkspaceBackend) {
       if (alive.current) {
         setSnapshot(value.snapshot);
         setRemoteBusy(value.busy);
+        setOperation(value.operation ?? null);
       }
     } catch (e) {
       if (alive.current) setError(failure(e));
@@ -189,7 +284,10 @@ export function useWorkspace(backend?: WorkspaceBackend) {
       clearTimeout(timer);
     };
   }, [refresh]);
-  async function run(command: Command) {
+  async function run(
+    command: Command,
+    onResult?: (value: Record<string, unknown>) => void,
+  ) {
     if (!backend || working.current) return false;
     working.current = true;
     setPending(command);
@@ -199,6 +297,7 @@ export function useWorkspace(backend?: WorkspaceBackend) {
       const value = await backend.execute(command);
       if (alive.current) setResult(value);
       await refresh();
+      onResult?.(value);
       return true;
     } catch (e) {
       if (alive.current) setError(failure(e));
@@ -226,6 +325,7 @@ export function useWorkspace(backend?: WorkspaceBackend) {
     pending,
     busy: !!pending || remoteBusy,
     result,
+    operation,
     refresh,
     run,
     open,

@@ -14,6 +14,8 @@ use std::{
 };
 #[path = "support/inspector.rs"]
 mod inspector;
+#[path = "support/onboarding.rs"]
+mod onboarding;
 #[cfg(windows)]
 #[path = "../../projects/examples/support/windows_unprivileged.rs"]
 mod windows_unprivileged;
@@ -24,6 +26,15 @@ fn main() -> Result<()> {
         std::process::exit(code);
     }
     let args: Vec<_> = std::env::args().skip(1).collect();
+    if args.first().map(String::as_str) == Some("setup-ui-reset") {
+        return onboarding::reset_ui(Path::new(args.get(1).ok_or("fixture required")?));
+    }
+    if args.first().map(String::as_str) == Some("setup-reset") {
+        return onboarding::reset(Path::new(args.get(1).ok_or("fixture required")?));
+    }
+    if args.first().map(String::as_str) == Some("setup-native") {
+        return onboarding::run(Path::new(args.get(1).ok_or("fixture required")?));
+    }
     if args.first().map(String::as_str) == Some("inspect-ui-prepare") {
         let data = PathBuf::from(args.get(1).ok_or("fixture required")?).join("data");
         let secrets = Arc::new(devforge_workspace::testing::FixtureSecrets::open(

@@ -1,4 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { WorkspaceModal as Modal } from "../components/WorkspaceModal";
+import {
+  CreateProjectDialog,
+  PrepareProjectDialog,
+  PhpSettingsDialog,
+  HttpsSetupDialog,
+} from "../components/ProjectSetup";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Folder,
@@ -17,6 +24,7 @@ import {
   X,
   Database as DatabaseIcon,
   CheckCircle2,
+  Star,
 } from "lucide-react";
 import {
   useWorkspace,
@@ -26,6 +34,7 @@ import {
   type Command,
   type Snapshot,
   type Runtime,
+  type HttpsReview,
 } from "../workspace";
 export function WorkspacePage({
   backend,
@@ -46,6 +55,14 @@ export function WorkspacePage({
         new URLSearchParams(location.hash.split("?")[1]).get("project") ?? "",
     ),
     [adding, setAdding] = useState(false),
+    [creating, setCreating] = useState(false),
+    [tool, setTool] = useState<{
+      kind: "prepare" | "php" | "https";
+      id: string;
+    } | null>(null),
+    [projectFilter, setProjectFilter] = useState<
+      "all" | "recent" | "favorites"
+    >("all"),
     [confirm, setConfirm] = useState<Command | null>(null),
     [stream, setStream] = useState("all");
   const query = queries[mode];
@@ -74,11 +91,27 @@ export function WorkspacePage({
         ? t("errors.desktop_unavailable")
         : t("errors.unexpected")
     : "";
-  const filtered = projects.filter((r) =>
-    `${r.project.name} ${r.project.path} ${r.site?.domain ?? ""}`
-      .toLocaleLowerCase()
-      .includes(query.toLocaleLowerCase()),
-  );
+  const filtered = projects
+    .filter((r) =>
+      projectFilter === "all" || projectFilter === "favorites"
+        ? projectFilter === "all" || !!r.navigation?.favorite
+        : !!r.navigation?.last_opened_ms,
+    )
+    .filter((r) =>
+      `${r.project.name} ${r.project.path} ${r.site?.domain ?? ""}`
+        .toLocaleLowerCase()
+        .includes(query.toLocaleLowerCase()),
+    );
+  if (projectFilter === "recent")
+    filtered.sort(
+      (a, b) =>
+        (b.navigation?.last_opened_ms ?? 0) -
+        (a.navigation?.last_opened_ms ?? 0),
+    );
+  const toolRow = tool
+    ? projects.find((p) => p.project.id === tool.id)
+    : undefined;
+  const toolError = api.error ? errorMessage : "";
   const logs = (api.snapshot?.logs ?? []).filter(
     (l) =>
       (mode !== "projects" || l.project_id === row?.project.id) &&
@@ -89,7 +122,7 @@ export function WorkspacePage({
   );
   return (
     <section className="workspace-content" aria-busy={api.busy}>
-      {api.error && !adding && !confirm && (
+      {api.error && !adding && !creating && !tool && !confirm && (
         <div className="notice error" role="alert">
           <AlertCircle aria-hidden="true" />
           <div>
@@ -112,7 +145,9 @@ export function WorkspacePage({
               ? `work.operations.${api.pending.action}`
               : "work.working",
           )}
-          {api.pending?.action === "install" && (
+          {["install", "create_project", "prepare_project"].includes(
+            api.pending?.action ?? "",
+          ) && (
             <button onClick={() => void api.cancel()}>
               {t("work.cancel")}
             </button>
@@ -134,19 +169,46 @@ export function WorkspacePage({
               <span className="sr-only">{t("work.searchProjects")}</span>
               <input
                 type="search"
+                name="project-search"
+                autoComplete="off"
                 value={query}
                 placeholder={t("work.searchProjects")}
                 onChange={(e) => setQuery(e.target.value)}
               />
             </label>
             <button
+              onClick={() => {
+                api.clearError();
+                setCreating(true);
+              }}
               className="primary"
+              disabled={api.busy || !api.snapshot}
+            >
+              <Plus aria-hidden="true" />
+              {t("setup.newProject")}
+            </button>
+            <button
               onClick={() => setAdding(true)}
               disabled={api.busy || !api.snapshot}
             >
               <Plus aria-hidden="true" />
               {t("work.addProject")}
             </button>
+          </div>
+          <div
+            className="project-filters"
+            role="group"
+            aria-label={t("setup.projectFilter")}
+          >
+            {(["all", "recent", "favorites"] as const).map((key) => (
+              <button
+                key={key}
+                aria-pressed={projectFilter === key}
+                onClick={() => setProjectFilter(key)}
+              >
+                {t(`setup.filters.${key}`)}
+              </button>
+            ))}
           </div>
           {api.snapshot && !api.busy && projects.length === 0 && (
             <div className="workspace-empty">
@@ -166,33 +228,63 @@ export function WorkspacePage({
             <div className="project-layout">
               <div className="project-list" aria-label={t("work.projectList")}>
                 {filtered.map((p) => (
-                  <a
-                    key={p.project.id}
-                    href={`#projects?project=${encodeURIComponent(p.project.id)}`}
-                    className={`project-row ${row?.project.id === p.project.id ? "active" : ""}`}
-                    aria-current={
-                      row?.project.id === p.project.id ? "true" : undefined
-                    }
-                    onClick={() => setSelected(p.project.id)}
-                  >
-                    <div>
-                      <Folder aria-hidden="true" />
-                      <strong translate="no">{p.project.name}</strong>
-                      <StateBadge
-                        value={
-                          api.pending &&
-                          "id" in api.pending &&
-                          api.pending.id === p.project.id
-                            ? "starting"
-                            : p.state
-                        }
+                  <div className="project-list-item" key={p.project.id}>
+                    <a
+                      key={p.project.id}
+                      href={`#projects?project=${encodeURIComponent(p.project.id)}`}
+                      className={`project-row ${row?.project.id === p.project.id ? "active" : ""}`}
+                      aria-current={
+                        row?.project.id === p.project.id ? "true" : undefined
+                      }
+                      onClick={() => {
+                        setSelected(p.project.id);
+                        if (!api.busy)
+                          void api.run({ action: "visit", id: p.project.id });
+                      }}
+                    >
+                      <div>
+                        <Folder aria-hidden="true" />
+                        <strong translate="no">{p.project.name}</strong>
+                        <StateBadge
+                          value={
+                            api.pending &&
+                            ["start", "restart"].includes(api.pending.action) &&
+                            "id" in api.pending &&
+                            api.pending.id === p.project.id
+                              ? "starting"
+                              : p.state
+                          }
+                        />
+                      </div>
+                      <span translate="no">{p.site?.domain}</span>
+                      <code title={p.project.path} translate="no">
+                        {p.project.path}
+                      </code>
+                    </a>
+                    <button
+                      className="favorite-button"
+                      disabled={api.busy}
+                      aria-label={t(
+                        p.navigation?.favorite
+                          ? "setup.unfavorite"
+                          : "setup.favorite",
+                        { name: p.project.name },
+                      )}
+                      aria-pressed={!!p.navigation?.favorite}
+                      onClick={() =>
+                        void api.run({
+                          action: "favorite",
+                          id: p.project.id,
+                          favorite: !p.navigation?.favorite,
+                        })
+                      }
+                    >
+                      <Star
+                        aria-hidden="true"
+                        fill={p.navigation?.favorite ? "currentColor" : "none"}
                       />
-                    </div>
-                    <span translate="no">{p.site?.domain}</span>
-                    <code title={p.project.path} translate="no">
-                      {p.project.path}
-                    </code>
-                  </a>
+                    </button>
+                  </div>
                 ))}
                 {filtered.length === 0 && (
                   <p className="muted">{t("work.noMatches")}</p>
@@ -213,6 +305,20 @@ export function WorkspacePage({
                       revision: row.project.revision,
                     })
                   }
+                  onTool={(kind) => {
+                    api.clearError();
+                    setTool({ kind, id: row.project.id });
+                    if (kind === "php")
+                      void api.run({
+                        action: "php_diagnostics",
+                        id: row.project.id,
+                      });
+                    if (kind === "https")
+                      void api.run({
+                        action: "https_export",
+                        id: row.project.id,
+                      });
+                  }}
                 />
               )}
             </div>
@@ -373,6 +479,58 @@ export function WorkspacePage({
           }}
         />
       )}
+      {creating && (
+        <CreateProjectDialog
+          runtimes={runtimes}
+          starter={api.snapshot?.starter_constraint ?? ""}
+          busy={api.busy}
+          error={api.error}
+          operation={api.operation}
+          browse={api.browse}
+          run={api.run}
+          cancel={() => void api.cancel()}
+          onClose={() => setCreating(false)}
+          onCreated={(id) => {
+            setCreating(false);
+            setSelected(id);
+            location.hash = `projects?project=${encodeURIComponent(id)}`;
+          }}
+        />
+      )}
+      {toolRow && tool?.kind === "prepare" && (
+        <PrepareProjectDialog
+          row={toolRow}
+          busy={api.busy}
+          errorText={toolError}
+          operation={api.operation}
+          run={api.run}
+          cancel={() => void api.cancel()}
+          onClose={() => setTool(null)}
+        />
+      )}
+      {toolRow && tool?.kind === "php" && (
+        <PhpSettingsDialog
+          row={toolRow}
+          busy={api.busy}
+          errorText={toolError}
+          run={api.run}
+          onClose={() => setTool(null)}
+        />
+      )}
+      {toolRow && tool?.kind === "https" && (
+        <HttpsSetupDialog
+          row={toolRow}
+          review={
+            api.result && "preview" in api.result
+              ? (api.result as unknown as HttpsReview)
+              : null
+          }
+          busy={api.busy}
+          errorText={toolError}
+          run={api.run}
+          onClose={() => setTool(null)}
+        />
+      )}
       {confirm && (
         <ConfirmDialog
           errorText={errorMessage}
@@ -438,6 +596,7 @@ function ProjectDetail({
   run,
   open,
   onForget,
+  onTool,
 }: {
   row: Row;
   snapshot: Snapshot;
@@ -448,6 +607,7 @@ function ProjectDetail({
     t: "browser" | "editor" | "terminal" | "folder",
   ) => Promise<void>;
   onForget: () => void;
+  onTool: (kind: "prepare" | "php" | "https") => void;
 }) {
   const { t } = useTranslation();
   const p = row.project;
@@ -562,6 +722,21 @@ function ProjectDetail({
       {row.serving && !row.serving.system_trusted && row.site?.https && (
         <p className="notice">{t("work.trustFallback")}</p>
       )}
+      <div className="action-bar setup-tools">
+        <button disabled={busy || dirty} onClick={() => onTool("prepare")}>
+          {t("setup.prepare")}
+        </button>
+        <button
+          id={`project-${p.id}-php-settings`}
+          disabled={busy || dirty}
+          onClick={() => onTool("php")}
+        >
+          {t("setup.phpSettings")}
+        </button>
+        <button disabled={busy || dirty} onClick={() => onTool("https")}>
+          {t("setup.systemHttps")}
+        </button>
+      </div>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -826,56 +1001,6 @@ function LogViewer({ logs }: { logs: Snapshot["logs"] }) {
         <p>{t("work.noLogs")}</p>
       )}
     </div>
-  );
-}
-function Modal({
-  title,
-  busy,
-  onClose,
-  children,
-}: {
-  title: string;
-  busy: boolean;
-  onClose: () => void;
-  children: React.ReactNode;
-}) {
-  const ref = useRef<HTMLDialogElement>(null);
-  const { t } = useTranslation();
-  useEffect(() => {
-    const before = document.activeElement as HTMLElement | null;
-    ref.current?.showModal();
-    ref.current
-      ?.querySelector<HTMLElement>(
-        "[data-initial-focus], input, select, textarea",
-      )
-      ?.focus();
-    return () => {
-      ref.current?.close();
-      before?.focus();
-    };
-  }, []);
-  return (
-    <dialog
-      ref={ref}
-      aria-labelledby="work-dialog-title"
-      onCancel={(e) => {
-        e.preventDefault();
-        if (!busy) onClose();
-      }}
-    >
-      <div className="modal-title">
-        <h2 id="work-dialog-title">{title}</h2>
-        <button
-          type="button"
-          aria-label={t("work.close")}
-          disabled={busy}
-          onClick={onClose}
-        >
-          <X aria-hidden="true" />
-        </button>
-      </div>
-      {children}
-    </dialog>
   );
 }
 function ProjectDialog({

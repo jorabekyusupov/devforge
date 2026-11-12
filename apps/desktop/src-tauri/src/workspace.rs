@@ -13,6 +13,7 @@ pub struct State {
     root: PathBuf,
     workspace: Arc<Mutex<Option<Workspace>>>,
     cache: Arc<Mutex<Snapshot>>,
+    progress: Arc<Mutex<Option<devforge_workspace::setup::Progress>>>,
     cancel: Arc<Mutex<Option<Cancellation>>>,
     pub quitting: Arc<AtomicBool>,
     pub exited: Arc<AtomicBool>,
@@ -23,6 +24,7 @@ impl State {
             root,
             workspace: Arc::new(Mutex::new(None)),
             cache: Arc::new(Mutex::new(Snapshot::default())),
+            progress: Arc::new(Mutex::new(None)),
             cancel: Arc::new(Mutex::new(None)),
             quitting: Arc::new(AtomicBool::new(false)),
             exited: Arc::new(AtomicBool::new(false)),
@@ -32,6 +34,7 @@ impl State {
         Error {
             scope: "workspace",
             code: code.into(),
+            project_id: None,
         }
     }
     fn with<T>(&self, f: impl FnOnce(&mut Workspace) -> Result<T, Error>) -> Result<T, Error> {
@@ -43,6 +46,7 @@ impl State {
             *lock = Some(Workspace::open(&self.root, secrets(&self.root))?);
         }
         let w = lock.as_mut().unwrap();
+        w.progress = self.progress.clone();
         let result = f(w);
         if let Ok(snapshot) = w.snapshot() {
             *self.cache.lock().unwrap() = snapshot;
@@ -65,6 +69,7 @@ impl State {
             busy: !available
                 || self.cancel.lock().unwrap().is_some()
                 || self.quitting.load(Ordering::Relaxed),
+            operation: self.progress.lock().unwrap().clone(),
         })
     }
 }
@@ -89,6 +94,7 @@ pub struct View {
     pub host_pid: u32,
     pub snapshot: Snapshot,
     pub busy: bool,
+    pub operation: Option<devforge_workspace::setup::Progress>,
 }
 #[tauri::command]
 pub async fn workspace_snapshot(state: tauri::State<'_, State>) -> Result<View, Error> {

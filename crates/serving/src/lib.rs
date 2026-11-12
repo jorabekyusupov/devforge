@@ -1,6 +1,7 @@
 //! Loopback serving and narrowly scoped system integration. Blocking APIs belong
 //! on workers. The privileged helper never launches project code or reads keys.
 pub mod authority;
+pub mod authorize;
 mod config;
 mod fastcgi;
 pub mod hosts;

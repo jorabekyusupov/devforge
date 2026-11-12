@@ -52,6 +52,8 @@ pub struct Project {
     pub environment_names: Vec<String>,
     pub revision: u64,
     pub active: bool,
+    #[serde(default)]
+    pub php_settings: crate::php_settings::PhpSettings,
 }
 #[derive(Debug, Clone, Serialize)]
 pub struct Inspection {
@@ -215,6 +217,7 @@ impl ProjectStore {
             environment_names: Vec::new(),
             revision: 1,
             active: true,
+            php_settings: Default::default(),
         };
         self.connection.execute("INSERT INTO projects VALUES(?1,?2,1,1,?3)",params![project.id,key,serde_json::to_string(&project).unwrap()]).map_err(|e|if matches!(e,rusqlite::Error::SqliteFailure(ref e,_) if e.code==rusqlite::ErrorCode::ConstraintViolation){E::DuplicateProject}else{E::StorageUnavailable})?;
         Ok(project)
@@ -306,7 +309,7 @@ fn path_key(path: &Path) -> String {
         text
     }
 }
-fn validate_name(name: &str) -> Result<()> {
+pub fn validate_name(name: &str) -> Result<()> {
     if name.trim().is_empty() || name.len() > 200 || name.chars().any(char::is_control) {
         Err(E::InvalidProject)
     } else {
