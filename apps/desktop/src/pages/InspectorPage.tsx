@@ -310,6 +310,7 @@ export function InspectorPage({ backend }: { backend?: WorkspaceBackend }) {
                 <section
                   className="inspector-detail"
                   aria-label={t("inspector.details")}
+                  tabIndex={0}
                 >
                   {row ? (
                     <>
@@ -385,7 +386,11 @@ export function InspectorPage({ backend }: { backend?: WorkspaceBackend }) {
                         </>
                       )}
                       <h3>{t("inspector.payload")}</h3>
-                      <pre className="inspection-payload" translate="no">
+                      <pre
+                        className="inspection-payload"
+                        translate="no"
+                        tabIndex={0}
+                      >
                         {JSON.stringify(row.data, null, 2)}
                       </pre>
                       <p className="small muted">{t("inspector.heuristic")}</p>
