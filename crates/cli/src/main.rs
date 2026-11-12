@@ -13,6 +13,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         return Ok(());
     }
+    let _operation = devforge_platform::distribution::OperationLease::acquire(&app_data_dir()?)?;
     if std::env::args().nth(1).as_deref() == Some("site") {
         if let Err(error) = site::run() {
             eprintln!("{}", serde_json::json!({"error":error}));

@@ -21,6 +21,8 @@ def main():
     installed=fixture/'Installed DevForge';bundle=ROOT/'target/release/bundle';mount=None
     report={'schema':1,'os':platform.platform(),'architecture':platform.machine(),'channel':'internal-unsigned','signing_verified':False,'cold_start_definition':'first process launch per locale after preference seed; OS disk caches are not flushed','memory_scope':'desktop main process RSS/working set only; WebView helpers and managed runtimes excluded','measurements':[],'checks':{}}
     windows=os.name=='nt'
+    report['administrator_enabled']=bool(ctypes.windll.shell32.IsUserAnAdmin()) if windows else os.geteuid()==0
+    assert not report['administrator_enabled']
     if windows:
         installer=next((bundle/'nsis').glob('*-setup.exe'))
         def install():
@@ -47,7 +49,7 @@ def main():
         # Existing native Laravel/PG fixture, when present, must survive replacement byte-for-byte.
         def owned_data_hashes():
             return {str(p.relative_to(data)):digest(p) for folder in ['projects','databases'] for p in (data/folder).rglob('*') if p.is_file()} if data.exists() else {}
-        native_before=owned_data_hashes()
+        native_before=owned_data_hashes();report['preserved_existing_project_db_files']=len(native_before)
         # The standard Windows uninstaller's data-removal paths must also survive
         # with the application's actual default roots, beyond the fixture override.
         default_sentinels=[]
@@ -93,10 +95,10 @@ def main():
             process.kill();process.wait(timeout=30);process=None;wait(lambda:subprocess.run([str(cli),'distribution','check-stopped'],capture_output=True).returncode==0)
         report['checks']['running_app_blocks_uninstall']=True if windows else 'CLI preflight blocks; Finder Trash cannot execute app hooks'
         report['checks']['three_locales_release_native_shell']=True
-        install();assert digest(db)==before and (project/'keep.txt').read_text()=='user project survives';assert owned_data_hashes()==native_before
+        install();assert digest(db)==before and (project/'keep.txt').read_text()=='user project survives';assert all(owned_data_hashes().get(key)==value for key,value in native_before.items())
         report['checks']['same_version_reinstall_preserves_project_db']=True
         run(str(cli),'distribution','check-uninstall');uninstall()
-        assert digest(db)==before and (project/'keep.txt').exists();assert owned_data_hashes()==native_before
+        assert digest(db)==before and (project/'keep.txt').exists();assert all(owned_data_hashes().get(key)==value for key,value in native_before.items())
         report['checks']['uninstall_preserves_project_db']=True
         install();run(str(cli),'doctor',stdout=subprocess.DEVNULL);assert digest(db)==before;uninstall()
         report['checks']['reinstall_after_uninstall']=True

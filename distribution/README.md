@@ -4,7 +4,7 @@ Run `python scripts/package_desktop.py` inside the repository with its Rust/Node
 versions available (on the local Mac use `./scripts/with_rust.sh python3 ...`).
 This builds release CLI/helper sidecars, collects dependency license texts and a
 CycloneDX inventory, then packages the desktop. Output is under
-`target/release/bundle` and `output/distribution`. No publishing occurs.
+`target/release/bundle` and `output/distribution`. No publishing occurs. DMG builds skip Finder cosmetic automation (headless CI mode).
 
 Targets: native aarch64-apple-darwin and x86_64-apple-darwin DMG/app;
 x86_64-pc-windows-msvc per-user NSIS. Runtime archives are fetched from pinned

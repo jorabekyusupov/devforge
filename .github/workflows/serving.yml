@@ -31,7 +31,7 @@ jobs:
       - run: rustup show
       - run: npm ci
       - name: Build bounded helper and native acceptance harness
-        run: cargo build -p devforge-serving --bin devforge-helper --example native_serving
+        run: cargo build -p devforge-serving -p devforge-cli --bin devforge-helper --bin devforge --example native_serving
       - name: Prepare disposable VM fixture and reviewed plans
         run: target/debug/examples/native_serving prepare ${{ github.workspace }}/m4-session.json
       - name: Apply exact hosts and CA plans on disposable macOS VM
@@ -51,6 +51,8 @@ jobs:
             $effect | Set-Content -Encoding utf8 "m4-private-fixture/$plan.effect.json"
             Write-Output $effect
           }
+      - name: M6 bundled CLI inventory blocks uninstall and emits owned cleanup plans
+        run: python scripts/m6_cleanup_smoke.py before m4-private-fixture target/debug/devforge
       - name: Native unprivileged Laravel PHP database HTTPS browser and Vite HMR
         if: inputs.suite == 'full'
         run: target/debug/examples/native_serving run ${{ github.workspace }}/m4-session.json empty-cache m4-result.json --download-missing --system-integrated --browser
@@ -62,6 +64,9 @@ jobs:
         if: always() && runner.os == 'macOS'
         shell: bash
         run: |
+          if [ -f m4-private-fixture/m6-cleanup-before.json ]; then
+            python3 -c 'import json,subprocess; r=json.load(open("m4-private-fixture/m6-cleanup-before.json")); [subprocess.run(["sudo","-n","target/debug/devforge-helper","apply",p["plan"],p["digest"]],check=True) for p in r["plans"]]'
+          fi
           for plan in hosts-remove trust-remove; do
             if [ -f "m4-private-fixture/$plan.json" ]; then
               sudo -n target/debug/devforge-helper apply "m4-private-fixture/$plan.json" "$(cat "m4-private-fixture/$plan.digest")"
@@ -71,6 +76,14 @@ jobs:
         if: always() && runner.os == 'Windows'
         shell: pwsh
         run: |
+          $reportPath = "m4-private-fixture/m6-cleanup-before.json"
+          if (Test-Path $reportPath) {
+            $report = Get-Content -Raw $reportPath | ConvertFrom-Json
+            foreach ($item in $report.plans) {
+              & target/debug/devforge-helper.exe apply $item.plan $item.digest
+              if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            }
+          }
           foreach ($plan in @('hosts-remove','trust-remove')) {
             if (Test-Path "m4-private-fixture/$plan.json") {
               & target/debug/devforge-helper.exe apply "m4-private-fixture/$plan.json" (Get-Content -Raw "m4-private-fixture/$plan.digest")
@@ -80,3 +93,14 @@ jobs:
       - name: Verify exact restoration and removal of only the owned CA
         if: always()
         run: target/debug/examples/native_serving verify-cleanup ${{ github.workspace }}/m4-session.json
+      - name: M6 uninstall preflight succeeds after exact cleanup
+        if: always()
+        run: python scripts/m6_cleanup_smoke.py after m4-private-fixture target/debug/devforge
+      - name: Preserve only public cleanup reports
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: m6-system-cleanup-${{ runner.os }}
+          path: m4-private-fixture/m6-cleanup-*.json
+          retention-days: 7
+          if-no-files-found: warn

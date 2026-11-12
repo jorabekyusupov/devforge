@@ -52,7 +52,8 @@ def main():
     if (ROOT/'target/release/bundle').exists(): shutil.rmtree(ROOT/'target/release/bundle')
     config_path=ROOT/'apps/desktop/src-tauri/tauri.internal.generated.json'
     config_path.write_text(json.dumps(config,indent=2))
-    run('npm'+('.cmd' if os.name=='nt' else ''),'run','tauri','--','build','--config',str(config_path))
+    build_env=os.environ.copy();build_env['CI']='true';build_env.pop('TAURI_BUNDLER_DMG_IGNORE_CI',None)
+    run('npm'+('.cmd' if os.name=='nt' else ''),'run','tauri','--','build','--config',str(config_path),env=build_env)
     bundle=ROOT/'target/release/bundle'
     artifacts=[p for p in bundle.rglob('*') if p.is_file() and p.suffix in ['.dmg','.exe']]
     report={'schema':1,'channel':'internal-unsigned','target':target,'public_release_allowed':False,'commit':run('git','rev-parse','HEAD',capture_output=True,text=True).stdout.strip(),'dirty_at_build':bool(run('git','status','--porcelain',capture_output=True,text=True).stdout.strip()),'artifacts':[{'path':str(p.relative_to(ROOT)),'sha256':sha(p),'bytes':p.stat().st_size} for p in artifacts]}

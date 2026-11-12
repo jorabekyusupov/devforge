@@ -35,7 +35,7 @@ jobs:
       - name: Actual installation replacement data preservation and release measurements
         env:
           WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: --disable-gpu
-        run: python scripts/m6_package_smoke.py m6-fixture --disposable-host
+        run: target/debug/examples/native_workspace run python scripts/m6_package_smoke.py m6-fixture --disposable-host
       - name: Native GUI and concurrent install/log frame measurements
         run: npm run tauri -- build --debug --no-bundle --features e2e
       - env:

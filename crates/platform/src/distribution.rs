@@ -30,10 +30,43 @@ impl AppLease {
             return Ok(true);
         }
         match Self::acquire(root) {
-            Ok(_) => Ok(true),
+            Ok(_desktop) => {
+                let file = lease_file(root, "operations.lock")?;
+                match file.try_lock() {
+                    Ok(()) => Ok(true),
+                    Err(std::fs::TryLockError::WouldBlock) => Ok(false),
+                    Err(std::fs::TryLockError::Error(e)) => Err(e),
+                }
+            }
             Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => Ok(false),
             Err(e) => Err(e),
         }
+    }
+}
+/// Shared by GUI and CLI sessions. Installer checks need an exclusive lock.
+/// CLI/terminal activity can coexist with the GUI without being orphaned by removal.
+pub struct OperationLease {
+    _file: File,
+}
+fn lease_file(root: &Path, name: &str) -> std::io::Result<File> {
+    std::fs::create_dir_all(root)?;
+    OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .read(true)
+        .write(true)
+        .open(root.join(name))
+}
+impl OperationLease {
+    pub fn acquire(root: &Path) -> std::io::Result<Self> {
+        let file = lease_file(root, "operations.lock")?;
+        file.try_lock_shared().map_err(|e| match e {
+            std::fs::TryLockError::WouldBlock => {
+                std::io::Error::from(std::io::ErrorKind::WouldBlock)
+            }
+            std::fs::TryLockError::Error(e) => e,
+        })?;
+        Ok(Self { _file: file })
     }
 }
 #[derive(Serialize)]
@@ -130,6 +163,17 @@ mod tests {
             std::fs::read(root.path().join("database-sentinel")).unwrap(),
             b"preserve"
         );
+    }
+    #[test]
+    fn cli_sessions_coexist_and_block_removal_until_every_session_exits() {
+        let root = tempfile::tempdir().unwrap();
+        let first = OperationLease::acquire(root.path()).unwrap();
+        let second = OperationLease::acquire(root.path()).unwrap();
+        assert!(!AppLease::stopped(root.path()).unwrap());
+        drop(first);
+        assert!(!AppLease::stopped(root.path()).unwrap());
+        drop(second);
+        assert!(AppLease::stopped(root.path()).unwrap());
     }
     #[test]
     fn minimum_macos_is_explicit() {

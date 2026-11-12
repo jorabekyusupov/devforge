@@ -251,6 +251,10 @@ pub fn run() {
         report,
         written: AtomicBool::new(false),
     };
+    let operation_lease = devforge_platform::distribution::OperationLease::acquire(
+        &app_data_dir().expect("app data directory"),
+    )
+    .expect("DevForge installer is using its data directory");
     let desktop_lease = devforge_platform::distribution::AppLease::acquire(
         &app_data_dir().expect("app data directory"),
     )
@@ -272,6 +276,7 @@ pub fn run() {
 
     let builder = tauri::Builder::default()
         .manage(desktop_lease)
+        .manage(operation_lease)
         .manage(probe)
         .plugin(tauri_plugin_dialog::init());
     #[cfg(feature = "e2e")]
@@ -373,6 +378,8 @@ pub fn terminal_mode() -> Option<i32> {
     let result = (|| {
         let root =
             app_data_dir().map_err(|_| devforge_projects::ProjectError::StorageUnavailable)?;
+        let _operation = devforge_platform::distribution::OperationLease::acquire(&root)
+            .map_err(|_| devforge_projects::ProjectError::StorageUnavailable)?;
         let store = devforge_projects::project::ProjectStore::open(root.join("projects"))?;
         let packages = devforge_runtime::package::PackageStore::open(
             root.join("runtimes"),

@@ -22,6 +22,17 @@ fn main() -> Result<()> {
         std::process::exit(code);
     }
     let args: Vec<_> = std::env::args().skip(1).collect();
+    if args.first().map(String::as_str) == Some("run") {
+        // Test-only ordinary-user launcher for the packaged installer harness.
+        let status = std::process::Command::new(args.get(1).ok_or("program required")?)
+            .args(
+                args.iter()
+                    .skip(2)
+                    .filter(|v| v.as_str() != "--restricted-fixture-child"),
+            )
+            .status()?;
+        std::process::exit(status.code().unwrap_or(1));
+    }
     if args.first().map(String::as_str) == Some("launch") {
         let root = PathBuf::from(&args[2]);
         let output = fs::File::create(root.join("desktop.log"))?;
