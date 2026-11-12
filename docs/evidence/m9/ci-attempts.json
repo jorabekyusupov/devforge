@@ -6,8 +6,27 @@
       "windows_job": 131527132585,
       "outcome": "failed during MySQL identity verification; Garnet ACL Lua SELECT FLUSH restart persistence passed",
       "error": "DatabaseConflict",
-      "diagnosis": "Windows MySQL normally forks a monitor/server pair. Exact PID guard is retained; next source uses --no-monitor, --console and protected identity mismatch diagnostics. Confirmation pending native Windows rerun.",
+      "diagnosis": "Confirmed by subsequent Windows acceptance: MySQL monitor/server fork conflicted with the exact supervised PID. --no-monitor preserves the guard and --console routes redacted startup diagnostics.",
       "official_reference": "https://dev.mysql.com/doc/refman/8.4/en/server-options.html"
+    },
+    {
+      "source": "59bc693a0256de1fd476fa5b6b1e28f4fde31a7f",
+      "run": 43318461527,
+      "job": 131532545711,
+      "outcome": "success",
+      "recovery": {
+        "cache_persistence": true,
+        "mysql": true,
+        "staged_restore": true,
+        "original_preserved": true,
+        "failed_restore_preserves_active": true,
+        "client_shell_escape_rejected": true,
+        "export_verified": true,
+        "import_restore_isolated": true
+      },
+      "native_backend": true,
+      "native_webview2_axe_cases": 10,
+      "violations": 0
     }
   ]
 }

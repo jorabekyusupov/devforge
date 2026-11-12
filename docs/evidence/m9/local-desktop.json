@@ -232,5 +232,7 @@
     }
   ],
   "native": "WKWebView or WebView2, embedded debug-only W3C WebDriver",
-  "file_dialogs": "not automated; export/import core verified separately"
+  "file_dialogs": "not automated; export/import core verified separately",
+  "source": "e62f2a4de58f29e966dd20ead4384b949c0f4da7",
+  "source_scope": "Product files match frozen source; local debug E2E native app, not a public installer."
 }

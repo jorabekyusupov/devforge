@@ -1,0 +1,846 @@
+{
+  "platforms": [
+    {
+      "target": "macos-arm64",
+      "source": "e62f2a4de58f29e966dd20ead4384b949c0f4da7",
+      "run": 43316891285,
+      "job": 131527132007,
+      "url": "https://github.com/jorabekyusupov/devforge/actions/runs/43316891285/job/131527132007",
+      "conclusion": "success",
+      "artifact": {
+        "id": 13991050523,
+        "sha256": "8213884c896fc97e3a68258f8963283940fc0bfd8681ebf1e2cc1f879ae14638",
+        "download_digest_verified": true
+      },
+      "backend": {
+        "cache_restart_persistence": true,
+        "cross_project_cache_rejected": true,
+        "environment_unchanged": true,
+        "intel_mysql": "no_current_official_binary; not selected",
+        "laravel_cache_lock_flush_isolation": true,
+        "laravel_queue_lua": true,
+        "mysql": true,
+        "parallel_garnet_versions": [
+          "2.2.11",
+          "2.2.10"
+        ],
+        "parallel_php_database_services": true,
+        "postgresql_staged_restore": true,
+        "predis": "^3.7.1",
+        "project_default_preserves_history": true,
+        "retained_connection_reactivation": true,
+        "target": "macos-arm64"
+      },
+      "desktop": {
+        "platform": "posix",
+        "checks": {
+          "restore_cancel_preserves_active_database": true,
+          "actual_tauri_staged_restore": true,
+          "retained_connection_review": true,
+          "keyboard_focus": true,
+          "preferences_relaunch": true
+        },
+        "accessibility": [
+          {
+            "case": "services-en-light",
+            "violations": []
+          },
+          {
+            "case": "restore-review",
+            "violations": []
+          },
+          {
+            "case": "retained-review",
+            "violations": []
+          },
+          {
+            "case": "services-ru-light",
+            "violations": []
+          },
+          {
+            "case": "services-ru-minimum",
+            "violations": []
+          },
+          {
+            "case": "services-uz-Latn-light",
+            "violations": []
+          },
+          {
+            "case": "services-uz-Latn-minimum",
+            "violations": []
+          },
+          {
+            "case": "services-en-light",
+            "violations": []
+          },
+          {
+            "case": "services-en-minimum",
+            "violations": []
+          },
+          {
+            "case": "services-en-dark",
+            "violations": []
+          }
+        ],
+        "captures": [
+          {
+            "file": "services-en-light.png",
+            "viewport": {
+              "height": 656,
+              "language": "en",
+              "scale": 1,
+              "theme": "light",
+              "width": 1536
+            }
+          },
+          {
+            "file": "services-restore-review.png",
+            "viewport": {
+              "height": 656,
+              "language": "en",
+              "scale": 1,
+              "theme": "light",
+              "width": 1536
+            }
+          },
+          {
+            "file": "services-ru-light.png",
+            "viewport": {
+              "height": 656,
+              "language": "ru",
+              "scale": 1,
+              "theme": "light",
+              "width": 1536
+            }
+          },
+          {
+            "file": "services-ru-minimum.png",
+            "viewport": {
+              "height": 620,
+              "language": "ru",
+              "scale": 1,
+              "theme": "light",
+              "width": 820
+            }
+          },
+          {
+            "file": "services-uz-Latn-light.png",
+            "viewport": {
+              "height": 656,
+              "language": "uz-Latn",
+              "scale": 1,
+              "theme": "light",
+              "width": 1536
+            }
+          },
+          {
+            "file": "services-uz-Latn-minimum.png",
+            "viewport": {
+              "height": 620,
+              "language": "uz-Latn",
+              "scale": 1,
+              "theme": "light",
+              "width": 820
+            }
+          },
+          {
+            "file": "services-en-light.png",
+            "viewport": {
+              "height": 656,
+              "language": "en",
+              "scale": 1,
+              "theme": "light",
+              "width": 1536
+            }
+          },
+          {
+            "file": "services-en-minimum.png",
+            "viewport": {
+              "height": 620,
+              "language": "en",
+              "scale": 1,
+              "theme": "light",
+              "width": 820
+            }
+          },
+          {
+            "file": "services-en-dark.png",
+            "viewport": {
+              "height": 656,
+              "language": "en",
+              "scale": 1,
+              "theme": "dark",
+              "width": 1536
+            }
+          }
+        ],
+        "viewport_attempts": [
+          {
+            "requested": {
+              "width": 1536,
+              "height": 1024
+            },
+            "actual": {
+              "height": 656,
+              "width": 1536
+            },
+            "matched": false
+          },
+          {
+            "requested": {
+              "width": 1536,
+              "height": 1024
+            },
+            "actual": {
+              "height": 656,
+              "width": 1536
+            },
+            "matched": false
+          },
+          {
+            "requested": {
+              "width": 820,
+              "height": 620
+            },
+            "actual": {
+              "height": 620,
+              "width": 820
+            },
+            "matched": true
+          },
+          {
+            "requested": {
+              "width": 1536,
+              "height": 1024
+            },
+            "actual": {
+              "height": 656,
+              "width": 1536
+            },
+            "matched": false
+          },
+          {
+            "requested": {
+              "width": 820,
+              "height": 620
+            },
+            "actual": {
+              "height": 620,
+              "width": 820
+            },
+            "matched": true
+          },
+          {
+            "requested": {
+              "width": 1536,
+              "height": 1024
+            },
+            "actual": {
+              "height": 656,
+              "width": 1536
+            },
+            "matched": false
+          },
+          {
+            "requested": {
+              "width": 820,
+              "height": 620
+            },
+            "actual": {
+              "height": 620,
+              "width": 820
+            },
+            "matched": true
+          },
+          {
+            "requested": {
+              "width": 1536,
+              "height": 1024
+            },
+            "actual": {
+              "height": 656,
+              "width": 1536
+            },
+            "matched": false
+          }
+        ],
+        "native": "WKWebView or WebView2, embedded debug-only W3C WebDriver",
+        "file_dialogs": "not automated; export/import core verified separately"
+      },
+      "recovery": {
+        "cache_persistence": true,
+        "mysql": true,
+        "staged_restore": true,
+        "original_preserved": true,
+        "failed_restore_preserves_active": true,
+        "client_shell_escape_rejected": true,
+        "export_verified": true,
+        "import_restore_isolated": true
+      },
+      "report_sha256": {
+        "m9-native-result.json": "1c9caf9a40d1255f7d7cd7a0c05e99a4d4d5be83cc33fdc6a979c358df63893c",
+        "m9-desktop-result.json": "1e6bbe9984f04c45283c3ec3053e94b73055731bf76f37d9b96862e368b50dc3"
+      }
+    },
+    {
+      "target": "macos-x64",
+      "source": "e62f2a4de58f29e966dd20ead4384b949c0f4da7",
+      "run": 43316891285,
+      "job": 131527132484,
+      "url": "https://github.com/jorabekyusupov/devforge/actions/runs/43316891285/job/131527132484",
+      "conclusion": "success",
+      "artifact": {
+        "id": 13990586283,
+        "sha256": "e19b24106b1a1d4b4eaa91359e32a8cbfc6b77a1c28c2c781e8cf4d4d1eb77dd",
+        "download_digest_verified": true
+      },
+      "backend": {
+        "cache_restart_persistence": true,
+        "cross_project_cache_rejected": true,
+        "environment_unchanged": true,
+        "intel_mysql": "no_current_official_binary; not selected",
+        "laravel_cache_lock_flush_isolation": true,
+        "laravel_queue_lua": true,
+        "mysql": false,
+        "parallel_garnet_versions": [
+          "2.2.11",
+          "2.2.10"
+        ],
+        "parallel_php_database_services": true,
+        "postgresql_staged_restore": true,
+        "predis": "^3.7.1",
+        "project_default_preserves_history": true,
+        "retained_connection_reactivation": true,
+        "target": "macos-x64"
+      },
+      "desktop": {
+        "platform": "posix",
+        "checks": {
+          "restore_cancel_preserves_active_database": true,
+          "actual_tauri_staged_restore": true,
+          "retained_connection_review": true,
+          "keyboard_focus": true,
+          "preferences_relaunch": true
+        },
+        "accessibility": [
+          {
+            "case": "services-en-light",
+            "violations": []
+          },
+          {
+            "case": "restore-review",
+            "violations": []
+          },
+          {
+            "case": "retained-review",
+            "violations": []
+          },
+          {
+            "case": "services-ru-light",
+            "violations": []
+          },
+          {
+            "case": "services-ru-minimum",
+            "violations": []
+          },
+          {
+            "case": "services-uz-Latn-light",
+            "violations": []
+          },
+          {
+            "case": "services-uz-Latn-minimum",
+            "violations": []
+          },
+          {
+            "case": "services-en-light",
+            "violations": []
+          },
+          {
+            "case": "services-en-minimum",
+            "violations": []
+          },
+          {
+            "case": "services-en-dark",
+            "violations": []
+          }
+        ],
+        "captures": [
+          {
+            "file": "services-en-light.png",
+            "viewport": {
+              "height": 942,
+              "language": "en",
+              "scale": 1,
+              "theme": "light",
+              "width": 1536
+            }
+          },
+          {
+            "file": "services-restore-review.png",
+            "viewport": {
+              "height": 942,
+              "language": "en",
+              "scale": 1,
+              "theme": "light",
+              "width": 1536
+            }
+          },
+          {
+            "file": "services-ru-light.png",
+            "viewport": {
+              "height": 942,
+              "language": "ru",
+              "scale": 1,
+              "theme": "light",
+              "width": 1536
+            }
+          },
+          {
+            "file": "services-ru-minimum.png",
+            "viewport": {
+              "height": 620,
+              "language": "ru",
+              "scale": 1,
+              "theme": "light",
+              "width": 820
+            }
+          },
+          {
+            "file": "services-uz-Latn-light.png",
+            "viewport": {
+              "height": 942,
+              "language": "uz-Latn",
+              "scale": 1,
+              "theme": "light",
+              "width": 1536
+            }
+          },
+          {
+            "file": "services-uz-Latn-minimum.png",
+            "viewport": {
+              "height": 620,
+              "language": "uz-Latn",
+              "scale": 1,
+              "theme": "light",
+              "width": 820
+            }
+          },
+          {
+            "file": "services-en-light.png",
+            "viewport": {
+              "height": 942,
+              "language": "en",
+              "scale": 1,
+              "theme": "light",
+              "width": 1536
+            }
+          },
+          {
+            "file": "services-en-minimum.png",
+            "viewport": {
+              "height": 620,
+              "language": "en",
+              "scale": 1,
+              "theme": "light",
+              "width": 820
+            }
+          },
+          {
+            "file": "services-en-dark.png",
+            "viewport": {
+              "height": 942,
+              "language": "en",
+              "scale": 1,
+              "theme": "dark",
+              "width": 1536
+            }
+          }
+        ],
+        "viewport_attempts": [
+          {
+            "requested": {
+              "width": 1536,
+              "height": 1024
+            },
+            "actual": {
+              "height": 942,
+              "width": 1536
+            },
+            "matched": false
+          },
+          {
+            "requested": {
+              "width": 1536,
+              "height": 1024
+            },
+            "actual": {
+              "height": 942,
+              "width": 1536
+            },
+            "matched": false
+          },
+          {
+            "requested": {
+              "width": 820,
+              "height": 620
+            },
+            "actual": {
+              "height": 620,
+              "width": 820
+            },
+            "matched": true
+          },
+          {
+            "requested": {
+              "width": 1536,
+              "height": 1024
+            },
+            "actual": {
+              "height": 942,
+              "width": 1536
+            },
+            "matched": false
+          },
+          {
+            "requested": {
+              "width": 820,
+              "height": 620
+            },
+            "actual": {
+              "height": 620,
+              "width": 820
+            },
+            "matched": true
+          },
+          {
+            "requested": {
+              "width": 1536,
+              "height": 1024
+            },
+            "actual": {
+              "height": 942,
+              "width": 1536
+            },
+            "matched": false
+          },
+          {
+            "requested": {
+              "width": 820,
+              "height": 620
+            },
+            "actual": {
+              "height": 620,
+              "width": 820
+            },
+            "matched": true
+          },
+          {
+            "requested": {
+              "width": 1536,
+              "height": 1024
+            },
+            "actual": {
+              "height": 942,
+              "width": 1536
+            },
+            "matched": false
+          }
+        ],
+        "native": "WKWebView or WebView2, embedded debug-only W3C WebDriver",
+        "file_dialogs": "not automated; export/import core verified separately"
+      },
+      "recovery": {
+        "cache_persistence": true,
+        "mysql": "unavailable_for_target"
+      },
+      "report_sha256": {
+        "m9-native-result.json": "010ab3c3358ea77e1349cca760de18c4b245d8a014ed9cbe23a081ed8b0a1869",
+        "m9-desktop-result.json": "947f26345f64d5839a6b3279a6cf9f165332454d17a0cdafc16db78fa990ec92"
+      }
+    },
+    {
+      "target": "windows-x64",
+      "source": "59bc693a0256de1fd476fa5b6b1e28f4fde31a7f",
+      "run": 43318461527,
+      "job": 131532545711,
+      "url": "https://github.com/jorabekyusupov/devforge/actions/runs/43318461527/job/131532545711",
+      "conclusion": "success",
+      "artifact": {
+        "id": 13989304876,
+        "sha256": "23baaa122d1c53f1be414ba99ef9cbb1dd5e04c33f5cfdef41b73508b5ad3f9d",
+        "download_digest_verified": true
+      },
+      "backend": {
+        "cache_restart_persistence": true,
+        "cross_project_cache_rejected": true,
+        "environment_unchanged": true,
+        "intel_mysql": "no_current_official_binary; not selected",
+        "laravel_cache_lock_flush_isolation": true,
+        "laravel_queue_lua": true,
+        "mysql": true,
+        "parallel_garnet_versions": [
+          "2.2.11",
+          "2.2.10"
+        ],
+        "parallel_php_database_services": true,
+        "postgresql_staged_restore": true,
+        "predis": "^3.7.1",
+        "project_default_preserves_history": true,
+        "retained_connection_reactivation": true,
+        "target": "windows-x64"
+      },
+      "desktop": {
+        "platform": "nt",
+        "checks": {
+          "restore_cancel_preserves_active_database": true,
+          "actual_tauri_staged_restore": true,
+          "retained_connection_review": true,
+          "keyboard_focus": true,
+          "preferences_relaunch": true
+        },
+        "accessibility": [
+          {
+            "case": "services-en-light",
+            "violations": []
+          },
+          {
+            "case": "restore-review",
+            "violations": []
+          },
+          {
+            "case": "retained-review",
+            "violations": []
+          },
+          {
+            "case": "services-ru-light",
+            "violations": []
+          },
+          {
+            "case": "services-ru-minimum",
+            "violations": []
+          },
+          {
+            "case": "services-uz-Latn-light",
+            "violations": []
+          },
+          {
+            "case": "services-uz-Latn-minimum",
+            "violations": []
+          },
+          {
+            "case": "services-en-light",
+            "violations": []
+          },
+          {
+            "case": "services-en-minimum",
+            "violations": []
+          },
+          {
+            "case": "services-en-dark",
+            "violations": []
+          }
+        ],
+        "captures": [
+          {
+            "file": "services-en-light.png",
+            "viewport": {
+              "height": 1024,
+              "language": "en",
+              "scale": 1,
+              "theme": "light",
+              "width": 1536
+            }
+          },
+          {
+            "file": "services-restore-review.png",
+            "viewport": {
+              "height": 1024,
+              "language": "en",
+              "scale": 1,
+              "theme": "light",
+              "width": 1536
+            }
+          },
+          {
+            "file": "services-ru-light.png",
+            "viewport": {
+              "height": 1024,
+              "language": "ru",
+              "scale": 1,
+              "theme": "light",
+              "width": 1536
+            }
+          },
+          {
+            "file": "services-ru-minimum.png",
+            "viewport": {
+              "height": 620,
+              "language": "ru",
+              "scale": 1,
+              "theme": "light",
+              "width": 820
+            }
+          },
+          {
+            "file": "services-uz-Latn-light.png",
+            "viewport": {
+              "height": 1024,
+              "language": "uz-Latn",
+              "scale": 1,
+              "theme": "light",
+              "width": 1536
+            }
+          },
+          {
+            "file": "services-uz-Latn-minimum.png",
+            "viewport": {
+              "height": 620,
+              "language": "uz-Latn",
+              "scale": 1,
+              "theme": "light",
+              "width": 820
+            }
+          },
+          {
+            "file": "services-en-light.png",
+            "viewport": {
+              "height": 1024,
+              "language": "en",
+              "scale": 1,
+              "theme": "light",
+              "width": 1536
+            }
+          },
+          {
+            "file": "services-en-minimum.png",
+            "viewport": {
+              "height": 620,
+              "language": "en",
+              "scale": 1,
+              "theme": "light",
+              "width": 820
+            }
+          },
+          {
+            "file": "services-en-dark.png",
+            "viewport": {
+              "height": 1024,
+              "language": "en",
+              "scale": 1,
+              "theme": "dark",
+              "width": 1536
+            }
+          }
+        ],
+        "viewport_attempts": [
+          {
+            "requested": {
+              "width": 1536,
+              "height": 1024
+            },
+            "actual": {
+              "height": 1024,
+              "width": 1536
+            },
+            "matched": true
+          },
+          {
+            "requested": {
+              "width": 1536,
+              "height": 1024
+            },
+            "actual": {
+              "height": 1024,
+              "width": 1536
+            },
+            "matched": true
+          },
+          {
+            "requested": {
+              "width": 820,
+              "height": 620
+            },
+            "actual": {
+              "height": 620,
+              "width": 820
+            },
+            "matched": true
+          },
+          {
+            "requested": {
+              "width": 1536,
+              "height": 1024
+            },
+            "actual": {
+              "height": 1024,
+              "width": 1536
+            },
+            "matched": true
+          },
+          {
+            "requested": {
+              "width": 820,
+              "height": 620
+            },
+            "actual": {
+              "height": 620,
+              "width": 820
+            },
+            "matched": true
+          },
+          {
+            "requested": {
+              "width": 1536,
+              "height": 1024
+            },
+            "actual": {
+              "height": 1024,
+              "width": 1536
+            },
+            "matched": true
+          },
+          {
+            "requested": {
+              "width": 820,
+              "height": 620
+            },
+            "actual": {
+              "height": 620,
+              "width": 820
+            },
+            "matched": true
+          },
+          {
+            "requested": {
+              "width": 1536,
+              "height": 1024
+            },
+            "actual": {
+              "height": 1024,
+              "width": 1536
+            },
+            "matched": true
+          }
+        ],
+        "native": "WKWebView or WebView2, embedded debug-only W3C WebDriver",
+        "file_dialogs": "not automated; export/import core verified separately"
+      },
+      "recovery": {
+        "cache_persistence": true,
+        "mysql": true,
+        "staged_restore": true,
+        "original_preserved": true,
+        "failed_restore_preserves_active": true,
+        "client_shell_escape_rejected": true,
+        "export_verified": true,
+        "import_restore_isolated": true
+      },
+      "report_sha256": {
+        "m9-native-result.json": "3547bdb57fb6267c807c3a8e497d26ef3edd22ca99d42f9fd8b74161b08fcb12",
+        "m9-desktop-result.json": "c6565b1fb9ccd7af58cf1b0738bf4f38f6b0a8f09bd257e365acf1a67d8775bb"
+      }
+    }
+  ],
+  "source_boundary": "e62f2a4 common implementation; 59bc693 adds Windows-only --no-monitor/--console and safe diagnostics. Final locale-only Russian plural counter correction was verified separately; native runs do not include that textual correction.",
+  "first_run_conclusion": "43316891285 failed because its first Windows job failed; both Mac jobs succeeded. Windows replacement run 43318461527 succeeded."
+}

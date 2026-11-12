@@ -25,7 +25,7 @@ mavzuni tanlang, so'ng faqat tegishli hujjatlar va ularning manbalarini o'qing.
 
 ## Manba va yuritish
 
-- [M9 baza va xizmatlar](m9-services-results.md) - MySQL, per-project Garnet, Laravel service profiles, staged backup va retained connections; native platform qabul holati alohida.
+- [M9 baza va xizmatlar](m9-services-results.md) - MySQL, per-project Garnet, Laravel service profiles, staged backup va retained connections;3 native target qabul, Intel MySQL va M15 gate chegaralari bilan.
 
 - [M8 loyihani tayyorlash](m8-project-setup-results.md) - Laravel/Git wizard, PHP/env/dependency setup, recent/favorites va HTTPS review uch native targetda o'tdi; system-dialog/release gate'lari alohida.
 

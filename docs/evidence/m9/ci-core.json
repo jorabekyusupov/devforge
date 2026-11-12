@@ -1,0 +1,40 @@
+{
+  "source": "e62f2a4de58f29e966dd20ead4384b949c0f4da7",
+  "run": 43316885070,
+  "url": "https://github.com/jorabekyusupov/devforge/actions/runs/43316885070",
+  "jobs": [
+    {
+      "target": "windows",
+      "job": 131527126481,
+      "rust_passed": 75,
+      "rust_ignored": 1,
+      "frontend_passed": 27,
+      "conclusion": "success",
+      "okf": {
+        "documents": 24,
+        "errors": 0,
+        "warnings": 0
+      },
+      "packaging_passed": 6,
+      "locale_catalogs": 3,
+      "locale_regressions": 3
+    },
+    {
+      "target": "macos",
+      "job": 131527126972,
+      "rust_passed": 75,
+      "rust_ignored": 1,
+      "frontend_passed": 27,
+      "conclusion": "success",
+      "okf": {
+        "documents": 24,
+        "errors": 0,
+        "warnings": 0
+      },
+      "packaging_passed": 6,
+      "locale_catalogs": 3,
+      "locale_regressions": 3
+    }
+  ],
+  "scope": "Source of M9 feature, preceding Windows-only monitor adapter followup."
+}

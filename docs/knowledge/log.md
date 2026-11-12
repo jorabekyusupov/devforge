@@ -2,7 +2,7 @@
 
 ## 2026-11-13
 
-- **M9 implementatsiyasi:** [Database/services](m9-services-results.md), owned MySQL, dedicated Garnet/.NET, cache/queue profiles, staged backups va retained connections yaratildi. Local ARM64 Laravel/native qabul bor; final platform CI va source reconciliation davom etmoqda.
+- **M9 functional qabul:** [Database/services](m9-services-results.md), owned MySQL, dedicated Garnet/.NET, cache/queue profiles, staged backups va retained connections yaratildi. ARM64/Windows MySQL va Intel PG/Garnet native backend/UI o‘tdi;10 axe/0 per target. Core har OS75 Rust/27 frontend/3 locale/6 packaging; strict24/0/0. Windows monitor PID failure va `--no-monitor` fix, uch verified artifact digest, source/text boundary va cleanup qayd etildi. Intel MySQL hamda M15 release gates ochiq; M10 boshlanmadi.
 
 - **M8 functional qabul tugadi:** [Project setup](m8-project-setup-results.md), Laravel/Git wizard, Composer/npm/.env/APP_KEY, SQLite starter, cancellation/recovery, PHP settings/diagnostics, recent/favorites va HTTPS exact review yaratildi. ARM64/Intel Mac va Windows x64 backend/native GUI o'tdi; har target13 axe/0 finding. Final core per-OS68 Rust/25 frontend/3 locale/6 packaging,1 credential fixture ignored. Windows INI Unicode bootstrap va canonical SQLite guard tuzatildi; old failure/cancelled run'lar saqlandi. Uch artifact digest/report tengligi, source reconciliation va strict OKF23/0/0 yakunlandi. Native system dialogs, non-ASCII Windows profile va M15 release gate'lari hamda M7.2 ochiq; final docs push uchun product suite qayta ishlatilmaydi.
 

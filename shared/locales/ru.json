@@ -286,8 +286,8 @@
       "postgresql-tools": "PostgreSQL tools"
     },
     "projectUsers_one": "Активных проектов: {{count}}",
-    "projectUsers_few": "Используют {{count}} проекта",
-    "projectUsers_many": "Используют {{count}} проектов",
+    "projectUsers_few": "Активных проектов: {{count}}",
+    "projectUsers_many": "Активных проектов: {{count}}",
     "projectUsers_other": "Активных проектов: {{count}}",
     "domainSettings": "Домен и HTTPS",
     "unsaved": "Несохранённые изменения",

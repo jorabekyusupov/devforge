@@ -1,0 +1,62 @@
+{
+  "checked_local_date": "2026-11-13",
+  "mysql": {
+    "signatures": [
+      {
+        "target": "macos-arm64",
+        "status": "VALIDSIG",
+        "sha256": "f324f8950e24d4147470bbc6a6ef0b90ef93b91d3fc74154b3d2ba085b44912a"
+      },
+      {
+        "target": "windows-x64",
+        "status": "VALIDSIG",
+        "sha256": "e9cd98b1d23f122987b1afca26ad942efec5891481103d48ae3cde237fa3ea54"
+      }
+    ],
+    "fingerprint": "BCA43417C3B485DD128EC6D4B7B3B788A8D3785C",
+    "key_origin": "https://repo.mysql.com/RPM-GPG-KEY-mysql-2025",
+    "verification": "Isolated GNUPGHOME; no user keyring trust changed; key obtained through publisher HTTPS."
+  },
+  "dotnet": {
+    "official_metadata": "https://builds.dotnet.microsoft.com/dotnet/release-metadata/10.0/releases.json",
+    "sha512_verified": {
+      "macos-arm64": "185c264d9e45f14da8c0b2b49a24d3a7aea471999a83aeed7a2bf164430292aabc15d9c22d2eb44b26576a4e331ca0f6b564805eb2f6588d5a290f026b86cce0",
+      "macos-x64": "12b021dfda6728ab222bbe759b9b9b6ec55ff366ee7309a21ee62d385c9ad516118a6b1180582b072cfd60835e6a588d6d59c6da45ac9fdaaaffef8b658c292a",
+      "windows-x64": "06f0bedd59ae4ac722ada805a6d6bbf605bcdc790c71f59b7003878072902b5cde5dec8c40c0baa81192660d4748e9d79afdbdcb0c0ea9d6b821d0a044c4c6dd"
+    }
+  },
+  "postgresql_tools": {
+    "acquisition": "EDB HTTPS; locally calculated SHA256 only; no vendor-signed digest asserted",
+    "archives": [
+      {
+        "url": "https://get.enterprisedb.com/postgresql/postgresql-18.6-1-osx-binaries.zip",
+        "sha256": "2a6739fccbbc36474cb2446e4e7b4f377abb8471653d3a294e4e5092271e4796",
+        "bytes": 445659767,
+        "tools": [
+          "pgsql/bin/pg_restore",
+          "pgsql/bin/pg_dump",
+          "pgsql/pgAdmin 4.app/Contents/SharedSupport/pg_restore",
+          "pgsql/pgAdmin 4.app/Contents/SharedSupport/pg_dump"
+        ]
+      },
+      {
+        "url": "https://get.enterprisedb.com/postgresql/postgresql-18.6-1-windows-x64-binaries.zip",
+        "sha256": "fbe23da234ee31547bf8a36d29dfd81e82b849df2d2b78d2eecb43d360252f8c",
+        "bytes": 343808005,
+        "tools": [
+          "pgsql/bin/pg_dump.exe",
+          "pgsql/bin/pg_restore.exe",
+          "pgsql/pgAdmin 4/runtime/pg_dump.exe",
+          "pgsql/pgAdmin 4/runtime/pg_restore.exe"
+        ]
+      }
+    ]
+  },
+  "garnet": {
+    "acquisition": "GitHub publisher asset digest metadata; exact archive digest enforced by managed installer",
+    "releases": [
+      "https://github.com/microsoft/garnet/releases/tag/v2.2.11",
+      "https://github.com/microsoft/garnet/releases/tag/v2.2.10"
+    ]
+  }
+}

@@ -8,5 +8,20 @@
   "clippy_all_targets_test_support": true,
   "native_axe_cases": 10,
   "native_axe_violations": 0,
-  "source_note": "Local working-tree checks and native UI evidence. Final output-size guard and project-label correction await immutable-source CI acceptance."
+  "source_note": "75 Rust and 27 frontend checks recorded on e62f2a4 with hosted macOS/Windows core. Native platform acceptance is recorded separately by immutable source; final Russian plural counter strings have a focused locale probe.",
+  "default_feature_debug_build_passed": true,
+  "native_gui_frozen_source": "e62f2a4de58f29e966dd20ead4384b949c0f4da7",
+  "fixture_processes_remaining": 0,
+  "private_fixture_removed": true,
+  "isolated_gpg_agent_stopped": true,
+  "russian_active_count_probe": {
+    "counts": [
+      0,
+      1,
+      2,
+      5
+    ],
+    "passed": true,
+    "scope": "Locale-only counter semantics after frozen native UI captures"
+  }
 }
