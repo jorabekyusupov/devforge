@@ -473,6 +473,7 @@ LangString choowHowToInstall 0 ""
 {{/each}}
 
 Function .onInit
+  SetErrorLevel 5 ; fail closed if initialization aborts before setup
   ${GetOptions} $CMDLINE "/P" $PassiveMode
   ${IfNot} ${Errors}
     StrCpy $PassiveMode 1
@@ -520,6 +521,10 @@ Function .onInit
     !insertmacro MULTIUSER_INIT
   !endif
 
+  ${If} ${Silent}
+    Call DevForgeValidateSilentTarget
+  ${EndIf}
+
   ; Abort downgrades if they are disabled, in the modes that skip the reinstall page choice:
   ; silent, passive and update
   !if "${ALLOWDOWNGRADES}" == "false"
@@ -551,6 +556,7 @@ Function .onInit
     ${EndIf}
   ${EndIf}
   !endif
+  SetErrorLevel 0
 FunctionEnd
 
  ; DevForge: a failed silent installation must never report success.

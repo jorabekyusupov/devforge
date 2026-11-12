@@ -66,9 +66,9 @@ def main():
             denied_attempt=subprocess.run(['ditto',str(mount/'DevForge.app'),str(denied)],capture_output=True,timeout=60)
         report['denied_target']={'return_code':denied_attempt.returncode,'directory_exists':denied.exists()}
         print('M6_DENIED_TARGET:'+json.dumps(report['denied_target']),flush=True)
-        assert denied_attempt.returncode!=0 and not denied.exists(),report['denied_target']
+        assert not denied.exists(),report['denied_target']
         install();assert application.exists();assert cli.exists()
-        report['checks']['permission_denied_target_then_retry']=True
+        report['checks']['permission_denied_target_then_retry']=denied_attempt.returncode!=0
         report['checks']['first_install']=True
         report['prerequisites']=json.loads(run(str(cli),'distribution','prerequisites',capture_output=True,text=True).stdout)
         run(str(cli),'distribution','check-uninstall')
@@ -139,6 +139,7 @@ def main():
         report['checks']['default_data_roots_preserved']=bool(default_sentinels) if windows else 'Finder removes only the isolated app bundle'
         for sentinel in default_sentinels:
             assert sentinel.read_bytes()==b'preserve-default-root';sentinel.unlink()
+        assert all(value is not False for value in report['checks'].values()),report['checks']
     finally:
         if process and process.poll() is None:process.kill();process.wait(timeout=30)
         if mount:subprocess.run(['hdiutil','detach',str(mount)],check=False,stdout=subprocess.DEVNULL)

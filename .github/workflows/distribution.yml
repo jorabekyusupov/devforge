@@ -37,6 +37,8 @@ jobs:
       - name: Production release app sidecars notices SBOM DMG or NSIS
         run: python scripts/package_desktop.py
       - name: Actual installation replacement data preservation and release measurements
+        id: package_acceptance
+        continue-on-error: true
         env:
           WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: --disable-gpu
         run: target/release/examples/native_workspace run python scripts/m6_package_smoke.py m6-fixture --disposable-host
@@ -45,6 +47,9 @@ jobs:
       - env:
           WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: --disable-gpu
         run: python scripts/m5_desktop_smoke.py m6-fixture target/debug/devforge-desktop target/release/examples/native_workspace
+      - name: Require successful installer acceptance after independent GUI checks
+        if: always() && steps.package_acceptance.outcome == 'failure'
+        run: python -c "raise SystemExit('Installer acceptance failed; independent native GUI evidence was still collected.')"
       - name: Preserve internal packages and public acceptance reports only
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
