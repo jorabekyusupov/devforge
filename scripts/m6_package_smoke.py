@@ -21,6 +21,16 @@ def main():
     installed=fixture/'Installed DevForge';bundle=ROOT/'target/release/bundle';mount=None
     report={'schema':1,'os':platform.platform(),'architecture':platform.machine(),'channel':'internal-unsigned','signing_verified':False,'cold_start_definition':'first process launch per locale after preference seed; OS disk caches are not flushed','memory_scope':'desktop main process RSS/working set only; WebView helpers and managed runtimes excluded','measurements':[],'checks':{}}
     windows=os.name=='nt'
+    report['hardware']={'cpu':platform.processor(),'logical_cpus':os.cpu_count()}
+    if not windows:
+        report['hardware']['cpu']=run('sysctl','-n','machdep.cpu.brand_string',capture_output=True,text=True).stdout.strip()
+        report['hardware']['physical_memory_bytes']=int(run('sysctl','-n','hw.memsize',capture_output=True,text=True).stdout.strip())
+    else:
+        class MemoryStatus(ctypes.Structure):_fields_=[('length',ctypes.c_uint32),('load',ctypes.c_uint32)]+[(name,ctypes.c_uint64) for name in ['totalPhysical','availablePhysical','totalPageFile','availablePageFile','totalVirtual','availableVirtual','availableExtendedVirtual']]
+        memory=MemoryStatus();memory.length=ctypes.sizeof(memory)
+        assert ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(memory))
+        report['hardware']['physical_memory_bytes']=memory.totalPhysical
+    report['package_manifest']=json.loads((out/'package-manifest.json').read_text())
     report['administrator_enabled']=bool(ctypes.windll.shell32.IsUserAnAdmin()) if windows else os.geteuid()==0
     assert not report['administrator_enabled']
     if windows:

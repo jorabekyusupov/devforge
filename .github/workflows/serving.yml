@@ -66,12 +66,13 @@ jobs:
         run: |
           if [ -f m4-private-fixture/m6-cleanup-before.json ]; then
             python3 -c 'import json,subprocess; r=json.load(open("m4-private-fixture/m6-cleanup-before.json")); [subprocess.run(["sudo","-n","target/debug/devforge-helper","apply",p["plan"],p["digest"]],check=True) for p in r["plans"]]'
-          fi
+          else
           for plan in hosts-remove trust-remove; do
             if [ -f "m4-private-fixture/$plan.json" ]; then
               sudo -n target/debug/devforge-helper apply "m4-private-fixture/$plan.json" "$(cat "m4-private-fixture/$plan.digest")"
             fi
           done
+          fi
       - name: Restore disposable Windows VM system state
         if: always() && runner.os == 'Windows'
         shell: pwsh
@@ -83,12 +84,13 @@ jobs:
               & target/debug/devforge-helper.exe apply $item.plan $item.digest
               if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
             }
-          }
+          } else {
           foreach ($plan in @('hosts-remove','trust-remove')) {
             if (Test-Path "m4-private-fixture/$plan.json") {
               & target/debug/devforge-helper.exe apply "m4-private-fixture/$plan.json" (Get-Content -Raw "m4-private-fixture/$plan.digest")
               if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
             }
+          }
           }
       - name: Verify exact restoration and removal of only the owned CA
         if: always()
