@@ -46,7 +46,9 @@ fn show(root: &Path) {
         let p = e.path();
         if p.is_dir() {
             show(&p);
-        } else if p.extension().is_some_and(|s| s == "log") {
+        } else if p.extension().is_some_and(|s| s == "log")
+            || p.file_name().is_some_and(|s| s == "ownership-check.json")
+        {
             let b = fs::read(&p).unwrap_or_default();
             eprintln!(
                 "{}: {}",

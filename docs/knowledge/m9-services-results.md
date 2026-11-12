@@ -159,3 +159,11 @@ qiladi, pixel-perfect da'vo yo'q. Public visual comparison va CI evidence yakuni
 phase-close'da qo'shiladi.
 
 M10 boshlanmadi. M7.2 Xdebug va M15 system authorization/release gate'lari yopilmadi.
+
+## Windows native birinchi urinish
+
+`e62f2a4` source'da Garnet ACL/Lua/SELECT/FLUSH/restart o'tdi, MySQL identity
+check `DatabaseConflict` bilan to'xtadi. Windows MySQL monitor/server fork
+qiladi; official `--no-monitor` va `--console` qo'shilmoqda. PID/datadir guard
+qisqartirilmadi. Keyingi native run sabab va tuzatish natijasini tasdiqlaydi.
+Birinchi failure [attempt yozuvida](../evidence/m9/ci-attempts.json) saqlanadi.

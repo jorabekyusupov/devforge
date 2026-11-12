@@ -97,6 +97,15 @@ fn base(executable: &VerifiedExecutable) -> PathBuf {
         .unwrap()
         .to_path_buf()
 }
+// Windows otherwise forks a monitor process and puts the server child's PID
+// into mysql.pid. DevForge owns lifecycle/restarts directly; retain exact PID
+// verification and capture errors through the existing redactor on both targets.
+fn managed_args(mut args: Vec<std::ffi::OsString>) -> Vec<std::ffi::OsString> {
+    if cfg!(windows) {
+        args.extend(["--no-monitor".into(), "--console".into()]);
+    }
+    args
+}
 pub fn initialize(
     store: &ProjectStore,
     package_id: &str,
@@ -140,7 +149,7 @@ pub fn initialize(
             input: None,
             id: "mysql-init".into(),
             executable: executable.clone(),
-            args: vec![
+            args: managed_args(vec![
                 "--no-defaults".into(),
                 "--initialize-insecure".into(),
                 format!(
@@ -154,7 +163,7 @@ pub fn initialize(
                 )
                 .into(),
                 "--lower-case-table-names=1".into(),
-            ],
+            ]),
             directory: root.clone(),
             environment: environment(&executable),
             readiness: Readiness::SuccessfulExit,
@@ -261,7 +270,7 @@ impl RunningMySql {
                     .tempdir_in("/tmp")?,
             )
         };
-        let mut args = vec![
+        let mut args = managed_args(vec![
             "--no-defaults".into(),
             format!(
                 "--basedir={}",
@@ -298,7 +307,7 @@ impl RunningMySql {
                 }
             )
             .into(),
-        ];
+        ]);
         if let Some(file) = &bootstrap_file {
             args.push(format!("--init-file={}", dunce::simplified(file.path()).display()).into());
         }
@@ -363,9 +372,10 @@ impl RunningMySql {
         let directory: Option<String> = conn
             .query_first("SELECT @@datadir")
             .map_err(|_| E::DatabaseUnavailable)?;
-        if fs::canonicalize(directory.ok_or(E::DatabaseConflict)?)?
-            != fs::canonicalize(self.root.join("data"))?
-        {
+        let actual = fs::canonicalize(directory.ok_or(E::DatabaseConflict)?)?;
+        let expected = fs::canonicalize(self.root.join("data"))?;
+        if actual != expected {
+            fs::write(self.root.join("logs/ownership-check.json"),serde_json::to_vec(&serde_json::json!({"failure":"datadir_mismatch","actual":actual,"expected":expected})).map_err(|_|E::StorageUnavailable)?)?;
             return Err(E::DatabaseConflict);
         }
         let pid: u32 = fs::read_to_string(self.root.join("mysql.pid"))?
@@ -373,6 +383,7 @@ impl RunningMySql {
             .parse()
             .map_err(|_| E::DatabaseConflict)?;
         if self.supervisor.snapshot("mysqld")?.pid != Some(pid) {
+            fs::write(self.root.join("logs/ownership-check.json"),serde_json::to_vec(&serde_json::json!({"failure":"pid_mismatch","server_pid":pid,"owned_pid":self.supervisor.snapshot("mysqld")?.pid})).map_err(|_|E::StorageUnavailable)?)?;
             return Err(E::DatabaseConflict);
         }
         Ok(())

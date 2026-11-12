@@ -1,0 +1,13 @@
+{
+  "attempts": [
+    {
+      "source": "e62f2a4de58f29e966dd20ead4384b949c0f4da7",
+      "run": 43316891285,
+      "windows_job": 131527132585,
+      "outcome": "failed during MySQL identity verification; Garnet ACL Lua SELECT FLUSH restart persistence passed",
+      "error": "DatabaseConflict",
+      "diagnosis": "Windows MySQL normally forks a monitor/server pair. Exact PID guard is retained; next source uses --no-monitor, --console and protected identity mismatch diagnostics. Confirmation pending native Windows rerun.",
+      "official_reference": "https://dev.mysql.com/doc/refman/8.4/en/server-options.html"
+    }
+  ]
+}
