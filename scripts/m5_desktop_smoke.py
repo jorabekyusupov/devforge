@@ -5,7 +5,7 @@ No invoke mocking. Only lifecycle observation/control uses explicit native IPC.
 import argparse,base64,json,os,pathlib,signal,socket,subprocess,time,urllib.request,urllib.error,http.client
 p=argparse.ArgumentParser();p.add_argument('fixture',type=pathlib.Path);p.add_argument('application',type=pathlib.Path);p.add_argument('launcher',type=pathlib.Path);p.add_argument('--output',type=pathlib.Path,default=pathlib.Path('output/playwright/m5'));args=p.parse_args();args.output.mkdir(parents=True,exist_ok=True)
 with socket.socket() as sock:sock.bind(('127.0.0.1',0));port=sock.getsockname()[1]
-base=f'http://127.0.0.1:{port}';session='';process=None;accessibility=[];captures=[];viewport_attempts=[]
+base=f'http://127.0.0.1:{port}';session='';process=None;accessibility=[];captures=[];viewport_attempts=[];performance=[]
 opener=urllib.request.build_opener(urllib.request.ProxyHandler({}))
 def request(method,path,data=None,timeout=120):
  req=urllib.request.Request(base+path,data=None if data is None else json.dumps(data).encode(),headers={'Content-Type':'application/json'},method=method)
@@ -17,6 +17,10 @@ def request(method,path,data=None,timeout=120):
  return value
 def call(method,path,data=None):return request(method,'/session/'+session+path,data)
 def script(source,*values):return call('POST','/execute/sync',{'script':source,'args':list(values)})
+def begin_frames():
+ script("window.dfFrames={count:0,total:0,max:0,started:performance.now(),last:performance.now(),active:true};const tick=t=>{const p=window.dfFrames;if(!p.active)return;const gap=t-p.last;if(gap>=0){p.count++;p.total+=gap;p.max=Math.max(p.max,gap)}p.last=t;requestAnimationFrame(tick)};requestAnimationFrame(tick)")
+def end_frames(workload):
+ value=script("const p=window.dfFrames;p.active=false;return {frames:p.count,mean_frame_gap_ms:p.total/Math.max(1,p.count),max_frame_gap_ms:p.max,duration_ms:performance.now()-p.started}");value.update({'workload':workload,'build':'debug_e2e','scope':'native frontend frame intervals; not input-to-paint latency'});performance.append(value)
 def invoke(name,params=None):
  result=call('POST','/execute/async',{'script':"const done=arguments[arguments.length-1];window.__TAURI_INTERNALS__.invoke(arguments[0],arguments[1]).then(done,e=>done({error:e}));",'args':[name,params or {}]})
  if isinstance(result,dict) and 'error'in result:raise RuntimeError(str(result))
@@ -85,7 +89,7 @@ try:
  fill('dialog input[name=path]',str(notes.resolve()));click('dialog button[type=submit]');wait(lambda:not script("return !!document.querySelector('dialog')"));settled();assert len(snap()['snapshot']['projects'])==3
  print('M5_UI_PHASE: import passed',flush=True)
  # Install/remove through the actual Runtimes view, then assign a newly created DB to Notes.
- click('a[href="#runtimes"]');fill('.workspace-toolbar input[type=search]','composer');wait(lambda:script("return document.querySelectorAll('.runtime-table tbody tr').length===1"));click('.runtime-table tbody button');wait(lambda:script("return document.querySelector('dialog')?.open"));click('dialog button.danger');wait(lambda:not script("return !!document.querySelector('dialog')"));settled();wait(lambda:script("return document.querySelector('.runtime-table tbody button')?.textContent.trim()==='Install'"));click('.runtime-table tbody button');settled();wait(lambda:all(r['installed'] for r in snap()['snapshot']['runtimes'] if r['kind']=='composer'))
+ click('a[href="#runtimes"]');fill('.workspace-toolbar input[type=search]','composer');wait(lambda:script("return document.querySelectorAll('.runtime-table tbody tr').length===1"));click('.runtime-table tbody button');wait(lambda:script("return document.querySelector('dialog')?.open"));click('dialog button.danger');wait(lambda:not script("return !!document.querySelector('dialog')"));settled();wait(lambda:script("return document.querySelector('.runtime-table tbody button')?.textContent.trim()==='Install'"));begin_frames();click('.runtime-table tbody button');settled();wait(lambda:all(r['installed'] for r in snap()['snapshot']['runtimes'] if r['kind']=='composer'));end_frames('real_composer_download_verify_install')
  screenshot('runtimes-light.png');audit('runtimes-light')
  click('a[href="#services"]');before_databases={d['instance']['id'] for d in snap()['snapshot']['databases']};click('.work-panel .section-toolbar button.primary');settled();new_database=wait(lambda:next((d['instance']['id'] for d in snap()['snapshot']['databases'] if d['instance']['id'] not in before_databases),None));click('a[href="#projects"]');notes_id=next(r['project']['id'] for r in snap()['snapshot']['projects'] if r['project']['name']=='Notes');project(notes_id);select('.database-controls select',new_database);button('Assign database');settled();wait(lambda:row(notes_id)['database'] and row(notes_id)['database']['instance_id']==new_database);button('Test connection');settled()
  click('a[href="#services"]');screenshot('services-light.png');audit('services-light');click('a[href="#projects"]')
@@ -102,6 +106,12 @@ try:
  click('a[href="#settings"]');click('input[type=radio][value=dark]');wait(lambda:script("return document.documentElement.dataset.theme==='dark'"));click('a[href="#projects"]');project(a);screenshot('projects-dark.png');audit('projects-dark');button('Stop');wait(lambda:row(a)['state']=='stopped');assert [(name,status['pid']) for name,status in row(b)['processes']]==b_pids;assert next(d for d in snap()['snapshot']['databases'] if d['instance']['id']==row(b)['database']['instance_id'])['state']=='ready';assert any(l['process']=='queue' for l in snap()['snapshot']['logs'])
  # Log filters are owned text controls, not translated raw output.
  click('a[href="#services"]');fill('.section-toolbar input[type=search]','DEVFORGE_QUEUE_READY');wait(lambda:script("return document.querySelector('.log-viewer').textContent.includes('DEVFORGE_QUEUE_READY')"));assert script("return !document.querySelector('.log-viewer').textContent.includes('0123456789abcdef0123456789abcdef')")
+ # Concurrent real Laravel HTTP load while the bounded native log viewer refreshes.
+ from concurrent.futures import ThreadPoolExecutor
+ begin_frames()
+ with ThreadPoolExecutor(max_workers=4) as pool:
+  list(pool.map(lambda _:served(b_url),range(100)))
+ time.sleep(3);end_frames('100_laravel_requests_with_services_log_viewer')
  screenshot('services-dark.png');audit('services-dark')
  running_ports=[d['instance']['port'] for d in snap()['snapshot']['databases']]
  from urllib.parse import urlparse
@@ -125,7 +135,7 @@ try:
     if s.connect_ex(('127.0.0.1',p))==0:return False
   return True
  wait(closed,15);launch();project(a);button('Start');wait(lambda:row(a)['state']=='running');assert row(a)['project']['php']==php;quit_app()
- result={'host':os.name,'accessibility':accessibility,'captures':captures,'viewport_attempts':viewport_attempts,'real_native_webview':True,'ipc_mocked':False,'secret_store':'private filesystem E2E adapter; production uses OS credentials','import_error_recovery':True,'parallel_projects_and_database':True,'runtime_remove_install_via_ui':True,'database_create_assign_via_ui':True,'version_switch_preserves_B_pid':True,'close_to_tray_preserves_services':True,'ru_uz_en_and_dark_persistence':True,'minimum_window_no_horizontal_overflow':True,'logs_filtering_redacted':True,'quit_stops_owned_services':True,'forced_app_crash_cleanup_and_recovery':True,'passed':True};(args.fixture/'m5-desktop-result.json').write_text(json.dumps(result,indent=2));print('M5_DESKTOP_REPORT:'+json.dumps(result))
+ result={'performance':performance,'host':os.name,'accessibility':accessibility,'captures':captures,'viewport_attempts':viewport_attempts,'real_native_webview':True,'ipc_mocked':False,'secret_store':'private filesystem E2E adapter; production uses OS credentials','import_error_recovery':True,'parallel_projects_and_database':True,'runtime_remove_install_via_ui':True,'database_create_assign_via_ui':True,'version_switch_preserves_B_pid':True,'close_to_tray_preserves_services':True,'ru_uz_en_and_dark_persistence':True,'minimum_window_no_horizontal_overflow':True,'logs_filtering_redacted':True,'quit_stops_owned_services':True,'forced_app_crash_cleanup_and_recovery':True,'passed':True};(args.fixture/'m5-desktop-result.json').write_text(json.dumps(result,indent=2));print('M5_DESKTOP_REPORT:'+json.dumps(result))
 except Exception:
  try:
   screenshot('failure.png');(args.output/'failure.html').write_text(call('GET','/source'))

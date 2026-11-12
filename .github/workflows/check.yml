@@ -25,6 +25,7 @@ jobs:
       - name: Prepare toolchain from rust-toolchain.toml
         run: rustup show
       - run: npm ci
+      - run: python -m unittest scripts/test_distribution.py
       - run: npm run check:locales
       - run: node --test scripts/check_locales.test.mjs
       - run: npm run typecheck

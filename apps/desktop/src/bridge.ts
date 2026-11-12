@@ -79,3 +79,6 @@ export const desktopBackend: Backend = {
     );
   },
 };
+
+/** Opt-in local startup report; production has no diagnostic HTTP endpoint. */
+export const reportStartupReady = () => invoke("startup_ready").catch(() => {});

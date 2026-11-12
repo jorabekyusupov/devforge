@@ -1,0 +1,28 @@
+{
+  "bundle": {
+    "targets": [
+      "nsis"
+    ],
+    "windows": {
+      "allowDowngrades": false,
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper",
+        "silent": true
+      },
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": [
+          "English",
+          "Russian",
+          "Uzbek"
+        ],
+        "displayLanguageSelector": true,
+        "customLanguageFiles": {
+          "Uzbek": "../../../distribution/windows/Uzbek.nsh"
+        },
+        "template": "../../../distribution/windows/installer.nsi",
+        "installerHooks": "../../../distribution/windows/hooks.nsh"
+      }
+    }
+  }
+}

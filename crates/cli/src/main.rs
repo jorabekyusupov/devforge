@@ -1,10 +1,18 @@
 use devforge_core::SettingsRepository;
 use devforge_platform::{SqliteSettings, app_data_dir, diagnostics};
+mod distribution;
 mod project;
 mod runtime;
 mod site;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    if std::env::args().nth(1).as_deref() == Some("distribution") {
+        if let Err(error) = distribution::run() {
+            eprintln!("{}", serde_json::json!({"error":error.to_string()}));
+            std::process::exit(3);
+        }
+        return Ok(());
+    }
     if std::env::args().nth(1).as_deref() == Some("site") {
         if let Err(error) = site::run() {
             eprintln!("{}", serde_json::json!({"error":error}));

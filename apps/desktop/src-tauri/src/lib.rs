@@ -17,6 +17,37 @@ use tauri::{
     tray::TrayIconBuilder,
 };
 
+struct StartupProbe {
+    started: std::time::Instant,
+    report: Option<PathBuf>,
+    written: AtomicBool,
+}
+#[tauri::command]
+fn startup_ready(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, StartupProbe>,
+) -> Result<(), String> {
+    let Some(path) = &state.report else {
+        return Ok(());
+    };
+    if state.written.swap(true, Ordering::Relaxed) {
+        return Ok(());
+    }
+    let snapshot = app
+        .state::<AppState>()
+        .snapshot(None)
+        .map_err(|e| e.to_string())?;
+    let report = serde_json::json!({"schema":1,"pid":std::process::id(),"release":!cfg!(debug_assertions),"app_version":env!("CARGO_PKG_VERSION"),"locale":snapshot.resolved_locale,"native_ui_synced":snapshot.native_ui_synced,"shell_ready_ms":state.started.elapsed().as_secs_f64()*1000.0,"measurement":"localized_shell_after_bootstrap_and_two_animation_frames"});
+    use std::io::Write;
+    let mut file = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(path)
+        .map_err(|_| "report_unavailable")?;
+    file.write_all(report.to_string().as_bytes())
+        .map_err(|_| "report_unavailable")?;
+    Ok(())
+}
 const BUNDLE: &str = include_str!(concat!(env!("OUT_DIR"), "/locales.json"));
 
 #[derive(Clone)]
@@ -208,6 +239,22 @@ fn tray_icon() -> tauri::image::Image<'static> {
 }
 
 pub fn run() {
+    let started = std::time::Instant::now();
+    let args: Vec<_> = std::env::args_os().collect();
+    let report = args
+        .iter()
+        .position(|a| a == "--startup-report")
+        .and_then(|i| args.get(i + 1))
+        .map(PathBuf::from);
+    let probe = StartupProbe {
+        started,
+        report,
+        written: AtomicBool::new(false),
+    };
+    let desktop_lease = devforge_platform::distribution::AppLease::acquire(
+        &app_data_dir().expect("app data directory"),
+    )
+    .expect("DevForge is already running or its data directory is unavailable");
     #[cfg(feature = "e2e")]
     {
         assert!(
@@ -223,7 +270,10 @@ pub fn run() {
         window.incognito = true;
     }
 
-    let builder = tauri::Builder::default().plugin(tauri_plugin_dialog::init());
+    let builder = tauri::Builder::default()
+        .manage(desktop_lease)
+        .manage(probe)
+        .plugin(tauri_plugin_dialog::init());
     #[cfg(feature = "e2e")]
     let builder = builder.plugin(tauri_plugin_wdio_webdriver::init());
     let app = builder
@@ -242,6 +292,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             bootstrap,
+            startup_ready,
             save_settings,
             workspace::workspace_snapshot,
             workspace::workspace_command,

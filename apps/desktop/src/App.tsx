@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import {
   desktopBackend,
+  reportStartupReady,
   type Backend,
   type Bootstrap,
   type Preferences,
@@ -129,6 +130,15 @@ export function App({ backend = desktopBackend }: { backend?: Backend }) {
     window.addEventListener("hashchange", navigate);
     return () => window.removeEventListener("hashchange", navigate);
   }, []);
+
+  useEffect(() => {
+    if (loading || !snapshot || backend !== desktopBackend) return;
+    let second = 0;
+    const first = requestAnimationFrame(() => {
+      second = requestAnimationFrame(() => { void reportStartupReady(); });
+    });
+    return () => { cancelAnimationFrame(first); cancelAnimationFrame(second); };
+  }, [loading, snapshot, backend]);
 
   if (loading)
     return (

@@ -205,3 +205,9 @@ Foydalanuvchi M5 bosqichini bajarishni topshirdi. Mavjud reja bo'yicha Projects,
 runtimes, services/logs, per-project lifecycle, tray/Quit, uch til va real
 verification ishlari davom ettiriladi. Oldingi code/test/OKF/push yetkazish
 ko'rsatmasi saqlanadi; M6 installer/release scope'iga o'tilmaydi.
+
+## M6 bosqichi
+
+2026-11-12 foydalanuvchi: «M6 bosiqchga ot». Amaldagi MVP rejasi bo'yicha
+ichki paketlash, prerequisite, ownership cleanup va qabul dalillari bajariladi.
+Oldingi bosqichlardagi test/OKF/push talabi saqlanadi; public release topshirilmadi.

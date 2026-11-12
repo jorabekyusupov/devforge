@@ -12,3 +12,8 @@ apps/desktop/src-tauri/gen/
 output/playwright/
 .playwright/
 .playwright-cli/
+
+apps/desktop/src-tauri/binaries/*
+distribution/generated/
+output/distribution/
+apps/desktop/src-tauri/tauri.internal.generated.json

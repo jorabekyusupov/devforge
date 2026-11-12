@@ -269,6 +269,10 @@ pub fn elevated() -> Result<bool> {
     #[cfg(not(any(unix, windows)))]
     Ok(false)
 }
+/// Read-only uninstall inventory. An untrusted installed certificate still needs removal.
+pub fn trust_present(der: &[u8]) -> Result<bool> {
+    Ok(certificate_present(der)? || trusted(der)?)
+}
 #[allow(clippy::needless_return)]
 pub fn trusted(der: &[u8]) -> Result<bool> {
     #[cfg(target_os = "macos")]

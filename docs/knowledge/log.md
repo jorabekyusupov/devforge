@@ -2,6 +2,10 @@
 
 ## 2026-11-12
 
+- **M6 boshlandi:** [Distributiv va qabul](m6-distribution-results.md), unsigned internal packaging, prerequisites, data-preserving uninstaller va reviewable cleanup plans qo'shilmoqda; native dalillar pending.
+
+## 2026-11-12
+
 - **M5 yakuni**: [Kundalik workspace](m5-daily-workspace-results.md) real project/runtime/database/queue/Vite/log controls bilan yaratildi. Final e501b29 source macOS WKWebView va Windows WebView2 native workflow,9 tadan axe holati,53 Rust/13 frontend/3 locale per-OS checks va desktop build bilan o'tdi. Project A lifecycle B master PID/shared PG'ni saqladi; tray/Quit, forced-crash cleanup/hot recovery va reopen tasdiqlandi. Hosted Mac viewport cap aniq qayd etildi; native credential/optional external apps/minimum OS/signing M6 gate'lari alohida.
 
 ## 2026-11-11

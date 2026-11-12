@@ -1,3 +1,4 @@
+pub mod distribution;
 use devforge_core::{ErrorCode, SecretStore, Settings, SettingsRepository};
 use rusqlite::{Connection, OptionalExtension};
 use serde::Serialize;
