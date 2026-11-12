@@ -3,7 +3,11 @@
 import argparse, hashlib, json, os, pathlib, platform, shutil, subprocess, sys
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 def run(*args, **kw):
-    return subprocess.run(args, cwd=ROOT, check=True, **kw)
+    try:
+        return subprocess.run(args, cwd=ROOT, check=True, **kw)
+    except subprocess.CalledProcessError as error:
+        if error.stderr: print(error.stderr, file=sys.stderr)
+        raise
 def sha(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 def prepare(target, profile='release'):
@@ -43,6 +47,7 @@ def main():
     p=argparse.ArgumentParser();p.add_argument('--prepare-only',action='store_true');args=p.parse_args()
     target=run('rustc','-vV',capture_output=True,text=True).stdout.split('host: ')[1].splitlines()[0]
     if target not in ['aarch64-apple-darwin','x86_64-apple-darwin','x86_64-pc-windows-msvc']:raise SystemExit('Unsupported packaging target')
+    run('cargo','fetch','--locked','--target',target)
     if not args.prepare_only:run('cargo','build','--locked','--release','-p','devforge-cli','-p','devforge-serving','--bin','devforge','--bin','devforge-helper')
     prepare(target)
     if args.prepare_only:return
