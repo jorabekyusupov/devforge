@@ -141,3 +141,13 @@ to'liq keyboard/accessibility matritsasi hali tekshirilmagan.
 [^language-tags]: Til, yozuv va hudud variantlarini ifodalovchi standart identifikatorlar.
 [^plural-rules]: CLDR turli tillarning plural kategoriyalarini farqlaydi.
 [^intl]: ECMAScript Intl locale-aware formatlash imkoniyatlarini belgilaydi; target WebView mosligi amalda tekshiriladi.
+
+
+# M5 kundalik boshqaruv matnlari
+
+Projects/details, runtime/service controls, progress/recovery va modal matnlari
+`work`/`workspace.errors` kataloglarida. Rus plural kategoriyalari va key/parameter
+coverage tekshiriladi. Native folder-picker title ham tanlangan locale'dan olinadi;
+OS-owned dialog tugmalari OS konvensiyasida qoladi. Project nom/path, runtime
+version va process output tarjima qilinmaydi. Native minimum window captures va
+uch tildagi workflow dalillari [M5 natijasida](m5-daily-workspace-results.md).

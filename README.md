@@ -251,3 +251,30 @@ trust and removes its keychain certificate; a nontrusting settings record may
 remain, reported by `may_retain_nontrusting_record`. Physical removal of that
 metadata belongs to the later GUI/uninstall flow. See
 [M4 evidence](docs/knowledge/m4-serving-results.md).
+
+
+### M5 daily desktop workspace
+
+The desktop now provides Projects/details, Runtimes, Services/logs and the existing
+Settings/Diagnostics. Import an existing Laravel folder, select its catalog PHP/
+Node versions, and configure its owned domain. Install missing runtimes through
+Runtimes. Add a PostgreSQL server through Services, assign each project its own
+database, and test the connection. Project import does not run scripts or change
+`.env`; database assignment is explicit.
+
+Start/Stop/Restart is scoped to the selected project. Its optional Vite and queue
+worker use the same project runtime/environment. Saving runtime/development
+settings restarts that project when needed, while other project sessions continue.
+A project Stop leaves shared PostgreSQL running; active users prevent a database
+service Stop. Closing the window hides to tray; Quit stops app-owned services.
+Reopening preserves configuration without auto-starting services.
+
+Open-browser, VS Code, folder and terminal actions resolve the registered project
+on the Rust side. VS Code needs its OS URL handler. The desktop executable also
+supports the scoped terminal launcher mode; project paths are not inserted into
+arbitrary shell commands. Raw paths/names/logs are kept as data; owned UI is
+catalog-backed in Russian, Uzbek and English.
+
+Native acceptance uses an optional debug-only embedded WebDriver and an isolated
+filesystem SecretStore fixture. Production builds have no test HTTP endpoint or
+fixture credential adapter. See [M5 results](docs/knowledge/m5-daily-workspace-results.md).

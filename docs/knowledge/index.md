@@ -23,7 +23,7 @@ mavzuni tanlang, so'ng faqat tegishli hujjatlar va ularning manbalarini o'qing.
 
 ## Manba va yuritish
 
-- [M5 kundalik boshqaruv](m5-daily-workspace-results.md) - real desktop controls, project lifecycle va native GUI verification holati.
+- [M5 kundalik boshqaruv](m5-daily-workspace-results.md) - real desktop controls, project lifecycle va macOS/Windows native GUI dalillari.
 - [M4 domen va serving](m4-serving-results.md) - domain/HTTPS/hosts helper, Caddy/PHP/Vite orchestration va macOS Chrome/Windows Edge native dalillari.
 - [M3 loyiha muhitlari](m3-project-environments-results.md) - import, scoped PHP/Node/Composer, PostgreSQL DB/role, secret references va explicit env patch dalillari.
 - [M2 runtime yadrosi](m2-runtime-core-results.md) - paket store, cancellation, process ownership/readiness/restart/loglar, CLI va platforma sinovlari.

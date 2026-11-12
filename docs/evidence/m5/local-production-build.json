@@ -1,0 +1,9 @@
+{
+  "source_sha": "e501b2920660d3050cd65d0c4543ad26dfb4f614",
+  "effective_app_source_unchanged_in_workflow_only_commit": "e430e4dfbc92ccd000ce901ffd5494d21a6a66d7",
+  "command": "scripts/with_rust.sh npm run tauri -- build --debug --no-bundle",
+  "features": "production defaults; no e2e",
+  "binary": "target/debug/devforge-desktop",
+  "signed_release": false,
+  "passed": true
+}

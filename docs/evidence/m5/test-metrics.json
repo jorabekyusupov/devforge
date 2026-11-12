@@ -1,0 +1,24 @@
+{
+  "source_sha": "e501b2920660d3050cd65d0c4543ad26dfb4f614",
+  "core_run": 43149466472,
+  "jobs": [
+    {
+      "os": "macos",
+      "job_id": 130954954980,
+      "rust_passed": 53,
+      "rust_failed": 0,
+      "rust_ignored": 1,
+      "frontend_passed": 13,
+      "locale_tests_passed": 3
+    },
+    {
+      "os": "windows",
+      "job_id": 130954954345,
+      "rust_passed": 53,
+      "rust_failed": 0,
+      "rust_ignored": 1,
+      "frontend_passed": 13,
+      "locale_tests_passed": 3
+    }
+  ]
+}

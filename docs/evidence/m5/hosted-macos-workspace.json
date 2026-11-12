@@ -1,0 +1,176 @@
+{
+  "schema": 1,
+  "source_sha": "e501b2920660d3050cd65d0c4543ad26dfb4f614",
+  "run_id": 43149548247,
+  "job_id": 130955219395,
+  "url": "https://github.com/jorabekyusupov/devforge/actions/runs/43149548247/job/130955219395",
+  "hosted": true,
+  "backend": {
+    "host": {
+      "arch": "aarch64",
+      "os": "macos"
+    },
+    "logs_redacted": true,
+    "parallel_projects": true,
+    "passed": true,
+    "project_A_switch_preserves_B_worker_pid": true,
+    "project_stop_preserves_shared_database": true,
+    "real_queue_job_executed": true,
+    "real_vite_managed": true,
+    "reopen_preserves_bindings": true,
+    "separate_databases": true,
+    "shutdown_stops_owned_services": true,
+    "system_hosts_trust_unchanged": true
+  },
+  "desktop": {
+    "host": "posix",
+    "accessibility": [
+      {
+        "case": "import-error-dialog",
+        "violations": []
+      },
+      {
+        "case": "runtimes-light",
+        "violations": []
+      },
+      {
+        "case": "services-light",
+        "violations": []
+      },
+      {
+        "case": "projects-light",
+        "violations": []
+      },
+      {
+        "case": "projects-small-ru",
+        "violations": []
+      },
+      {
+        "case": "projects-small-uz-Latn",
+        "violations": []
+      },
+      {
+        "case": "projects-small-en",
+        "violations": []
+      },
+      {
+        "case": "projects-dark",
+        "violations": []
+      },
+      {
+        "case": "services-dark",
+        "violations": []
+      }
+    ],
+    "captures": [
+      {
+        "file": "runtimes-light.png",
+        "viewport": {
+          "height": 642,
+          "language": "en",
+          "scale": 1,
+          "theme": "light",
+          "width": 1024
+        }
+      },
+      {
+        "file": "services-light.png",
+        "viewport": {
+          "height": 642,
+          "language": "en",
+          "scale": 1,
+          "theme": "light",
+          "width": 1024
+        }
+      },
+      {
+        "file": "projects-light.png",
+        "viewport": {
+          "height": 645,
+          "language": "en",
+          "scale": 1,
+          "theme": "light",
+          "width": 1487
+        }
+      },
+      {
+        "file": "projects-small-ru.png",
+        "viewport": {
+          "height": 588,
+          "language": "ru",
+          "scale": 1,
+          "theme": "light",
+          "width": 820
+        }
+      },
+      {
+        "file": "projects-small-uz-Latn.png",
+        "viewport": {
+          "height": 588,
+          "language": "uz-Latn",
+          "scale": 1,
+          "theme": "light",
+          "width": 820
+        }
+      },
+      {
+        "file": "projects-small-en.png",
+        "viewport": {
+          "height": 588,
+          "language": "en",
+          "scale": 1,
+          "theme": "light",
+          "width": 820
+        }
+      },
+      {
+        "file": "projects-dark.png",
+        "viewport": {
+          "height": 588,
+          "language": "en",
+          "scale": 1,
+          "theme": "dark",
+          "width": 820
+        }
+      },
+      {
+        "file": "services-dark.png",
+        "viewport": {
+          "height": 588,
+          "language": "en",
+          "scale": 1,
+          "theme": "dark",
+          "width": 820
+        }
+      }
+    ],
+    "viewport_attempts": [
+      {
+        "requested": {
+          "width": 1487,
+          "height": 1058
+        },
+        "actual": {
+          "height": 645,
+          "width": 1487
+        },
+        "matched": false
+      }
+    ],
+    "real_native_webview": true,
+    "ipc_mocked": false,
+    "secret_store": "private filesystem E2E adapter; production uses OS credentials",
+    "import_error_recovery": true,
+    "parallel_projects_and_database": true,
+    "runtime_remove_install_via_ui": true,
+    "database_create_assign_via_ui": true,
+    "version_switch_preserves_B_pid": true,
+    "close_to_tray_preserves_services": true,
+    "ru_uz_en_and_dark_persistence": true,
+    "minimum_window_no_horizontal_overflow": true,
+    "logs_filtering_redacted": true,
+    "quit_stops_owned_services": true,
+    "forced_app_crash_cleanup_and_recovery": true,
+    "passed": true
+  }
+}

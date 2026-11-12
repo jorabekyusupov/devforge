@@ -21,6 +21,45 @@ sources:
   - id: native
     resource: ../../scripts/m5_desktop_smoke.py
     title: Native WKWebView WebView2 UI assertions
+  - id: local-native
+    resource: ../evidence/m5/macos-native-workspace.json
+    title: Task-local real Laravel queue Vite two-project results
+  - id: local-desktop
+    resource: ../evidence/m5/macos-native-desktop.json
+    title: Native WKWebView workflows and nine accessibility cases
+  - id: core-ci
+    resource: ../evidence/m5/ci-final-checks.json
+    title: Final source macOS Windows core tests and native binary builds
+  - id: metrics
+    resource: ../evidence/m5/test-metrics.json
+    title: Per-OS Rust frontend locale test counters
+  - id: serving-ci
+    resource: ../evidence/m5/ci-serving-regression.json
+    title: Preserved native M4 HTTPS Laravel serving contract
+  - id: audit
+    resource: ../evidence/m5/ui-audit.md
+    title: Scoped Web Interface Guidelines and visual audit
+  - id: hosted-macos
+    resource: ../evidence/m5/hosted-macos-workspace.json
+    title: Real hosted macOS backend and WKWebView acceptance
+  - id: hosted-windows
+    resource: ../evidence/m5/hosted-windows-workspace.json
+    title: Real hosted Windows backend and WebView2 acceptance
+  - id: native-ci
+    resource: ../evidence/m5/ci-native-checks.json
+    title: Final native workflow step conclusions
+  - id: attempts
+    resource: ../evidence/m5/ci-attempts.json
+    title: Pause and meaningful CI/capture regressions
+  - id: production-build
+    resource: ../evidence/m5/local-production-build.json
+    title: Local default-feature native binary without E2E instrumentation
+  - id: capture-ci
+    resource: ../evidence/m5/ci-capture-check.json
+    title: Windows capture-only workflow extension and artifact upload
+  - id: windows-captures
+    resource: ../evidence/m5/windows-capture-verification.json
+    title: Preserved Windows native reports and screenshot metadata
   - id: target
     resource: ../../design-system/devforge/pages/projects.md
     title: M5 visual target and incumbent system decisions
@@ -50,16 +89,63 @@ Mavjud MASTER.md identity saqlandi. Generated target1487×1058 content pixels;
 placeholder data/version/log timestamps real dalil deb ishlatilmadi. Native
 same-size va820×620 capture/interaction qamrovi natijalarda ajratiladi.[^target]
 
-# Native tekshiruv holati
+# Test va platforma dalillari
 
-Task-local Mac real Laravel13.42: parallel projects, own PG databases, real queue
-job execution, Vite startup/hot cleanup, project A PHP switch while B master PID
-stays unchanged, redacted logs va reopen persistence o'tdi. FPM ondemand child
-PID naturally retires; isolation testi master process identity bilan tekshiradi.
-Native UI loop import error recovery, controls, DB test, version switch,
-close-to-tray, ru/uz/en, light/dark, minimum size va normal/forced reopen'ni
-bajaradi. Test-only filesystem SecretStore actual keychain UI o'rniga o'tmaydi.
-Windows va final source native natijasi pending; workflow mavjudligi pass emas.[^native]
+Task-local macOS ARM64: Laravel13.42.0 ikki project va alohida PG databases,
+real queue job, Vite/hot lifecycle, PHP switch, database consumer guard, log
+redaction va reopen persistence o'tdi. FPM ondemand child PID tabiiy almashadi;
+isolation testi B master process identity'sini solishtiradi.[^local-native]
+
+Native WKWebView, real IPC: path import validation/retry/input preservation,
+runtime Remove/Install, DB Create/Assign/Test, parallel Start/Stop, version
+switch, native CloseRequested-to-tray, explicit Quit/reopen va forced app-crash
+cleanup/recovery Vite yoqilgan holda o'tdi. Russian/Uzbek/English, light/dark
+persistence va minimum window horizontal-overflow tekshirildi.[^local-desktop]
+
+Native axe WCAG2 A/AA va2.1 AA tekshiruvlari9 holatda zero violations: import
+error dialog; Runtimes light; Services light; Projects light; minimum Projects
+ru/uz/en; Projects dark; Services dark. Bu barcha native screen-reader/OS-dialog
+holatlariga certification emas.[^audit]
+
+Final app/test source `e501b29` core workflow43149466472 ikkala OS'da passed:53 Rust,
+13 frontend va3 locale regression testi,3 katalog coverage, typecheck,
+fmt/clippy va embedded frontend bilan native desktop build. Native credential
+fixture1 ignored; u bajarildi deb hisoblanmaydi.[^core-ci][^metrics]
+
+Serving regression workflow43147311309 ikkala target'da passed: M4 HTTP/TLS,
+CA/hosts permission boundary, secure cookie/upload va WSS HMR saqlangan. Tested
+Rust source cb236b3 va final source orasida faqat UI CSS/harness o'zgargan;
+serving/runtime Rust farqi yo'q.[^serving-ci]
+
+Native workflow43149548247 ikkala OS'da passed. Mac ARM64 WKWebView va Windows
+x64 WebView2 actual window/IPC bilan to'liq UI siklini bajardi: real runtime
+Remove/Install, DB Create/Assign/Test, project controls/queue/Vite, B master PID
+preservation, CloseRequested-to-tray, normal Quit/reopen, forced app termination
+cleanup va recovery, ru/uz/en, dark persistence hamda raw log filtering.
+Har bir target'da9 axe holati zero violations bilan o'tdi.[^hosted-macos][^hosted-windows][^native-ci]
+
+Hosted Mac display requested1487×1058 content'ni1487×645 bilan chekladi; test
+actual size va matched=false'ni yozdi. Target-size fidelity u yerda da'vo
+qilinmaydi. Local Mac va Windows target1487×1058 content'ga yetdi. Minimum native
+window820×620; titlebar/border sabab content viewport Mac820×588, Windows804×561
+bo'lishi mumkin. Actual dimensions/scale report'larda; scroll/overflow assertion
+bu physical viewport'da o'tdi.[^local-desktop][^hosted-macos][^hosted-windows]
+
+Final local binary default production features bilan qayta build qilindi:
+`target/debug/devforge-desktop` E2E server/fixture SecretStore bilan qoldirilmadi.
+Bu debug, unsigned/no-bundle build; signed distributive emas.[^production-build]
+
+Windows captures workflow-only e430e4d commit'da qayta saqlandi; app/test code
+e501b29 bilan bir xil. Upload allowlist faqat PNG va public result JSON oladi,
+fixture credentials/datadir olinmaydi. Large Windows capture Working holatini
+ushlagan; stable local target-size va Windows minimum/Services captures alohida
+ko'rildi. Ready-state Windows pixel-fidelity da'vosi yo'q.[^capture-ci][^windows-captures]
+
+Test-only filesystem SecretStore production keychain/credential UI o'rniga
+o'tmaydi. Hosted Windows Server2025 va macOS hosted target real OS/WebViews'dir;
+physical Windows10/11, minimum OS va native Intel coverage alohida M6 gate.
+No IPC mocking; screenshot/compile natijasi native workflow assertion'ini
+almashtirmaydi.[^native]
 
 # Lifecycle va verification chegarasi
 
@@ -78,7 +164,7 @@ GUI observations source/unit/browser-preview bilan aralashtirilmaydi.
 
 - **Mos:** own resource/process boundary, shared project context va three-locale registry.
 - **O'zgargan:** M4 foreground-all CLI bilan birga per-project desktop lifecycle bor.
-- **Tekshirilmagan:** final hosted native/UI acceptance, minimum OS/Intel va optional external editor availability.
+- **Tekshirilmagan:** minimum OS/Intel, native credential UI, file-picker interaction va optional external app availability alohida gate.
 - **Amalga oshirilmagan:** M6 signed installers, boot auto-start, long-term leaf renewal va physical trust metadata cleanup.
 
 [^request]: Joriy M5 ko'rsatmasi.
@@ -87,3 +173,19 @@ GUI observations source/unit/browser-preview bilan aralashtirilmaydi.
 [^ui]: Typed real backend commands; illustrative frontend mocks faqat unit fixture'larida.
 [^native]: Actual native WebViews; isolated acceptance build'dan tashqarida driver yo'q.
 [^target]: ui-ux-pro-max, ui-taste/uizze-ui target/craft va scoped source review.
+
+[^local-native]: Actual task-local package/queue/database assertions; user Herd/hosts/trust o'zgarmagan.
+[^local-desktop]: Native window/IPC with isolated fixture credentials; captures record actual content viewport and scale.
+[^core-ci]: Final-source full check/build matrix,0 failed.
+[^metrics]: Job logs:53 Rust/13 frontend/3 locale per OS, credential fixture ignored alohida.
+[^serving-ci]: Platform-sensitive serving regressions and cleanup passed on both disposable hosts.
+[^audit]: Scoped source review, visual comparison, accessibility findings/fixes and remaining boundaries.
+
+[^hosted-macos]: Final-source Mac backend and real WKWebView workflow, display cap clearly recorded.
+[^hosted-windows]: Final-source Windows backend and real WebView2 workflow; nine axe cases passed.
+[^native-ci]: Final source workflow43149548247, both target job conclusions success.
+[^attempts]: Cancelled user pause and the hosted capture-size limitation are separate from product failures.
+[^production-build]: Local binary uses production defaults; no E2E endpoint, no fixture credentials; release signing not claimed.
+
+[^capture-ci]: Windows-only artifact-preservation workflow passed; product code changed emas.
+[^windows-captures]: Downloaded native results and inspected Windows images; busy-state boundary ochiq.

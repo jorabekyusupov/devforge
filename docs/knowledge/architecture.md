@@ -62,12 +62,12 @@ native binary build dalili qo'shildi; Windows GUI hali tekshirilmagan.
 
 M2'da [runtime yadrosi](m2-runtime-core-results.md) `crates/runtime`da yaratildi:
 immutable package store, process supervisor, OS process tree adapterlari va CLI
-ulanishi mavjud. U Tauri'dan mustaqil; desktop hali bu qatlamni boshqarmaydi.
+ulanishi mavjud. U Tauri'dan mustaqil; M5'da desktop shared workspace coordinator orqali ulanadi.
 
 M3'da [loyiha muhitlari](m3-project-environments-results.md) `crates/projects`da
 yaratildi: registry, inspection, context resolver, secret references va owned DB
-lifecycle. Project CLI shu qatlamni chaqiradi. GUI command'lari M5'da ulanadi;
-bloklovchi library amallari o'shanda worker thread'da bajarilishi kerak.
+lifecycle. Project CLI shu qatlamni chaqiradi. GUI command'lari M5'da shu xizmatlarga ulandi; blocking amallar worker thread'da
+bajariladi, credential qiymatlari IPC DTO'ga kiritilmaydi.
 
 M4'da [serving backend](m4-serving-results.md) `crates/serving`da yaratildi:
 owned domains/hosts plans, private CA, fixed-target elevated helper va Caddy/PHP/
@@ -78,3 +78,26 @@ GUI system-integration flow va installer hali amalga oshirilmagan. Native
 acceptance holati M4 hisobotidagi actual dalil bilan talqin qilinadi.
 
 [^conversation]: Suhbatdagi yakuniy Rust/Tauri tavsiyasi va undan keyin yaratilgan skill; alohida benchmark yoki formal stack tasdig'i yo'q.
+
+
+# M5 kundalik workspace
+
+[Daily workspace](m5-daily-workspace-results.md) `crates/workspace`da saqlanadi:
+per-project sessions, runtime mutations, shared PostgreSQL, queue preflight,
+redacted/bounded log projection va persistent development flags. Bu qatlam
+Tauri'ga bog'liq emas. Thin IPC worker'ga mutation yuboradi; cached snapshot
+read'lari uzoq download/start bilan UI thread'ni bloklamaydi. Busy initial state
+empty/ready deb ko'rsatilmaydi.
+
+Desktop har project uchun alohida Caddy/PHP/Vite/queue sessiyasini ochadi;
+project Stop umumiy PG yoki boshqa project sessiyasini to'xtatmaydi. Shared PG
+consumer count stop'ni cheklaydi. Window close tray'ga yashiradi; explicit Quit
+app-owned services'ni stop qilgach chiqadi. Reopen configuration'ni qaytaradi,
+servislarni avtomatik boshlamaydi. Mac stdin-pipe guard va Windows Job owner
+crash'da own process cleanup qiladi; stale Vite hot faqat ownership receipt va
+free-port/unchanged-file proof bilan tiklanadi.
+
+Optional debug E2E build isolated data root, filesystem SecretStore fixture va
+loopback-only WebDriver'dan foydalanadi. Release'da test instrumentation rad
+etiladi; production build native OS credential store'dan foydalanadi. Bu
+verification adapteri native credential dialog/entitlement sinovi emas.

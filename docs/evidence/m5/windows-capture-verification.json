@@ -1,0 +1,174 @@
+{
+  "source_sha": "e430e4dfbc92ccd000ce901ffd5494d21a6a66d7",
+  "app_test_source_identical_to": "e501b2920660d3050cd65d0c4543ad26dfb4f614",
+  "run_id": 43150152615,
+  "artifact": "m5-Windows",
+  "backend": {
+    "host": {
+      "arch": "x86_64",
+      "os": "windows"
+    },
+    "logs_redacted": true,
+    "parallel_projects": true,
+    "passed": true,
+    "project_A_switch_preserves_B_worker_pid": true,
+    "project_stop_preserves_shared_database": true,
+    "real_queue_job_executed": true,
+    "real_vite_managed": true,
+    "reopen_preserves_bindings": true,
+    "separate_databases": true,
+    "shutdown_stops_owned_services": true,
+    "system_hosts_trust_unchanged": true
+  },
+  "desktop": {
+    "host": "nt",
+    "accessibility": [
+      {
+        "case": "import-error-dialog",
+        "violations": []
+      },
+      {
+        "case": "runtimes-light",
+        "violations": []
+      },
+      {
+        "case": "services-light",
+        "violations": []
+      },
+      {
+        "case": "projects-light",
+        "violations": []
+      },
+      {
+        "case": "projects-small-ru",
+        "violations": []
+      },
+      {
+        "case": "projects-small-uz-Latn",
+        "violations": []
+      },
+      {
+        "case": "projects-small-en",
+        "violations": []
+      },
+      {
+        "case": "projects-dark",
+        "violations": []
+      },
+      {
+        "case": "services-dark",
+        "violations": []
+      }
+    ],
+    "captures": [
+      {
+        "file": "runtimes-light.png",
+        "viewport": {
+          "height": 729,
+          "language": "en",
+          "scale": 1,
+          "theme": "light",
+          "width": 1028
+        }
+      },
+      {
+        "file": "services-light.png",
+        "viewport": {
+          "height": 729,
+          "language": "en",
+          "scale": 1,
+          "theme": "light",
+          "width": 1028
+        }
+      },
+      {
+        "file": "projects-light.png",
+        "viewport": {
+          "height": 1058,
+          "language": "en",
+          "scale": 1,
+          "theme": "light",
+          "width": 1487
+        }
+      },
+      {
+        "file": "projects-small-ru.png",
+        "viewport": {
+          "height": 561,
+          "language": "ru",
+          "scale": 1,
+          "theme": "light",
+          "width": 804
+        }
+      },
+      {
+        "file": "projects-small-uz-Latn.png",
+        "viewport": {
+          "height": 561,
+          "language": "uz-Latn",
+          "scale": 1,
+          "theme": "light",
+          "width": 804
+        }
+      },
+      {
+        "file": "projects-small-en.png",
+        "viewport": {
+          "height": 561,
+          "language": "en",
+          "scale": 1,
+          "theme": "light",
+          "width": 804
+        }
+      },
+      {
+        "file": "projects-dark.png",
+        "viewport": {
+          "height": 561,
+          "language": "en",
+          "scale": 1,
+          "theme": "dark",
+          "width": 804
+        }
+      },
+      {
+        "file": "services-dark.png",
+        "viewport": {
+          "height": 561,
+          "language": "en",
+          "scale": 1,
+          "theme": "dark",
+          "width": 804
+        }
+      }
+    ],
+    "viewport_attempts": [
+      {
+        "requested": {
+          "width": 1487,
+          "height": 1058
+        },
+        "actual": {
+          "height": 1058,
+          "width": 1487
+        },
+        "matched": true
+      }
+    ],
+    "real_native_webview": true,
+    "ipc_mocked": false,
+    "secret_store": "private filesystem E2E adapter; production uses OS credentials",
+    "import_error_recovery": true,
+    "parallel_projects_and_database": true,
+    "runtime_remove_install_via_ui": true,
+    "database_create_assign_via_ui": true,
+    "version_switch_preserves_B_pid": true,
+    "close_to_tray_preserves_services": true,
+    "ru_uz_en_and_dark_persistence": true,
+    "minimum_window_no_horizontal_overflow": true,
+    "logs_filtering_redacted": true,
+    "quit_stops_owned_services": true,
+    "forced_app_crash_cleanup_and_recovery": true,
+    "passed": true
+  }
+}

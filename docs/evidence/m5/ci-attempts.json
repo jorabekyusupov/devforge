@@ -1,0 +1,50 @@
+{
+  "schema": 1,
+  "milestone": "M5",
+  "attempts": [
+    {
+      "source": "cbddc83ae9256fd329a6d449118b535fe78978bf",
+      "native_run": 43033333693,
+      "core_run": 43033092477,
+      "result": "cancelled",
+      "reason": "Explicit user pause; no failed conclusion claimed."
+    },
+    {
+      "source": "cb236b3d3ac8c3d05b6ad8f9f90443e9b6998613",
+      "native_run": 43147307736,
+      "core_run": 43147292537,
+      "result": "success",
+      "scope": "Full native macOS/Windows daily workspace; five initial Projects accessibility cases. A task-local audit subsequently exposed transient theme contrast."
+    },
+    {
+      "source": "e731f3c5f0e7b9ee25b18190ebae7192ac652aa8",
+      "native_run": 43148234480,
+      "core_run": 43148180515,
+      "result": "partial",
+      "macos": "Backend and early UI workflow passed; strict large viewport capture assertion failed on hosted display bounds.",
+      "windows": "Full native backend/UI and nine accessibility cases passed.",
+      "core": "Both OS passed53 Rust,13 frontend,3 locale tests and desktop builds.",
+      "fix": "Remove transient background-only theme transitions; record actual host-limited viewport rather than claiming target-size fidelity."
+    },
+    {
+      "source": "e501b2920660d3050cd65d0c4543ad26dfb4f614",
+      "native_run": 43149548247,
+      "core_run": 43149466472,
+      "result": "success",
+      "scope": "Final actual viewport recording preserves functional, minimum-layout and accessibility assertions.",
+      "observed": "Final native backend and full GUI workflow, nine zero-violation accessibility cases, and both core targets passed."
+    },
+    {
+      "source": "e430e4dfbc92ccd000ce901ffd5494d21a6a66d7",
+      "native_run": 43150152615,
+      "result": "success",
+      "scope": "Workflow-only Windows capture preservation; app and test source identical to e501b29."
+    },
+    {
+      "source": "e430e4dfbc92ccd000ce901ffd5494d21a6a66d7",
+      "native_run": 43150152615,
+      "result": "success",
+      "scope": "Workflow-only upload allowlist; Windows native suite repeated to preserve captures and public reports without credential files."
+    }
+  ]
+}

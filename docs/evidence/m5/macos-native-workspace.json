@@ -18,5 +18,6 @@
     "os": "Darwin",
     "architecture": "arm64"
   },
-  "source_scope": "task-local native check before hosted final-source CI"
+  "tested_source": "e731f3c5f0e7b9ee25b18190ebae7192ac652aa8",
+  "source_scope": "task-local native acceptance; hosted final-source results recorded separately"
 }

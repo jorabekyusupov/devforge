@@ -51,7 +51,8 @@ sinovlari yaratildi; ochiq qabul gate'lari hisobotda ajratilgan.
 [M3 loyiha muhitlari](m3-project-environments-results.md) implementation va mavjud
 host sinovlari ham qo'shildi. [M4 serving backend](m4-serving-results.md)
 yaratildi; Mac Chrome va Windows Edge native acceptance, full test/build va
-actual port/trust cheklovlari shu hisobotda qayd etildi. M5-M6 hali bajarilmagan. Quyidagi bosqich ta'riflari natijalar bilan aralashtirilmaydi.
+actual port/trust cheklovlari shu hisobotda qayd etildi. [M5 kundalik boshqaruv](m5-daily-workspace-results.md) va actual macOS/Windows
+native GUI/backend acceptance qo'shildi. M6 hali bajarilmagan. Quyidagi bosqich ta'riflari natijalar bilan aralashtirilmaydi.
 
 # 1. MVP chegarasi
 
@@ -290,9 +291,9 @@ qamrovi, ru/uz/en holati va blocker'lar ko'rsatiladi. Knowledge status'lari kod
 dalili bilan yangilanadi; [yuritish siyosati](knowledge-policy.md) bajariladi.
 Read-only planning tekshiruvlari desktop implementatsiya dalili deb ko'rsatilmaydi.
 
-**Keyingi implementation yo'nalishi:** M4 native serving acceptance yakunlandi.
-Alohida topshiriqda M5 desktop project flow'lariga o'tish; M1-M3 va M4'ning
-release/credential UI/minimum OS gate'lari M5/M6 matritsasida saqlanadi.
+**Keyingi implementation yo'nalishi:** M5 kundalik workspace native acceptance
+yakunlandi. Alohida topshiriqda M6 packaging/release matritsasiga o'tish; minimum
+OS, signing/installer, native credential UI va trust metadata gate'lari saqlanadi.
 M0 release/runtime gate'lari ham ochiq qoladi; asoslanmagan muddat va'dasi yo'q.
 
 [^request]: Suhbat manbasining aniq MVP reja bo'limi.
