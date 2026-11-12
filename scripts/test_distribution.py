@@ -1,7 +1,12 @@
 import json,pathlib,unittest,sys
 from scripts.package_desktop import run
+from scripts.m6_package_smoke import nsis_command
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 class DistributionContracts(unittest.TestCase):
+    def test_nsis_paths_keep_unquoted_final_assignment(self):
+        self.assertEqual(nsis_command(r'C:\Build Tools\setup.exe',r'/D=C:\Data Files\DevForge'),r'"C:\Build Tools\setup.exe" /S /D=C:\Data Files\DevForge')
+        self.assertEqual(nsis_command(r'C:\App Folder\uninstall.exe',r'_?=C:\App Folder'),r'"C:\App Folder\uninstall.exe" /S _?=C:\App Folder')
+        with self.assertRaises(ValueError): nsis_command('setup.exe','/D=bad\npath')
     def test_cargo_metadata_preserves_unicode_on_windows_codepages(self):
         source="import sys;sys.stdout.buffer.write('Иван / O‘zbek / 日本語'.encode('utf-8'))"
         result=run(sys.executable,'-c',source,capture_output=True,text=True)

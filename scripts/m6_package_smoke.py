@@ -13,6 +13,13 @@ def wait(test,seconds=60):
         time.sleep(.1)
     raise TimeoutError('native package assertion timed out')
 def digest(path):return hashlib.sha256(path.read_bytes()).hexdigest()
+def nsis_command(executable, assignment):
+    # NSIS parses the entire final assignment itself, including spaces. CRT/list
+    # argument quoting would change /D= and _?= semantics. No shell is used.
+    values=[str(executable),assignment]
+    if any(any(c in v for c in ['"','\r','\n','\0']) for v in values):
+        raise ValueError('invalid NSIS path')
+    return subprocess.list2cmdline([str(executable)])+' /S '+assignment
 def main():
     p=argparse.ArgumentParser();p.add_argument('fixture',type=pathlib.Path);p.add_argument('--disposable-host',action='store_true',required=True);args=p.parse_args()
     fixture=args.fixture.resolve();fixture.mkdir(parents=True,exist_ok=True);data=fixture/'data';data.mkdir(exist_ok=True)
@@ -36,9 +43,9 @@ def main():
     if windows:
         installer=next((bundle/'nsis').glob('*-setup.exe'))
         def install():
-            run(str(installer),'/S','/D='+str(installed));wait(lambda:(installed/'devforge.exe').exists())
+            subprocess.run(nsis_command(installer,'/D='+str(installed)),check=True,timeout=120);wait(lambda:(installed/'devforge.exe').exists())
         def uninstall():
-            uninstaller=installed/'uninstall.exe';run(str(uninstaller),'/S','_?='+str(installed));wait(lambda:not (installed/'devforge-desktop.exe').exists());time.sleep(2)
+            uninstaller=installed/'uninstall.exe';subprocess.run(nsis_command(uninstaller,'_?='+str(installed)),check=True,timeout=120);wait(lambda:not (installed/'devforge-desktop.exe').exists());time.sleep(2)
         application=installed/'devforge-desktop.exe';cli=installed/'devforge.exe'
     else:
         dmg=next((bundle/'dmg').glob('*.dmg'));mount=fixture/'Mounted DevForge';mount.mkdir(exist_ok=True)
@@ -52,12 +59,14 @@ def main():
     try:
         # Denied targets use existing OS protections; do not change ACLs/TCC/UAC.
         if windows:
-            denied=pathlib.Path(os.environ['WINDIR'])/'System32'/('DevForge-M6-denied-'+str(os.getpid()))
-            denied_attempt=subprocess.run([str(installer),'/S','/D='+str(denied)],capture_output=True,timeout=60)
+            denied=pathlib.Path(os.environ.get('ProgramW6432',os.environ['ProgramFiles']))/('DevForge-M6-denied-'+str(os.getpid()))
+            denied_attempt=subprocess.run(nsis_command(installer,'/D='+str(denied)),capture_output=True,timeout=60)
         else:
             denied=mount/'Denied-DevForge.app'
             denied_attempt=subprocess.run(['ditto',str(mount/'DevForge.app'),str(denied)],capture_output=True,timeout=60)
-        assert denied_attempt.returncode!=0 and not denied.exists()
+        report['denied_target']={'return_code':denied_attempt.returncode,'directory_exists':denied.exists()}
+        print('M6_DENIED_TARGET:'+json.dumps(report['denied_target']),flush=True)
+        assert denied_attempt.returncode!=0 and not denied.exists(),report['denied_target']
         install();assert application.exists();assert cli.exists()
         report['checks']['permission_denied_target_then_retry']=True
         report['checks']['first_install']=True
@@ -92,7 +101,7 @@ def main():
             blocked=subprocess.run([str(cli),'distribution','check-stopped'],capture_output=True,text=True)
             assert blocked.returncode!=0
             if windows:
-                attempt=subprocess.run([str(installed/'uninstall.exe'),'/S','_?='+str(installed)],capture_output=True)
+                attempt=subprocess.run(nsis_command(installed/'uninstall.exe','_?='+str(installed)),capture_output=True,timeout=60)
                 assert attempt.returncode!=0 and application.exists() and process.poll() is None
             time.sleep(5)
             if windows:

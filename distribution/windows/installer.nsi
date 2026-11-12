@@ -553,6 +553,14 @@ Function .onInit
   !endif
 FunctionEnd
 
+ ; DevForge: a failed silent installation must never report success.
+Function .onInstFailed
+  GetErrorLevel $0
+  ${If} $0 = 0
+    SetErrorLevel 5
+  ${EndIf}
+FunctionEnd
+
 Section WebView2
   ; Check if Webview2 is already installed and skip this section
   ${If} ${RunningX64}
