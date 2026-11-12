@@ -182,6 +182,15 @@ fn publish_tree(
     }
     Ok(())
 }
+fn sqlite_directory(project: &Path) -> Result<PathBuf> {
+    // Containment compares canonical forms on both platforms. Simplification
+    // belongs only at external executable/argument boundaries on Windows.
+    let dir = fs::canonicalize(project.join("database"))?;
+    if !dir.starts_with(project) || link(&dir.join("database.sqlite")) {
+        return Err(error("setup_sqlite_scope"));
+    }
+    Ok(dir)
+}
 pub fn valid_folder(value: &str) -> Result<()> {
     let upper = value.split('.').next().unwrap_or("").to_ascii_uppercase();
     if value.is_empty()
@@ -573,10 +582,7 @@ impl Workspace {
             return Ok(());
         }
         let p = self.projects.get(id)?;
-        let dir = dunce::canonicalize(p.path.join("database"))?;
-        if !dir.starts_with(&p.path) || link(&dir.join("database.sqlite")) {
-            return Err(error("setup_sqlite_scope"));
-        }
+        let dir = sqlite_directory(&p.path)?;
         let path = dir.join("database.sqlite");
         if state["sqlite_started"] != true && path.exists() && fs::metadata(&path)?.len() != 0 {
             return Err(error("setup_sqlite_scope"));
@@ -747,6 +753,23 @@ impl Workspace {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn sqlite_ownership_uses_canonical_windows_and_unix_forms() {
+        let root = tempfile::tempdir().unwrap();
+        fs::create_dir(root.path().join("database")).unwrap();
+        let project = fs::canonicalize(root.path()).unwrap();
+        assert_eq!(
+            sqlite_directory(&project).unwrap(),
+            fs::canonicalize(project.join("database")).unwrap()
+        );
+        #[cfg(unix)]
+        {
+            fs::remove_dir(project.join("database")).unwrap();
+            let outside = tempfile::tempdir().unwrap();
+            std::os::unix::fs::symlink(outside.path(), project.join("database")).unwrap();
+            assert!(sqlite_directory(&project).is_err());
+        }
+    }
     #[test]
     fn validates_portable_destinations_and_safe_git_sources() {
         for bad in ["../mine", "CON", "aux.txt", "foo.", "a/b", "-flag", ""] {
