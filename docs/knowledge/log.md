@@ -2,7 +2,7 @@
 
 ## 2026-11-13
 
-- **M8 boshlandi:** [Project setup](m8-project-setup-results.md), Laravel/Git creation, scoped dependency/env/key preparation, cancellation/recovery, PHP diagnostics/settings, recent/favorites va HTTPS review yaratildi. Local actual backend va WKWebView13 axe holati o'tdi. Hosted matrix va final reconciliation yuritilmoqda; OS authorization dialogs/M15 va M7.2 gate'lari alohida ochiq.
+- **M8 functional qabul tugadi:** [Project setup](m8-project-setup-results.md), Laravel/Git wizard, Composer/npm/.env/APP_KEY, SQLite starter, cancellation/recovery, PHP settings/diagnostics, recent/favorites va HTTPS exact review yaratildi. ARM64/Intel Mac va Windows x64 backend/native GUI o'tdi; har target13 axe/0 finding. Final core per-OS68 Rust/25 frontend/3 locale/6 packaging,1 credential fixture ignored. Windows INI Unicode bootstrap va canonical SQLite guard tuzatildi; old failure/cancelled run'lar saqlandi. Uch artifact digest/report tengligi, source reconciliation va strict OKF23/0/0 yakunlandi. Native system dialogs, non-ASCII Windows profile va M15 release gate'lari hamda M7.2 ochiq; final docs push uchun product suite qayta ishlatilmaydi.
 
 ## 2026-11-12
 

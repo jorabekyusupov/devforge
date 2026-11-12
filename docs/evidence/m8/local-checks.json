@@ -1,0 +1,29 @@
+{
+  "rust_passed": 67,
+  "rust_ignored": 1,
+  "frontend_passed": 25,
+  "typecheck_passed": true,
+  "locale_catalogs": 3,
+  "locale_regressions": 3,
+  "workspace_clippy_passed": true,
+  "native_fixture_clippy_passed": true,
+  "local_backend_passed": true,
+  "local_gui_passed": true,
+  "axe_cases": 13,
+  "axe_violations": 0,
+  "source_note": "Local native working-tree evidence preceded final BOM parser and focus/revision hardening; final 67 Rust and 25 frontend checks cover those patches. Frozen-source hosted native acceptance is tracked separately.",
+  "default_feature_native_debug_build_passed": true,
+  "fixture_processes_remaining": 0,
+  "private_fixture_removed": true,
+  "bootstrap_followup": {
+    "source": "93bec5d72b4daaea03237cfb6fecd31175bd07c6",
+    "focused_workspace_tests_passed": 3,
+    "fixture_clippy_passed": true,
+    "native_windows_probe_ascii_and_managed_config_passed": true
+  },
+  "sqlite_followup": {
+    "source": "5f12739ad652a7d93c6b386a34952d488856e72c",
+    "focused_workspace_tests_passed": 4,
+    "fixture_clippy_passed": true
+  }
+}

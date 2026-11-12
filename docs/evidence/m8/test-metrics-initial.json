@@ -1,0 +1,25 @@
+{
+  "source_commit": "ba69da75d0dfe74d45c28b7a9a5b6674971194b8",
+  "per_os": [
+    {
+      "job_id": 131451052919,
+      "os": "windows",
+      "rust_passed": 67,
+      "rust_failed": 0,
+      "rust_ignored": 1,
+      "frontend_passed": 25,
+      "locale_passed": 3,
+      "packaging_passed": 6
+    },
+    {
+      "job_id": 131451053728,
+      "os": "macos",
+      "rust_passed": 67,
+      "rust_failed": 0,
+      "rust_ignored": 1,
+      "frontend_passed": 25,
+      "locale_passed": 3,
+      "packaging_passed": 6
+    }
+  ]
+}

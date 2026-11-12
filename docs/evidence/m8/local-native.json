@@ -1,0 +1,23 @@
+{
+  "actual_https_owned_ca_client": true,
+  "actual_platform_requirements": true,
+  "cancellation_stops_descendant": true,
+  "clone_id": "abdf35bd531c40d880660f34c23eb91a",
+  "dependency_failure_preserves_project_and_retry": true,
+  "existing_destination_and_keys_preserved": true,
+  "favorites_recent_php_persist": true,
+  "fresh_id": "06c32f696afa40ccb1a97e2f77fa0831",
+  "git_clone_branch_unicode_parent": true,
+  "host": {
+    "arch": "aarch64",
+    "os": "macos"
+  },
+  "https_review_no_system_mutation_and_consent_guard": true,
+  "passed": true,
+  "php_change_preserves_other_project_pids": true,
+  "php_settings_actual_cli_and_web": true,
+  "real_laravel_create_composer_npm_app_key_sqlite": true,
+  "scripts_opt_in_and_keys_redacted": true,
+  "source_branch": "main",
+  "source_relative": "M8 Ўзбек & ' projects/m8-fresh"
+}

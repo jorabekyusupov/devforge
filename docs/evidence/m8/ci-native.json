@@ -1,0 +1,82 @@
+{
+  "all_required_native_targets_passed": true,
+  "required_jobs": [
+    {
+      "target": "macos-arm64",
+      "run_id": 43298665397,
+      "job_id": 131463645100
+    },
+    {
+      "target": "macos-x64",
+      "run_id": 43298665397,
+      "job_id": 131463644465
+    },
+    {
+      "target": "windows-x64",
+      "run_id": 43300470639,
+      "job_id": 131469975676
+    }
+  ],
+  "runs": [
+    {
+      "run_id": 43295069430,
+      "source_commit": "ba69da75d0dfe74d45c28b7a9a5b6674971194b8",
+      "conclusion": "cancelled",
+      "url": "https://github.com/jorabekyusupov/devforge/actions/runs/43295069430",
+      "jobs": [
+        {
+          "job_id": 131451073493,
+          "name": "inspector (macos-15, macos-arm64)",
+          "conclusion": "failure"
+        },
+        {
+          "job_id": 131451073937,
+          "name": "inspector (macos-15-intel, macos-x64)",
+          "conclusion": "cancelled"
+        },
+        {
+          "job_id": 131451073984,
+          "name": "inspector (windows-latest, windows-x64)",
+          "conclusion": "failure"
+        }
+      ]
+    },
+    {
+      "run_id": 43298665397,
+      "source_commit": "93bec5d72b4daaea03237cfb6fecd31175bd07c6",
+      "conclusion": "failure",
+      "url": "https://github.com/jorabekyusupov/devforge/actions/runs/43298665397",
+      "jobs": [
+        {
+          "job_id": 131463644465,
+          "name": "inspector (macos-15-intel, macos-x64)",
+          "conclusion": "success"
+        },
+        {
+          "job_id": 131463645100,
+          "name": "inspector (macos-15, macos-arm64)",
+          "conclusion": "success"
+        },
+        {
+          "job_id": 131463645369,
+          "name": "inspector (windows-latest, windows-x64)",
+          "conclusion": "failure"
+        }
+      ]
+    },
+    {
+      "run_id": 43300470639,
+      "source_commit": "5f12739ad652a7d93c6b386a34952d488856e72c",
+      "conclusion": "success",
+      "url": "https://github.com/jorabekyusupov/devforge/actions/runs/43300470639",
+      "jobs": [
+        {
+          "job_id": 131469975676,
+          "name": "inspector (windows-latest, windows-x64)",
+          "conclusion": "success"
+        }
+      ]
+    }
+  ],
+  "note": "Mac93bec5d jobs passed; workflow retains its original Windows SQLite-path failure. Final Windows acceptance is successful5f12739. Source differences are reconciled separately."
+}

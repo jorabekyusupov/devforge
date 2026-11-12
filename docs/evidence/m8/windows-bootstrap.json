@@ -1,0 +1,41 @@
+{
+  "run_id": 43298659600,
+  "job_id": 131463624959,
+  "source_commit": "93bec5d72b4daaea03237cfb6fecd31175bd07c6",
+  "native_windows": true,
+  "php": "8.5.12-1",
+  "composer": "2.11.2",
+  "cases": [
+    {
+      "case": "ascii",
+      "php_exit": 0,
+      "php_stdout": "{\"ini\":\"C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\Temp\\\\devforge-m8-bootstrap-h9pfe06r\\\\ascii-config\\\\php.ini\",\"openssl\":true,\"curl\":true,\"zip\":true}",
+      "php_stderr": "",
+      "composer_exit": 0,
+      "composer_stdout": "",
+      "composer_stderr": "Creating a \"laravel/laravel\" project at \"./payload\"\r\nIgnoring the \"home\" config set in the root package, use the COMPOSER_HOME env var to change it.\r\nInstalling laravel/laravel (v13.11.0)\r\nPlugins have been disabled.\r\n  - Downloading laravel/laravel (v13.11.0)\r\n  - Installing laravel/laravel (v13.11.0): Extracting archive\r\nCreated project in C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\devforge-m8-bootstrap-h9pfe06r\\ascii-config\\payload\r\n",
+      "project_created": true
+    },
+    {
+      "case": "unicode",
+      "php_exit": 0,
+      "php_stdout": "{\"ini\":false,\"openssl\":false,\"curl\":false,\"zip\":false}",
+      "php_stderr": "",
+      "composer_exit": 1,
+      "composer_stdout": "",
+      "composer_stderr": "Creating a \"laravel/laravel\" project at \"./payload\"\r\nIgnoring the \"home\" config set in the root package, use the COMPOSER_HOME env var to change it.\r\n\r\nIn Factory.php line 663:\r\n                                                                                                                       \r\n  The openssl extension is required for SSL/TLS protection but is not available. If you can not enable the openssl ex  \r\n  tension, you can disable this error, at your own risk, by setting the 'disable-tls' option to true.                  \r\n                                                                                                                       \r\n\r\ncreate-project [-s|--stability STABILITY] [--prefer-source] [--prefer-dist] [--prefer-install PREFER-INSTALL] [--repository REPOSITORY] [--repository-url REPOSITORY-URL] [--add-repository] [--require REQUIRE] [--dev] [--no-dev] [--no-custom-installers] [--no-scripts] [--no-progress] [--no-secure-http] [--keep-vcs] [--remove-vcs] [--no-install] [--no-audit] [--audit-format AUDIT-FORMAT] [--no-security-blocking] [--no-blocking] [--no-cooldown] [--ignore-platform-req IGNORE-PLATFORM-REQ] [--ignore-platform-reqs] [--ask] [--] [<package> [<directory> [<version>]]]\r\n\r\n",
+      "project_created": false
+    },
+    {
+      "case": "managed-config",
+      "php_exit": 0,
+      "php_stdout": "{\"ini\":\"C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\Temp\\\\devforge-m8-bootstrap-h9pfe06r\\\\managed-config\\\\php.ini\",\"openssl\":true,\"curl\":true,\"zip\":true}",
+      "php_stderr": "",
+      "composer_exit": 0,
+      "composer_stdout": "",
+      "composer_stderr": "Creating a \"laravel/laravel\" project at \"./payload\"\r\nIgnoring the \"home\" config set in the root package, use the COMPOSER_HOME env var to change it.\r\nInstalling laravel/laravel (v13.11.0)\r\nPlugins have been disabled.\r\n  - Installing laravel/laravel (v13.11.0): Extracting archive\r\nCreated project in C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\devforge-m8-bootstrap-h9pfe06r\\M8 Ўзбек & ' project\\payload\r\n",
+      "project_created": true
+    }
+  ],
+  "initial_probe_note": "Initial29ccaae probe omitted SYSTEMROOT through case-sensitive Python env filtering; its ASCII curl failure is not a valid control. This corrected report includes SYSTEMROOT."
+}

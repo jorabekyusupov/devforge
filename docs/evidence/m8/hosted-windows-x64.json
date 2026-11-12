@@ -1,0 +1,256 @@
+{
+  "source_commit": "5f12739ad652a7d93c6b386a34952d488856e72c",
+  "run_id": 43300470639,
+  "job_id": 131469975676,
+  "native": {
+    "actual_https_owned_ca_client": true,
+    "actual_platform_requirements": true,
+    "cancellation_stops_descendant": true,
+    "clone_id": "d182b892c58e42d1801d02db56df1488",
+    "dependency_failure_preserves_project_and_retry": true,
+    "existing_destination_and_keys_preserved": true,
+    "favorites_recent_php_persist": true,
+    "fresh_id": "7521ca64f65f4760b86e4cfc517aa68b",
+    "git_clone_branch_unicode_parent": true,
+    "host": {
+      "arch": "x86_64",
+      "os": "windows"
+    },
+    "https_review_no_system_mutation_and_consent_guard": true,
+    "passed": true,
+    "php_change_preserves_other_project_pids": true,
+    "php_settings_actual_cli_and_web": true,
+    "real_laravel_create_composer_npm_app_key_sqlite": true,
+    "scripts_opt_in_and_keys_redacted": true,
+    "source_branch": "main",
+    "source_relative": "M8 Ўзбек & ' projects\\m8-fresh"
+  },
+  "desktop": {
+    "passed": true,
+    "native_webview": true,
+    "ipc_mocked": false,
+    "checks": {
+      "review_cancel_creates_nothing": true,
+      "actual_ui_cancel": true,
+      "real_git_clone_composer_key_and_other_project_pids": true,
+      "destination_error_preserves_files_and_review": true,
+      "prepare_existing_preserves_key_and_script_policy": true,
+      "favorite_and_recent_controls": true,
+      "actual_php_diagnostics_settings_restart_and_isolation": true,
+      "https_review_consent_refresh_no_system_changes": true,
+      "ru_uz_en_minimum_source_environment": true,
+      "favorites_recent_php_persist_on_native_reopen": true
+    },
+    "native_system_authorization_exercised": false,
+    "system_hosts_unchanged": true,
+    "accessibility": [
+      {
+        "case": "wizard-environment",
+        "violations": []
+      },
+      {
+        "case": "wizard-review",
+        "violations": []
+      },
+      {
+        "case": "destination-conflict",
+        "violations": []
+      },
+      {
+        "case": "prepare-confirmation",
+        "violations": []
+      },
+      {
+        "case": "php-diagnostics",
+        "violations": []
+      },
+      {
+        "case": "https-review",
+        "violations": []
+      },
+      {
+        "case": "source-small-ru",
+        "violations": []
+      },
+      {
+        "case": "environment-small-ru",
+        "violations": []
+      },
+      {
+        "case": "source-small-uz-Latn",
+        "violations": []
+      },
+      {
+        "case": "environment-small-uz-Latn",
+        "violations": []
+      },
+      {
+        "case": "source-small-en",
+        "violations": []
+      },
+      {
+        "case": "environment-small-en",
+        "violations": []
+      },
+      {
+        "case": "wizard-dark",
+        "violations": []
+      }
+    ],
+    "captures": [
+      {
+        "file": "setup-environment-light.png",
+        "viewport": {
+          "height": 1032,
+          "language": "en",
+          "scale": 1,
+          "theme": "light",
+          "width": 1523
+        }
+      },
+      {
+        "file": "setup-review.png",
+        "viewport": {
+          "height": 1032,
+          "language": "en",
+          "scale": 1,
+          "theme": "light",
+          "width": 1523
+        }
+      },
+      {
+        "file": "setup-cancelled.png",
+        "viewport": {
+          "height": 1032,
+          "language": "en",
+          "scale": 1,
+          "theme": "light",
+          "width": 1523
+        }
+      },
+      {
+        "file": "setup-git-environment.png",
+        "viewport": {
+          "height": 1032,
+          "language": "en",
+          "scale": 1,
+          "theme": "light",
+          "width": 1523
+        }
+      },
+      {
+        "file": "setup-destination-conflict.png",
+        "viewport": {
+          "height": 1032,
+          "language": "en",
+          "scale": 1,
+          "theme": "light",
+          "width": 1523
+        }
+      },
+      {
+        "file": "setup-php-diagnostics.png",
+        "viewport": {
+          "height": 1032,
+          "language": "en",
+          "scale": 1,
+          "theme": "light",
+          "width": 1523
+        }
+      },
+      {
+        "file": "setup-https-review.png",
+        "viewport": {
+          "height": 1032,
+          "language": "en",
+          "scale": 1,
+          "theme": "light",
+          "width": 1523
+        }
+      },
+      {
+        "file": "setup-source-small-ru.png",
+        "viewport": {
+          "height": 561,
+          "language": "ru",
+          "scale": 1,
+          "theme": "light",
+          "width": 804
+        }
+      },
+      {
+        "file": "setup-environment-small-ru.png",
+        "viewport": {
+          "height": 561,
+          "language": "ru",
+          "scale": 1,
+          "theme": "light",
+          "width": 804
+        }
+      },
+      {
+        "file": "setup-source-small-uz-Latn.png",
+        "viewport": {
+          "height": 561,
+          "language": "uz-Latn",
+          "scale": 1,
+          "theme": "light",
+          "width": 804
+        }
+      },
+      {
+        "file": "setup-environment-small-uz-Latn.png",
+        "viewport": {
+          "height": 561,
+          "language": "uz-Latn",
+          "scale": 1,
+          "theme": "light",
+          "width": 804
+        }
+      },
+      {
+        "file": "setup-source-small-en.png",
+        "viewport": {
+          "height": 561,
+          "language": "en",
+          "scale": 1,
+          "theme": "light",
+          "width": 804
+        }
+      },
+      {
+        "file": "setup-environment-small-en.png",
+        "viewport": {
+          "height": 561,
+          "language": "en",
+          "scale": 1,
+          "theme": "light",
+          "width": 804
+        }
+      },
+      {
+        "file": "setup-environment-dark.png",
+        "viewport": {
+          "height": 561,
+          "language": "en",
+          "scale": 1,
+          "theme": "dark",
+          "width": 804
+        }
+      }
+    ],
+    "viewport_attempts": [
+      {
+        "requested": {
+          "width": 1523,
+          "height": 1032
+        },
+        "actual": {
+          "height": 1032,
+          "width": 1523
+        },
+        "matched": true
+      }
+    ]
+  }
+}

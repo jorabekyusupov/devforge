@@ -25,7 +25,7 @@ mavzuni tanlang, so'ng faqat tegishli hujjatlar va ularning manbalarini o'qing.
 
 ## Manba va yuritish
 
-- [M8 loyihani tayyorlash](m8-project-setup-results.md) - Laravel/Git wizard, project setup, PHP va HTTPS review hamda native verification holati.
+- [M8 loyihani tayyorlash](m8-project-setup-results.md) - Laravel/Git wizard, PHP/env/dependency setup, recent/favorites va HTTPS review uch native targetda o'tdi; system-dialog/release gate'lari alohida.
 
 - [M7 Inspector](m7-inspector-results.md) - M7.1 Laravel capture/profiling uch native targetda o'tdi; M7.2 Xdebug boshqaruvi hali ochiq.
 

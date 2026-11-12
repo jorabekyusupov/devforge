@@ -1,0 +1,37 @@
+{
+  "artifacts": [
+    {
+      "id": 13981711677,
+      "name": "m8-macos-arm64",
+      "run_id": 43298665397,
+      "source_commit": "93bec5d72b4daaea03237cfb6fecd31175bd07c6",
+      "digest": "sha256:7672ac878fdf85393b6d1cd7c3b3ea6f43e807e4466f5c39a2ec29f66ddcc242",
+      "size_in_bytes": 1497778,
+      "sha256_verified": true,
+      "zip_entries_validated": true,
+      "artifact_reports_equal_job_log_reports": true
+    },
+    {
+      "id": 13982726448,
+      "name": "m8-macos-x64",
+      "run_id": 43298665397,
+      "source_commit": "93bec5d72b4daaea03237cfb6fecd31175bd07c6",
+      "digest": "sha256:e2c396bf3f7c6dcb17fd7b84b01888f1e8a8c1e1cffc8ecd780af81341c41374",
+      "size_in_bytes": 1904799,
+      "sha256_verified": true,
+      "zip_entries_validated": true,
+      "artifact_reports_equal_job_log_reports": true
+    },
+    {
+      "id": 13982835862,
+      "name": "m8-windows-x64",
+      "run_id": 43300470639,
+      "source_commit": "5f12739ad652a7d93c6b386a34952d488856e72c",
+      "digest": "sha256:32b2f0de5ff963cb2ac1a363e2da6227d7e38ca0a1291d1d22d2b249c37186e4",
+      "size_in_bytes": 1105605,
+      "sha256_verified": true,
+      "zip_entries_validated": true,
+      "artifact_reports_equal_job_log_reports": true
+    }
+  ]
+}

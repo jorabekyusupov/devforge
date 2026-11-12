@@ -32,6 +32,12 @@ yaratildi. Native platforma dalillari va cheklovlari o'sha hisobotda yuritiladi.
 M7.2 Xdebug extension/debugger/function-profiler boshqaruvi hali amalga
 oshirilmagan; M7 bosqichi to'liq yakunlangan deb hisoblanmaydi.
 
+M8 Laravel/Git wizard, preparation, PHP settings/diagnostics, recent/favorites
+va HTTPS review bilan functional native qabuldan o'tdi; actual source/job
+matritsasi [M8 natijalarida](m8-project-setup-results.md). System authorization
+dialoglari va release/minimum-OS/profile gate'lari M15'da qoladi. Keyingi reja
+M9 bo'lib, bu yozuv uning implementatsiyasini avtomatik boshlamaydi.
+
 M0-M6 tarixiy raqamlari saqlanadi. Keyingi ishlar bajarish ketma-ketligi bo'yicha
 qayta raqamlandi: oldingi M12 endi M7, oldingi M7 endi M15. Eski raqamlar faqat
 quyidagi moslik jadvali va suhbat tarixiga murojaat qilish uchun ishlatiladi.

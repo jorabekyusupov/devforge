@@ -1,0 +1,228 @@
+{
+  "passed": true,
+  "native_webview": true,
+  "ipc_mocked": false,
+  "checks": {
+    "review_cancel_creates_nothing": true,
+    "actual_ui_cancel": true,
+    "real_git_clone_composer_key_and_other_project_pids": true,
+    "destination_error_preserves_files_and_review": true,
+    "prepare_existing_preserves_key_and_script_policy": true,
+    "favorite_and_recent_controls": true,
+    "actual_php_diagnostics_settings_restart_and_isolation": true,
+    "https_review_consent_refresh_no_system_changes": true,
+    "ru_uz_en_minimum_source_environment": true,
+    "favorites_recent_php_persist_on_native_reopen": true
+  },
+  "native_system_authorization_exercised": false,
+  "system_hosts_unchanged": true,
+  "accessibility": [
+    {
+      "case": "wizard-environment",
+      "violations": []
+    },
+    {
+      "case": "wizard-review",
+      "violations": []
+    },
+    {
+      "case": "destination-conflict",
+      "violations": []
+    },
+    {
+      "case": "prepare-confirmation",
+      "violations": []
+    },
+    {
+      "case": "php-diagnostics",
+      "violations": []
+    },
+    {
+      "case": "https-review",
+      "violations": []
+    },
+    {
+      "case": "source-small-ru",
+      "violations": []
+    },
+    {
+      "case": "environment-small-ru",
+      "violations": []
+    },
+    {
+      "case": "source-small-uz-Latn",
+      "violations": []
+    },
+    {
+      "case": "environment-small-uz-Latn",
+      "violations": []
+    },
+    {
+      "case": "source-small-en",
+      "violations": []
+    },
+    {
+      "case": "environment-small-en",
+      "violations": []
+    },
+    {
+      "case": "wizard-dark",
+      "violations": []
+    }
+  ],
+  "captures": [
+    {
+      "file": "setup-environment-light.png",
+      "viewport": {
+        "height": 1032,
+        "language": "en",
+        "scale": 2,
+        "theme": "light",
+        "width": 1523
+      }
+    },
+    {
+      "file": "setup-review.png",
+      "viewport": {
+        "height": 1032,
+        "language": "en",
+        "scale": 2,
+        "theme": "light",
+        "width": 1523
+      }
+    },
+    {
+      "file": "setup-cancelled.png",
+      "viewport": {
+        "height": 1032,
+        "language": "en",
+        "scale": 2,
+        "theme": "light",
+        "width": 1523
+      }
+    },
+    {
+      "file": "setup-git-environment.png",
+      "viewport": {
+        "height": 1032,
+        "language": "en",
+        "scale": 2,
+        "theme": "light",
+        "width": 1523
+      }
+    },
+    {
+      "file": "setup-destination-conflict.png",
+      "viewport": {
+        "height": 1032,
+        "language": "en",
+        "scale": 2,
+        "theme": "light",
+        "width": 1523
+      }
+    },
+    {
+      "file": "setup-php-diagnostics.png",
+      "viewport": {
+        "height": 1032,
+        "language": "en",
+        "scale": 2,
+        "theme": "light",
+        "width": 1523
+      }
+    },
+    {
+      "file": "setup-https-review.png",
+      "viewport": {
+        "height": 1032,
+        "language": "en",
+        "scale": 2,
+        "theme": "light",
+        "width": 1523
+      }
+    },
+    {
+      "file": "setup-source-small-ru.png",
+      "viewport": {
+        "height": 588,
+        "language": "ru",
+        "scale": 2,
+        "theme": "light",
+        "width": 820
+      }
+    },
+    {
+      "file": "setup-environment-small-ru.png",
+      "viewport": {
+        "height": 588,
+        "language": "ru",
+        "scale": 2,
+        "theme": "light",
+        "width": 820
+      }
+    },
+    {
+      "file": "setup-source-small-uz-Latn.png",
+      "viewport": {
+        "height": 588,
+        "language": "uz-Latn",
+        "scale": 2,
+        "theme": "light",
+        "width": 820
+      }
+    },
+    {
+      "file": "setup-environment-small-uz-Latn.png",
+      "viewport": {
+        "height": 588,
+        "language": "uz-Latn",
+        "scale": 2,
+        "theme": "light",
+        "width": 820
+      }
+    },
+    {
+      "file": "setup-source-small-en.png",
+      "viewport": {
+        "height": 588,
+        "language": "en",
+        "scale": 2,
+        "theme": "light",
+        "width": 820
+      }
+    },
+    {
+      "file": "setup-environment-small-en.png",
+      "viewport": {
+        "height": 588,
+        "language": "en",
+        "scale": 2,
+        "theme": "light",
+        "width": 820
+      }
+    },
+    {
+      "file": "setup-environment-dark.png",
+      "viewport": {
+        "height": 588,
+        "language": "en",
+        "scale": 2,
+        "theme": "dark",
+        "width": 820
+      }
+    }
+  ],
+  "viewport_attempts": [
+    {
+      "requested": {
+        "width": 1523,
+        "height": 1032
+      },
+      "actual": {
+        "height": 1032,
+        "width": 1523
+      },
+      "matched": true
+    }
+  ]
+}

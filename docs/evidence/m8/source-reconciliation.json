@@ -1,0 +1,29 @@
+{
+  "core_source": "5f12739ad652a7d93c6b386a34952d488856e72c",
+  "core_run": 43300464022,
+  "mac_native_source": "93bec5d72b4daaea03237cfb6fecd31175bd07c6",
+  "windows_native_source": "5f12739ad652a7d93c6b386a34952d488856e72c",
+  "mac_to_windows_diff": {
+    "paths": [
+      "crates/workspace/src/setup.rs"
+    ],
+    "change": "SQLite directory containment now uses std::fs canonical form, matching persisted project roots; added native-form ownership unit. On Unix dunce and std canonical paths have the same semantics.",
+    "ui_php_or_command_protocol_changed": false
+  },
+  "initial_native_run": {
+    "run_id": 43295069430,
+    "source": "ba69da75d0dfe74d45c28b7a9a5b6674971194b8",
+    "arm_failure": "Test child received a relative port-file path while its cwd was the Laravel project; fixture root canonicalized in e2de6ac.",
+    "windows_failure": "Unicode bootstrap INI was not loaded; corrected probe and app-data bootstrap store in93bec5d.",
+    "intel": "Cancelled after known fixture defect; never counted as acceptance."
+  },
+  "windows_93_attempt": {
+    "run_id": 43298665397,
+    "job_id": 131463645369,
+    "source_created": true,
+    "dependency_preparation_completed": true,
+    "failure": "setup_sqlite_scope due mixed normalized/verbatim canonical forms",
+    "resolution": "5f12739 canonical-only containment; outside-project protection retained."
+  },
+  "local_checks_note": "Local native evidence predates final pure parser/focus/revision hardening. Frozen-source hosted acceptance provides final production evidence. No product suites rerun for final docs-only push."
+}
