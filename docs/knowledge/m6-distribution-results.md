@@ -69,6 +69,12 @@ sources:
   - id: production-build
     resource: ../evidence/m6/local-production-build.json
     title: Default-feature local desktop binary shipping state
+  - id: tester-guide
+    resource: ../guides/windows-tester-uz.html
+    title: Windows tester uchun o'zbekcha HTML qo'llanma
+  - id: tester-handoff
+    resource: ../evidence/m6/windows-tester-handoff.json
+    title: Verified installer reuse ZIP integrity va guide browser checks
   - id: single-instance
     resource: https://v2.tauri.app/plugin/single-instance/
     title: Official native single-instance lifecycle contract
@@ -226,6 +232,30 @@ frontend frame gap'lari debug-E2E binary'da o'lchandi. Bular input-to-paint yoki
 release UX latency deb ko'rsatilmaydi. Local extended GUI report'da barcha uch
 workload va actual duration/samples bor.[^local-gui]
 
+# Windows tester handoff
+
+2026-11-12 foydalanuvchi testrovshikka yuborish uchun Windows build va o'zbekcha
+HTML yo'riqnoma so'radi. Tekshirilgan6876c95 installer source bilan joriy product
+source orasida o'zgarish yo'q; installer qayta compile qilinmasdan SHA-256 bilan
+qayta tekshirilib, alohida tester ZIP'iga joylandi. Bu yangi native CI run yoki
+fresh application build deb ko'rsatilmaydi.[^tester-handoff]
+
+ZIP ichida installer, BOSHLANG.html, BIRINCHI-OQING.txt, SHA256SUMS.txt va
+build-info.json bor. Guide source docs/guides'da; tarqatishda installer bilan bir
+papkada BOSHLANG.html sifatida ochiladi. CSS va haqiqiy Windows Uzbek screenshot
+inline: tashqi script/font/image dependency yo'q. Runtime archive'lari va demo
+Laravel loyiha qo'shilmagan; internet hamda mavjud sinov loyihasi kerak.
+O'rnatish, locale/runtime/project/DB, CMD va PowerShell farqi, HTTP/HTTPS scope,
+tray/Quit, uninstall, troubleshooting, checklist va xatolik hisoboti tushuntirilgan.
+Microsoft prerequisite havolalari rasmiy sahifalardan tekshirildi.[^tester-guide]
+
+HTML Chrome/Playwright CLI orqali macOS'da1360x900 va390x844'da render qilindi:
+horizontal overflow, missing anchor va unloaded image yo'q. Bu yangi Windows app
+sinovi emas. file: navigation automation policy tomonidan bloklandi; render
+loopback HTTP bilan tekshirildi. ZIP CRC va ichidagi barcha fayl SHA-256'lari
+tekshirildi. Product suite'lari takrorlanmadi; faqat yangi handoff/guide va OKF
+validation bajarildi.[^tester-handoff]
+
 # Phase reconciliation va qolgan gate'lar
 
 - **Mos:** source/data ownership, pinned runtimes, three-locale registry, per-project serving va secret boundary saqlangan.
@@ -263,3 +293,6 @@ kerak. Unsigned internal acceptance shu gate'lar yopildi degani emas.
 [^attempts]: Successful job claims actual tested source'ga bog'langan; failed runs ham saqlangan.
 
 [^production-build]: Build-only shipping check; passed suites qayta ishga tushirilmadi.
+
+[^tester-guide]: Artefaktga mos, UTF-8 Uzbek HTML; installer hash va known unsigned/minimum OS cheklovlari ko'rsatilgan.
+[^tester-handoff]: ZIP hash va file inventory; fresh_compile=false va existing native run aniq qayd etilgan.

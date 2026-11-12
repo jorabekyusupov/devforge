@@ -1,0 +1,39 @@
+{
+  "schema": 1,
+  "package": "output/distribution/tester/DevForge-0.1.0-Windows-x64-Tester-UZ.zip",
+  "bytes": 9554732,
+  "zip_sha256": "e88a15a21c990ce4b84a5add199a474342d1bb96bfb54829e5d8175f040a1dc0",
+  "installer_sha256": "04eb6099b884ec5db77a043f090d37c2b82855d2abfde0643e35b684260cd428",
+  "installer_source_commit": "6876c956f03fdb052c7cccd3b6803a81698b5ab1",
+  "fresh_application_compile": false,
+  "application_changed": false,
+  "files": [
+    "BIRINCHI-OQING.txt",
+    "BOSHLANG.html",
+    "DevForge_0.1.0_x64-setup.exe",
+    "SHA256SUMS.txt",
+    "build-info.json"
+  ],
+  "zip_crc_and_all_file_hashes_verified": true,
+  "guide_verification": {
+    "browser": "Chrome via Playwright CLI on macOS",
+    "viewports": [
+      [
+        1360,
+        900
+      ],
+      [
+        390,
+        844
+      ]
+    ],
+    "horizontal_overflow": false,
+    "broken_internal_links": 0,
+    "unloaded_images": 0,
+    "external_style_script_image_dependencies": 0,
+    "checklist_items": 10,
+    "file_protocol_test": "Blocked by browser automation policy; rendering checked through loopback HTTP."
+  },
+  "previous_native_windows_run": 43167220218,
+  "application_suites_rerun": false
+}

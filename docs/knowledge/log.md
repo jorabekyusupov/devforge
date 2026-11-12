@@ -2,6 +2,8 @@
 
 ## 2026-11-12
 
+- **Windows tester handoff:** M6'dan o'tgan installer hash bilan qayta tekshirildi; Uzbek HTML qo'llanma, checksum va build-info bilan alohida ZIP tayyorlandi. HTML ikki viewport'da ko'rildi, ZIP/file hash'lar tekshirildi. App code o'zgarmadi, product testlar qayta ishlatilmadi; fresh build deb ko'rsatilmadi.
+
 - **M6 ichki distributiv:** [Paketlash va qabul](m6-distribution-results.md), macOS ARM64/Intel DMG va Windows x64 per-user NSIS yaratildi. Uch targetda9 locale kombinatsiyasi, data-preserving install/reinstall/uninstall, same-process relaunch, real queue log-burst va native GUI/crash recovery o'tdi. Core56 Rust/13 frontend/3 locale per OS, final Windows6 packaging contracts; owned hosts/CA cleanup ikkala OS'da tekshirildi. Artifact ZIP/installer hashes solishtirildi. Signing, minimum OS, native credential/system dialogs, interrupted-install va licensing gate'lari ochiq; public publish yo'q.
 
 - **M5 yakuni**: [Kundalik workspace](m5-daily-workspace-results.md) real project/runtime/database/queue/Vite/log controls bilan yaratildi. Final e501b29 source macOS WKWebView va Windows WebView2 native workflow,9 tadan axe holati,53 Rust/13 frontend/3 locale per-OS checks va desktop build bilan o'tdi. Project A lifecycle B master PID/shared PG'ni saqladi; tray/Quit, forced-crash cleanup/hot recovery va reopen tasdiqlandi. Hosted Mac viewport cap aniq qayd etildi; native credential/optional external apps/minimum OS/signing M6 gate'lari alohida.

@@ -217,3 +217,10 @@ va actual source/job/artifact dalillarida saqlandi. Uch targetda ichki acceptanc
 o'tdi; signed public distribution, minimum OS, native credential/system-dialog
 va licensing gate'lari tasdiqlangan deb belgilanmadi. Foydalanuvchi bu turn'da
 GitHub Release/public publish yoki yangi license grant topshirmagan.
+
+## Windows tester uchun paket va qo'llanma
+
+Foydalanuvchi: «windows uchun build qilib ber testrovshikga tashlayman foydalanish
+uchun yo'riqnoma ham htmlda o'zbek tilida». Mavjud verified installer product
+source'i o'zgarmagani tekshirilib, tester uchun ZIP va o'zbekcha HTML qo'llanma
+tayyorlandi. Testerga bevosita xabar/fayl yuborish yoki public release qilinmadi.
