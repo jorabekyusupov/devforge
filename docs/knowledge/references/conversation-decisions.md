@@ -211,3 +211,9 @@ ko'rsatmasi saqlanadi; M6 installer/release scope'iga o'tilmaydi.
 2026-11-12 foydalanuvchi: «M6 bosiqchga ot». Amaldagi MVP rejasi bo'yicha
 ichki paketlash, prerequisite, ownership cleanup va qabul dalillari bajariladi.
 Oldingi bosqichlardagi test/OKF/push talabi saqlanadi; public release topshirilmadi.
+
+M6 implementatsiya xulosasi [paketlash va qabul natijalari](../m6-distribution-results.md)
+va actual source/job/artifact dalillarida saqlandi. Uch targetda ichki acceptance
+o'tdi; signed public distribution, minimum OS, native credential/system-dialog
+va licensing gate'lari tasdiqlangan deb belgilanmadi. Foydalanuvchi bu turn'da
+GitHub Release/public publish yoki yangi license grant topshirmagan.

@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "channel": "internal-unsigned",
+  "target": "aarch64-apple-darwin",
+  "public_release_allowed": false,
+  "commit": "e03eb0cb39f70b5887cea04abc74e94254016294",
+  "dirty_at_build": true,
+  "artifacts": [
+    {
+      "path": "target/release/bundle/dmg/DevForge_0.1.0_aarch64.dmg",
+      "sha256": "3efb773807ec61f5b818c5617ee73a4765534e344a257c9a8e1312e01f688f18",
+      "bytes": 13523889
+    }
+  ]
+}

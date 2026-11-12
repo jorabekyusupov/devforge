@@ -1,0 +1,469 @@
+{
+  "schema": 1,
+  "desktop_version": "0.1.0",
+  "channel": "internal-unsigned",
+  "public_release_ready": false,
+  "native_locale_combinations_verified": 9,
+  "same_version_reinstall_only": true,
+  "cross_version_migration_verified": false,
+  "targets": {
+    "macos-arm64": {
+      "os": "macOS-15.8.2-arm64-arm-64bit-Mach-O",
+      "source_commit": "e03eb0cb39f70b5887cea04abc74e94254016294",
+      "run_id": 43162493214,
+      "job_id": 130996693536,
+      "artifact_id": 13918739231,
+      "artifact_hash_verified": true,
+      "locales": [
+        "ru",
+        "uz-Latn",
+        "en"
+      ],
+      "preserved_existing_project_db_files": 2138,
+      "acceptance_checks": {
+        "permission_denied_target_then_retry": true,
+        "first_install": true,
+        "running_app_blocks_uninstall": "CLI preflight blocks; Finder Trash cannot execute app hooks",
+        "three_locales_release_native_shell": true,
+        "second_launch_keeps_original_process": true,
+        "same_version_reinstall_preserves_project_db": true,
+        "uninstall_preserves_project_db": true,
+        "reinstall_after_uninstall": true,
+        "default_data_roots_preserved": "Finder removes only the isolated app bundle"
+      },
+      "axe_cases": 9,
+      "axe_violations": 0,
+      "second_launch_restores_same_process": true,
+      "release_main_process_measurements": [
+        {
+          "app_version": "0.1.0",
+          "locale": "ru",
+          "measurement": "localized_shell_after_bootstrap_and_two_animation_frames",
+          "native_ui_synced": true,
+          "pid": 16392,
+          "release": true,
+          "schema": 1,
+          "shell_ready_ms": 4209.245583000001,
+          "parent_wall_ms": 4324.390083000026,
+          "idle_main_cpu_percent_one_core": 0.3898880361470293,
+          "idle_main_rss_bytes": 73793536,
+          "idle_sample_seconds": 5
+        },
+        {
+          "app_version": "0.1.0",
+          "locale": "uz-Latn",
+          "measurement": "localized_shell_after_bootstrap_and_two_animation_frames",
+          "native_ui_synced": true,
+          "pid": 16614,
+          "release": true,
+          "schema": 1,
+          "shell_ready_ms": 2016.4513749999999,
+          "parent_wall_ms": 2123.569875000044,
+          "idle_main_cpu_percent_one_core": 0.3906162009886162,
+          "idle_main_rss_bytes": 78512128,
+          "idle_sample_seconds": 5
+        },
+        {
+          "app_version": "0.1.0",
+          "locale": "en",
+          "measurement": "localized_shell_after_bootstrap_and_two_animation_frames",
+          "native_ui_synced": true,
+          "pid": 16842,
+          "release": true,
+          "schema": 1,
+          "shell_ready_ms": 1974.6511249999999,
+          "parent_wall_ms": 2054.9555840000266,
+          "idle_main_cpu_percent_one_core": 0.5922454734553155,
+          "idle_main_rss_bytes": 78970880,
+          "idle_sample_seconds": 5
+        }
+      ],
+      "debug_native_frame_measurements": [
+        {
+          "duration_ms": 7082,
+          "frames": 422,
+          "max_frame_gap_ms": 48,
+          "mean_frame_gap_ms": 16.755924170616115,
+          "workload": "real_composer_download_verify_install",
+          "build": "debug_e2e",
+          "scope": "native frontend frame intervals; not input-to-paint latency"
+        },
+        {
+          "duration_ms": 17833,
+          "frames": 1068,
+          "max_frame_gap_ms": 47,
+          "mean_frame_gap_ms": 16.694756554307116,
+          "workload": "2000_lines_real_laravel_queue_stdout",
+          "build": "debug_e2e",
+          "scope": "native frontend frame intervals; not input-to-paint latency"
+        },
+        {
+          "duration_ms": 3771,
+          "frames": 226,
+          "max_frame_gap_ms": 25,
+          "mean_frame_gap_ms": 16.65929203539823,
+          "workload": "100_laravel_requests_with_services_log_viewer",
+          "build": "debug_e2e",
+          "scope": "native frontend frame intervals; not input-to-paint latency"
+        }
+      ],
+      "runtime_packages": {
+        "php-8.4.27-cli-macos-arm64": {
+          "kind": "php",
+          "version": "8.4.27",
+          "variant": "cli"
+        },
+        "php-8.4.27-fpm-macos-arm64": {
+          "kind": "php",
+          "version": "8.4.27",
+          "variant": "fpm"
+        },
+        "php-8.5.12-cli-macos-arm64": {
+          "kind": "php",
+          "version": "8.5.12",
+          "variant": "cli"
+        },
+        "php-8.5.12-fpm-macos-arm64": {
+          "kind": "php",
+          "version": "8.5.12",
+          "variant": "fpm"
+        },
+        "node-v22.23.4-macos-arm64": {
+          "kind": "node",
+          "version": "v22.23.4",
+          "variant": "default"
+        },
+        "node-v24.22.2-macos-arm64": {
+          "kind": "node",
+          "version": "v24.22.2",
+          "variant": "default"
+        },
+        "caddy-v2.11.9-macos-arm64": {
+          "kind": "caddy",
+          "version": "v2.11.9",
+          "variant": "default"
+        },
+        "postgresql-18.6.0-macos-arm64": {
+          "kind": "postgresql",
+          "version": "18.6.0",
+          "variant": "default"
+        },
+        "postgresql-18.6.0-macos-arm64-server": {
+          "kind": "postgresql",
+          "version": "18.6.0",
+          "variant": "server"
+        },
+        "composer-2.11.2-macos-arm64": {
+          "kind": "composer",
+          "version": "2.11.2",
+          "variant": "phar"
+        }
+      }
+    },
+    "macos-x64": {
+      "os": "macOS-15.7.9-x86_64-i386-64bit-Mach-O",
+      "source_commit": "e03eb0cb39f70b5887cea04abc74e94254016294",
+      "run_id": 43162493214,
+      "job_id": 130996693351,
+      "artifact_id": 13920261577,
+      "artifact_hash_verified": true,
+      "locales": [
+        "ru",
+        "uz-Latn",
+        "en"
+      ],
+      "preserved_existing_project_db_files": 2138,
+      "acceptance_checks": {
+        "permission_denied_target_then_retry": true,
+        "first_install": true,
+        "running_app_blocks_uninstall": "CLI preflight blocks; Finder Trash cannot execute app hooks",
+        "three_locales_release_native_shell": true,
+        "second_launch_keeps_original_process": true,
+        "same_version_reinstall_preserves_project_db": true,
+        "uninstall_preserves_project_db": true,
+        "reinstall_after_uninstall": true,
+        "default_data_roots_preserved": "Finder removes only the isolated app bundle"
+      },
+      "axe_cases": 9,
+      "axe_violations": 0,
+      "second_launch_restores_same_process": true,
+      "release_main_process_measurements": [
+        {
+          "app_version": "0.1.0",
+          "locale": "ru",
+          "measurement": "localized_shell_after_bootstrap_and_two_animation_frames",
+          "native_ui_synced": true,
+          "pid": 24238,
+          "release": true,
+          "schema": 1,
+          "shell_ready_ms": 5581.754997,
+          "parent_wall_ms": 5697.887453000021,
+          "idle_main_cpu_percent_one_core": 0.7780939718250829,
+          "idle_main_rss_bytes": 52072448,
+          "idle_sample_seconds": 5
+        },
+        {
+          "app_version": "0.1.0",
+          "locale": "uz-Latn",
+          "measurement": "localized_shell_after_bootstrap_and_two_animation_frames",
+          "native_ui_synced": true,
+          "pid": 24519,
+          "release": true,
+          "schema": 1,
+          "shell_ready_ms": 919.8413989999999,
+          "parent_wall_ms": 994.2112950000137,
+          "idle_main_cpu_percent_one_core": 1.1873763802290134,
+          "idle_main_rss_bytes": 52269056,
+          "idle_sample_seconds": 5
+        },
+        {
+          "app_version": "0.1.0",
+          "locale": "en",
+          "measurement": "localized_shell_after_bootstrap_and_two_animation_frames",
+          "native_ui_synced": true,
+          "pid": 24675,
+          "release": true,
+          "schema": 1,
+          "shell_ready_ms": 976.2342170000001,
+          "parent_wall_ms": 1114.6968179998566,
+          "idle_main_cpu_percent_one_core": 0.978680344002697,
+          "idle_main_rss_bytes": 52068352,
+          "idle_sample_seconds": 5
+        }
+      ],
+      "debug_native_frame_measurements": [
+        {
+          "duration_ms": 28513,
+          "frames": 879,
+          "max_frame_gap_ms": 122,
+          "mean_frame_gap_ms": 32.40386803185438,
+          "workload": "real_composer_download_verify_install",
+          "build": "debug_e2e",
+          "scope": "native frontend frame intervals; not input-to-paint latency"
+        },
+        {
+          "duration_ms": 14908,
+          "frames": 451,
+          "max_frame_gap_ms": 48,
+          "mean_frame_gap_ms": 32.988913525498894,
+          "workload": "2000_lines_real_laravel_queue_stdout",
+          "build": "debug_e2e",
+          "scope": "native frontend frame intervals; not input-to-paint latency"
+        },
+        {
+          "duration_ms": 4752,
+          "frames": 145,
+          "max_frame_gap_ms": 49,
+          "mean_frame_gap_ms": 32.56551724137931,
+          "workload": "100_laravel_requests_with_services_log_viewer",
+          "build": "debug_e2e",
+          "scope": "native frontend frame intervals; not input-to-paint latency"
+        }
+      ],
+      "runtime_packages": {
+        "node-v22.23.4-macos-x64": {
+          "kind": "node",
+          "version": "v22.23.4",
+          "variant": "default"
+        },
+        "node-v24.22.2-macos-x64": {
+          "kind": "node",
+          "version": "v24.22.2",
+          "variant": "default"
+        },
+        "caddy-v2.11.9-macos-x64": {
+          "kind": "caddy",
+          "version": "v2.11.9",
+          "variant": "default"
+        },
+        "php-8.4.27-cli-macos-x64": {
+          "kind": "php",
+          "version": "8.4.27",
+          "variant": "cli"
+        },
+        "php-8.4.27-fpm-macos-x64": {
+          "kind": "php",
+          "version": "8.4.27",
+          "variant": "fpm"
+        },
+        "php-8.5.12-cli-macos-x64": {
+          "kind": "php",
+          "version": "8.5.12",
+          "variant": "cli"
+        },
+        "php-8.5.12-fpm-macos-x64": {
+          "kind": "php",
+          "version": "8.5.12",
+          "variant": "fpm"
+        },
+        "postgresql-18.6.0-macos-x64": {
+          "kind": "postgresql",
+          "version": "18.6.0",
+          "variant": "default"
+        },
+        "postgresql-18.6.0-macos-x64-server": {
+          "kind": "postgresql",
+          "version": "18.6.0",
+          "variant": "server"
+        },
+        "composer-2.11.2-macos-x64": {
+          "kind": "composer",
+          "version": "2.11.2",
+          "variant": "phar"
+        }
+      }
+    },
+    "windows-x64": {
+      "os": "Windows-2025Server-10.0.26100-SP0",
+      "source_commit": "6876c956f03fdb052c7cccd3b6803a81698b5ab1",
+      "run_id": 43167220218,
+      "job_id": 131011792557,
+      "artifact_id": 13921392476,
+      "artifact_hash_verified": true,
+      "locales": [
+        "ru",
+        "uz-Latn",
+        "en"
+      ],
+      "preserved_existing_project_db_files": 2137,
+      "acceptance_checks": {
+        "permission_denied_target_then_retry": true,
+        "first_install": true,
+        "running_app_blocks_uninstall": true,
+        "three_locales_release_native_shell": true,
+        "second_launch_keeps_original_process": true,
+        "same_version_reinstall_preserves_project_db": true,
+        "uninstall_preserves_project_db": true,
+        "reinstall_after_uninstall": true,
+        "default_data_roots_preserved": true
+      },
+      "axe_cases": 9,
+      "axe_violations": 0,
+      "second_launch_restores_same_process": true,
+      "release_main_process_measurements": [
+        {
+          "app_version": "0.1.0",
+          "locale": "ru",
+          "measurement": "localized_shell_after_bootstrap_and_two_animation_frames",
+          "native_ui_synced": true,
+          "pid": 9668,
+          "release": true,
+          "schema": 1,
+          "shell_ready_ms": 2812.9369,
+          "parent_wall_ms": 2926.5309999999545,
+          "idle_main_cpu_percent_one_core": 0.0,
+          "idle_main_rss_bytes": 36458496,
+          "idle_sample_seconds": 5
+        },
+        {
+          "app_version": "0.1.0",
+          "locale": "uz-Latn",
+          "measurement": "localized_shell_after_bootstrap_and_two_animation_frames",
+          "native_ui_synced": true,
+          "pid": 8100,
+          "release": true,
+          "schema": 1,
+          "shell_ready_ms": 581.688,
+          "parent_wall_ms": 633.6446000000251,
+          "idle_main_cpu_percent_one_core": 0.0,
+          "idle_main_rss_bytes": 35758080,
+          "idle_sample_seconds": 5
+        },
+        {
+          "app_version": "0.1.0",
+          "locale": "en",
+          "measurement": "localized_shell_after_bootstrap_and_two_animation_frames",
+          "native_ui_synced": true,
+          "pid": 6512,
+          "release": true,
+          "schema": 1,
+          "shell_ready_ms": 489.9391,
+          "parent_wall_ms": 517.792600000007,
+          "idle_main_cpu_percent_one_core": 0.0,
+          "idle_main_rss_bytes": 35745792,
+          "idle_sample_seconds": 5
+        }
+      ],
+      "debug_native_frame_measurements": [
+        {
+          "duration_ms": 5883.899999999907,
+          "frames": 376,
+          "max_frame_gap_ms": 15.700000000000728,
+          "mean_frame_gap_ms": 15.625,
+          "workload": "real_composer_download_verify_install",
+          "build": "debug_e2e",
+          "scope": "native frontend frame intervals; not input-to-paint latency"
+        },
+        {
+          "duration_ms": 3436.6999999999534,
+          "frames": 220,
+          "max_frame_gap_ms": 15.700000000011642,
+          "mean_frame_gap_ms": 15.58590909090847,
+          "workload": "2000_lines_real_laravel_queue_stdout",
+          "build": "debug_e2e",
+          "scope": "native frontend frame intervals; not input-to-paint latency"
+        },
+        {
+          "duration_ms": 6477.300000000047,
+          "frames": 414,
+          "max_frame_gap_ms": 15.799999999988358,
+          "mean_frame_gap_ms": 15.624879227053134,
+          "workload": "100_laravel_requests_with_services_log_viewer",
+          "build": "debug_e2e",
+          "scope": "native frontend frame intervals; not input-to-paint latency"
+        }
+      ],
+      "runtime_packages": {
+        "node-v22.23.4-windows-x64": {
+          "kind": "node",
+          "version": "v22.23.4",
+          "variant": "default"
+        },
+        "node-v24.22.2-windows-x64": {
+          "kind": "node",
+          "version": "v24.22.2",
+          "variant": "default"
+        },
+        "caddy-v2.11.9-windows-x64": {
+          "kind": "caddy",
+          "version": "v2.11.9",
+          "variant": "default"
+        },
+        "php-8.4.27-1-windows-x64": {
+          "kind": "php",
+          "version": "8.4.27-1",
+          "variant": "default"
+        },
+        "php-8.5.12-1-windows-x64": {
+          "kind": "php",
+          "version": "8.5.12-1",
+          "variant": "default"
+        },
+        "postgresql-18.6.0-windows-x64": {
+          "kind": "postgresql",
+          "version": "18.6.0",
+          "variant": "default"
+        },
+        "postgresql-18.6.0-windows-x64-server": {
+          "kind": "postgresql",
+          "version": "18.6.0",
+          "variant": "server"
+        },
+        "composer-2.11.2-windows-x64": {
+          "kind": "composer",
+          "version": "2.11.2",
+          "variant": "phar"
+        }
+      }
+    }
+  },
+  "open_gates": [
+    "Developer ID and notarization",
+    "Windows Authenticode",
+    "minimum macOS13.5 and Windows11 desktop native acceptance",
+    "prerequisite absent/network-failure and interrupted-install cases",
+    "native credential/system-dialog and optional editor/file-picker acceptance",
+    "Mac inactive trust metadata physical removal",
+    "project distribution license and full dependency/provider redistribution review"
+  ]
+}

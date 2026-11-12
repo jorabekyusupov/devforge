@@ -1,0 +1,64 @@
+{
+  "macos": {
+    "job_id": 130985092973,
+    "reports": [
+      {
+        "phase": "before",
+        "applied": false,
+        "data_preserved": true,
+        "elevation_required": true,
+        "macos_nontrusting_metadata_may_remain": true,
+        "plans": [
+          {
+            "digest": "7582af0e670a8216d0916f4cc677880d89cb2571e2c816dde9736e3682034a28",
+            "plan": "/Users/runner/work/devforge/devforge/m4-private-fixture/m6-cleanup-before/cleanup-0.json"
+          },
+          {
+            "digest": "1d0700c0b54d702e5a1c82f63852c894453f12f190a05a23003340b682c69511",
+            "plan": "/Users/runner/work/devforge/devforge/m4-private-fixture/m6-cleanup-before/cleanup-1.json"
+          }
+        ]
+      },
+      {
+        "phase": "after",
+        "applied": false,
+        "data_preserved": true,
+        "elevation_required": false,
+        "macos_nontrusting_metadata_may_remain": true,
+        "plans": []
+      }
+    ],
+    "restored": true
+  },
+  "windows": {
+    "job_id": 130985093220,
+    "reports": [
+      {
+        "phase": "before",
+        "applied": false,
+        "data_preserved": true,
+        "elevation_required": true,
+        "macos_nontrusting_metadata_may_remain": false,
+        "plans": [
+          {
+            "digest": "a51ed4d57e7921218b16b302a221ba8db879098f0f6857bbfc14bd22d110894a",
+            "plan": "D:\\a\\devforge\\devforge\\m4-private-fixture\\m6-cleanup-before\\cleanup-0.json"
+          },
+          {
+            "digest": "ebc97b24d063336a42e5fa5213ceda1033d2e791c43da58c9561dbaed26e73a5",
+            "plan": "D:\\a\\devforge\\devforge\\m4-private-fixture\\m6-cleanup-before\\cleanup-1.json"
+          }
+        ]
+      },
+      {
+        "phase": "after",
+        "applied": false,
+        "data_preserved": true,
+        "elevation_required": false,
+        "macos_nontrusting_metadata_may_remain": false,
+        "plans": []
+      }
+    ],
+    "restored": true
+  }
+}

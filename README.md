@@ -278,3 +278,11 @@ catalog-backed in Russian, Uzbek and English.
 Native acceptance uses an optional debug-only embedded WebDriver and an isolated
 filesystem SecretStore fixture. Production builds have no test HTTP endpoint or
 fixture credential adapter. See [M5 results](docs/knowledge/m5-daily-workspace-results.md).
+
+## M6 internal desktop distribution
+
+See [packaging and removal](distribution/README.md) for the release build command,
+DMG/NSIS artifacts, required OS components, data-preserving uninstall and explicit
+owned hosts/CA cleanup plans. Packages are internal unsigned/ad-hoc builds; public
+release and automatic application updates are not enabled. Actual target evidence
+and remaining gates are tracked in [M6 results](docs/knowledge/m6-distribution-results.md).

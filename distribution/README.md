@@ -23,8 +23,8 @@ and completed dependency/provider licensing review; an inventory is not that rev
 
 ## Removal and ownership
 
-Quit through the tray first. Windows uninstall blocks while the desktop lease is
-held. Projects, database clusters, selections, credentials and preferences are
+Quit through the tray first. A second launch restores the existing desktop window; it does not execute the forwarded arguments or start another supervisor. Windows uninstall blocks while the desktop lease is
+held, or a DevForge CLI/terminal session is active. Projects, database clusters, selections, credentials and preferences are
 retained. The NSIS template has **no data-deletion checkbox or recursive app-data
 removal**. App replacement likewise preserves data and runtime versions.
 
@@ -52,8 +52,8 @@ HTTP endpoint; the caller chooses the output path, which must not already exist.
 `windows/installer.nsi` is derived from Tauri `tauri-cli-v2.12.4`, commit
 `993038c49185307dfc895ab7657d77ca0d5ed7c7`, under MIT OR Apache-2.0:
 https://github.com/tauri-apps/tauri/blob/tauri-cli-v2.12.4/crates/tauri-bundler/src/bundle/windows/nsis/installer.nsi
-Only the uninstall data checkbox/callbacks and associated deletion block are
-removed. Preserve these differences when synchronizing the template. Upstream
+The uninstall data checkbox/callbacks and associated deletion block are
+removed; silent target validation runs before file installation, and .onInstFailed preserves a nonzero failure status. Preserve these differences when synchronizing the template. Upstream
 license texts are retained alongside it. Uzbek Tauri-specific installer messages
 are maintained locally; English/Russian and NSIS standard translations come from
 the bundled installer toolchain. The language selector covers all three locales.

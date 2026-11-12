@@ -1,0 +1,47 @@
+[
+  {
+    "run": 43157814253,
+    "status": "cancelled",
+    "reason": "Superseded by GUI/CLI shared lifecycle guards."
+  },
+  {
+    "run": 43158370559,
+    "status": "superseded",
+    "reason": "Offline inventory needed target-specific desktop dependency fetch first."
+  },
+  {
+    "run": 43158374175,
+    "status": "failure",
+    "reason": "CI replayed a legacy stale hosts plan after new cleanup succeeded; exact restoration still verified. Fixed workflow43158869462 passed both OS."
+  },
+  {
+    "run": 43159377671,
+    "status": "superseded",
+    "reason": "Windows metadata decoded through cp1252; explicit UTF-8 and regression test added."
+  },
+  {
+    "run": 43161160448,
+    "status": "mixed",
+    "reason": "Earlier Mac builds passed; Windows denied-target validation returned0 with no files. Superseded by single-instance app and early directory preflight."
+  },
+  {
+    "run": 43162493214,
+    "status": "mixed",
+    "reason": "Final e03eb0c Mac ARM64/Intel jobs passed. Windows denied-target early exit remained before directory preflight."
+  },
+  {
+    "run": 43163949504,
+    "status": "failure",
+    "reason": "c3f932c still returned0 before install section. Early silent-target validation moved to .onInit in6876c95."
+  },
+  {
+    "run": 43166549496,
+    "status": "cancelled",
+    "reason": "Observed dispatch main resolved c3f932c although remote main was6876c95; actual head checked and run cancelled."
+  },
+  {
+    "run": 43167220218,
+    "status": "success",
+    "reason": "Frozen ci/m6-windows-6876c95 ref matched expected6876c95. Denied target exit5/no folder, all installer and native GUI acceptance passed."
+  }
+]

@@ -1,0 +1,94 @@
+{
+  "schema": 1,
+  "os": "macOS-27.2.1-arm64-arm-64bit",
+  "architecture": "arm64",
+  "channel": "internal-unsigned",
+  "signing_verified": false,
+  "cold_start_definition": "first process launch per locale after preference seed; OS disk caches are not flushed",
+  "memory_scope": "desktop main process RSS/working set only; WebView helpers and managed runtimes excluded",
+  "measurements": [
+    {
+      "app_version": "0.1.0",
+      "locale": "ru",
+      "measurement": "localized_shell_after_bootstrap_and_two_animation_frames",
+      "native_ui_synced": true,
+      "pid": 60425,
+      "release": true,
+      "schema": 1,
+      "shell_ready_ms": 2778.2027089999997,
+      "parent_wall_ms": 2807.1994159999995,
+      "idle_main_cpu_percent_one_core": 0.19959488226746194,
+      "idle_main_rss_bytes": 96747520,
+      "idle_sample_seconds": 5
+    },
+    {
+      "app_version": "0.1.0",
+      "locale": "uz-Latn",
+      "measurement": "localized_shell_after_bootstrap_and_two_animation_frames",
+      "native_ui_synced": true,
+      "pid": 60507,
+      "release": true,
+      "schema": 1,
+      "shell_ready_ms": 510.07879099999997,
+      "parent_wall_ms": 527.3400409999987,
+      "idle_main_cpu_percent_one_core": 0.1995220880545498,
+      "idle_main_rss_bytes": 104595456,
+      "idle_sample_seconds": 5
+    },
+    {
+      "app_version": "0.1.0",
+      "locale": "en",
+      "measurement": "localized_shell_after_bootstrap_and_two_animation_frames",
+      "native_ui_synced": true,
+      "pid": 60570,
+      "release": true,
+      "schema": 1,
+      "shell_ready_ms": 473.62737500000003,
+      "parent_wall_ms": 515.1492500000004,
+      "idle_main_cpu_percent_one_core": 0.1994729807356746,
+      "idle_main_rss_bytes": 116097024,
+      "idle_sample_seconds": 5
+    }
+  ],
+  "checks": {
+    "permission_denied_target_then_retry": true,
+    "first_install": true,
+    "running_app_blocks_uninstall": "CLI preflight blocks; Finder Trash cannot execute app hooks",
+    "three_locales_release_native_shell": true,
+    "second_launch_keeps_original_process": true,
+    "same_version_reinstall_preserves_project_db": true,
+    "uninstall_preserves_project_db": true,
+    "reinstall_after_uninstall": true,
+    "default_data_roots_preserved": "Finder removes only the isolated app bundle"
+  },
+  "hardware": {
+    "cpu": "Apple M4",
+    "logical_cpus": 10,
+    "physical_memory_bytes": 17179869184
+  },
+  "package_manifest": {
+    "schema": 1,
+    "channel": "internal-unsigned",
+    "target": "aarch64-apple-darwin",
+    "public_release_allowed": false,
+    "commit": "e03eb0cb39f70b5887cea04abc74e94254016294",
+    "dirty_at_build": true,
+    "artifacts": [
+      {
+        "path": "target/release/bundle/dmg/DevForge_0.1.0_aarch64.dmg",
+        "sha256": "3efb773807ec61f5b818c5617ee73a4765534e344a257c9a8e1312e01f688f18",
+        "bytes": 13523889
+      }
+    ]
+  },
+  "administrator_enabled": false,
+  "prerequisites": {
+    "target": "macos-aarch64",
+    "os_version": "27.2.1",
+    "os_supported": true,
+    "webview": "system_wkwebview",
+    "vc_runtime": null,
+    "vc_runtime_help": null
+  },
+  "preserved_existing_project_db_files": 4703
+}

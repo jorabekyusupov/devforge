@@ -1,0 +1,320 @@
+{
+  "schema": 1,
+  "job_id": 131011792557,
+  "run_id": 43167220218,
+  "artifact_id": 13921392476,
+  "source_commit": "6876c956f03fdb052c7cccd3b6803a81698b5ab1",
+  "zip_digest_verified": true,
+  "package": {
+    "schema": 1,
+    "channel": "internal-unsigned",
+    "target": "x86_64-pc-windows-msvc",
+    "public_release_allowed": false,
+    "commit": "6876c956f03fdb052c7cccd3b6803a81698b5ab1",
+    "dirty_at_build": false,
+    "artifacts": [
+      {
+        "path": "target\\release\\bundle\\nsis\\DevForge_0.1.0_x64-setup.exe",
+        "sha256": "04eb6099b884ec5db77a043f090d37c2b82855d2abfde0643e35b684260cd428",
+        "bytes": 9513747
+      }
+    ]
+  },
+  "acceptance": {
+    "schema": 1,
+    "os": "Windows-2025Server-10.0.26100-SP0",
+    "architecture": "AMD64",
+    "channel": "internal-unsigned",
+    "signing_verified": false,
+    "cold_start_definition": "first process launch per locale after preference seed; OS disk caches are not flushed",
+    "memory_scope": "desktop main process RSS/working set only; WebView helpers and managed runtimes excluded",
+    "measurements": [
+      {
+        "app_version": "0.1.0",
+        "locale": "ru",
+        "measurement": "localized_shell_after_bootstrap_and_two_animation_frames",
+        "native_ui_synced": true,
+        "pid": 9668,
+        "release": true,
+        "schema": 1,
+        "shell_ready_ms": 2812.9369,
+        "parent_wall_ms": 2926.5309999999545,
+        "idle_main_cpu_percent_one_core": 0.0,
+        "idle_main_rss_bytes": 36458496,
+        "idle_sample_seconds": 5
+      },
+      {
+        "app_version": "0.1.0",
+        "locale": "uz-Latn",
+        "measurement": "localized_shell_after_bootstrap_and_two_animation_frames",
+        "native_ui_synced": true,
+        "pid": 8100,
+        "release": true,
+        "schema": 1,
+        "shell_ready_ms": 581.688,
+        "parent_wall_ms": 633.6446000000251,
+        "idle_main_cpu_percent_one_core": 0.0,
+        "idle_main_rss_bytes": 35758080,
+        "idle_sample_seconds": 5
+      },
+      {
+        "app_version": "0.1.0",
+        "locale": "en",
+        "measurement": "localized_shell_after_bootstrap_and_two_animation_frames",
+        "native_ui_synced": true,
+        "pid": 6512,
+        "release": true,
+        "schema": 1,
+        "shell_ready_ms": 489.9391,
+        "parent_wall_ms": 517.792600000007,
+        "idle_main_cpu_percent_one_core": 0.0,
+        "idle_main_rss_bytes": 35745792,
+        "idle_sample_seconds": 5
+      }
+    ],
+    "checks": {
+      "permission_denied_target_then_retry": true,
+      "first_install": true,
+      "running_app_blocks_uninstall": true,
+      "three_locales_release_native_shell": true,
+      "second_launch_keeps_original_process": true,
+      "same_version_reinstall_preserves_project_db": true,
+      "uninstall_preserves_project_db": true,
+      "reinstall_after_uninstall": true,
+      "default_data_roots_preserved": true
+    },
+    "hardware": {
+      "cpu": "Intel64 Family 6 Model 207 Stepping 2, GenuineIntel",
+      "logical_cpus": 4,
+      "physical_memory_bytes": 17174360064
+    },
+    "package_manifest": {
+      "schema": 1,
+      "channel": "internal-unsigned",
+      "target": "x86_64-pc-windows-msvc",
+      "public_release_allowed": false,
+      "commit": "6876c956f03fdb052c7cccd3b6803a81698b5ab1",
+      "dirty_at_build": false,
+      "artifacts": [
+        {
+          "path": "target\\release\\bundle\\nsis\\DevForge_0.1.0_x64-setup.exe",
+          "sha256": "04eb6099b884ec5db77a043f090d37c2b82855d2abfde0643e35b684260cd428",
+          "bytes": 9513747
+        }
+      ]
+    },
+    "administrator_enabled": false,
+    "denied_target": {
+      "return_code": 5,
+      "directory_exists": false
+    },
+    "prerequisites": {
+      "target": "windows-x86_64",
+      "os_version": "26100",
+      "os_supported": true,
+      "webview": "installer_detects_evergreen_webview2",
+      "vc_runtime": true,
+      "vc_runtime_help": "https://learn.microsoft.com/cpp/windows/latest-supported-vc-redist"
+    },
+    "preserved_existing_project_db_files": 2137
+  },
+  "desktop": {
+    "performance": [
+      {
+        "duration_ms": 5883.899999999907,
+        "frames": 376,
+        "max_frame_gap_ms": 15.700000000000728,
+        "mean_frame_gap_ms": 15.625,
+        "workload": "real_composer_download_verify_install",
+        "build": "debug_e2e",
+        "scope": "native frontend frame intervals; not input-to-paint latency"
+      },
+      {
+        "duration_ms": 3436.6999999999534,
+        "frames": 220,
+        "max_frame_gap_ms": 15.700000000011642,
+        "mean_frame_gap_ms": 15.58590909090847,
+        "workload": "2000_lines_real_laravel_queue_stdout",
+        "build": "debug_e2e",
+        "scope": "native frontend frame intervals; not input-to-paint latency"
+      },
+      {
+        "duration_ms": 6477.300000000047,
+        "frames": 414,
+        "max_frame_gap_ms": 15.799999999988358,
+        "mean_frame_gap_ms": 15.624879227053134,
+        "workload": "100_laravel_requests_with_services_log_viewer",
+        "build": "debug_e2e",
+        "scope": "native frontend frame intervals; not input-to-paint latency"
+      }
+    ],
+    "host": "nt",
+    "accessibility": [
+      {
+        "case": "import-error-dialog",
+        "violations": []
+      },
+      {
+        "case": "runtimes-light",
+        "violations": []
+      },
+      {
+        "case": "services-light",
+        "violations": []
+      },
+      {
+        "case": "projects-light",
+        "violations": []
+      },
+      {
+        "case": "projects-small-ru",
+        "violations": []
+      },
+      {
+        "case": "projects-small-uz-Latn",
+        "violations": []
+      },
+      {
+        "case": "projects-small-en",
+        "violations": []
+      },
+      {
+        "case": "projects-dark",
+        "violations": []
+      },
+      {
+        "case": "services-dark",
+        "violations": []
+      }
+    ],
+    "captures": [
+      {
+        "file": "runtimes-light.png",
+        "viewport": {
+          "height": 729,
+          "language": "en",
+          "scale": 1,
+          "theme": "light",
+          "width": 1028
+        }
+      },
+      {
+        "file": "services-light.png",
+        "viewport": {
+          "height": 729,
+          "language": "en",
+          "scale": 1,
+          "theme": "light",
+          "width": 1028
+        }
+      },
+      {
+        "file": "projects-light.png",
+        "viewport": {
+          "height": 1058,
+          "language": "en",
+          "scale": 1,
+          "theme": "light",
+          "width": 1487
+        }
+      },
+      {
+        "file": "projects-small-ru.png",
+        "viewport": {
+          "height": 561,
+          "language": "ru",
+          "scale": 1,
+          "theme": "light",
+          "width": 804
+        }
+      },
+      {
+        "file": "projects-small-uz-Latn.png",
+        "viewport": {
+          "height": 561,
+          "language": "uz-Latn",
+          "scale": 1,
+          "theme": "light",
+          "width": 804
+        }
+      },
+      {
+        "file": "projects-small-en.png",
+        "viewport": {
+          "height": 561,
+          "language": "en",
+          "scale": 1,
+          "theme": "light",
+          "width": 804
+        }
+      },
+      {
+        "file": "projects-dark.png",
+        "viewport": {
+          "height": 561,
+          "language": "en",
+          "scale": 1,
+          "theme": "dark",
+          "width": 804
+        }
+      },
+      {
+        "file": "services-dark.png",
+        "viewport": {
+          "height": 561,
+          "language": "en",
+          "scale": 1,
+          "theme": "dark",
+          "width": 804
+        }
+      }
+    ],
+    "viewport_attempts": [
+      {
+        "requested": {
+          "width": 1487,
+          "height": 1058
+        },
+        "actual": {
+          "height": 1058,
+          "width": 1487
+        },
+        "matched": true
+      }
+    ],
+    "real_native_webview": true,
+    "ipc_mocked": false,
+    "secret_store": "private filesystem E2E adapter; production uses OS credentials",
+    "import_error_recovery": true,
+    "parallel_projects_and_database": true,
+    "runtime_remove_install_via_ui": true,
+    "database_create_assign_via_ui": true,
+    "version_switch_preserves_B_pid": true,
+    "second_launch_restores_same_process": true,
+    "close_to_tray_preserves_services": true,
+    "ru_uz_en_and_dark_persistence": true,
+    "minimum_window_no_horizontal_overflow": true,
+    "logs_filtering_redacted": true,
+    "quit_stops_owned_services": true,
+    "forced_app_crash_cleanup_and_recovery": true,
+    "passed": true
+  },
+  "native": {
+    "host": {
+      "arch": "x86_64",
+      "os": "windows"
+    },
+    "logs_redacted": true,
+    "parallel_projects": true,
+    "passed": true,
+    "project_A_switch_preserves_B_worker_pid": true,
+    "project_stop_preserves_shared_database": true,
+    "real_queue_job_executed": true,
+    "real_vite_managed": true,
+    "reopen_preserves_bindings": true,
+    "separate_databases": true,
+    "shutdown_stops_owned_services": true,
+    "system_hosts_trust_unchanged": true
+  },
+  "installer_hashes_verified": true
+}

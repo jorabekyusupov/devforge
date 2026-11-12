@@ -249,7 +249,8 @@ Haqiqiy log, yo'l va loyiha nomi tarjima qilinmaydi; tushuntirish matnlari tarji
   unsigned ichki build ommaviy signed release emas.[^packaging]
 - Quyidagi qabul matritsasini to'liq o'tkazing; cold start, idle CPU/RAM,
   package install va log oqimidagi UI javobini o'lchang. M0/M1'da belgilangan
-  reference environment va budget'lar bilan solishtiring; hozir raqamli natija yo'q.
+  reference environment va mavjud budget'lar bilan solishtiring. M0/M1'da raqamli
+  budget tasdiqlanmagan; M6 boshlang'ich o'lchovlari baseline bo'ladi, SLA emas.
 - Knowledge'ni code/config/tests bilan solishtirib yakuniy bosqich xulosasi va
   ochiq gaplarni yozing; strict validator va tegishli build/testlarni o'tkazing.
 

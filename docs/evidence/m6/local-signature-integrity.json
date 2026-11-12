@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "app": "target/release/bundle/macos/DevForge.app",
+  "signed_with_developer_id": false,
+  "notarized": false,
+  "identity": "ad-hoc",
+  "notes": "Read-only codesign verification validates internal signature integrity, not Developer ID/notarization or Gatekeeper acceptance.",
+  "integrity_verified": true,
+  "source_commit": "e03eb0cb39f70b5887cea04abc74e94254016294"
+}

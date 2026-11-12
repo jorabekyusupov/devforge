@@ -1,0 +1,23 @@
+{
+  "macos-arm64": {
+    "job_id": 130996693536,
+    "distribution_contract_tests": 5,
+    "native_report": true,
+    "installer_report": true,
+    "gui_report": true
+  },
+  "macos-x64": {
+    "job_id": 130996693351,
+    "distribution_contract_tests": 5,
+    "native_report": true,
+    "installer_report": true,
+    "gui_report": true
+  },
+  "windows-x64": {
+    "job_id": 131011792557,
+    "distribution_contract_tests": 6,
+    "native_report": true,
+    "installer_report": true,
+    "gui_report": true
+  }
+}

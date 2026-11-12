@@ -1,0 +1,316 @@
+{
+  "schema": 1,
+  "job_id": 130996693351,
+  "run_id": 43162493214,
+  "artifact_id": 13920261577,
+  "source_commit": "e03eb0cb39f70b5887cea04abc74e94254016294",
+  "zip_digest_verified": true,
+  "package": {
+    "schema": 1,
+    "channel": "internal-unsigned",
+    "target": "x86_64-apple-darwin",
+    "public_release_allowed": false,
+    "commit": "e03eb0cb39f70b5887cea04abc74e94254016294",
+    "dirty_at_build": false,
+    "artifacts": [
+      {
+        "path": "target/release/bundle/dmg/DevForge_0.1.0_x64.dmg",
+        "sha256": "58c0b7c635378ce772b9c388fab30d67aadd89e22cd551aeef1ba49ef7353e72",
+        "bytes": 14784538
+      }
+    ]
+  },
+  "acceptance": {
+    "schema": 1,
+    "os": "macOS-15.7.9-x86_64-i386-64bit-Mach-O",
+    "architecture": "x86_64",
+    "channel": "internal-unsigned",
+    "signing_verified": false,
+    "cold_start_definition": "first process launch per locale after preference seed; OS disk caches are not flushed",
+    "memory_scope": "desktop main process RSS/working set only; WebView helpers and managed runtimes excluded",
+    "measurements": [
+      {
+        "app_version": "0.1.0",
+        "locale": "ru",
+        "measurement": "localized_shell_after_bootstrap_and_two_animation_frames",
+        "native_ui_synced": true,
+        "pid": 24238,
+        "release": true,
+        "schema": 1,
+        "shell_ready_ms": 5581.754997,
+        "parent_wall_ms": 5697.887453000021,
+        "idle_main_cpu_percent_one_core": 0.7780939718250829,
+        "idle_main_rss_bytes": 52072448,
+        "idle_sample_seconds": 5
+      },
+      {
+        "app_version": "0.1.0",
+        "locale": "uz-Latn",
+        "measurement": "localized_shell_after_bootstrap_and_two_animation_frames",
+        "native_ui_synced": true,
+        "pid": 24519,
+        "release": true,
+        "schema": 1,
+        "shell_ready_ms": 919.8413989999999,
+        "parent_wall_ms": 994.2112950000137,
+        "idle_main_cpu_percent_one_core": 1.1873763802290134,
+        "idle_main_rss_bytes": 52269056,
+        "idle_sample_seconds": 5
+      },
+      {
+        "app_version": "0.1.0",
+        "locale": "en",
+        "measurement": "localized_shell_after_bootstrap_and_two_animation_frames",
+        "native_ui_synced": true,
+        "pid": 24675,
+        "release": true,
+        "schema": 1,
+        "shell_ready_ms": 976.2342170000001,
+        "parent_wall_ms": 1114.6968179998566,
+        "idle_main_cpu_percent_one_core": 0.978680344002697,
+        "idle_main_rss_bytes": 52068352,
+        "idle_sample_seconds": 5
+      }
+    ],
+    "checks": {
+      "permission_denied_target_then_retry": true,
+      "first_install": true,
+      "running_app_blocks_uninstall": "CLI preflight blocks; Finder Trash cannot execute app hooks",
+      "three_locales_release_native_shell": true,
+      "second_launch_keeps_original_process": true,
+      "same_version_reinstall_preserves_project_db": true,
+      "uninstall_preserves_project_db": true,
+      "reinstall_after_uninstall": true,
+      "default_data_roots_preserved": "Finder removes only the isolated app bundle"
+    },
+    "hardware": {
+      "cpu": "Intel(R) Core(TM) i7-8700B CPU @ 3.20GHz",
+      "logical_cpus": 4,
+      "physical_memory_bytes": 15032385536
+    },
+    "package_manifest": {
+      "schema": 1,
+      "channel": "internal-unsigned",
+      "target": "x86_64-apple-darwin",
+      "public_release_allowed": false,
+      "commit": "e03eb0cb39f70b5887cea04abc74e94254016294",
+      "dirty_at_build": false,
+      "artifacts": [
+        {
+          "path": "target/release/bundle/dmg/DevForge_0.1.0_x64.dmg",
+          "sha256": "58c0b7c635378ce772b9c388fab30d67aadd89e22cd551aeef1ba49ef7353e72",
+          "bytes": 14784538
+        }
+      ]
+    },
+    "administrator_enabled": false,
+    "prerequisites": {
+      "target": "macos-x86_64",
+      "os_version": "15.7.9",
+      "os_supported": true,
+      "webview": "system_wkwebview",
+      "vc_runtime": null,
+      "vc_runtime_help": null
+    },
+    "preserved_existing_project_db_files": 2138
+  },
+  "desktop": {
+    "performance": [
+      {
+        "duration_ms": 28513,
+        "frames": 879,
+        "max_frame_gap_ms": 122,
+        "mean_frame_gap_ms": 32.40386803185438,
+        "workload": "real_composer_download_verify_install",
+        "build": "debug_e2e",
+        "scope": "native frontend frame intervals; not input-to-paint latency"
+      },
+      {
+        "duration_ms": 14908,
+        "frames": 451,
+        "max_frame_gap_ms": 48,
+        "mean_frame_gap_ms": 32.988913525498894,
+        "workload": "2000_lines_real_laravel_queue_stdout",
+        "build": "debug_e2e",
+        "scope": "native frontend frame intervals; not input-to-paint latency"
+      },
+      {
+        "duration_ms": 4752,
+        "frames": 145,
+        "max_frame_gap_ms": 49,
+        "mean_frame_gap_ms": 32.56551724137931,
+        "workload": "100_laravel_requests_with_services_log_viewer",
+        "build": "debug_e2e",
+        "scope": "native frontend frame intervals; not input-to-paint latency"
+      }
+    ],
+    "host": "posix",
+    "accessibility": [
+      {
+        "case": "import-error-dialog",
+        "violations": []
+      },
+      {
+        "case": "runtimes-light",
+        "violations": []
+      },
+      {
+        "case": "services-light",
+        "violations": []
+      },
+      {
+        "case": "projects-light",
+        "violations": []
+      },
+      {
+        "case": "projects-small-ru",
+        "violations": []
+      },
+      {
+        "case": "projects-small-uz-Latn",
+        "violations": []
+      },
+      {
+        "case": "projects-small-en",
+        "violations": []
+      },
+      {
+        "case": "projects-dark",
+        "violations": []
+      },
+      {
+        "case": "services-dark",
+        "violations": []
+      }
+    ],
+    "captures": [
+      {
+        "file": "runtimes-light.png",
+        "viewport": {
+          "height": 772,
+          "language": "en",
+          "scale": 1,
+          "theme": "light",
+          "width": 1180
+        }
+      },
+      {
+        "file": "services-light.png",
+        "viewport": {
+          "height": 772,
+          "language": "en",
+          "scale": 1,
+          "theme": "light",
+          "width": 1180
+        }
+      },
+      {
+        "file": "projects-light.png",
+        "viewport": {
+          "height": 942,
+          "language": "en",
+          "scale": 1,
+          "theme": "light",
+          "width": 1487
+        }
+      },
+      {
+        "file": "projects-small-ru.png",
+        "viewport": {
+          "height": 592,
+          "language": "ru",
+          "scale": 1,
+          "theme": "light",
+          "width": 820
+        }
+      },
+      {
+        "file": "projects-small-uz-Latn.png",
+        "viewport": {
+          "height": 592,
+          "language": "uz-Latn",
+          "scale": 1,
+          "theme": "light",
+          "width": 820
+        }
+      },
+      {
+        "file": "projects-small-en.png",
+        "viewport": {
+          "height": 592,
+          "language": "en",
+          "scale": 1,
+          "theme": "light",
+          "width": 820
+        }
+      },
+      {
+        "file": "projects-dark.png",
+        "viewport": {
+          "height": 592,
+          "language": "en",
+          "scale": 1,
+          "theme": "dark",
+          "width": 820
+        }
+      },
+      {
+        "file": "services-dark.png",
+        "viewport": {
+          "height": 592,
+          "language": "en",
+          "scale": 1,
+          "theme": "dark",
+          "width": 820
+        }
+      }
+    ],
+    "viewport_attempts": [
+      {
+        "requested": {
+          "width": 1487,
+          "height": 1058
+        },
+        "actual": {
+          "height": 942,
+          "width": 1487
+        },
+        "matched": false
+      }
+    ],
+    "real_native_webview": true,
+    "ipc_mocked": false,
+    "secret_store": "private filesystem E2E adapter; production uses OS credentials",
+    "import_error_recovery": true,
+    "parallel_projects_and_database": true,
+    "runtime_remove_install_via_ui": true,
+    "database_create_assign_via_ui": true,
+    "version_switch_preserves_B_pid": true,
+    "second_launch_restores_same_process": true,
+    "close_to_tray_preserves_services": true,
+    "ru_uz_en_and_dark_persistence": true,
+    "minimum_window_no_horizontal_overflow": true,
+    "logs_filtering_redacted": true,
+    "quit_stops_owned_services": true,
+    "forced_app_crash_cleanup_and_recovery": true,
+    "passed": true
+  },
+  "native": {
+    "host": {
+      "arch": "x86_64",
+      "os": "macos"
+    },
+    "logs_redacted": true,
+    "parallel_projects": true,
+    "passed": true,
+    "project_A_switch_preserves_B_worker_pid": true,
+    "project_stop_preserves_shared_database": true,
+    "real_queue_job_executed": true,
+    "real_vite_managed": true,
+    "reopen_preserves_bindings": true,
+    "separate_databases": true,
+    "shutdown_stops_owned_services": true,
+    "system_hosts_trust_unchanged": true
+  },
+  "installer_hashes_verified": true
+}

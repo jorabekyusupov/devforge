@@ -1,0 +1,6 @@
+{
+  "schema": 1,
+  "only_task_temporary_fixtures_removed": true,
+  "user_projects_removed": false,
+  "installer_data_preservation_verified_before_test_teardown": true
+}

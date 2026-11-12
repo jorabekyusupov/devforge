@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "command": "./scripts/with_rust.sh npm run tauri -- build --debug --no-bundle",
+  "completed": true,
+  "e2e_feature": false,
+  "profile": "debug",
+  "signed_public_release": false,
+  "product_source_commit": "e03eb0cb39f70b5887cea04abc74e94254016294",
+  "notes": "Local default-feature binary rebuilt after native GUI tests; no extra test run."
+}

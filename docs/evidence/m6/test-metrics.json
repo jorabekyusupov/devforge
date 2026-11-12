@@ -1,0 +1,22 @@
+{
+  "macos": {
+    "job_id": 130996687836,
+    "rust_passed": 56,
+    "rust_failed": 0,
+    "rust_ignored": 1,
+    "frontend_passed": 13,
+    "locale_regression_passed": 3,
+    "distribution_contracts_passed": 5,
+    "native_default_build": true
+  },
+  "windows": {
+    "job_id": 130996688052,
+    "rust_passed": 56,
+    "rust_failed": 0,
+    "rust_ignored": 1,
+    "frontend_passed": 13,
+    "locale_regression_passed": 3,
+    "distribution_contracts_passed": 5,
+    "native_default_build": true
+  }
+}

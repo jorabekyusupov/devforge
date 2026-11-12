@@ -47,6 +47,14 @@ sources:
     title: Rasmiy Windows PHP paketlari va prerequisite'lar
 ---
 
+# Keyingi bosqich dalili
+
+2026-11-12 M6'dagi native macOS15.7.9 Intel runner runtime/Laravel/PG/Vite/queue
+zanjiri, release DMG install/reinstall/uninstall va WKWebView ru/uz/en acceptance'ni
+o'tkazdi. Bu M0 x64/Rosetta va M1 tarixiy cheklovlarini qayta yozmaydi; native
+Intel uchun yangi dalil [M6 natijalari](m6-distribution-results.md) va uning job/
+artifact manbalarida. Minimum macOS13.5 hamda signed public release hali unverified.
+
 # Holat
 
 Bu M0 tarixiy snapshot'idir. Keyingi [M1 desktop natijalari](m1-foundation-results.md)
