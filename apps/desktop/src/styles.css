@@ -759,17 +759,7 @@ code {
     padding-inline-start: 1rem;
   }
 }
-@media (prefers-reduced-motion: no-preference) {
-  .nav-item,
-  .language-tile,
-  .theme-tile,
-  .button,
-  .refresh {
-    transition:
-      background-color 0.15s,
-      border-color 0.15s;
-  }
-}
+/* Theme foreground and surfaces change together, without contrast inversion. */
 /* M5 operational surfaces inherit the Settings system. */
 :root {
   --on-accent: #fff;
