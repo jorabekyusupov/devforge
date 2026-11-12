@@ -1,0 +1,37 @@
+{
+  "artifacts": [
+    {
+      "id": 13968554165,
+      "name": "m7-macos-arm64",
+      "run_id": 43271574916,
+      "source_commit": "55b9d2f57d468ceca4c7775e151b7452166aa341",
+      "digest": "sha256:ed43f9186811e21026ee64820ad42c2f4496d19016555e7f63165bc95e2ae134",
+      "size_in_bytes": 618532,
+      "sha256_verified": true,
+      "zip_entries_validated": true,
+      "artifact_reports_equal_job_log_reports": true
+    },
+    {
+      "id": 13971042708,
+      "name": "m7-macos-x64",
+      "run_id": 43271574916,
+      "source_commit": "55b9d2f57d468ceca4c7775e151b7452166aa341",
+      "digest": "sha256:7a0f8a50c4bbfabc913dae19ac0b40ab63765c49e6e4739c71dc21747e5362c3",
+      "size_in_bytes": 670091,
+      "sha256_verified": true,
+      "zip_entries_validated": true,
+      "artifact_reports_equal_job_log_reports": true
+    },
+    {
+      "id": 13971080036,
+      "name": "m7-windows-x64",
+      "run_id": 43273196588,
+      "source_commit": "e4f4b978a830cd88f5e33a5060c76a16ac6b5264",
+      "digest": "sha256:0ee67601008bfa1ff916cecd3362803f2d4c6e128cceab1391a15dd4c84da56d",
+      "size_in_bytes": 335323,
+      "sha256_verified": true,
+      "zip_entries_validated": true,
+      "artifact_reports_equal_job_log_reports": true
+    }
+  ]
+}

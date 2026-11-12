@@ -6,6 +6,7 @@
     "arch": "aarch64",
     "os": "macos"
   },
+  "late_ack_preserves_marked_final_summary": true,
   "normalized_sql_slow_and_repeated_hints": true,
   "passed": true,
   "pause_stops_capture": true,
@@ -17,5 +18,6 @@
   },
   "project_isolation_and_scoped_clear": true,
   "real_laravel_http_sql_log_dump_job_exception": true,
-  "sentinel_redacted": true
+  "sentinel_redacted": true,
+  "source_commit": "55b9d2f57d468ceca4c7775e151b7452166aa341"
 }

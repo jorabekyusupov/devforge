@@ -27,6 +27,11 @@ feature tafsilotlariga tegishli. Qayta tartiblash topshirig'i kodni boshlamagan;
 keyingi «m7dan boshla» ko'rsatmasi M7 implementatsiyasini vakolatladi. Joriy
 holat [M7 natijalarida](m7-inspector-results.md); M8-M15 tafsilotlari taklif bo'lib qoladi.
 
+M7.1 uchun Laravel companion, opt-in Inspector va request/query profiling kodi
+yaratildi. Native platforma dalillari va cheklovlari o'sha hisobotda yuritiladi.
+M7.2 Xdebug extension/debugger/function-profiler boshqaruvi hali amalga
+oshirilmagan; M7 bosqichi to'liq yakunlangan deb hisoblanmaydi.
+
 M0-M6 tarixiy raqamlari saqlanadi. Keyingi ishlar bajarish ketma-ketligi bo'yicha
 qayta raqamlandi: oldingi M12 endi M7, oldingi M7 endi M15. Eski raqamlar faqat
 quyidagi moslik jadvali va suhbat tarixiga murojaat qilish uchun ishlatiladi.

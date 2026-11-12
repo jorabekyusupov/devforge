@@ -1,0 +1,10 @@
+{
+  "passed": true,
+  "native_cli_history_read": true,
+  "events_count": 22,
+  "profiles_count": 2,
+  "event_database_hash_unchanged": true,
+  "no_capture_session_created": true,
+  "sentinel_absent": true,
+  "source_commit": "55b9d2f57d468ceca4c7775e151b7452166aa341"
+}

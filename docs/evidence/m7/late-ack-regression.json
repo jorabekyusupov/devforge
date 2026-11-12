@@ -1,0 +1,22 @@
+{
+  "scenario": "120 ms delayed first acknowledgement; actual PHP executes Capture directly",
+  "previous_source": "fb93c014986788b29aa6145c00153d62d1ae9ec5",
+  "results": {
+    "before": {
+      "batches": 1,
+      "kinds": [
+        "dump"
+      ],
+      "marked_incomplete": false
+    },
+    "fixed": {
+      "batches": 2,
+      "kinds": [
+        "dump",
+        "request"
+      ],
+      "marked_incomplete": true
+    }
+  },
+  "php_version": "PHP 8.5.12 (cli) (built: Oct 21 2026 14:42:55) (NTS clang 15.0.0)"
+}

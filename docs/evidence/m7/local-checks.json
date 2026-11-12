@@ -1,0 +1,45 @@
+{
+  "source_commit": "f7601dc9909d2e171a3a77a4f5362431ee1709b8",
+  "rust_passed": 62,
+  "rust_failed": 0,
+  "rust_ignored": 1,
+  "frontend_passed": 17,
+  "locale_regression_passed": 3,
+  "locale_catalogs": 3,
+  "native_backend_passed": true,
+  "native_gui_passed": true,
+  "native_axe_cases": 7,
+  "native_axe_violations": 0,
+  "clippy_passed": true,
+  "typecheck_passed": true,
+  "ui_followup_commit": "fb93c014986788b29aa6145c00153d62d1ae9ec5",
+  "ui_followup": {
+    "typecheck_passed": true,
+    "frontend_passed": 17,
+    "native_gui_passed": true,
+    "axe_cases": 7,
+    "axe_violations": 0,
+    "default_feature_native_debug_build_passed": true,
+    "fixture_processes_remaining": 0,
+    "private_fixture_removed": true
+  },
+  "native_followup_commit": "55b9d2f57d468ceca4c7775e151b7452166aa341",
+  "native_followup": {
+    "inspector_rust_passed": 6,
+    "inspector_rust_failed": 0,
+    "fixture_clippy_passed": true,
+    "late_ack_regression_passed": true,
+    "native_backend_passed": true,
+    "native_gui_passed": true,
+    "axe_cases": 7,
+    "axe_violations": 0,
+    "default_feature_native_debug_build_passed": true,
+    "fixture_processes_remaining": 0,
+    "private_fixture_removed": true
+  },
+  "catalog_followup": {
+    "scope": "Only the existing incomplete-capture message value changed in three catalogs after native source freeze",
+    "catalogs_passed": 3,
+    "locale_regressions_passed": 3
+  }
+}

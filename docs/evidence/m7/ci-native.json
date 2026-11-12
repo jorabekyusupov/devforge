@@ -1,0 +1,95 @@
+{
+  "all_required_native_targets_passed": true,
+  "required_jobs": [
+    {
+      "target": "macos-arm64",
+      "run_id": 43271574916,
+      "job_id": 131369200216
+    },
+    {
+      "target": "macos-x64",
+      "run_id": 43271574916,
+      "job_id": 131369200652
+    },
+    {
+      "target": "windows-x64",
+      "run_id": 43273196588,
+      "job_id": 131374774744
+    }
+  ],
+  "runs": [
+    {
+      "run_id": 43264989478,
+      "source_commit": "f7601dc9909d2e171a3a77a4f5362431ee1709b8",
+      "conclusion": "failure",
+      "url": "https://github.com/jorabekyusupov/devforge/actions/runs/43264989478",
+      "jobs": [
+        {
+          "job_id": 131346888526,
+          "name": "inspector (macos-15-intel, macos-x64)",
+          "conclusion": "failure"
+        },
+        {
+          "job_id": 131346889013,
+          "name": "inspector (windows-latest, windows-x64)",
+          "conclusion": "failure"
+        },
+        {
+          "job_id": 131346889219,
+          "name": "inspector (macos-15, macos-arm64)",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "run_id": 43269304920,
+      "source_commit": "fb93c014986788b29aa6145c00153d62d1ae9ec5",
+      "conclusion": "success",
+      "url": "https://github.com/jorabekyusupov/devforge/actions/runs/43269304920",
+      "jobs": [
+        {
+          "job_id": 131361235000,
+          "name": "inspector (windows-latest, windows-x64)",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "run_id": 43271574916,
+      "source_commit": "55b9d2f57d468ceca4c7775e151b7452166aa341",
+      "conclusion": "failure",
+      "url": "https://github.com/jorabekyusupov/devforge/actions/runs/43271574916",
+      "jobs": [
+        {
+          "job_id": 131369200216,
+          "name": "inspector (macos-15, macos-arm64)",
+          "conclusion": "success"
+        },
+        {
+          "job_id": 131369200652,
+          "name": "inspector (macos-15-intel, macos-x64)",
+          "conclusion": "success"
+        },
+        {
+          "job_id": 131369200912,
+          "name": "inspector (windows-latest, windows-x64)",
+          "conclusion": "failure"
+        }
+      ]
+    },
+    {
+      "run_id": 43273196588,
+      "source_commit": "e4f4b978a830cd88f5e33a5060c76a16ac6b5264",
+      "conclusion": "success",
+      "url": "https://github.com/jorabekyusupov/devforge/actions/runs/43273196588",
+      "jobs": [
+        {
+          "job_id": 131374774744,
+          "name": "inspector (windows-latest, windows-x64)",
+          "conclusion": "success"
+        }
+      ]
+    }
+  ],
+  "note": "Workflow43271574916 retains its failed Windows test-path attempt; final Windows acceptance is the separate successful e4f4b97 run. Source differences are reconciled separately."
+}

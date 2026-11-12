@@ -1,0 +1,34 @@
+{
+  "source_commit": "f7601dc9909d2e171a3a77a4f5362431ee1709b8",
+  "run_id": 43264989478,
+  "job_id": 131346888526,
+  "native": {
+    "dd_preserves_exit_and_records_dump": true,
+    "enable_B_preserves_A_pids": true,
+    "history_persists_capture_off_after_reopen": true,
+    "host": {
+      "arch": "x86_64",
+      "os": "macos"
+    },
+    "normalized_sql_slow_and_repeated_hints": true,
+    "passed": true,
+    "pause_stops_capture": true,
+    "php_capability": {
+      "loaded": false,
+      "mode": null,
+      "php": "8.5.12",
+      "version": null
+    },
+    "project_isolation_and_scoped_clear": true,
+    "real_laravel_http_sql_log_dump_job_exception": true,
+    "sentinel_redacted": true
+  },
+  "desktop": {
+    "passed": false,
+    "stage": "request profile",
+    "finding": "Request-kind list empty after captured-event wait; context summary absent.",
+    "diagnosis": "Late acknowledgement loss independently reproduced; exact timing of the hosted failure is inferred, not measured.",
+    "resolution_commit": "55b9d2f",
+    "resolution": "One bounded final summary after circuit opening, with incomplete flag; deterministic delayed-ACK native fixture added."
+  }
+}

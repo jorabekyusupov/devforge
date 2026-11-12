@@ -1,0 +1,43 @@
+{
+  "core_source": "f7601dc9909d2e171a3a77a4f5362431ee1709b8",
+  "core_workflow": 43264983195,
+  "ui_keyboard_fix": "fb93c014986788b29aa6145c00153d62d1ae9ec5",
+  "ui_keyboard_fix_windows_workflow": 43269304920,
+  "ui_keyboard_fix_windows_job": 131361235000,
+  "ui_keyboard_fix_windows_passed": true,
+  "transport_source": "55b9d2f57d468ceca4c7775e151b7452166aa341",
+  "windows_final_source": "e4f4b978a830cd88f5e33a5060c76a16ac6b5264",
+  "transport_to_windows_diff": {
+    "paths": [
+      "crates/workspace/examples/support/inspector.rs",
+      "shared/locales/en.json",
+      "shared/locales/ru.json",
+      "shared/locales/uz-Latn.json"
+    ],
+    "production_rust_php_or_ui_logic_changed": false,
+    "changes": [
+      "Test-only delayed-ACK fixture requires source relative to existing project cwd, avoiding Windows verbatim-prefix PHP include.",
+      "Existing incomplete-capture message clarified in three catalogs; keys/placeholders unchanged."
+    ]
+  },
+  "failed_windows_transport_fixture": {
+    "run_id": 43271574916,
+    "job_id": 131369200912,
+    "stage": "new delayed-ACK native fixture",
+    "cause": "PHP require could not open a Windows verbatim-prefixed source path passed by the new test.",
+    "native_backend_completed": false,
+    "desktop_run": false,
+    "resolution": "Test source required relative to the existing native PHP project cwd in e4f4b97."
+  },
+  "revalidation": {
+    "inspector_unit_passed": 6,
+    "fixture_clippy_passed": true,
+    "locale_catalogs_passed": 3,
+    "locale_regressions_passed": 3,
+    "local_native_backend_passed": true,
+    "local_native_gui_passed": true,
+    "local_gui_axe_cases": 7,
+    "local_gui_axe_violations": 0
+  },
+  "final_docs_policy": "Final documentation-only publication uses skip-ci; passing product suites are not rerun for that push."
+}

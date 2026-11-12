@@ -2,7 +2,7 @@
 
 ## 2026-11-12
 
-- **M7 boshlandi:** [Inspector](m7-inspector-results.md), authenticated local collector, bounded event store, Laravel companion va opt-in desktop controls yozildi. Actual local HTTP/SQL/dump/dd/job/exception/isolation o'tdi. Native GUI/final CI va Xdebug provider coverage ochiq.
+- **M7.1 qabul qilindi:** [Inspector](m7-inspector-results.md), authenticated local collector, Laravel companion, real request/SQL/job/log/dump/dd/exception va application profiling yaratildi. macOS ARM64/Intel va Windows x64'da backend va haqiqiy WebView UI o'tdi; har targetda7 axe/0 finding. Core per-OS62 Rust/17 frontend/3 locale/6 packaging checks o'tdi. Windows keyboard scroll va late-ACK summary xatolari tuzatildi; eski failure'lar va fixture path correction saqlandi. Uch final artifact hash/report'lari solishtirildi, CLI read-only history tekshirildi. Strict OKF22 hujjat/0 error/0 warning. M7.2 Xdebug extension/debugger/function-profiler va M15 release gate'lari ochiq; M7 to'liq yopilmadi. Yakuniy docs push uchun product suite takrorlanmaydi.
 
 - **Keyingi roadmap qayta tartiblandi:** [M7-M15](post-mvp-roadmap.md) yangi raqamlashda debugging/profiling bilan boshlanadi (oldingi M12), yakuniy beta/tarqatish bilan tugaydi (oldingi M7). M0-M6 tarixi saqlandi; doimiy test va data preservation har bosqichda qoladi. Bu reja yangilanishi, kod implementatsiyasi emas.
 

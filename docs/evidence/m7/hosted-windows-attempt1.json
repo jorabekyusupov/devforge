@@ -1,0 +1,33 @@
+{
+  "source_commit": "f7601dc9909d2e171a3a77a4f5362431ee1709b8",
+  "run_id": 43264989478,
+  "job_id": 131346889013,
+  "native": {
+    "dd_preserves_exit_and_records_dump": true,
+    "enable_B_preserves_A_pids": true,
+    "history_persists_capture_off_after_reopen": true,
+    "host": {
+      "arch": "x86_64",
+      "os": "windows"
+    },
+    "normalized_sql_slow_and_repeated_hints": true,
+    "passed": true,
+    "pause_stops_capture": true,
+    "php_capability": {
+      "loaded": false,
+      "mode": null,
+      "php": "8.5.12",
+      "version": null
+    },
+    "project_isolation_and_scoped_clear": true,
+    "real_laravel_http_sql_log_dump_job_exception": true,
+    "sentinel_redacted": true
+  },
+  "desktop": {
+    "passed": false,
+    "stage": "inspector-dump accessibility",
+    "finding": "scrollable-region-focusable on .inspector-detail",
+    "resolution_commit": "fb93c014986788b29aa6145c00153d62d1ae9ec5",
+    "resolution": "Keyboard-focusable detail and nested payload scroll regions; axe gate retained."
+  }
+}

@@ -286,3 +286,20 @@ DMG/NSIS artifacts, required OS components, data-preserving uninstall and explic
 owned hosts/CA cleanup plans. Packages are internal unsigned/ad-hoc builds; public
 release and automatic application updates are not enabled. Actual target evidence
 and remaining gates are tracked in [M6 results](docs/knowledge/m6-distribution-results.md).
+
+## M7 Laravel Inspector (initial capture and application profiling)
+
+Open **Inspector**, select a trusted local project, stop it and confirm **Install
+companion**. Enable capture, then open a route or dispatch a queued job. The new
+surface shows actual request/query/job/log/dump/exception events, context durations,
+SQL repetition/slow-query hints and peak PHP memory. Pause/clear are project scoped;
+history survives reopening while capture defaults to off. The local authenticated
+telemetry listener is separate from the debug-only WebDriver acceptance endpoint.
+
+See [companion setup and privacy](packages/laravel-inspector/README.md) and
+[M7 actual evidence/open work](docs/knowledge/m7-inspector-results.md). The declared
+Laravel11/12 compatibility requires separate runtime coverage; the current fixture
+uses Laravel13. Xdebug capability detection is implemented; extension installation,
+interactive debugging and function-level profiling remain later M7 work.
+`devforge inspect <project-id>` reads captured history and context summaries as JSON
+without starting a collector or printing its credentials.

@@ -1,0 +1,119 @@
+{
+  "passed": true,
+  "native_webview": true,
+  "ipc_mocked": false,
+  "real_companion_install_confirmation": true,
+  "install_B_preserves_A_pids": true,
+  "real_events_and_context_profiles": true,
+  "filters_and_dump_redaction": true,
+  "clear_confirmation_and_project_scope": true,
+  "xdebug_probe": true,
+  "ru_uz_en": true,
+  "capture_paused_history_preserved_on_reopen": true,
+  "accessibility": [
+    {
+      "case": "integration-confirmation",
+      "violations": []
+    },
+    {
+      "case": "inspector-light",
+      "violations": []
+    },
+    {
+      "case": "inspector-dump",
+      "violations": []
+    },
+    {
+      "case": "inspector-small-ru",
+      "violations": []
+    },
+    {
+      "case": "inspector-small-uz-Latn",
+      "violations": []
+    },
+    {
+      "case": "inspector-small-en",
+      "violations": []
+    },
+    {
+      "case": "inspector-dark",
+      "violations": []
+    }
+  ],
+  "captures": [
+    {
+      "file": "inspector-light.png",
+      "viewport": {
+        "height": 1041,
+        "language": "en",
+        "scale": 2,
+        "theme": "light",
+        "width": 1511
+      }
+    },
+    {
+      "file": "inspector-dump.png",
+      "viewport": {
+        "height": 1041,
+        "language": "en",
+        "scale": 2,
+        "theme": "light",
+        "width": 1511
+      }
+    },
+    {
+      "file": "inspector-small-ru.png",
+      "viewport": {
+        "height": 588,
+        "language": "ru",
+        "scale": 2,
+        "theme": "light",
+        "width": 820
+      }
+    },
+    {
+      "file": "inspector-small-uz-Latn.png",
+      "viewport": {
+        "height": 588,
+        "language": "uz-Latn",
+        "scale": 2,
+        "theme": "light",
+        "width": 820
+      }
+    },
+    {
+      "file": "inspector-small-en.png",
+      "viewport": {
+        "height": 588,
+        "language": "en",
+        "scale": 2,
+        "theme": "light",
+        "width": 820
+      }
+    },
+    {
+      "file": "inspector-dark.png",
+      "viewport": {
+        "height": 588,
+        "language": "en",
+        "scale": 2,
+        "theme": "dark",
+        "width": 820
+      }
+    }
+  ],
+  "viewport_attempts": [
+    {
+      "requested": {
+        "width": 1511,
+        "height": 1041
+      },
+      "actual": {
+        "height": 1041,
+        "width": 1511
+      },
+      "matched": true
+    }
+  ],
+  "source_commit": "55b9d2f57d468ceca4c7775e151b7452166aa341"
+}
