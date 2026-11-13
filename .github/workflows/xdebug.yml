@@ -1,7 +1,16 @@
 name: Native Xdebug debugger and profiler
 on:
   workflow_call:
+    inputs:
+      target:
+        type: string
+        default: all
   workflow_dispatch:
+    inputs:
+      target:
+        type: choice
+        default: all
+        options: [all, macos-arm64, macos-x64, windows-x64]
 permissions:
   contents: read
 jobs:
@@ -10,10 +19,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - {os: macos-15, target: macos-arm64}
-          - {os: macos-15-intel, target: macos-x64}
-          - {os: windows-latest, target: windows-x64}
+        include: ${{ fromJSON(inputs.target == 'windows-x64' && '[{"os":"windows-latest","target":"windows-x64"}]' || inputs.target == 'macos-arm64' && '[{"os":"macos-15","target":"macos-arm64"}]' || inputs.target == 'macos-x64' && '[{"os":"macos-15-intel","target":"macos-x64"}]' || '[{"os":"macos-15","target":"macos-arm64"},{"os":"macos-15-intel","target":"macos-x64"},{"os":"windows-latest","target":"windows-x64"}]') }}
     runs-on: ${{ matrix.os }}
     env:
       PYTHONUTF8: '1'

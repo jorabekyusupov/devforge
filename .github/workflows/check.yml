@@ -3,10 +3,20 @@ on:
   push:
   pull_request:
   workflow_dispatch:
+    inputs:
+      suite:
+        type: choice
+        default: all
+        options: [all, core, native]
+      native_target:
+        type: choice
+        default: all
+        options: [all, macos-arm64, macos-x64, windows-x64]
 permissions:
   contents: read
 jobs:
   check:
+    if: github.event_name != 'workflow_dispatch' || inputs.suite != 'native'
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -39,5 +49,7 @@ jobs:
       - run: python scripts/validate_knowledge.py --strict
 
   xdebug-native:
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' && inputs.suite != 'core'
     uses: ./.github/workflows/xdebug.yml
+    with:
+      target: ${{ inputs.native_target || 'all' }}

@@ -402,8 +402,10 @@ try:
     fill("[name=breakpoint-line]", "13")
     debugger_button("Add")
     wait(lambda: len(view(atlas)["settings"]["breakpoints"]) == 2)
-    target = script(
-        "const li=[...document.querySelectorAll('.debug-breakpoints li')].find(e=>e.querySelector('code').textContent.endsWith(':13'));li.querySelector('button').dataset.smoke='remove-added';return '[data-smoke=remove-added]'"
+    target = wait(
+        lambda: script(
+            "const li=[...document.querySelectorAll('.debug-breakpoints li')].find(e=>e.querySelector('code').textContent.endsWith(':13'));if(!li)return null;li.querySelector('button').dataset.smoke='remove-added';return '[data-smoke=remove-added]'"
+        )
     )
     click(target)
     wait(lambda: len(view(atlas)["settings"]["breakpoints"]) == 1)
