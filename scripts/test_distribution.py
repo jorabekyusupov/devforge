@@ -3,6 +3,22 @@ from scripts.package_desktop import run
 from scripts.m6_package_smoke import nsis_command,project_registry_snapshot,verify_registry_preserved
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 class DistributionContracts(unittest.TestCase):
+    def test_scan_status_can_refresh_but_suppression_identity_and_binding_are_preserved(self):
+        import sqlite3,tempfile
+        from contextlib import closing
+        with tempfile.TemporaryDirectory() as folder:
+            path=pathlib.Path(folder)/'registry.sqlite3'
+            record={'identity':'file-1','path':'retained/path','project_id':'project-a','ignored':True,'state':'ignored','problem':None}
+            def save(value):
+                with closing(sqlite3.connect(path)) as db:
+                    db.execute('CREATE TABLE IF NOT EXISTS discovery_entries(identity TEXT PRIMARY KEY,record TEXT)')
+                    db.execute('INSERT OR REPLACE INTO discovery_entries VALUES(?,?)',('file-1',json.dumps(value)));db.commit()
+            save(record);before=project_registry_snapshot(path)
+            updated={**record,'state':'detached','problem':'scan-root-unavailable'}
+            save(updated);verify_registry_preserved(before,project_registry_snapshot(path))
+            for key,value in [('ignored',False),('identity','file-2'),('path','other/path'),('project_id','other-project')]:
+                save({**updated,key:value})
+                with self.assertRaises(AssertionError):verify_registry_preserved(before,project_registry_snapshot(path))
     def test_registry_preservation_allows_additive_empty_schema_but_rejects_data_loss(self):
         import sqlite3,tempfile
         from contextlib import closing

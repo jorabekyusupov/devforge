@@ -20,7 +20,20 @@ def project_registry_snapshot(path):
     if not path.exists():return {}
     with closing(sqlite3.connect(path.resolve().as_uri()+'?mode=ro',uri=True)) as db:
         tables=db.execute("SELECT name,sql FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name").fetchall()
-        return {name:(schema,sorted(repr(row) for row in db.execute('SELECT * FROM "'+name.replace('"','""')+'"'))) for name,schema in tables}
+        result={}
+        for name,schema in tables:
+            rows=db.execute('SELECT * FROM "'+name.replace('"','""')+'"').fetchall()
+            if name=='discovery_entries':
+                normalized=[]
+                for identity,record in rows:
+                    value=json.loads(record)
+                    # Scan status changes when the saved root differs from the
+                    # fixture root. Identity, path, binding and suppression must survive.
+                    value.pop('state',None);value.pop('problem',None)
+                    normalized.append((identity,json.dumps(value,sort_keys=True)))
+                rows=normalized
+            result[name]=(schema,sorted(repr(row) for row in rows))
+        return result
 def verify_registry_preserved(before,after):
     changed=[name for name,value in before.items() if after.get(name)!=value]
     assert not changed,{'changed_registry_tables':changed}
@@ -146,6 +159,7 @@ def main():
         report['checks']['second_launch_keeps_original_process']=True
         after_launch=owned_data_hashes()
         report['release_launch_changed_files']=[key for key,value in native_before.items() if after_launch.get(key)!=value]
+        report['registry_derived_scan_fields']=['discovery_entries.record.state','discovery_entries.record.problem']
         # Release launch and installer replacement are distinct operations. The
         # former can initialize registry schema; the latter must preserve bytes.
         verify_registry_preserved(registry_before,project_registry_snapshot(data/'projects/projects.sqlite3'))
