@@ -342,3 +342,10 @@ o‘zgarishlari bilan birlashtir. macOS va Windows’da tekshirib, xatolarini tu
 yakunda main’ga push qil.” Katalog review, M7/discovery integration, native qayta
 qabul va main’ga push endi aniq ruxsatli scope. Oldingi alohida-branch boundary
 ushbu yangi topshiriq bilan almashtirildi; signing/public installer scope qo‘shilmadi.
+
+
+Integration qabulida38847ce source ARM64/Intel/Windows native backend/CLI va ikkala
+UI’da o‘tdi. Old M7 va discovery schema6 history’lari schema7’da saqlandi; joriy
+Intel PHP8.5 arxivlari alohida build family bilan review qilindi, legacy pinlar
+saqlandi. [Dalil](../../evidence/discovery-m7-integration/README.md) final push
+vakolati, source/digest va native/structural qamrovni ajratadi.
