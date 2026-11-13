@@ -105,6 +105,14 @@ pub struct Plan {
     pub state_hash: String,
     pub digest: String,
 }
+pub(crate) struct ReproLock(File);
+impl Drop for ReproLock {
+    fn drop(&mut self) {
+        // An inherited/duplicated descriptor must not prolong a completed
+        // configuration transaction after its owning guard has been dropped.
+        let _ = self.0.unlock();
+    }
+}
 impl Workspace {
     pub(crate) fn repro_dir(&self, path: &Path) -> Result<PathBuf> {
         let parent = self.root.join("manifests");
@@ -121,7 +129,7 @@ impl Workspace {
         }
         Ok(parent.join(scope(path)))
     }
-    pub(crate) fn repro_lock(&self, path: &Path) -> Result<File> {
+    pub(crate) fn repro_lock(&self, path: &Path) -> Result<ReproLock> {
         let path = self.repro_dir(path)?.join("setup.lock");
         if fs::symlink_metadata(&path).is_ok_and(|m| !m.is_file() || m.file_type().is_symlink()) {
             return Err(code("manifest_invalid"));
@@ -133,7 +141,7 @@ impl Workspace {
             .truncate(false)
             .open(path)?;
         f.try_lock().map_err(|_| code("manifest_busy"))?;
-        Ok(f)
+        Ok(ReproLock(f))
     }
     fn project_at(&self, path: &Path) -> Result<Option<Project>> {
         Ok(self.projects.list()?.into_iter().find(|p| p.path == path))
@@ -948,5 +956,31 @@ impl Workspace {
             return Err(e);
         }
         result
+    }
+}
+
+#[cfg(test)]
+mod lock_tests {
+    use super::*;
+    #[test]
+    fn completed_transaction_unlocks_even_when_a_descriptor_was_duplicated() {
+        let temp = tempfile::NamedTempFile::new().unwrap();
+        let file = File::options()
+            .read(true)
+            .write(true)
+            .open(temp.path())
+            .unwrap();
+        file.try_lock().unwrap();
+        let lock = ReproLock(file);
+        let inherited = lock.0.try_clone().unwrap();
+        drop(lock);
+        let next = File::options()
+            .read(true)
+            .write(true)
+            .open(temp.path())
+            .unwrap();
+        next.try_lock().unwrap();
+        next.unlock().unwrap();
+        drop(inherited);
     }
 }

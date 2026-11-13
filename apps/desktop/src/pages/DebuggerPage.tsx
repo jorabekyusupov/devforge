@@ -24,9 +24,11 @@ import {
 function Variables({
   values,
   edit,
+  disabled = false,
 }: {
   values: DebugVariable[];
   edit?: (v: DebugVariable) => void;
+  disabled?: boolean;
 }) {
   const { t } = useTranslation();
   return (
@@ -42,6 +44,7 @@ function Variables({
           <code translate="no">{v.value || "—"}</code>
           {edit && v.assign && (
             <button
+              disabled={disabled}
               onClick={() => edit(v)}
               aria-label={t("debugger.editVariable", { name: v.name })}
             >
@@ -695,24 +698,22 @@ export function DebuggerPage({ backend }: { backend?: WorkspaceBackend }) {
                   <h2>{t("debugger.variables")}</h2>
                   <Variables
                     values={view.session?.variables ?? []}
-                    edit={
-                      paused && !busy
-                        ? (v) => {
-                            setAssignment(v);
-                            setAssignmentRevision(view.session!.revision);
-                            setValueKind(
-                              v.kind === "integer"
-                                ? "int"
-                                : v.kind === "double"
-                                  ? "float"
-                                  : v.kind === "boolean"
-                                    ? "bool"
-                                    : v.kind.toLowerCase(),
-                            );
-                            setNewValue(v.value);
-                          }
-                        : undefined
-                    }
+                    disabled={!paused || busy}
+                    edit={(v) => {
+                      if (!paused || busy || !view.session) return;
+                      setAssignment(v);
+                      setAssignmentRevision(view.session!.revision);
+                      setValueKind(
+                        v.kind === "integer"
+                          ? "int"
+                          : v.kind === "double"
+                            ? "float"
+                            : v.kind === "boolean"
+                              ? "bool"
+                              : v.kind.toLowerCase(),
+                      );
+                      setNewValue(v.value);
+                    }}
                   />
                   {!view.session?.variables.length && (
                     <p className="muted">{t("debugger.variablesEmpty")}</p>

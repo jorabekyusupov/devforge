@@ -409,10 +409,8 @@ pub fn run(root: &Path) -> Result<()> {
     assert!(plan.submodule_sources.contains("modules/shared"));
     let isolated = w.worktree_create(request, &plan.digest, true, &cancel)?;
     let ip = w.projects.get(isolated.project_id.as_deref().unwrap())?;
-    assert_eq!(
-        fs::read_to_string(ip.path.join("modules/shared/module.txt"))?,
-        "owned-module\n"
-    );
+    let module_text = fs::read_to_string(ip.path.join("modules/shared/module.txt"))?;
+    assert_eq!(module_text.replace("\r\n", "\n"), "owned-module\n");
     fs::write(ip.path.join("modules/shared/module.txt"), "dirty\n")?;
     assert!(w.worktree_cleanup_plan(&isolated.id)?.dirty);
     git(
@@ -423,7 +421,7 @@ pub fn run(root: &Path) -> Result<()> {
     archive(&mut w, &isolated.id, "restore")?;
     assert_eq!(
         fs::read_to_string(ip.path.join("modules/shared/module.txt"))?,
-        "owned-module\n"
+        module_text
     );
     cleanup(&mut w, &isolated.id)?;
     archive(&mut w, &isolated.id, "purge")?;
