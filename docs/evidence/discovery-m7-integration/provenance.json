@@ -1,0 +1,118 @@
+{
+  "status": "passed",
+  "targets": [
+    {
+      "target": "macos-arm64",
+      "tested_commit": "38847ce4eea44508e3a5c6828b9789a76a16d9bc",
+      "job_url": "https://github.com/jorabekyusupov/devforge/actions/runs/43436944740/job/131924407272",
+      "artifact_id": 14044172135,
+      "artifact_sha256": "e40d1970f4116861c61edff2711b773e382fbcae7684a39a36bd3a1e787f7bf9",
+      "native_run": 43436944740,
+      "source_archive_sha256": "ae00d52d1d99829aef7c0192001e37c26eacf201bc97f3934f50021f11e60df6",
+      "discovery_ui_checks": 12,
+      "debugger_ui_checks": 8,
+      "axe_cases": 22,
+      "axe_violations": 0,
+      "event_to_ui_ms": 1657,
+      "php_probes": [
+        {
+          "pdo": [
+            "mysql",
+            "pgsql",
+            "sqlite"
+          ],
+          "php": "8.4.27",
+          "xdebug": "3.5.3"
+        },
+        {
+          "pdo": [
+            "mysql",
+            "pgsql",
+            "sqlite"
+          ],
+          "php": "8.5.12",
+          "xdebug": "3.5.3"
+        }
+      ],
+      "combined_debug_restore": true,
+      "current_catalog_archives_verified": true
+    },
+    {
+      "target": "macos-x64",
+      "tested_commit": "38847ce4eea44508e3a5c6828b9789a76a16d9bc",
+      "job_url": "https://github.com/jorabekyusupov/devforge/actions/runs/43436950302/job/131924424311",
+      "artifact_id": 14045789108,
+      "artifact_sha256": "ce183e63d525e06ef3ef98a3044ed92f1061e32583e81185f92d60e99b6bfe67",
+      "native_run": 43436950302,
+      "source_archive_sha256": "ae00d52d1d99829aef7c0192001e37c26eacf201bc97f3934f50021f11e60df6",
+      "discovery_ui_checks": 12,
+      "debugger_ui_checks": 8,
+      "axe_cases": 22,
+      "axe_violations": 0,
+      "event_to_ui_ms": 1899,
+      "php_probes": [
+        {
+          "pdo": [
+            "mysql",
+            "pgsql",
+            "sqlite"
+          ],
+          "php": "8.4.27",
+          "xdebug": "3.5.3"
+        },
+        {
+          "pdo": [
+            "mysql",
+            "pgsql",
+            "sqlite"
+          ],
+          "php": "8.5.12",
+          "xdebug": "3.5.3"
+        }
+      ],
+      "combined_debug_restore": true,
+      "current_catalog_archives_verified": true
+    },
+    {
+      "target": "windows-x64",
+      "tested_commit": "38847ce4eea44508e3a5c6828b9789a76a16d9bc",
+      "job_url": "https://github.com/jorabekyusupov/devforge/actions/runs/43436840855/job/131924041031",
+      "artifact_id": 14044277453,
+      "artifact_sha256": "46e9a675e31b8630faabd9e9d09ec00e3009991fc21bad659ee8e3224d0f5c01",
+      "native_run": 43436840855,
+      "source_archive_sha256": "ae00d52d1d99829aef7c0192001e37c26eacf201bc97f3934f50021f11e60df6",
+      "discovery_ui_checks": 12,
+      "debugger_ui_checks": 8,
+      "axe_cases": 22,
+      "axe_violations": 0,
+      "event_to_ui_ms": 1681,
+      "php_probes": [
+        {
+          "pdo": [],
+          "php": "8.4.27",
+          "xdebug": "3.5.3"
+        },
+        {
+          "pdo": [],
+          "php": "8.5.12",
+          "xdebug": "3.5.3"
+        }
+      ],
+      "combined_debug_restore": true,
+      "current_catalog_archives_verified": true
+    }
+  ],
+  "product_and_runner_tree_sha256": "97779373ebbd24b8fb2531bcb75b23806519e16c0995b8f6040b667b3d0f2de5",
+  "paths": [
+    "apps",
+    "crates",
+    "shared",
+    "runtime",
+    "scripts",
+    "Cargo.toml",
+    "Cargo.lock",
+    "package.json",
+    "package-lock.json",
+    "rust-toolchain.toml"
+  ]
+}

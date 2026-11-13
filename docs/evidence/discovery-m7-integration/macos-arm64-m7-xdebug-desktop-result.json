@@ -1,0 +1,352 @@
+{
+  "native": "real WKWebView/WebView2 via debug-only W3C endpoint",
+  "checks": {
+    "real_breakpoint_source_and_redacted_locals": true,
+    "live_breakpoint_add_remove": true,
+    "step_into_over_out_and_continue": true,
+    "actual_function_profile_filter": true,
+    "delete_review_cancel_preserves_profile": true,
+    "failed_owned_runtime_can_be_stopped": true,
+    "other_project_remains_off": true,
+    "preferences_relaunch": true
+  },
+  "accessibility": [
+    {
+      "case": "runtime-install-review",
+      "violations": []
+    },
+    {
+      "case": "paused-breakpoint-source-locals",
+      "violations": []
+    },
+    {
+      "case": "function-profile",
+      "violations": []
+    },
+    {
+      "case": "profile-delete-confirmation",
+      "violations": []
+    },
+    {
+      "case": "debugger-ru",
+      "violations": []
+    },
+    {
+      "case": "debugger-ru-minimum",
+      "violations": []
+    },
+    {
+      "case": "debugger-uz-Latn",
+      "violations": []
+    },
+    {
+      "case": "debugger-uz-Latn-minimum",
+      "violations": []
+    },
+    {
+      "case": "debugger-en",
+      "violations": []
+    },
+    {
+      "case": "debugger-en-minimum",
+      "violations": []
+    },
+    {
+      "case": "failed-runtime-recovery",
+      "violations": []
+    },
+    {
+      "case": "debugger-dark",
+      "violations": []
+    }
+  ],
+  "captures": [
+    {
+      "file": "debugger-en-light.png",
+      "viewport": {
+        "height": 656,
+        "language": "en",
+        "scale": 1,
+        "theme": "light",
+        "width": 1536
+      }
+    },
+    {
+      "file": "function-profile.png",
+      "viewport": {
+        "height": 656,
+        "language": "en",
+        "scale": 1,
+        "theme": "light",
+        "width": 1536
+      }
+    },
+    {
+      "file": "debugger-ru.png",
+      "viewport": {
+        "height": 656,
+        "language": "ru",
+        "scale": 1,
+        "theme": "light",
+        "width": 1536
+      }
+    },
+    {
+      "file": "debugger-uz-Latn.png",
+      "viewport": {
+        "height": 656,
+        "language": "uz-Latn",
+        "scale": 1,
+        "theme": "light",
+        "width": 1536
+      }
+    },
+    {
+      "file": "debugger-en.png",
+      "viewport": {
+        "height": 656,
+        "language": "en",
+        "scale": 1,
+        "theme": "light",
+        "width": 1536
+      }
+    },
+    {
+      "file": "debugger-dark.png",
+      "viewport": {
+        "height": 656,
+        "language": "en",
+        "scale": 1,
+        "theme": "dark",
+        "width": 1536
+      }
+    }
+  ],
+  "viewport_attempts": [
+    {
+      "requested": {
+        "width": 1536,
+        "height": 1024
+      },
+      "actual": {
+        "height": 656,
+        "width": 1536
+      },
+      "matched": false
+    },
+    {
+      "requested": {
+        "width": 1536,
+        "height": 1024
+      },
+      "actual": {
+        "height": 656,
+        "width": 1536
+      },
+      "matched": false
+    },
+    {
+      "requested": {
+        "width": 820,
+        "height": 620
+      },
+      "actual": {
+        "height": 620,
+        "width": 820
+      },
+      "matched": true
+    },
+    {
+      "requested": {
+        "width": 1536,
+        "height": 1024
+      },
+      "actual": {
+        "height": 656,
+        "width": 1536
+      },
+      "matched": false
+    },
+    {
+      "requested": {
+        "width": 820,
+        "height": 620
+      },
+      "actual": {
+        "height": 620,
+        "width": 820
+      },
+      "matched": true
+    },
+    {
+      "requested": {
+        "width": 1536,
+        "height": 1024
+      },
+      "actual": {
+        "height": 656,
+        "width": 1536
+      },
+      "matched": false
+    },
+    {
+      "requested": {
+        "width": 820,
+        "height": 620
+      },
+      "actual": {
+        "height": 620,
+        "width": 820
+      },
+      "matched": true
+    },
+    {
+      "requested": {
+        "width": 1536,
+        "height": 1024
+      },
+      "actual": {
+        "height": 656,
+        "width": 1536
+      },
+      "matched": false
+    }
+  ],
+  "paint_waits": [
+    {
+      "focused": true,
+      "source": "animation-frame",
+      "visibility": "visible"
+    },
+    {
+      "focused": true,
+      "source": "animation-frame",
+      "visibility": "visible"
+    },
+    {
+      "focused": true,
+      "source": "animation-frame",
+      "visibility": "visible"
+    },
+    {
+      "focused": true,
+      "source": "animation-frame",
+      "visibility": "visible"
+    },
+    {
+      "focused": true,
+      "source": "animation-frame",
+      "visibility": "visible"
+    },
+    {
+      "focused": true,
+      "source": "animation-frame",
+      "visibility": "visible"
+    },
+    {
+      "focused": true,
+      "source": "animation-frame",
+      "visibility": "visible"
+    },
+    {
+      "focused": true,
+      "source": "animation-frame",
+      "visibility": "visible"
+    },
+    {
+      "focused": true,
+      "source": "animation-frame",
+      "visibility": "visible"
+    },
+    {
+      "focused": true,
+      "source": "animation-frame",
+      "visibility": "visible"
+    },
+    {
+      "focused": true,
+      "source": "animation-frame",
+      "visibility": "visible"
+    },
+    {
+      "focused": true,
+      "source": "animation-frame",
+      "visibility": "visible"
+    },
+    {
+      "focused": true,
+      "source": "animation-frame",
+      "visibility": "visible"
+    },
+    {
+      "focused": true,
+      "source": "animation-frame",
+      "visibility": "visible"
+    },
+    {
+      "focused": true,
+      "source": "animation-frame",
+      "visibility": "visible"
+    },
+    {
+      "focused": true,
+      "source": "animation-frame",
+      "visibility": "visible"
+    },
+    {
+      "focused": true,
+      "source": "animation-frame",
+      "visibility": "visible"
+    },
+    {
+      "focused": true,
+      "source": "animation-frame",
+      "visibility": "visible"
+    },
+    {
+      "focused": true,
+      "source": "animation-frame",
+      "visibility": "visible"
+    },
+    {
+      "focused": true,
+      "source": "animation-frame",
+      "visibility": "visible"
+    },
+    {
+      "focused": true,
+      "source": "animation-frame",
+      "visibility": "visible"
+    },
+    {
+      "focused": true,
+      "source": "animation-frame",
+      "visibility": "visible"
+    },
+    {
+      "focused": true,
+      "source": "animation-frame",
+      "visibility": "visible"
+    },
+    {
+      "focused": true,
+      "source": "animation-frame",
+      "visibility": "visible"
+    }
+  ],
+  "operation_timings": [
+    {
+      "operation": "start_project",
+      "elapsed_seconds": 11.114516915999957,
+      "build": "debug_e2e",
+      "scope": "includes verified SDK hashing and fixture services; not release latency"
+    },
+    {
+      "operation": "start_project",
+      "elapsed_seconds": 10.193494916999953,
+      "build": "debug_e2e",
+      "scope": "includes verified SDK hashing and fixture services; not release latency"
+    }
+  ],
+  "export_native_dialog": "not automated; actual bounded export verified in backend fixture"
+}

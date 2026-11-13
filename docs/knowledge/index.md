@@ -26,7 +26,7 @@ mavzuni tanlang, so'ng faqat tegishli hujjatlar va ularning manbalarini o'qing.
 ## Manba va yuritish
 
 - [M7.2 Xdebug](m7-xdebug-results.md) - optional native runtime, interactive debugger va function profiles; uch native target qabuli, artifact/source mapping va M15 chegaralari.
-- [Avtomatik loyiha aniqlash](project-discovery.md) - default `~/Devforge`, sozlanadigan root, safe discovery/registry; ARM64/Intel/Windows actual backend va native UI qabuli, hashlar va upstream cache chegarasi.
+- [Avtomatik loyiha aniqlash](project-discovery.md) - default `~/Devforge`, sozlanadigan root, safe discovery/registry; ARM64/Intel/Windows actual backend va native UI qabuli, hashlar; main/M7 va joriy upstream katalog integratsiyasi ham native qabuldan o‘tdi.
 
 - [M12 workspaces](m12-workspaces-results.md) - reviewed Git worktree projectlari, alohida muhit/DB va arxivlovchi cleanup; ARM64/Intel/Windows native backend/CLI/UI qabuli va source chegarasi bilan.
 

@@ -1,0 +1,202 @@
+{
+  "target": "macos-arm64",
+  "scope": "Current non-superseded catalog: upstream archive SHA256 and static architecture audit",
+  "artifacts": [
+    {
+      "id": "caddy-v2.11.9-macos-arm64",
+      "package": "caddy",
+      "version": "v2.11.9",
+      "target": "macos-arm64",
+      "url": "https://github.com/caddyserver/caddy/releases/download/v2.11.9/caddy_2.11.9_mac_arm64.tar.gz",
+      "sha256": "d075afc620376679a77b453399bf7ada264cab3280b2833e4ed1372abc0c1c13",
+      "checksum_source": "https://api.github.com/repos/caddyserver/caddy/releases/tags/v2.11.9",
+      "runtime_executed": false,
+      "signature_verification": "not-performed",
+      "cache_file": "caddy-v2.11.9-macos-arm64-caddy_2.11.9_mac_arm64.tar.gz",
+      "bytes": 17162425,
+      "computed_sha256": "d075afc620376679a77b453399bf7ada264cab3280b2833e4ed1372abc0c1c13",
+      "integrity": "publisher-sha256-matched",
+      "inspection": {
+        "archive_kind": "tar",
+        "file_count": 3,
+        "binaries": [
+          {
+            "member": "caddy",
+            "architectures": [
+              "arm64"
+            ]
+          }
+        ],
+        "nested_archives_inspected": [],
+        "license_members": [
+          "LICENSE"
+        ],
+        "windows_pdo_pgsql_present": false
+      },
+      "status": "inspected",
+      "target_header_match": true,
+      "catalog_id": "caddy-v2.11.9-macos-arm64"
+    },
+    {
+      "id": "composer-2.11.2",
+      "package": "composer",
+      "version": "2.11.2",
+      "target": "php-portable",
+      "url": "https://getcomposer.org/download/2.11.2/composer.phar",
+      "sha256": "dd158c0afd41d15fac89e1b4e47b5d42911fe316c3687cd5edac98319b25d028",
+      "checksum_source": "https://getcomposer.org/download/2.11.2/composer.phar.sha256sum",
+      "runtime_executed": false,
+      "signature_verification": "not-performed",
+      "cache_file": "composer-2.11.2-composer.phar",
+      "bytes": 3815650,
+      "computed_sha256": "dd158c0afd41d15fac89e1b4e47b5d42911fe316c3687cd5edac98319b25d028",
+      "integrity": "publisher-sha256-matched",
+      "inspection": {
+        "archive_kind": "single-file",
+        "file_count": 0,
+        "binaries": [],
+        "nested_archives_inspected": [],
+        "license_members": [],
+        "windows_pdo_pgsql_present": false
+      },
+      "status": "inspected",
+      "catalog_id": "composer-2.11.2-macos-arm64"
+    },
+    {
+      "id": "node-v24.22.2-macos-arm64",
+      "package": "node",
+      "version": "v24.22.2",
+      "target": "macos-arm64",
+      "url": "https://nodejs.org/dist/v24.22.2/node-v24.22.2-darwin-arm64.tar.gz",
+      "sha256": "aa9549349e47dffaa42dcf95d6e06ade8c4bdafc980979883b88767670df385a",
+      "checksum_source": "https://nodejs.org/dist/v24.22.2/SHASUMS256.txt",
+      "runtime_executed": false,
+      "signature_verification": "not-performed",
+      "cache_file": "node-v24.22.2-macos-arm64-node-v24.22.2-darwin-arm64.tar.gz",
+      "bytes": 53068959,
+      "computed_sha256": "aa9549349e47dffaa42dcf95d6e06ade8c4bdafc980979883b88767670df385a",
+      "integrity": "publisher-sha256-matched",
+      "inspection": {
+        "archive_kind": "tar",
+        "file_count": 4797,
+        "binaries": [
+          {
+            "member": "node-v24.22.2-darwin-arm64/bin/node",
+            "architectures": [
+              "arm64"
+            ]
+          }
+        ],
+        "nested_archives_inspected": [],
+        "license_members": [
+          "node-v24.22.2-darwin-arm64/LICENSE",
+          "node-v24.22.2-darwin-arm64/lib/node_modules/npm/LICENSE",
+          "node-v24.22.2-darwin-arm64/lib/node_modules/npm/node_modules/path-scurry/LICENSE.md",
+          "node-v24.22.2-darwin-arm64/lib/node_modules/npm/node_modules/json-stringify-nice/LICENSE",
+          "node-v24.22.2-darwin-arm64/lib/node_modules/npm/node_modules/isexe/LICENSE.md",
+          "node-v24.22.2-darwin-arm64/lib/node_modules/npm/node_modules/p-map/license",
+          "node-v24.22.2-darwin-arm64/lib/node_modules/npm/node_modules/debug/LICENSE",
+          "node-v24.22.2-darwin-arm64/lib/node_modules/npm/node_modules/nopt/LICENSE",
+          "node-v24.22.2-darwin-arm64/lib/node_modules/npm/node_modules/npm-bundled/LICENSE",
+          "node-v24.22.2-darwin-arm64/lib/node_modules/npm/node_modules/is-cidr/LICENSE",
+          "node-v24.22.2-darwin-arm64/lib/node_modules/npm/node_modules/graceful-fs/LICENSE",
+          "node-v24.22.2-darwin-arm64/lib/node_modules/npm/node_modules/libnpmexec/LICENSE",
+          "node-v24.22.2-darwin-arm64/lib/node_modules/npm/node_modules/cidr-regex/LICENSE",
+          "node-v24.22.2-darwin-arm64/lib/node_modules/npm/node_modules/which/LICENSE",
+          "node-v24.22.2-darwin-arm64/lib/node_modules/npm/node_modules/minipass-fetch/LICENSE",
+          "node-v24.22.2-darwin-arm64/lib/node_modules/npm/node_modules/qrcode-terminal/LICENSE",
+          "node-v24.22.2-darwin-arm64/lib/node_modules/npm/node_modules/validate-npm-package-name/LICENSE",
+          "node-v24.22.2-darwin-arm64/lib/node_modules/npm/node_modules/tar/LICENSE.md",
+          "node-v24.22.2-darwin-arm64/lib/node_modules/npm/node_modules/npm-package-arg/LICENSE",
+          "node-v24.22.2-darwin-arm64/lib/node_modules/npm/node_modules/libnpmsearch/LICENSE",
+          "node-v24.22.2-darwin-arm64/lib/node_modules/npm/node_modules/npm-pick-manifest/LICENSE.md",
+          "node-v24.22.2-darwin-arm64/lib/node_modules/npm/node_modules/libnpmteam/LICENSE",
+          "node-v24.22.2-darwin-arm64/lib/node_modules/npm/node_modules/http-proxy-agent/LICENSE",
+          "node-v24.22.2-darwin-arm64/lib/node_modules/npm/node_modules/cssesc/LICENSE-MIT.txt",
+          "node-v24.22.2-darwin-arm64/lib/node_modules/npm/node_modules/yallist/LICENSE.md",
+          "node-v24.22.2-darwin-arm64/lib/node_modules/npm/node_modules/minipass/LICENSE.md",
+          "node-v24.22.2-darwin-arm64/lib/node_modules/npm/node_modules/https-proxy-agent/LICENSE",
+          "node-v24.22.2-darwin-arm64/lib/node_modules/npm/node_modules/promise-call-limit/LICENSE",
+          "node-v24.22.2-darwin-arm64/lib/node_modules/npm/node_modules/glob/LICENSE.md",
+          "node-v24.22.2-darwin-arm64/lib/node_modules/npm/node_modules/socks/LICENSE"
+        ],
+        "windows_pdo_pgsql_present": false
+      },
+      "status": "inspected",
+      "target_header_match": true,
+      "catalog_id": "node-v24.22.2-macos-arm64"
+    },
+    {
+      "id": "php-8.5.12-staticphp20261113-cli-macos-arm64",
+      "package": "php",
+      "sapi": "cli",
+      "version": "8.5.12",
+      "target": "macos-arm64",
+      "url": "https://dl.static-php.dev/v3/php-bin/common/php-8.5.12-cli-macos-aarch64.tar.gz",
+      "sha256": "15b530298ac4e3560d685bbce5031dafa2db062f0b114b620db3fabfe25e326b",
+      "checksum_source": "https://dl.static-php.dev/v3/php-bin/common/php-8.5.12-cli-macos-aarch64.tar.gz.sha256",
+      "provider": "StaticPHP v3 common; third-party candidate",
+      "build_revision": "reviewed20261113",
+      "runtime_executed": false,
+      "signature_verification": "not-performed",
+      "cache_file": "php-8.5.12-staticphp20261113-cli-macos-arm64-php-8.5.12-cli-macos-aarch64.tar.gz",
+      "bytes": 15944416,
+      "computed_sha256": "15b530298ac4e3560d685bbce5031dafa2db062f0b114b620db3fabfe25e326b",
+      "integrity": "publisher-sha256-matched",
+      "inspection": {
+        "archive_kind": "tar",
+        "file_count": 1,
+        "binaries": [
+          {
+            "member": "php",
+            "architectures": [
+              "arm64"
+            ]
+          }
+        ],
+        "nested_archives_inspected": [],
+        "license_members": [],
+        "windows_pdo_pgsql_present": false
+      },
+      "status": "inspected",
+      "target_header_match": true,
+      "catalog_id": "php-8.5.12-staticphp20261113-cli-macos-arm64"
+    },
+    {
+      "id": "php-8.5.12-staticphp20261113-fpm-macos-arm64",
+      "package": "php",
+      "sapi": "fpm",
+      "version": "8.5.12",
+      "target": "macos-arm64",
+      "url": "https://dl.static-php.dev/v3/php-bin/common/php-8.5.12-fpm-macos-aarch64.tar.gz",
+      "sha256": "7f40383764102dbad2db3f7d99f93d42f7a2c2e5906a6ab248ae85eb04d90183",
+      "checksum_source": "https://dl.static-php.dev/v3/php-bin/common/php-8.5.12-fpm-macos-aarch64.tar.gz.sha256",
+      "provider": "StaticPHP v3 common; third-party candidate",
+      "build_revision": "reviewed20261113",
+      "runtime_executed": false,
+      "signature_verification": "not-performed",
+      "cache_file": "php-8.5.12-staticphp20261113-fpm-macos-arm64-php-8.5.12-fpm-macos-aarch64.tar.gz",
+      "bytes": 15969793,
+      "computed_sha256": "7f40383764102dbad2db3f7d99f93d42f7a2c2e5906a6ab248ae85eb04d90183",
+      "integrity": "publisher-sha256-matched",
+      "inspection": {
+        "archive_kind": "tar",
+        "file_count": 1,
+        "binaries": [
+          {
+            "member": "php-fpm",
+            "architectures": [
+              "arm64"
+            ]
+          }
+        ],
+        "nested_archives_inspected": [],
+        "license_members": [],
+        "windows_pdo_pgsql_present": false
+      },
+      "status": "inspected",
+      "target_header_match": true,
+      "catalog_id": "php-8.5.12-staticphp20261113-fpm-macos-arm64"
+    }
+  ]
+}

@@ -55,7 +55,7 @@ kengaytirmaydi. Original qarorlar va mezonlar reja faylida saqlangan.[^request][
   ommaviy missing emas. Scanner script, `.env`, install yoki secret ishlatmaydi.
 - Runtime mustaqil candidate saqlanadi. Mos installed PHP CLI+web va Node bo‘lsa
   project/site yaratiladi; bo‘lmasa needs-runtime holati. Prepare/Start explicit.
-- Project schema6 additive discovery ledger, fizik identity, transactional Forget
+- Project schema7 additive discovery ledger, fizik identity, transactional Forget
   suppression va Restore bor. Restore original project ID, runtime va binding’larni
   qaytaradi. Birinchi scan’dan oldingi CLI Forget ham suppression qiladi. Stale
   revision suppression’ni o‘zgartirmaydi; explicit Import faqat muvaffaqiyatdan keyin
@@ -155,18 +155,28 @@ hashlariga tegishli, birlashtirilgan main integratsiyasi tekshirilmagan.
 [^watcher]: notify backend events authoritative inventory emas; shallow recovery scanner bilan birga ishlatiladi.
 
 
-# Main/M7 va upstream integration — davom etmoqda
+# Main/M7 va upstream integration — yakuniy qabul
 
-Foydalanuvchi upstream katalog masalasini yakunlash, discovery’ni main’dagi M7
-bilan birlashtirish, ikki OS’da tekshirish va main’ga push qilishni aniq topshirdi.
-Integration baseline main65948e0 va discoverye5c5f64. M7’dagi immutable legacy pinlar,
-superseded mapping va alohida reviewed build family modeli saqlanmoqda. Yetishmagan
-Intel PHP8.5 CLI/FPM current build’lari shu modelga qo‘shildi; eski descriptor va
-user tanlovlari o‘zgarmaydi. Discovery fixtures endi current, non-superseded SHA
-bo‘yicha tanlaydi; vaqtinchalik original-cache workaround ishlatilmaydi.
+User upstream/current katalog, M7 bilan birlashtirish, native qayta qabul va main
+push’ini vakolatladi. Main65948e0 + discoverye5c5f64 merge4ff3411 asosida yangi
+Intel PHP8.5 CLI/FPM reviewed family’lari qo‘shildi. Oldingi48 descriptor/pin va
+foydalanuvchi runtime tanlovi o‘zgarmadi. Current descriptor normal downloader orqali
+haqiqiy upstream’dan tekshirildi; eski Git blob workaround ishlatilmadi.
 
-Ikkala branch schema6 ishlatgani uchun additive schema7 migratsiyasi ikkala
-history’ni qo‘llaydi. Native combined acceptance actual auto-discovered Laravel’da
-M7 debug/profile va Forget/Restore debugger configuration’ni tekshiradi. Bu section
-hali final native success yoki main push dalili emas; yakuniy job/source/hashlar
-integration evidence’ga yoziladi.
+Ikkala schema6 history uchun additive schema7 migration debugger/runtime/ID va
+ledger/suppression’ni saqlaydi. Regression testi ikkala history’ni seed qilib,
+record equality va replay’ni tekshiradi. Discovery aktiv debugger listener’ini
+ham relocation guard bilan himoya qiladi. M7.1 va SDK builder/recipe unchanged.
+
+Finalsource38847ce’da ARM64, Intel va Windows actual native backend/CLI/UI o‘tdi:
+automatik topilgan yangi Laravel’da explicit PHP/DB/managed-env preparation’dan
+keyin breakpoint/steps/profiles, privacy/isolation, Off recovery va Forget/Restore
+configuration preservation. Har target12 discovery +8 debugger UI checks,22axe/0.
+Core124Mac/120Win Rust (1 credential opt-in ignored each),42frontend,6packaging va
+default builds passed. [Integration evidence](../evidence/discovery-m7-integration/README.md)
+source/job/ZIP hashlarni va old failed fixture attempts’ni alohida ko‘rsatadi.
+
+Oldingi “main/M7 integration ochiq” va “current catalog maintenance ochiq” boundary
+ushbu scoped integration bilan almashtirildi. Native qabul current upstream snapshot
+uchun; keyingi mutable publisher rebuild yangi review talab qiladi. M15 signing/
+minimum-OS/distribution gate’lari shu task bilan yopilgan deb ko‘rsatilmaydi.

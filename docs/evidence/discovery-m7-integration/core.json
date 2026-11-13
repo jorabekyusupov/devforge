@@ -1,0 +1,22 @@
+{
+  "source": "38847ce4eea44508e3a5c6828b9789a76a16d9bc",
+  "run": 43436840849,
+  "jobs": [
+    {
+      "job_id": 131924040843,
+      "rust_passed": 124,
+      "rust_ignored": 1,
+      "frontend_passed": 42,
+      "packaging_tests": 6,
+      "strict_knowledge_passed": true
+    },
+    {
+      "job_id": 131924041173,
+      "rust_passed": 120,
+      "rust_ignored": 1,
+      "frontend_passed": 42,
+      "packaging_tests": 6,
+      "strict_knowledge_passed": true
+    }
+  ]
+}
