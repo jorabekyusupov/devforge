@@ -367,3 +367,59 @@ pub async fn choose_mail_file(
     .await
     .map_err(|_| State::failure("mail_export_failed"))?
 }
+
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DebugRequest {
+    id: String,
+    kind: String,
+    profile: Option<String>,
+    file: Option<String>,
+}
+#[tauri::command]
+pub async fn debug_read(
+    state: tauri::State<'_, State>,
+    request: DebugRequest,
+) -> Result<serde_json::Value, Error> {
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        state.with(|w| match request.kind.as_str() {
+            "view" => w.debug_view(&request.id),
+            "profile" => w.debug_profile(
+                &request.id,
+                request
+                    .profile
+                    .as_deref()
+                    .ok_or_else(|| State::failure("unexpected"))?,
+            ),
+            "source" => w.debug_source(
+                &request.id,
+                request
+                    .file
+                    .as_deref()
+                    .ok_or_else(|| State::failure("unexpected"))?,
+            ),
+            _ => Err(State::failure("unexpected")),
+        })
+    })
+    .await
+    .map_err(|_| State::failure("unexpected"))?
+}
+#[tauri::command]
+pub async fn choose_debug_profile(app: tauri::AppHandle) -> Result<Option<PathBuf>, Error> {
+    use tauri_plugin_dialog::DialogExt;
+    tauri::async_runtime::spawn_blocking(move || {
+        app.dialog()
+            .file()
+            .set_title("Xdebug Cachegrind")
+            .set_file_name("profile.cachegrind")
+            .blocking_save_file()
+            .map(|p| {
+                p.into_path()
+                    .map_err(|_| State::failure("storage_unavailable"))
+            })
+            .transpose()
+    })
+    .await
+    .map_err(|_| State::failure("storage_unavailable"))?
+}

@@ -10,7 +10,8 @@
     "services": "Services & logs",
     "inspector": "Inspector",
     "activity": "Mail & logs",
-    "workspaces": "Workspaces"
+    "workspaces": "Workspaces",
+    "debugger": "Debugger"
   },
   "common": {
     "saved": "Saved automatically",
@@ -104,7 +105,8 @@
       "readiness_timeout": "The process did not become ready in time.",
       "process_exited": "The process exited unexpectedly.",
       "invalid_process": "The process configuration is invalid.",
-      "log_failed": "Process logs could not be saved."
+      "log_failed": "Process logs could not be saved.",
+      "file_budget": "Profile output reached its storage budget. The owned PHP process was stopped. Clear retained profiles and restart."
     }
   },
   "project": {
@@ -134,7 +136,8 @@
       "backup_unsupported": "This backup engine, version or database objects are not supported.",
       "backup_destination_exists": "A file already exists there. Export with a different name.",
       "mail_unavailable": "Mail capture is unavailable. Stop the project, retry capture and check the local port.",
-      "workspace_managed": "Use Workspaces → Review cleanup for this project. Generic Forget is disabled."
+      "workspace_managed": "Use Workspaces → Review cleanup for this project. Generic Forget is disabled.",
+      "debug_runtime_change": "Disable Xdebug mode before changing the PHP runtime, then select a matching debug runtime."
     }
   },
   "serving": {
@@ -579,7 +582,8 @@
       "environment": "Preparing .env and APP_KEY…",
       "composer": "Installing Composer dependencies…",
       "npm": "Installing npm dependencies…",
-      "sqlite": "Initializing the new SQLite database…"
+      "sqlite": "Initializing the new SQLite database…",
+      "debug_build": "Preparing the compatible native runtime…"
     },
     "openRegistered": "Open added project",
     "platformRequirements": "Composer platform requirements",
@@ -727,5 +731,100 @@
       "removed": "Archived"
     },
     "externalTools": "Close external tools using this workspace before archiving."
+  },
+  "debugger": {
+    "title": "Debugger & profiler",
+    "description": "Project-scoped Xdebug sessions and function profiles.",
+    "project": "Project",
+    "configure": "Configure Xdebug",
+    "empty": "No project selected",
+    "emptyHelp": "Register a Laravel project before enabling native debugging.",
+    "sdkReady": "Compatible runtime installed",
+    "sdkMissing": "Compatible runtime not installed",
+    "install": "Prepare debug runtime",
+    "views": "Debugging views",
+    "tabDebug": "Debugger",
+    "tabProfiles": "Function profiles",
+    "continue": "Continue",
+    "stepOver": "Step over",
+    "stepInto": "Step into",
+    "stepOut": "Step out",
+    "stopRequest": "Stop request",
+    "requestPath": "GET path",
+    "runRequest": "Run request",
+    "startProject": "Start project",
+    "stopProject": "Stop project",
+    "breakpoints": "Breakpoints",
+    "removeBreakpoint": "Remove breakpoint",
+    "file": "Project PHP file",
+    "line": "Line",
+    "add": "Add",
+    "source": "Source",
+    "sourceHelp": "Pause on a project frame to view nearby source lines.",
+    "stack": "Call stack",
+    "internal": "Internal frame",
+    "stackEmpty": "No paused stack. Run a request and continue to a breakpoint.",
+    "variables": "Variables",
+    "variablesEmpty": "Variables appear when the engine reaches a PHP frame.",
+    "history": "Retained profiles",
+    "profileEmpty": "Choose Profile mode, start the project and run a request.",
+    "functions": "Functions",
+    "total": "Total {{time}} ms · peak memory {{memory}} B",
+    "search": "Search functions",
+    "export": "Export Cachegrind",
+    "delete": "Delete profile",
+    "function": "Function",
+    "selfTime": "Self time",
+    "inclusiveTime": "Inclusive time",
+    "memory": "Memory",
+    "calls": "Calls",
+    "truncated": "Only the top500 functions are shown. Export the retained file for full analysis.",
+    "chooseProfile": "Select a retained function profile.",
+    "privacy": "Debugging is opt-in. Only the selected project uses this runtime. Known secrets and sensitive variable names are masked; use development data.",
+    "configureHelp": "Stop this project before changing mode. The normal PHP selection remains unchanged. A matching managed runtime is used while Xdebug is enabled.",
+    "mode": "Instrumentation mode",
+    "runtime": "Compatible runtime",
+    "none": "Not selected",
+    "consent": "Apply this mode only to the selected project.",
+    "stopFirst": "Stop the selected project first.",
+    "buildHelp": "macOS builds a matching CLI/FPM and Xdebug in a private prefix using Apple Command Line Tools. Windows downloads a matching official NTS DLL. Sources/checksums and build provenance are recorded. No global PHP, Homebrew or PECL installation is performed. Initial preparation may take several minutes; completed runtimes are reused.",
+    "trustBuild": "Trust these reviewed native sources and allow the private build/download.",
+    "building": "Preparing the compatible native runtime…",
+    "prepareRuntime": "Prepare runtime",
+    "deleteHelp": "Delete this retained profile from the selected project?",
+    "loading": "Loading debugger…",
+    "modes": {
+      "off": "Off",
+      "debug": "Debug mode",
+      "profile": "Profile mode"
+    },
+    "states": {
+      "stopped": "Stopped",
+      "listening": "Listening",
+      "connecting": "Connecting",
+      "paused": "Paused",
+      "running": "Running",
+      "profiling": "Profiling"
+    },
+    "requests": {
+      "idle": "No request started",
+      "running": "Request running",
+      "completed": "Request completed",
+      "failed": "Request failed"
+    },
+    "errors": {
+      "unavailable": "The debug session is unavailable. Check the selected project and retry.",
+      "protocol": "The Xdebug protocol session failed. Restart the selected project and retry.",
+      "unauthorized": "This action requires confirmed ownership or source trust.",
+      "source_outside": "Choose a regular PHP file inside the selected project.",
+      "busy": "The engine is busy. Pause or finish its current request before changing this state.",
+      "invalid_breakpoint": "Use a project PHP file and a valid positive line number; at most100 breakpoints are supported.",
+      "profile_invalid": "The profile is incomplete or unsupported. Wait for the request to finish and retry.",
+      "profile_limit": "The function profile exceeded its file or retention budget. Clear older profiles and retry.",
+      "runtime_missing": "Install and select a compatible debug runtime first.",
+      "runtime_incompatible": "The runtime does not match this PHP version, architecture or ABI. Disable Xdebug before changing PHP.",
+      "build_failed": "The native build failed. Check Apple Command Line Tools and the private build log, then retry.",
+      "cancelled": "The native build was cancelled. Existing PHP and project data were preserved."
+    }
   }
 }

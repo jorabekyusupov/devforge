@@ -4,6 +4,7 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 [dependencies]
+devforge-debugger.workspace=true
 devforge-inspector.workspace = true
 devforge-core.workspace = true
 devforge-runtime.workspace = true
@@ -22,7 +23,7 @@ devforge-platform.workspace = true
 [target.'cfg(windows)'.dependencies]
 windows-sys = {version="0.61.2",features=["Win32_UI_Shell","Win32_UI_WindowsAndMessaging"]}
 [features]
-test-support = []
+test-support = ["devforge-debugger/test-support"]
 
 [[example]]
 name="native_workspace"

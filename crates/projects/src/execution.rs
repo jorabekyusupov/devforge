@@ -59,6 +59,8 @@ pub struct Context {
     pub(crate) sensitive: Vec<String>,
     pub(crate) ini: PathBuf,
     pub(crate) config: PathBuf,
+    debug_runtime: Option<devforge_debugger::provider::Runtime>,
+    debug_launch: Option<devforge_debugger::session::Launch>,
 }
 impl Context {
     /// Serving owns only these runtime-derived values; no .env write occurs.
@@ -90,6 +92,8 @@ impl Context {
                 && !key.starts_with("REDIS_")
                 && !key.starts_with("MAIL_")
                 && !key.starts_with("DEVFORGE_INSPECTOR_")
+                && !key.starts_with("XDEBUG_")
+                && key != "PHP_IDE_CONFIG"
                 && key != "DATABASE_URL"
                 && key != "APP_KEY"
         });
@@ -124,6 +128,7 @@ impl Context {
         let mut project = store.get(id)?;
         project.services = Default::default();
         project.mail = false;
+        project.debugger = Default::default();
         Self::prepare(project, store, catalog, packages, secrets)
     }
     pub fn resolve(
@@ -169,6 +174,7 @@ impl Context {
             environment_references: Default::default(),
             mail: false,
             worktree: None,
+            debugger: Default::default(),
             revision: 0,
             active: true,
             php_settings: Default::default(),
@@ -194,7 +200,46 @@ impl Context {
         secrets: &dyn SecretStore,
     ) -> Result<Self> {
         let id = project.id.as_str();
-        let php = packages.executable(catalog.get(&project.php)?, "php")?;
+        let base = catalog.get(&project.php)?;
+        let debug_runtime = if project.debugger.mode != devforge_debugger::Mode::Off {
+            Some(
+                devforge_debugger::provider::resolve(
+                    &store.root,
+                    project
+                        .debugger
+                        .runtime
+                        .as_deref()
+                        .ok_or(E::RuntimeUnavailable)?,
+                    base.version.split('-').next().unwrap(),
+                    packages,
+                    secrets,
+                )
+                .map_err(|_| E::RuntimeUnavailable)?,
+            )
+        } else {
+            None
+        };
+        let debug_launch = if debug_runtime.is_some() {
+            devforge_debugger::session::read(&store.root.join("debugging").join(id), id)
+                .map_err(|_| E::StorageUnavailable)?
+        } else {
+            None
+        };
+        if debug_launch.as_ref().is_some_and(|s| {
+            Some(s.runtime.as_str()) != project.debugger.runtime.as_deref()
+                || s.mode != project.debugger.mode
+        }) {
+            return Err(E::RuntimeUnavailable);
+        }
+        let php = if let Some(runtime) = &debug_runtime {
+            if let Some(php) = &runtime.php {
+                php.clone()
+            } else {
+                packages.executable(base, "php")?
+            }
+        } else {
+            packages.executable(base, "php")?
+        };
         let node = packages.executable(catalog.get(&project.node)?, "node")?;
         let config = store.root.join("config").join(id);
         private_dir(&config)?;
@@ -228,6 +273,19 @@ impl Context {
                 }
             }
         }
+        if let Some(debug) = &debug_runtime {
+            text.push_str(&format!("zend_extension={}\nxdebug.discover_client_host=0\nxdebug.start_with_request=trigger\nxdebug.use_compression=0\nxdebug.profiler_output_name=cachegrind.%p.%u.out\nxdebug.log_level=0\n",ini_path(debug.extension.path())?));
+            if let Some(s) = &debug_launch {
+                text.push_str(&format!("xdebug.mode={}\nxdebug.trigger_value={}\nxdebug.idekey={}\nxdebug.output_dir={}\n",if s.mode==devforge_debugger::Mode::Debug{"debug"}else{"profile"},s.key,s.key,ini_path(&s.output)?));
+                if let Some(port) = s.port {
+                    text.push_str(&format!(
+                        "xdebug.client_host=127.0.0.1\nxdebug.client_port={port}\n"
+                    ));
+                }
+            } else {
+                text.push_str("xdebug.mode=off\n");
+            }
+        }
         // Stage to avoid partial reads by a simultaneously opened project command.
         let mut file = tempfile::NamedTempFile::new_in(&config)?;
         use std::io::Write;
@@ -236,6 +294,9 @@ impl Context {
         file.persist(&ini).map_err(|_| E::StorageUnavailable)?;
         let mut environment = crate::environment::base();
         let mut sensitive = Vec::new();
+        if let Some(s) = &debug_launch {
+            sensitive.push(s.key.clone());
+        }
         if let Some(key) = crate::env_file::app_key_secret(&project.path)? {
             sensitive.push(key.to_string());
         }
@@ -298,6 +359,11 @@ impl Context {
             &mut sensitive,
         )?;
         crate::mail::apply(store, &project, secrets, &mut environment, &mut sensitive)?;
+        if debug_runtime.is_some() {
+            environment.retain(|k, _| {
+                !k.to_string_lossy().starts_with("XDEBUG_") && k != "PHP_IDE_CONFIG"
+            });
+        }
         let mut paths = vec![
             node.path().parent().unwrap().to_path_buf(),
             php.path().parent().unwrap().to_path_buf(),
@@ -341,7 +407,15 @@ impl Context {
             sensitive,
             ini,
             config,
+            debug_runtime,
+            debug_launch,
         })
+    }
+    pub fn debug_trigger(mut self) -> Result<Self> {
+        let launch = self.debug_launch.as_ref().ok_or(E::RuntimeUnavailable)?;
+        self.environment
+            .insert("XDEBUG_TRIGGER".into(), launch.key.clone().into());
+        Ok(self)
     }
     pub fn project(&self) -> &Project {
         &self.project
@@ -414,7 +488,12 @@ impl Context {
                     "-c".into(),
                     dunce::simplified(&self.ini).as_os_str().to_owned(),
                 ]);
-                packages.executable(package, if cfg!(windows) { "php-cgi" } else { "php-fpm" })?
+                if let Some(web) = self.debug_runtime.as_ref().and_then(|d| d.web.as_ref()) {
+                    web.clone()
+                } else {
+                    packages
+                        .executable(package, if cfg!(windows) { "php-cgi" } else { "php-fpm" })?
+                }
             }
             _ => {
                 prefix.extend([
@@ -469,10 +548,26 @@ impl Context {
             restart: RestartPolicy::default(),
             logs: LogPolicy::default(),
         };
+        let profile_budget =
+            if matches!(tool, Tool::Php | Tool::PhpWeb | Tool::Artisan | Tool::Queue) {
+                self.debug_launch
+                    .as_ref()
+                    .filter(|s| s.mode == devforge_debugger::Mode::Profile)
+                    .map(|s| devforge_runtime::process::FileBudget {
+                        directory: s.output.clone(),
+                        prefix: "cachegrind.".into(),
+                        file_bytes: 32 * 1024 * 1024,
+                        total_bytes: 128 * 1024 * 1024,
+                        files: 25,
+                    })
+            } else {
+                None
+            };
         Ok(Invocation {
             context: self,
             spec,
             _resources: resources,
+            profile_budget,
         })
     }
 }
@@ -480,6 +575,7 @@ pub struct Invocation {
     context: Context,
     spec: ProcessSpec,
     _resources: Vec<VerifiedResource>,
+    profile_budget: Option<devforge_runtime::process::FileBudget>,
 }
 #[derive(Serialize)]
 pub struct ExecutionResult {
@@ -500,6 +596,9 @@ impl Invocation {
             backoff: Duration::from_millis(200),
         };
         supervisor.start_redacted(spec, self.context.sensitive.clone())?;
+        if let Some(budget) = &self.profile_budget {
+            supervisor.attach_file_budget(&self.spec.id, budget.clone())?;
+        }
         Ok(())
     }
     pub fn executable_path(&self) -> &std::path::Path {
@@ -518,6 +617,9 @@ impl Invocation {
         }
         let mut supervisor = Supervisor::open(logs)?;
         supervisor.start_redacted(self.spec.clone(), self.context.sensitive.clone())?;
+        if let Some(budget) = &self.profile_budget {
+            supervisor.attach_file_budget(&self.spec.id, budget.clone())?;
+        }
         let until = std::time::Instant::now() + Duration::from_secs(310);
         let state = loop {
             let state = supervisor.snapshot(&self.spec.id)?;

@@ -10,7 +10,8 @@
     "services": "Xizmatlar va loglar",
     "inspector": "Inspektor",
     "activity": "Mail va loglar",
-    "workspaces": "Ishchi muhitlar"
+    "workspaces": "Ishchi muhitlar",
+    "debugger": "Debugger"
   },
   "common": {
     "saved": "Avtomatik saqlandi",
@@ -104,7 +105,8 @@
       "readiness_timeout": "Jarayon belgilangan vaqtda tayyor bo‘lmadi.",
       "process_exited": "Jarayon kutilmaganda yakunlandi.",
       "invalid_process": "Jarayon sozlamalari noto‘g‘ri.",
-      "log_failed": "Jarayon loglarini saqlab bo‘lmadi."
+      "log_failed": "Jarayon loglarini saqlab bo‘lmadi.",
+      "file_budget": "Profile fayllari saqlash limitiga yetdi. Boshqariladigan PHP jarayoni to‘xtatildi. Eski profile’larni tozalab, loyihani qayta ishga tushiring."
     }
   },
   "project": {
@@ -134,7 +136,8 @@
       "backup_unsupported": "Backup baza turi, versiyasi yoki obyektlari qo‘llanmaydi.",
       "backup_destination_exists": "Bu nomdagi fayl mavjud. Boshqa nom bilan eksport qiling.",
       "mail_unavailable": "Mail capture ochilmadi. Loyihani to‘xtatib qayta yoqing va lokal portni tekshiring.",
-      "workspace_managed": "Bu loyiha uchun Workspaces → Tozalashni ko‘rib chiqish amalidan foydalaning. Oddiy Forget o‘chirilgan."
+      "workspace_managed": "Bu loyiha uchun Workspaces → Tozalashni ko‘rib chiqish amalidan foydalaning. Oddiy Forget o‘chirilgan.",
+      "debug_runtime_change": "PHP runtime’ni o‘zgartirishdan oldin Xdebug rejimini o‘chiring, keyin mos debug runtime tanlang."
     }
   },
   "serving": {
@@ -579,7 +582,8 @@
       "environment": ".env va APP_KEY tayyorlanmoqda…",
       "composer": "Composer bog‘liqliklari o‘rnatilmoqda…",
       "npm": "npm bog‘liqliklari o‘rnatilmoqda…",
-      "sqlite": "Yangi SQLite bazasi tayyorlanmoqda…"
+      "sqlite": "Yangi SQLite bazasi tayyorlanmoqda…",
+      "debug_build": "Mos native runtime tayyorlanmoqda…"
     },
     "openRegistered": "Qo‘shilgan loyihani ochish",
     "platformRequirements": "Composer platforma talablari",
@@ -727,5 +731,100 @@
       "removed": "Arxivlangan"
     },
     "externalTools": "Arxivlashdan oldin bu workspace’dan foydalanayotgan tashqi vositalarni yoping."
+  },
+  "debugger": {
+    "title": "Debugger va profiler",
+    "description": "Loyiha uchun alohida Xdebug sessiyasi va funksiya profillari.",
+    "project": "Loyiha",
+    "configure": "Xdebug sozlamalari",
+    "empty": "Loyiha tanlanmagan",
+    "emptyHelp": "Native debugging yoqishdan oldin Laravel loyihani ro‘yxatga oling.",
+    "sdkReady": "Mos runtime o‘rnatilgan",
+    "sdkMissing": "Mos runtime o‘rnatilmagan",
+    "install": "Debug runtime tayyorlash",
+    "views": "Debug ko‘rinishlari",
+    "tabDebug": "Debugger",
+    "tabProfiles": "Funksiya profillari",
+    "continue": "Davom ettirish",
+    "stepOver": "Qadam tashlash",
+    "stepInto": "Ichiga kirish",
+    "stepOut": "Tashqariga chiqish",
+    "stopRequest": "So‘rovni to‘xtatish",
+    "requestPath": "GET manzili",
+    "runRequest": "So‘rov yuborish",
+    "startProject": "Loyihani boshlash",
+    "stopProject": "Loyihani to‘xtatish",
+    "breakpoints": "Breakpoint’lar",
+    "removeBreakpoint": "Breakpoint’ni o‘chirish",
+    "file": "Loyiha PHP fayli",
+    "line": "Qator",
+    "add": "Qo‘shish",
+    "source": "Manba kodi",
+    "sourceHelp": "Yaqin kod qatorlarini ko‘rish uchun loyiha frame’ida to‘xtang.",
+    "stack": "Chaqiruv steki",
+    "internal": "Ichki frame",
+    "stackEmpty": "To‘xtagan stack yo‘q. So‘rov yuborib breakpoint’gacha davom eting.",
+    "variables": "O‘zgaruvchilar",
+    "variablesEmpty": "PHP frame’iga o‘tilgach o‘zgaruvchilar ko‘rinadi.",
+    "history": "Saqlangan profillar",
+    "profileEmpty": "Profile rejimini tanlang, loyihani boshlang va so‘rov yuboring.",
+    "functions": "Funksiyalar",
+    "total": "Jami {{time}} ms · eng yuqori xotira {{memory}} B",
+    "search": "Funksiyalarni qidirish",
+    "export": "Cachegrind eksporti",
+    "delete": "Profilni o‘chirish",
+    "function": "Funksiya",
+    "selfTime": "O‘z vaqti",
+    "inclusiveTime": "Umumiy vaqt",
+    "memory": "Xotira",
+    "calls": "Chaqiruvlar",
+    "truncated": "Eng yuqori500 funksiya ko‘rsatilgan. To‘liq tahlil uchun faylni eksport qiling.",
+    "chooseProfile": "Saqlangan funksiya profilini tanlang.",
+    "privacy": "Debugging alohida yoqiladi. Bu runtime faqat tanlangan loyihada ishlatiladi. Ma’lum secret va maxfiy o‘zgaruvchi nomlari maskalanadi; test ma’lumotidan foydalaning.",
+    "configureHelp": "Rejimni o‘zgartirishdan oldin loyihani to‘xtating. Oddiy PHP tanlovi saqlanadi. Xdebug yoqilganda mos boshqariladigan runtime ishlaydi.",
+    "mode": "Instrumentatsiya rejimi",
+    "runtime": "Mos runtime",
+    "none": "Tanlanmagan",
+    "consent": "Rejimni faqat tanlangan loyihaga qo‘llashga roziman.",
+    "stopFirst": "Avval tanlangan loyihani to‘xtating.",
+    "buildHelp": "macOS’da mos CLI/FPM va Xdebug Apple Command Line Tools yordamida private prefix’da yig‘iladi. Windows mos rasmiy NTS DLL’ni yuklaydi. Checksum va build manbasi qayd etiladi. Global PHP, Homebrew yoki PECL o‘rnatilmaydi. Birinchi tayyorlash bir necha daqiqa olishi mumkin; tayyor runtime qayta ishlatiladi.",
+    "trustBuild": "Tekshirilgan native manbalarga ishonaman va private build/yuklashga roziman.",
+    "building": "Mos native runtime tayyorlanmoqda…",
+    "prepareRuntime": "Runtime tayyorlash",
+    "deleteHelp": "Tanlangan loyihadagi shu saqlangan profil o‘chirilsinmi?",
+    "loading": "Debugger yuklanmoqda…",
+    "modes": {
+      "off": "O‘chirilgan",
+      "debug": "Debug rejimi",
+      "profile": "Profile rejimi"
+    },
+    "states": {
+      "stopped": "To‘xtatilgan",
+      "listening": "Kutilmoqda",
+      "connecting": "Ulanmoqda",
+      "paused": "Pauzada",
+      "running": "Bajarilmoqda",
+      "profiling": "Profil olinmoqda"
+    },
+    "requests": {
+      "idle": "So‘rov boshlanmagan",
+      "running": "So‘rov bajarilmoqda",
+      "completed": "So‘rov yakunlangan",
+      "failed": "So‘rov xatosi"
+    },
+    "errors": {
+      "unavailable": "Debug sessiyasi mavjud emas. Tanlangan loyihani tekshirib qayta urining.",
+      "protocol": "Xdebug protokolida xato. Tanlangan loyihani qayta boshlab urining.",
+      "unauthorized": "Amal uchun egalik yoki source’ga ishonch tasdig‘i kerak.",
+      "source_outside": "Tanlangan loyiha ichidagi oddiy PHP faylni tanlang.",
+      "busy": "Dvigatel band. Holatni o‘zgartirishdan oldin joriy so‘rovni pauza qiling yoki yakunlang.",
+      "invalid_breakpoint": "Loyiha PHP fayli va musbat qator raqamini kiriting; ko‘pi bilan100 breakpoint mumkin.",
+      "profile_invalid": "Profil tugamagan yoki qo‘llanmaydi. So‘rov yakunlangach qayta urining.",
+      "profile_limit": "Profil fayli yoki saqlash limiti oshdi. Eski profillarni tozalab qayta urining.",
+      "runtime_missing": "Avval mos debug runtime’ni o‘rnating va tanlang.",
+      "runtime_incompatible": "Runtime PHP versiyasi, arxitektura yoki ABI’ga mos emas. PHP’ni o‘zgartirishdan oldin Xdebug’ni o‘chiring.",
+      "build_failed": "Native build bajarilmadi. Apple Command Line Tools va private build log’ini tekshirib qayta urining.",
+      "cancelled": "Native build bekor qilindi. Mavjud PHP va loyiha ma’lumotlari saqlandi."
+    }
   }
 }

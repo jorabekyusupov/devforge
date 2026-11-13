@@ -12,6 +12,7 @@ import {
   ScanSearch,
   Mail,
   GitBranch,
+  Bug,
 } from "lucide-react";
 import {
   desktopBackend,
@@ -22,6 +23,7 @@ import {
   type Theme,
 } from "./bridge";
 import { SettingsPage } from "./pages/SettingsPage";
+import { DebuggerPage } from "./pages/DebuggerPage";
 import { WorktreesPage } from "./pages/WorktreesPage";
 import { WorkspacePage } from "./pages/WorkspacePage";
 import { ActivityPage } from "./pages/ActivityPage";
@@ -29,6 +31,7 @@ import { InspectorPage } from "./pages/InspectorPage";
 import { DiagnosticsPage } from "./pages/DiagnosticsPage";
 
 type Page =
+  | "debugger"
   | "workspaces"
   | "activity"
   | "inspector"
@@ -40,6 +43,7 @@ type Page =
 const validPage = (value: string): Page => {
   const route = value.split("?")[0];
   return [
+    "debugger",
     "workspaces",
     "projects",
     "runtimes",
@@ -175,6 +179,7 @@ export function App({ backend = desktopBackend }: { backend?: Backend }) {
     { id: "runtimes", icon: Layers, group: "workspace" },
     { id: "services", icon: Server, group: "workspace" },
     { id: "inspector", icon: ScanSearch, group: "workspace" },
+    { id: "debugger", icon: Bug, group: "workspace" },
     { id: "activity", icon: Mail, group: "workspace" },
     { id: "settings", icon: Settings2, group: "application" },
     { id: "diagnostics", icon: Activity, group: "application" },
@@ -238,6 +243,7 @@ export function App({ backend = desktopBackend }: { backend?: Backend }) {
             <span>
               {t(
                 [
+                  "debugger",
                   "workspaces",
                   "projects",
                   "runtimes",
@@ -309,6 +315,7 @@ export function App({ backend = desktopBackend }: { backend?: Backend }) {
           />
         )}
 
+        {page === "debugger" && <DebuggerPage backend={backend.workspace} />}
         {page === "workspaces" && <WorktreesPage backend={backend.workspace} />}
         {page === "activity" && <ActivityPage backend={backend.workspace} />}
         {page === "inspector" && <InspectorPage backend={backend.workspace} />}

@@ -1,5 +1,7 @@
+mod budget;
 pub mod host;
 mod log;
+pub use budget::FileBudget;
 mod redact;
 mod tree;
 use crate::{Cancellation, Result, RuntimeError, package::VerifiedExecutable, relative_path};
@@ -105,6 +107,7 @@ struct Managed {
     stop: Cancellation,
     worker: Option<JoinHandle<()>>,
     _ownership: File,
+    budget: Arc<Mutex<Option<FileBudget>>>,
 }
 impl Drop for Managed {
     fn drop(&mut self) {
@@ -201,10 +204,21 @@ impl Supervisor {
         let worker_state = state.clone();
         let worker_logs = logs.clone();
         let worker_stop = stop.clone();
+        let budget = Arc::new(Mutex::new(None));
+        let worker_budget = budget.clone();
         let key = spec.id.clone();
         let worker = thread::Builder::new()
             .name(format!("devforge-{}", spec.id))
-            .spawn(move || run(spec, worker_state, worker_logs, worker_stop, secrets))?;
+            .spawn(move || {
+                run(
+                    spec,
+                    worker_state,
+                    worker_logs,
+                    worker_stop,
+                    secrets,
+                    worker_budget,
+                )
+            })?;
         self.processes.insert(
             key,
             Managed {
@@ -213,8 +227,15 @@ impl Supervisor {
                 stop,
                 worker: Some(worker),
                 _ownership: ownership,
+                budget,
             },
         );
+        Ok(())
+    }
+    pub fn attach_file_budget(&self, id: &str, budget: FileBudget) -> Result<()> {
+        budget.validate()?;
+        let process = self.processes.get(id).ok_or(RuntimeError::InvalidProcess)?;
+        *process.budget.lock().unwrap() = Some(budget);
         Ok(())
     }
     pub fn snapshot(&self, id: &str) -> Result<Snapshot> {
@@ -304,13 +325,14 @@ fn run(
     logs: Arc<Mutex<log::Logs>>,
     stop: Cancellation,
     secrets: Arc<Vec<zeroize::Zeroizing<String>>>,
+    budget: Arc<Mutex<Option<FileBudget>>>,
 ) {
     loop {
         if stop.is_cancelled() {
             break;
         }
         set(&state, Observed::Starting, None, None);
-        let failure = attempt(&spec, &state, &logs, &stop, &secrets);
+        let failure = attempt(&spec, &state, &logs, &stop, &secrets, &budget);
         if stop.is_cancelled() {
             break;
         }
@@ -325,6 +347,11 @@ fn run(
                 return;
             }
             Err(error) => {
+                if error == RuntimeError::FileBudget {
+                    state.lock().unwrap().desired_running = false;
+                    set(&state, Observed::Failed, None, Some(error));
+                    return;
+                }
                 let restarts = state.lock().unwrap().restarts;
                 if restarts >= spec.restart.max_restarts {
                     state.lock().unwrap().desired_running = false;
@@ -404,6 +431,7 @@ fn attempt(
     logs: &Arc<Mutex<log::Logs>>,
     stop: &Cancellation,
     secrets: &Arc<Vec<zeroize::Zeroizing<String>>>,
+    budget: &Arc<Mutex<Option<FileBudget>>>,
 ) -> Result<()> {
     spec.executable.check()?;
     let mut command = Command::new(spec.executable.path());
@@ -472,6 +500,7 @@ fn attempt(
     );
     let deadline = Instant::now() + spec.readiness_timeout;
     let mut is_ready = false;
+    let mut checked = Instant::now() - Duration::from_secs(1);
     let outcome = (|| loop {
         if stop.is_cancelled() {
             set(state, Observed::Stopping, Some(pid), None);
@@ -479,6 +508,14 @@ fn attempt(
         }
         if failed.load(Ordering::Relaxed) {
             break Err(RuntimeError::LogFailed);
+        }
+        if checked.elapsed() >= Duration::from_millis(100) {
+            checked = Instant::now();
+            if let Some(limit) = budget.lock().unwrap().as_ref()
+                && limit.exceeded()?
+            {
+                break Err(RuntimeError::FileBudget);
+            }
         }
         if tree.exited()? {
             break Ok(());
@@ -501,11 +538,13 @@ fn attempt(
     })();
     // Cleanup also runs after root crash: its descendants must not outlive the
     // managed attempt or retain stdout pipes and block the reader joins.
-    let code = tree.finish(if outcome.is_ok() {
-        Duration::ZERO
-    } else {
-        spec.stop_grace
-    });
+    let code = tree.finish(
+        if outcome.is_ok() || outcome == Err(RuntimeError::FileBudget) {
+            Duration::ZERO
+        } else {
+            spec.stop_grace
+        },
+    );
     state.lock().unwrap().exit_code = code.as_ref().ok().copied().flatten();
     drop(tree);
     let _ = stdout.join();

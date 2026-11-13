@@ -56,6 +56,8 @@ pub struct Project {
     pub mail: bool,
     #[serde(default)]
     pub worktree: Option<String>,
+    #[serde(default)]
+    pub debugger: devforge_debugger::Settings,
     pub revision: u64,
     pub active: bool,
     #[serde(default)]
@@ -169,7 +171,7 @@ impl ProjectStore {
         connection.busy_timeout(Duration::from_secs(3))?;
         connection.pragma_update(None, "foreign_keys", true)?;
         let version: u32 = connection.pragma_query_value(None, "user_version", |r| r.get(0))?;
-        if version > 5 {
+        if version > 6 {
             return Err(E::StorageUnavailable);
         }
         if version == 0 {
@@ -186,6 +188,9 @@ impl ProjectStore {
         }
         if version <= 4 {
             connection.pragma_update(None, "user_version", 5)?;
+        }
+        if version <= 5 {
+            connection.pragma_update(None, "user_version", 6)?;
         }
         Ok(Self { connection, root })
     }
@@ -238,6 +243,7 @@ impl ProjectStore {
             environment_references: Default::default(),
             mail: false,
             worktree: None,
+            debugger: Default::default(),
             revision: 1,
             active: true,
             php_settings: Default::default(),
@@ -280,6 +286,9 @@ impl ProjectStore {
         let mut p = self.get(id)?;
         let checked = inspect(&p.path)?;
         compatible(&checked, catalog.get(php)?, catalog.get(node)?)?;
+        if p.debugger.mode != devforge_debugger::Mode::Off && p.php != php {
+            return Err(E::DebugRuntimeChange);
+        }
         p.name = name.into();
         p.php = php.into();
         p.node = node.into();
@@ -294,6 +303,20 @@ impl ProjectStore {
             return Err(E::WorkspaceManaged);
         }
         p.active = false;
+        self.save(&mut p, revision)
+    }
+    pub fn save_debugger(
+        &self,
+        id: &str,
+        revision: u64,
+        settings: devforge_debugger::Settings,
+    ) -> Result<()> {
+        let _lock = self.operation_lock()?;
+        let mut p = self.get(id)?;
+        settings
+            .validate(&p.path)
+            .map_err(|_| E::InvalidEnvironment)?;
+        p.debugger = settings;
         self.save(&mut p, revision)
     }
     pub fn claim_worktree(&self, id: &str, revision: u64, worktree: &str) -> Result<()> {

@@ -9,6 +9,7 @@ name = "devforge"
 path = "src/main.rs"
 
 [dependencies]
+devforge-debugger.workspace=true
 devforge-inspector.workspace = true
 devforge-core.workspace = true
 devforge-platform.workspace = true

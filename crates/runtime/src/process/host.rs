@@ -22,7 +22,7 @@ pub fn run(
 ) -> Result<Output> {
     if !Path::new(command.get_program()).is_absolute()
         || timeout.is_zero()
-        || timeout > Duration::from_secs(900)
+        || timeout > Duration::from_secs(3600)
         || !(1..=16 * 1024 * 1024).contains(&limit)
     {
         return Err(RuntimeError::InvalidProcess);

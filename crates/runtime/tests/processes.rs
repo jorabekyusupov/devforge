@@ -357,3 +357,47 @@ fn directory_input_is_refused_without_starting_child() {
         Observed::Failed
     );
 }
+
+#[test]
+fn profile_budget_stops_only_its_owned_process_without_restart() {
+    let f = Fixture::new();
+    f.install();
+    let profiles = f.temp.path().join("profiles");
+    fs::create_dir(&profiles).unwrap();
+    let mut supervisor = Supervisor::open(f.temp.path().join("logs")).unwrap();
+    supervisor.start(f.spec("other", "delayed")).unwrap();
+    ready(&supervisor, "other");
+    let other = supervisor.snapshot("other").unwrap().pid;
+    let mut spec = f.spec("profiled", "delayed");
+    spec.restart = RestartPolicy {
+        max_restarts: 2,
+        backoff: Duration::from_millis(10),
+    };
+    supervisor.start(spec).unwrap();
+    ready(&supervisor, "profiled");
+    supervisor
+        .attach_file_budget(
+            "profiled",
+            devforge_runtime::process::FileBudget {
+                directory: fs::canonicalize(&profiles).unwrap(),
+                prefix: "cachegrind.".into(),
+                file_bytes: 1024,
+                total_bytes: 2048,
+                files: 2,
+            },
+        )
+        .unwrap();
+    fs::write(profiles.join("unrelated"), vec![0; 4096]).unwrap();
+    fs::write(profiles.join("cachegrind.test.out"), vec![0; 1025]).unwrap();
+    let failed = supervisor
+        .wait_terminal("profiled", Duration::from_secs(5))
+        .unwrap();
+    assert_eq!(failed.failure, Some(RuntimeError::FileBudget));
+    assert_eq!(failed.restarts, 0);
+    assert_eq!(supervisor.snapshot("other").unwrap().pid, other);
+    assert_eq!(
+        supervisor.snapshot("other").unwrap().observed,
+        Observed::Ready
+    );
+    supervisor.stop("other").unwrap();
+}

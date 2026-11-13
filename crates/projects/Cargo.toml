@@ -5,6 +5,7 @@ edition.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+devforge-debugger.workspace = true
 devforge-inspector.workspace = true
 devforge-core.workspace = true
 devforge-runtime.workspace = true

@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "revision": "devforge-xdebug-1",
+  "xdebug": {"version":"3.5.3","url":"https://xdebug.org/files/xdebug-3.5.3.tgz","sha256":"f073de91bea046106abf4d6071c963ea71e58571df6ce58948ceca89d121cb2d"},
+  "php": {
+    "8.4.27":{"url":"https://www.php.net/distributions/php-8.4.27.tar.xz","sha256":"dcf93923b0e38e0d5252b25b796520b5a47761a08b3488b6d0b5d1115764d3f0"},
+    "8.5.12":{"url":"https://www.php.net/distributions/php-8.5.12.tar.xz","sha256":"08bc2eba2a588654ade1357174aa646b761556c862dda0678345ee29ed481209"}
+  },
+  "spc": {
+    "macos-arm64":{"url":"https://github.com/crazywhalecc/static-php-cli/releases/download/2.8.5/spc-macos-aarch64.tar.gz","sha256":"acf2f25d56d0cbf8e65aa82e5054fef555f7be7c5c38046c6e0819f266d83225"},
+    "macos-x64":{"url":"https://github.com/crazywhalecc/static-php-cli/releases/download/2.8.5/spc-macos-x86_64.tar.gz","sha256":"e8b798048f62ca4960764196543b60ae703f7174aa418824cf542aeec1d2cd6a"}
+  },
+  "tools": [
+    {"name":"m4","url":"https://ftp.gnu.org/gnu/m4/m4-1.4.20.tar.xz","sha256":"e236ea3a1ccf5f6c270b1c4bb60726f371fa49459a8eaaebc90b216b328daf2b"},
+    {"name":"autoconf","url":"https://ftp.gnu.org/gnu/autoconf/autoconf-2.72.tar.xz","sha256":"ba885c1319578d6c94d46e9b0dceb4014caafe2490e437a0dbca3f270a223f5a"},
+    {"name":"automake","url":"https://ftp.gnu.org/gnu/automake/automake-1.18.1.tar.xz","sha256":"168aa363278351b89af56684448f525a5bce5079d0b6842bd910fdd3f1646887"},
+    {"name":"re2c","url":"https://github.com/skvadrik/re2c/releases/download/4.6/re2c-4.6.tar.xz","sha256":"75bf2696445e831d0d44e0d9f2909eeffc18c09757f222b2fb025f7e59fe130b"},
+    {"name":"cmake","url":"https://github.com/Kitware/CMake/releases/download/v4.5.0/cmake-4.5.0-macos-universal.tar.gz","sha256":"a645d69fd21e521759cc0c64e7c60462d43faf0c7214ac05f75c80f7c5037dde"}
+  ],
+  "extensions":"bcmath,bz2,calendar,ctype,curl,dom,exif,fileinfo,filter,ftp,gd,gmp,iconv,intl,mbstring,mbregex,mysqlnd,openssl,pcntl,pdo,pdo_mysql,pdo_pgsql,pdo_sqlite,pgsql,phar,posix,session,apcu,igbinary,msgpack,redis,simplexml,soap,sockets,sodium,tokenizer,xml,xmlwriter,xmlreader,xsl,zip,zlib"
+}

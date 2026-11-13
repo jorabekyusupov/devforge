@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 export interface Project {
   mail?: boolean;
   worktree?: string | null;
+  debugger?: DebugSettings;
   services?: ServiceSelection;
   php_settings?: PhpSettings;
   id: string;
@@ -311,7 +312,82 @@ export interface WorktreeCleanup {
   blockers: string[];
   digest: string;
 }
+export type DebugMode = "off" | "debug" | "profile";
+export interface DebugBreakpoint {
+  file: string;
+  line: number;
+}
+export interface DebugSettings {
+  mode: DebugMode;
+  runtime: string | null;
+  breakpoints: DebugBreakpoint[];
+}
+export interface DebugRuntime {
+  id: string;
+  php: string;
+  xdebug: string;
+  target: string;
+  source_build: boolean;
+  installed: boolean;
+}
+export interface DebugFrame {
+  depth: number;
+  function: string;
+  file: string | null;
+  line: number;
+}
+export interface DebugVariable {
+  name: string;
+  kind: string;
+  value: string;
+  children: DebugVariable[];
+}
+export interface DebugSession {
+  state: string;
+  port: number;
+  frames: DebugFrame[];
+  variables: DebugVariable[];
+  depth: number;
+  error: string | null;
+}
+export interface DebugProfileItem {
+  id: string;
+  created_ms: number;
+  bytes: number;
+  oversized: boolean;
+}
+export interface FunctionProfile {
+  total_ms: number;
+  memory_bytes: number;
+  truncated: boolean;
+  functions: {
+    file: string;
+    name: string;
+    self_ms: number;
+    inclusive_ms: number;
+    memory_bytes: number;
+    calls: number;
+  }[];
+}
+export interface DebugView {
+  settings: DebugSettings;
+  runtimes: DebugRuntime[];
+  session: DebugSession | null;
+  request: {
+    state: string;
+    status: number | null;
+    error: string | null;
+  } | null;
+  profiles: DebugProfileItem[];
+}
 export interface WorkspaceBackend {
+  debugView?(id: string): Promise<DebugView>;
+  debugProfile?(id: string, profile: string): Promise<FunctionProfile>;
+  debugSource?(
+    id: string,
+    file: string,
+  ): Promise<{ file: string; code: string }>;
+  chooseDebugProfile?(): Promise<string | null>;
   inbox?(id: string, query: string, page: number): Promise<MailView>;
   message?(id: string, message: string): Promise<MailDetail>;
   part?(id: string, message: string, index: number): Promise<MailPart>;
@@ -343,6 +419,48 @@ export type ProjectInput = {
   queue: boolean;
 };
 export type Command =
+  | { action: "debug_install"; id: string; trusted: boolean }
+  | {
+      action: "debug_configure";
+      id: string;
+      revision: number;
+      settings: DebugSettings;
+      consent: boolean;
+    }
+  | {
+      action: "debug_breakpoints";
+      id: string;
+      revision: number;
+      breakpoints: DebugBreakpoint[];
+    }
+  | {
+      action: "debug_control";
+      id: string;
+      control:
+        | {
+            command:
+              | "run"
+              | "step_into"
+              | "step_over"
+              | "step_out"
+              | "stop"
+              | "detach";
+          }
+        | { command: "frame"; depth: number };
+    }
+  | { action: "debug_request"; id: string; path: string }
+  | {
+      action: "debug_profile_delete";
+      id: string;
+      profile: string;
+      consent: boolean;
+    }
+  | {
+      action: "debug_profile_export";
+      id: string;
+      profile: string;
+      path: string;
+    }
   | { action: "worktree_plan"; input: WorktreeInput }
   | {
       action: "worktree_create";

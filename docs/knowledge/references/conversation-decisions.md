@@ -296,3 +296,10 @@ va cheklovlar [M12 hisobotida](../m12-workspaces-results.md) yuritiladi.
 Keyingi aniqlashtirish: foydalanuvchi avval M12’ni kelgan joyidan to‘liq tugatish,
 undan keyin M7’dagi qolgan barcha ishlarni yakunlashni topshirdi. M7’da bajarilgan
 qismlarga tegmaslik cheklovi saqlanadi. Bu M13 ni avtomatik boshlash topshirig‘i emas.
+
+## M12 keyin qolgan M7
+
+Foydalanuvchi M12 kelgan joydan toliq tugatilishini, keyin M7 qolgan ishlarining
+yakunlanishini topshirdi. Oldingi «bajarilganlariga tegma» chegarasi saqlanadi;
+shu sabab M7.1 Inspector qayta yozilmaydi, M7.2 native Xdebug alohida slice sifatida
+qo‘shiladi. M13 avtomatik boshlanmaydi.

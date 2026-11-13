@@ -43,6 +43,28 @@ export const desktopBackend: Backend = {
     return listen<string>("workspace-exit-error", (e) => callback(e.payload));
   },
   workspace: {
+    async debugView(id) {
+      ensureDesktop();
+      return invoke("debug_read", {
+        request: { id, kind: "view", profile: null, file: null },
+      });
+    },
+    async debugProfile(id, profile) {
+      ensureDesktop();
+      return invoke("debug_read", {
+        request: { id, kind: "profile", profile, file: null },
+      });
+    },
+    async debugSource(id, file) {
+      ensureDesktop();
+      return invoke("debug_read", {
+        request: { id, kind: "source", profile: null, file },
+      });
+    },
+    async chooseDebugProfile() {
+      ensureDesktop();
+      return invoke("choose_debug_profile");
+    },
     async inbox(id, query, page) {
       ensureDesktop();
       return invoke("activity_read", {

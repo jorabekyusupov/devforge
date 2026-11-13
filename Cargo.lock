@@ -1115,6 +1115,7 @@ version = "0.1.0"
 dependencies = [
  "ctrlc",
  "devforge-core",
+ "devforge-debugger",
  "devforge-inspector",
  "devforge-platform",
  "devforge-projects",
@@ -1132,6 +1133,24 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "devforge-debugger"
+version = "0.1.0"
+dependencies = [
+ "base64 0.23.1",
+ "devforge-core",
+ "devforge-runtime",
+ "hmac",
+ "quick-xml",
+ "serde",
+ "serde_json",
+ "sha2 0.11.1",
+ "tempfile",
+ "url",
+ "uuid",
+ "zeroize",
 ]
 
 [[package]]
@@ -1192,6 +1211,7 @@ dependencies = [
  "base64 0.23.1",
  "composer-semver",
  "devforge-core",
+ "devforge-debugger",
  "devforge-inspector",
  "devforge-platform",
  "devforge-runtime",
@@ -1263,6 +1283,7 @@ name = "devforge-workspace"
 version = "0.1.0"
 dependencies = [
  "devforge-core",
+ "devforge-debugger",
  "devforge-inspector",
  "devforge-platform",
  "devforge-projects",

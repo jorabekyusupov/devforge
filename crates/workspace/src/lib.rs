@@ -1,4 +1,5 @@
 //! Shared daily-workspace orchestration. No Tauri or UI types, no credentials in DTOs.
+pub mod debugging;
 mod mail;
 pub mod repro;
 pub mod worktrees;
@@ -146,6 +147,39 @@ pub struct Snapshot {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "action", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Command {
+    DebugInstall {
+        id: String,
+        trusted: bool,
+    },
+    DebugConfigure {
+        id: String,
+        revision: u64,
+        settings: devforge_debugger::Settings,
+        consent: bool,
+    },
+    DebugBreakpoints {
+        id: String,
+        revision: u64,
+        breakpoints: Vec<devforge_debugger::Breakpoint>,
+    },
+    DebugControl {
+        id: String,
+        control: debugging::Control,
+    },
+    DebugRequest {
+        id: String,
+        path: String,
+    },
+    DebugProfileDelete {
+        id: String,
+        profile: String,
+        consent: bool,
+    },
+    DebugProfileExport {
+        id: String,
+        profile: String,
+        path: PathBuf,
+    },
     WorktreeOpen {
         id: String,
     },
@@ -373,6 +407,7 @@ pub struct Workspace {
     inspector: Option<devforge_inspector::Collector>,
     mail: BTreeMap<String, devforge_inspector::mail::MailServer>,
     php_capabilities: BTreeMap<String, serde_json::Value>,
+    debugging: BTreeMap<String, devforge_debugger::session::Activation>,
 }
 impl Workspace {
     pub fn open(
@@ -413,6 +448,7 @@ impl Workspace {
             inspector: None,
             mail: BTreeMap::new(),
             php_capabilities: BTreeMap::new(),
+            debugging: BTreeMap::new(),
         };
         w.refresh_runtimes()?;
         Ok(w)
@@ -484,6 +520,28 @@ impl Workspace {
         cancel: &Cancellation,
     ) -> Result<serde_json::Value> {
         match command {
+            Command::DebugInstall { id, trusted } => self.debug_install(&id, trusted, cancel),
+            Command::DebugConfigure {
+                id,
+                revision,
+                settings,
+                consent,
+            } => self.debug_configure(&id, revision, settings, consent),
+            Command::DebugBreakpoints {
+                id,
+                revision,
+                breakpoints,
+            } => self.debug_breakpoints(&id, revision, breakpoints),
+            Command::DebugControl { id, control } => self.debug_control(&id, control),
+            Command::DebugRequest { id, path } => self.debug_request(&id, &path),
+            Command::DebugProfileDelete {
+                id,
+                profile,
+                consent,
+            } => self.debug_profile_delete(&id, &profile, consent),
+            Command::DebugProfileExport { id, profile, path } => {
+                self.debug_profile_export(&id, &profile, &path)
+            }
             Command::WorktreeOpen { id } => self.worktree_open(&id),
             Command::WorktreePlan { input } => {
                 Ok(serde_json::to_value(self.worktree_plan(&input)?).unwrap())
@@ -931,6 +989,7 @@ impl Workspace {
         if project.mail {
             self.ensure_mail(id)?;
         }
+        self.ensure_debugging(id)?;
         if project.services.uses_redis() {
             self.ensure_cache(
                 project
@@ -1054,6 +1113,7 @@ impl Workspace {
             }
             session.stop()?;
         }
+        self.debugging.remove(id);
         Ok(())
     }
     pub fn shutdown(&mut self) -> Result<()> {
@@ -1068,6 +1128,7 @@ impl Workspace {
             server.stop()?;
         }
         self.mail.clear();
+        self.debugging.clear();
         self.inspector.take();
         Ok(())
     }

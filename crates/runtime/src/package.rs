@@ -474,6 +474,24 @@ impl PackageStore {
         }
         Ok((path, receipt))
     }
+    /// Cheap inventory only. Executable/resource resolution still verifies hashes before use.
+    pub fn is_present(&self, package: &Package) -> bool {
+        if Some(package.target) != Target::current().ok() {
+            return false;
+        }
+        self.receipt(package).is_ok_and(|(root, _)| {
+            package
+                .executables
+                .values()
+                .chain(package.resources.values())
+                .all(|relative| {
+                    let path = root.join(relative);
+                    fs::symlink_metadata(&path)
+                        .is_ok_and(|m| m.is_file() && !m.file_type().is_symlink())
+                        && fs::canonicalize(path).is_ok_and(|path| path.starts_with(&root))
+                })
+        })
+    }
     pub fn executable(&self, package: &Package, name: &str) -> Result<VerifiedExecutable> {
         if package.target != Target::current()? {
             return Err(RuntimeError::UnsupportedTarget);

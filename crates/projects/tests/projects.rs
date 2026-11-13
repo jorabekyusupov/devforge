@@ -301,7 +301,7 @@ fn staged_generations_preserve_active_binding_and_use_engine_specific_role_limit
 }
 
 #[test]
-fn schema_four_records_keep_environment_and_runtime_selections_in_schema_five() {
+fn schema_four_records_keep_environment_and_runtime_selections_in_schema_six() {
     let root = tempfile::tempdir().unwrap();
     let catalog = Catalog::bundled();
     let php = selection(&catalog, "php", "8.4");
@@ -337,6 +337,6 @@ fn schema_four_records_keep_environment_and_runtime_selections_in_schema_five() 
         connection
             .pragma_query_value(None, "user_version", |r| r.get::<_, u32>(0))
             .unwrap(),
-        5
+        6
     );
 }

@@ -354,7 +354,7 @@ fn empty_value(value: &str) -> bool {
     let value = value.split_once('#').map_or(value, |(v, _)| v).trim();
     value.is_empty() || value.eq_ignore_ascii_case("null")
 }
-pub(crate) fn app_key_secret(path: &std::path::Path) -> Result<Option<Zeroizing<String>>> {
+pub fn app_key_secret(path: &std::path::Path) -> Result<Option<Zeroizing<String>>> {
     let Some(bytes) = read(&path.join(".env"))?.map(Zeroizing::new) else {
         return Ok(None);
     };
