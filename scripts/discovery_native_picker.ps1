@@ -17,16 +17,6 @@ while ([DateTime]::UtcNow -lt $deadline -and $null -eq $dialog) {
 }
 if ($null -eq $dialog) { throw 'Native folder dialog for the test PID was not found' }
 if ($action -eq 'select') {
-    $shell = New-Object -ComObject WScript.Shell
-    if (-not $shell.AppActivate($pickerPid)) { throw 'Could not activate the test picker' }
-    $shell.SendKeys('%d')
-    Start-Sleep -Milliseconds 200
-    $address = [System.Windows.Automation.AutomationElement]::FocusedElement
-    if ($address.Current.ProcessId -ne $pickerPid) { throw 'Address focus is outside the test process' }
-    $value = $address.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern)
-    $value.SetValue($env:DEVFORGE_PICKER_PATH)
-    $shell.SendKeys('{ENTER}')
-    Start-Sleep -Milliseconds 400
     $id = '1'
 } elseif ($action -eq 'cancel') {
     $id = '2'

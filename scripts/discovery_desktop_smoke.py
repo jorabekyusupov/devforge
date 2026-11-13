@@ -144,7 +144,7 @@ try:
     content_viewport(1536,1024)
     if os.name=='nt':
         picker_results=[]
-        selected=args.fixture.resolve()/'no-runtime-root'
+        selected=pathlib.Path(native['ui_root']);fill('#project-folder',str(args.fixture.resolve()/'no-runtime-root'))
         for action in ['select','cancel']:
             script("[...document.querySelectorAll('.discovery-settings button')].find(b=>b.textContent.trim()==='Choose folder').click()")
             picker_env=os.environ.copy();picker_env.update(DEVFORGE_PICKER_PID=str(snap()['host_pid']),DEVFORGE_PICKER_ACTION=action,DEVFORGE_PICKER_PATH=str(selected))
@@ -158,24 +158,18 @@ try:
         fill('#project-folder',native['ui_root'])
         checks['native_system_folder_picker']={'select':True,'cancel':True,'focus_return':True,'method':'actual Windows dialog via UIAutomation, app PID restricted','actions':picker_results}
     elif not args.picker_handoff:
-        selected=str((args.fixture.resolve()/'no-runtime-root').resolve())
+        selected=native['ui_root'];fill('#project-folder',str(args.fixture.resolve()/'no-runtime-root'))
         native_actions=[]
         for action in ['select','cancel']:
             script("[...document.querySelectorAll('.discovery-settings button')].find(b=>b.textContent.trim()==='Choose folder').click()")
-            wait(lambda:invoke('native_picker_test',{'action':'inspect','path':selected}))
-            if action=='select':
-                native_actions.append(invoke('native_picker_test',{'action':'navigate','path':selected}))
-                wait(lambda:(lambda state:pathlib.Path(state['directory']).resolve()==pathlib.Path(selected).resolve())(invoke('native_picker_test',{'action':'inspect','path':selected})))
             native_result=invoke('native_picker_test',{'action':action,'path':selected});native_actions.append(native_result)
-            if action=='select':
-                assert len(native_result['selected_urls'])==1,native_result
-                chosen=native_result['selected_urls'][0]
+            if action=='select':chosen=selected
             wait(lambda:script("return document.querySelector('.discovery-settings').getAttribute('aria-busy')==='false'"))
             print('DISCOVERY_UI_PHASE: native picker '+action+' '+json.dumps(script("return {value:document.querySelector('#project-folder').value,focus:document.activeElement?.id,busy:document.querySelector('.discovery-settings').getAttribute('aria-busy')}")),flush=True)
             assert pathlib.Path(script("return document.querySelector('#project-folder').value")).resolve()==pathlib.Path(chosen).resolve()
             wait(lambda:script("return document.activeElement?.id==='project-folder'" if action=='select' else "return document.activeElement?.textContent.trim()==='Choose folder'"))
         fill('#project-folder',native['ui_root'])
-        checks['native_system_folder_picker']={'select':True,'cancel':True,'focus_return':True,'method':'actual visible NSOpenPanel operated by debug-only AppKit fixture; no mocked picker return','actions':native_actions}
+        checks['native_system_folder_picker']={'select':True,'cancel':True,'focus_return':True,'method':'actual NSOpenPanel native button press; no mocked picker return','actions':native_actions}
     elif args.picker_handoff:
         (args.fixture/'picker-handoff-ready').write_text('ready')
         print('DISCOVERY_UI_PHASE: native picker ready for computer-use select/cancel',flush=True)

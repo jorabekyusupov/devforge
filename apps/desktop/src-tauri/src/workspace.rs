@@ -220,9 +220,16 @@ pub async fn choose_project_directory(
             .as_str()
             .or_else(|| bundle["catalogs"][fallback]["work"]["path"].as_str())
             .unwrap();
-        app.dialog()
-            .file()
-            .set_title(title)
+        let mut dialog = app.dialog().file().set_title(title);
+        if let Some(folder) = snapshot
+            .settings
+            .project_folder
+            .as_ref()
+            .filter(|p| std::path::Path::new(p).is_dir())
+        {
+            dialog = dialog.set_directory(folder);
+        }
+        dialog
             .blocking_pick_folder()
             .map(|p| p.into_path().map_err(|_| State::failure("open_failed")))
             .transpose()
