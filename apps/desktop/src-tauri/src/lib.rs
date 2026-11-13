@@ -183,58 +183,6 @@ async fn create_project_folder(
     .map_err(|_| ErrorCode::ProjectFolderUnavailable)?
 }
 
-/// Debug acceptance only: operate the app's real, visible NSOpenPanel. No fake
-/// selected-path return and no Accessibility/TCC changes. Absent in production.
-#[cfg(all(feature = "e2e", target_os = "macos"))]
-#[tauri::command]
-async fn native_picker_test(
-    app: tauri::AppHandle,
-    action: String,
-    path: String,
-) -> Result<serde_json::Value, String> {
-    use objc2::MainThreadMarker;
-    use objc2_app_kit::{NSApplication, NSModalResponseOK, NSOpenPanel};
-    use objc2_foundation::{NSString, NSURL};
-    if !["navigate", "inspect", "select", "cancel"].contains(&action.as_str()) {
-        return Err("invalid fixture action".into());
-    }
-    let selected = std::fs::canonicalize(&path).map_err(|_| "fixture path unavailable")?;
-    let data = std::fs::canonicalize(app_data_dir().map_err(|_| "fixture root unavailable")?)
-        .map_err(|_| "fixture root unavailable")?;
-    if !selected.starts_with(data.parent().ok_or("fixture parent unavailable")?) {
-        return Err("path outside acceptance fixture".into());
-    }
-    let (tx, rx) = std::sync::mpsc::sync_channel(1);
-    app.run_on_main_thread(move||{
-        let result=objc2::exception::catch(std::panic::AssertUnwindSafe(||{
-            let mtm=MainThreadMarker::new().ok_or("not main thread")?;
-            let application=NSApplication::sharedApplication(mtm);
-            for window in application.windows().iter(){
-                if let Some(panel)=window.downcast_ref::<NSOpenPanel>() {
-                    if !panel.isVisible(){continue;}
-                    if action=="navigate"{panel.setDirectoryURL(Some(&NSURL::fileURLWithPath(&NSString::from_str(&selected.to_string_lossy()))));}
-                    let directory=panel.directoryURL().and_then(|url|url.path()).map(|p|p.to_string());
-                    if action=="select" {
-                        if directory.as_ref().and_then(|p|std::fs::canonicalize(p).ok()).as_ref()!=Some(&selected){return Err("native directory has not settled");}
-                        if panel.URL().is_none(){return Err("native selection is empty");}
-                        if let Some(parent)=panel.sheetParent(){parent.endSheet_returnCode(panel,NSModalResponseOK);}else{application.stopModalWithCode(NSModalResponseOK);}
-                        panel.orderOut(None);
-                    }else if action=="cancel"{unsafe{panel.cancel(None);}}
-                    return Ok(serde_json::json!({"native_panel":true,"action":action,"directory":directory,"active":application.isActive(),"selected_urls":panel.URLs().iter().filter_map(|u|u.path().map(|p|p.to_string())).collect::<Vec<_>>()}));
-                }
-            }
-            Err("visible native open panel not found")
-        })).map_err(|exception|format!("AppKit fixture exception: {exception:?}")).and_then(|result|result.map_err(str::to_owned));
-        let _=tx.send(result);
-    }).map_err(|_|"native main thread unavailable")?;
-    tauri::async_runtime::spawn_blocking(move || {
-        rx.recv_timeout(std::time::Duration::from_secs(5))
-            .map_err(|_| "native fixture timeout".to_owned())?
-    })
-    .await
-    .map_err(|_| "native fixture failed".to_owned())?
-}
-
 fn label(locale: &str, key: &str) -> String {
     let bundle: serde_json::Value = serde_json::from_str(BUNDLE).expect("validated bundled JSON");
     let fallback = bundle["registry"]["fallback"].as_str().expect("fallback");
@@ -419,8 +367,6 @@ pub fn run() {
             startup_ready,
             save_settings,
             create_project_folder,
-            #[cfg(all(feature = "e2e", target_os = "macos"))]
-            native_picker_test,
             workspace::discovery_scan,
             workspace::workspace_snapshot,
             workspace::inspector_snapshot,

@@ -21,9 +21,37 @@ if ($action -eq 'select') {
 } elseif ($action -eq 'cancel') {
     $id = '2'
 } else { throw 'Unknown native picker test action' }
-$buttonCondition = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::AutomationIdProperty, $id)
+$buttonCondition = New-Object System.Windows.Automation.AndCondition(
+    (New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::AutomationIdProperty, $id)),
+    (New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::Button))
+)
 $button = $dialog.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $buttonCondition)
 if ($null -eq $button) { throw "Native picker button $id was not found" }
-$invoke = $button.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)
-$invoke.Invoke()
-@{ native_dialog = $true; pid_matched = $true; action = $action; control = $id } | ConvertTo-Json -Compress
+$pattern = $null
+if ($button.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern, [ref]$pattern)) {
+    $pattern.Invoke()
+    $method = 'InvokePattern'
+} elseif ($button.TryGetCurrentPattern([System.Windows.Automation.LegacyIAccessiblePattern]::Pattern, [ref]$pattern)) {
+    $pattern.DoDefaultAction()
+    $method = 'LegacyIAccessiblePattern'
+} else {
+    # A real native HWND button may have no UIA provider on hosted runners.
+    Add-Type @'
+using System;
+using System.Runtime.InteropServices;
+public static class PickerNativeButton {
+    [DllImport("user32.dll", SetLastError=true)]
+    public static extern IntPtr SendMessageTimeout(IntPtr h, uint m, UIntPtr w, IntPtr l, uint flags, uint timeout, out UIntPtr result);
+    [DllImport("user32.dll")]
+    public static extern uint GetWindowThreadProcessId(IntPtr h, out uint process);
+}
+'@
+    $handle = [IntPtr]$button.Current.NativeWindowHandle
+    [uint32]$owner = 0
+    [void][PickerNativeButton]::GetWindowThreadProcessId($handle, [ref]$owner)
+    if ($handle -eq [IntPtr]::Zero -or $owner -ne $pickerPid) { throw 'Native button handle does not belong to test PID' }
+    [UIntPtr]$result = [UIntPtr]::Zero
+    if ([PickerNativeButton]::SendMessageTimeout($handle, 0x00F5, [UIntPtr]::Zero, [IntPtr]::Zero, 2, 5000, [ref]$result) -eq [IntPtr]::Zero) { throw 'Native button press failed' }
+    $method = 'BM_CLICK'
+}
+@{ native_dialog = $true; pid_matched = $true; action = $action; control = $id; method = $method } | ConvertTo-Json -Compress

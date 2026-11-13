@@ -33,6 +33,9 @@ jobs:
           python-version: '3.13'
       - name: Use a per-user writable native fixture directory
         run: python -c "import os,pathlib,tempfile; p=pathlib.Path(tempfile.gettempdir())/'devforge-discovery-fixture'; pathlib.Path(os.environ['GITHUB_ENV']).open('a',encoding='utf-8').write('DISCOVERY_FIXTURE='+str(p)+'\n')"
+      - name: Read existing native UI automation access
+        if: runner.os == 'macOS'
+        run: python -c "import ctypes; a=ctypes.CDLL('/System/Library/Frameworks/ApplicationServices.framework/ApplicationServices'); a.AXIsProcessTrusted.restype=ctypes.c_bool; print('Existing native UI Accessibility access:',a.AXIsProcessTrusted())"
       - run: rustup show
       - run: npm ci
       - run: cargo fmt --all -- --check

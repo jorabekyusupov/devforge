@@ -152,7 +152,7 @@ try:
             assert result.returncode==0,(result.stdout,result.stderr)
             picker_results.append(json.loads(result.stdout))
             wait(lambda:script("return document.querySelector('.discovery-settings').getAttribute('aria-busy')==='false'"))
-            assert pathlib.Path(script("return document.querySelector('#project-folder').value")).resolve()==selected.resolve()
+            assert os.path.samefile(script("return document.querySelector('#project-folder').value"),selected)
             if action=='select':wait(lambda:script("return document.activeElement?.id==='project-folder'"))
             else:wait(lambda:script("return document.activeElement?.textContent.trim()==='Choose folder'"))
         fill('#project-folder',native['ui_root'])
@@ -162,11 +162,14 @@ try:
         native_actions=[]
         for action in ['select','cancel']:
             script("[...document.querySelectorAll('.discovery-settings button')].find(b=>b.textContent.trim()==='Choose folder').click()")
-            native_result=invoke('native_picker_test',{'action':action,'path':selected});native_actions.append(native_result)
+            picker_env=os.environ.copy();picker_env.update(DEVFORGE_PICKER_PID=str(snap()['host_pid']),DEVFORGE_PICKER_ACTION=action)
+            native_result=subprocess.run([os.sys.executable,str(pathlib.Path(__file__).with_name('discovery_native_picker_macos.py'))],env=picker_env,text=True,capture_output=True,timeout=30)
+            assert native_result.returncode==0,(native_result.stdout,native_result.stderr)
+            native_actions.append(json.loads(native_result.stdout))
             if action=='select':chosen=selected
             wait(lambda:script("return document.querySelector('.discovery-settings').getAttribute('aria-busy')==='false'"))
             print('DISCOVERY_UI_PHASE: native picker '+action+' '+json.dumps(script("return {value:document.querySelector('#project-folder').value,focus:document.activeElement?.id,busy:document.querySelector('.discovery-settings').getAttribute('aria-busy')}")),flush=True)
-            assert pathlib.Path(script("return document.querySelector('#project-folder').value")).resolve()==pathlib.Path(chosen).resolve()
+            assert os.path.samefile(script("return document.querySelector('#project-folder').value"),chosen)
             wait(lambda:script("return document.activeElement?.id==='project-folder'" if action=='select' else "return document.activeElement?.textContent.trim()==='Choose folder'"))
         fill('#project-folder',native['ui_root'])
         checks['native_system_folder_picker']={'select':True,'cancel':True,'focus_return':True,'method':'actual NSOpenPanel native button press; no mocked picker return','actions':native_actions}
