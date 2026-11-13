@@ -1,0 +1,904 @@
+{
+  "source": "ab07756c3ad7d51dc58a59e5d0dbdf41efc0ed3f",
+  "run": 43340467842,
+  "source_boundary": "Native SMTP and UI run ab07756. Later f18da61 changes only known-bundle LF/CRLF verification and its upgrade fixture, checked by final macOS/Windows core run43341821991; normal SMTP/UI code unchanged.",
+  "jobs": [
+    {
+      "target": "macos-arm64",
+      "job": 131607221666,
+      "url": "https://github.com/jorabekyusupov/devforge/actions/runs/43340467842/job/131607221666",
+      "conclusion": "success",
+      "artifact": {
+        "id": 13999582772,
+        "name": "m11-macos-arm64",
+        "zip_sha256": "4513310116ecd67c0791574d164dab477db951e23c0865d0d75d9a59fa91b821",
+        "github_digest_matched": true
+      },
+      "backend_sha256": "6a5eed2ff14bc882debe081cf90ffa38cfa51b253a9b1175567d8e1d22050972",
+      "desktop_sha256": "49018a19214328396e69944780ee36b0fa57d62d96cce84a1e6dd16810e1d0c0",
+      "backend": {
+        "attachment_export": true,
+        "environment_unchanged": true,
+        "frontend_credentials_filtered": true,
+        "laravel_smtp_html_plain_attachments": true,
+        "mail_restart_preserves_port_and_inbox": true,
+        "manifest_mail_boolean_no_credential": true,
+        "message_id": "64da52a5c6d842f1aaf2a76f3692870d",
+        "project_id": "041e3333e196444e9772a4bcacec6342",
+        "real_queue_mail_and_correlated_logs": true,
+        "running_project_mail_toggle_refused": true,
+        "sensitive_context_redacted": true,
+        "smtp_project_isolation": true,
+        "standalone_log_context_and_exception": true,
+        "target": "macos-arm64"
+      },
+      "desktop": {
+        "native": "real WKWebView/WebView2 via debug-only W3C endpoint",
+        "checks": {
+          "sandbox_scripts_and_remote_requests_blocked": true,
+          "text_attachment_preview": true,
+          "delete_confirmation_cancel": true,
+          "image_attachment_preview": true,
+          "structured_log_filter_and_redaction": true,
+          "exception_stack": true,
+          "context_navigation": true,
+          "preferences_relaunch": true
+        },
+        "accessibility": [
+          {
+            "case": "mail-en-light",
+            "violations": []
+          },
+          {
+            "case": "mail-plain",
+            "violations": []
+          },
+          {
+            "case": "attachment-text-dialog",
+            "violations": []
+          },
+          {
+            "case": "mail-clear-review",
+            "violations": []
+          },
+          {
+            "case": "attachment-image-dialog",
+            "violations": []
+          },
+          {
+            "case": "logs-filtered",
+            "violations": []
+          },
+          {
+            "case": "exception-stack",
+            "violations": []
+          },
+          {
+            "case": "correlated-inspector",
+            "violations": []
+          },
+          {
+            "case": "activity-ru",
+            "violations": []
+          },
+          {
+            "case": "activity-ru-minimum",
+            "violations": []
+          },
+          {
+            "case": "activity-uz-Latn",
+            "violations": []
+          },
+          {
+            "case": "activity-uz-Latn-minimum",
+            "violations": []
+          },
+          {
+            "case": "activity-en",
+            "violations": []
+          },
+          {
+            "case": "activity-en-minimum",
+            "violations": []
+          },
+          {
+            "case": "activity-dark",
+            "violations": []
+          }
+        ],
+        "captures": [
+          {
+            "file": "mail-en-light.png",
+            "viewport": {
+              "height": 656,
+              "language": "en",
+              "scale": 1,
+              "theme": "light",
+              "width": 1536
+            }
+          },
+          {
+            "file": "mail-plain.png",
+            "viewport": {
+              "height": 656,
+              "language": "en",
+              "scale": 1,
+              "theme": "light",
+              "width": 1536
+            }
+          },
+          {
+            "file": "mail-attachment-text.png",
+            "viewport": {
+              "height": 656,
+              "language": "en",
+              "scale": 1,
+              "theme": "light",
+              "width": 1536
+            }
+          },
+          {
+            "file": "mail-attachment-image.png",
+            "viewport": {
+              "height": 656,
+              "language": "en",
+              "scale": 1,
+              "theme": "light",
+              "width": 1536
+            }
+          },
+          {
+            "file": "logs-filtered.png",
+            "viewport": {
+              "height": 656,
+              "language": "en",
+              "scale": 1,
+              "theme": "light",
+              "width": 1536
+            }
+          },
+          {
+            "file": "logs-exception.png",
+            "viewport": {
+              "height": 656,
+              "language": "en",
+              "scale": 1,
+              "theme": "light",
+              "width": 1536
+            }
+          },
+          {
+            "file": "activity-ru.png",
+            "viewport": {
+              "height": 656,
+              "language": "ru",
+              "scale": 1,
+              "theme": "light",
+              "width": 1536
+            }
+          },
+          {
+            "file": "activity-uz-Latn.png",
+            "viewport": {
+              "height": 656,
+              "language": "uz-Latn",
+              "scale": 1,
+              "theme": "light",
+              "width": 1536
+            }
+          },
+          {
+            "file": "activity-en.png",
+            "viewport": {
+              "height": 656,
+              "language": "en",
+              "scale": 1,
+              "theme": "light",
+              "width": 1536
+            }
+          },
+          {
+            "file": "activity-dark.png",
+            "viewport": {
+              "height": 656,
+              "language": "en",
+              "scale": 1,
+              "theme": "dark",
+              "width": 1536
+            }
+          }
+        ],
+        "viewport_attempts": [
+          {
+            "requested": {
+              "width": 1536,
+              "height": 1024
+            },
+            "actual": {
+              "height": 656,
+              "width": 1536
+            },
+            "matched": false
+          },
+          {
+            "requested": {
+              "width": 1536,
+              "height": 1024
+            },
+            "actual": {
+              "height": 656,
+              "width": 1536
+            },
+            "matched": false
+          },
+          {
+            "requested": {
+              "width": 820,
+              "height": 620
+            },
+            "actual": {
+              "height": 620,
+              "width": 820
+            },
+            "matched": true
+          },
+          {
+            "requested": {
+              "width": 1536,
+              "height": 1024
+            },
+            "actual": {
+              "height": 656,
+              "width": 1536
+            },
+            "matched": false
+          },
+          {
+            "requested": {
+              "width": 820,
+              "height": 620
+            },
+            "actual": {
+              "height": 620,
+              "width": 820
+            },
+            "matched": true
+          },
+          {
+            "requested": {
+              "width": 1536,
+              "height": 1024
+            },
+            "actual": {
+              "height": 656,
+              "width": 1536
+            },
+            "matched": false
+          },
+          {
+            "requested": {
+              "width": 820,
+              "height": 620
+            },
+            "actual": {
+              "height": 620,
+              "width": 820
+            },
+            "matched": true
+          },
+          {
+            "requested": {
+              "width": 1536,
+              "height": 1024
+            },
+            "actual": {
+              "height": 656,
+              "width": 1536
+            },
+            "matched": false
+          }
+        ],
+        "remote_requests": [],
+        "save_file_dialog": "not automated; native attachment export tested in backend fixture"
+      }
+    },
+    {
+      "target": "windows-x64",
+      "job": 131607221487,
+      "url": "https://github.com/jorabekyusupov/devforge/actions/runs/43340467842/job/131607221487",
+      "conclusion": "success",
+      "artifact": {
+        "id": 13999198222,
+        "name": "m11-windows-x64",
+        "zip_sha256": "8d3d15b581c4be2c09ceba22ed7820b201de8e6adb94cc603e6af1a176b1e7ff",
+        "github_digest_matched": true
+      },
+      "backend_sha256": "88ff63e0bb878187cdea5fcec18c4d0cc1d7da40fb885fa345e16db75b898f36",
+      "desktop_sha256": "83bfed5c255e317b6f63aa98a7741ff81e5e7e72beb41749701f0b89fa3bd8e8",
+      "backend": {
+        "attachment_export": true,
+        "environment_unchanged": true,
+        "frontend_credentials_filtered": true,
+        "laravel_smtp_html_plain_attachments": true,
+        "mail_restart_preserves_port_and_inbox": true,
+        "manifest_mail_boolean_no_credential": true,
+        "message_id": "85700c0a4d134028a4cef95bc298e7ea",
+        "project_id": "87caef0ecd354b6290e0e0364557fa66",
+        "real_queue_mail_and_correlated_logs": true,
+        "running_project_mail_toggle_refused": true,
+        "sensitive_context_redacted": true,
+        "smtp_project_isolation": true,
+        "standalone_log_context_and_exception": true,
+        "target": "windows-x64"
+      },
+      "desktop": {
+        "native": "real WKWebView/WebView2 via debug-only W3C endpoint",
+        "checks": {
+          "sandbox_scripts_and_remote_requests_blocked": true,
+          "text_attachment_preview": true,
+          "delete_confirmation_cancel": true,
+          "image_attachment_preview": true,
+          "structured_log_filter_and_redaction": true,
+          "exception_stack": true,
+          "context_navigation": true,
+          "preferences_relaunch": true
+        },
+        "accessibility": [
+          {
+            "case": "mail-en-light",
+            "violations": []
+          },
+          {
+            "case": "mail-plain",
+            "violations": []
+          },
+          {
+            "case": "attachment-text-dialog",
+            "violations": []
+          },
+          {
+            "case": "mail-clear-review",
+            "violations": []
+          },
+          {
+            "case": "attachment-image-dialog",
+            "violations": []
+          },
+          {
+            "case": "logs-filtered",
+            "violations": []
+          },
+          {
+            "case": "exception-stack",
+            "violations": []
+          },
+          {
+            "case": "correlated-inspector",
+            "violations": []
+          },
+          {
+            "case": "activity-ru",
+            "violations": []
+          },
+          {
+            "case": "activity-ru-minimum",
+            "violations": []
+          },
+          {
+            "case": "activity-uz-Latn",
+            "violations": []
+          },
+          {
+            "case": "activity-uz-Latn-minimum",
+            "violations": []
+          },
+          {
+            "case": "activity-en",
+            "violations": []
+          },
+          {
+            "case": "activity-en-minimum",
+            "violations": []
+          },
+          {
+            "case": "activity-dark",
+            "violations": []
+          }
+        ],
+        "captures": [
+          {
+            "file": "mail-en-light.png",
+            "viewport": {
+              "height": 1024,
+              "language": "en",
+              "scale": 1,
+              "theme": "light",
+              "width": 1536
+            }
+          },
+          {
+            "file": "mail-plain.png",
+            "viewport": {
+              "height": 1024,
+              "language": "en",
+              "scale": 1,
+              "theme": "light",
+              "width": 1536
+            }
+          },
+          {
+            "file": "mail-attachment-text.png",
+            "viewport": {
+              "height": 1024,
+              "language": "en",
+              "scale": 1,
+              "theme": "light",
+              "width": 1536
+            }
+          },
+          {
+            "file": "mail-attachment-image.png",
+            "viewport": {
+              "height": 1024,
+              "language": "en",
+              "scale": 1,
+              "theme": "light",
+              "width": 1536
+            }
+          },
+          {
+            "file": "logs-filtered.png",
+            "viewport": {
+              "height": 1024,
+              "language": "en",
+              "scale": 1,
+              "theme": "light",
+              "width": 1536
+            }
+          },
+          {
+            "file": "logs-exception.png",
+            "viewport": {
+              "height": 1024,
+              "language": "en",
+              "scale": 1,
+              "theme": "light",
+              "width": 1536
+            }
+          },
+          {
+            "file": "activity-ru.png",
+            "viewport": {
+              "height": 1024,
+              "language": "ru",
+              "scale": 1,
+              "theme": "light",
+              "width": 1536
+            }
+          },
+          {
+            "file": "activity-uz-Latn.png",
+            "viewport": {
+              "height": 1024,
+              "language": "uz-Latn",
+              "scale": 1,
+              "theme": "light",
+              "width": 1536
+            }
+          },
+          {
+            "file": "activity-en.png",
+            "viewport": {
+              "height": 1024,
+              "language": "en",
+              "scale": 1,
+              "theme": "light",
+              "width": 1536
+            }
+          },
+          {
+            "file": "activity-dark.png",
+            "viewport": {
+              "height": 1024,
+              "language": "en",
+              "scale": 1,
+              "theme": "dark",
+              "width": 1536
+            }
+          }
+        ],
+        "viewport_attempts": [
+          {
+            "requested": {
+              "width": 1536,
+              "height": 1024
+            },
+            "actual": {
+              "height": 1024,
+              "width": 1536
+            },
+            "matched": true
+          },
+          {
+            "requested": {
+              "width": 1536,
+              "height": 1024
+            },
+            "actual": {
+              "height": 1024,
+              "width": 1536
+            },
+            "matched": true
+          },
+          {
+            "requested": {
+              "width": 820,
+              "height": 620
+            },
+            "actual": {
+              "height": 620,
+              "width": 820
+            },
+            "matched": true
+          },
+          {
+            "requested": {
+              "width": 1536,
+              "height": 1024
+            },
+            "actual": {
+              "height": 1024,
+              "width": 1536
+            },
+            "matched": true
+          },
+          {
+            "requested": {
+              "width": 820,
+              "height": 620
+            },
+            "actual": {
+              "height": 620,
+              "width": 820
+            },
+            "matched": true
+          },
+          {
+            "requested": {
+              "width": 1536,
+              "height": 1024
+            },
+            "actual": {
+              "height": 1024,
+              "width": 1536
+            },
+            "matched": true
+          },
+          {
+            "requested": {
+              "width": 820,
+              "height": 620
+            },
+            "actual": {
+              "height": 620,
+              "width": 820
+            },
+            "matched": true
+          },
+          {
+            "requested": {
+              "width": 1536,
+              "height": 1024
+            },
+            "actual": {
+              "height": 1024,
+              "width": 1536
+            },
+            "matched": true
+          }
+        ],
+        "remote_requests": [],
+        "save_file_dialog": "not automated; native attachment export tested in backend fixture"
+      }
+    },
+    {
+      "target": "macos-x64",
+      "job": 131607221882,
+      "url": "https://github.com/jorabekyusupov/devforge/actions/runs/43340467842/job/131607221882",
+      "conclusion": "success",
+      "artifact": {
+        "id": 14001292483,
+        "name": "m11-macos-x64",
+        "zip_sha256": "00ff4e9f4fb5ba1a2a9fb97e877a5f433c84f673ac7b85b2caa36317bf72c4d9",
+        "github_digest_matched": true
+      },
+      "backend_sha256": "592a393fd3e48681c8f4282d01037b33197a7a851af433e917f5c080316e11f8",
+      "desktop_sha256": "c04943b4d9d5e6beb0b1dffcd1c6a764310c26d746824a3f3d6204083b2edf3a",
+      "backend": {
+        "attachment_export": true,
+        "environment_unchanged": true,
+        "frontend_credentials_filtered": true,
+        "laravel_smtp_html_plain_attachments": true,
+        "mail_restart_preserves_port_and_inbox": true,
+        "manifest_mail_boolean_no_credential": true,
+        "message_id": "0ca85bad1b7e48ef82ea57211ca60b93",
+        "project_id": "df67f20e5510407db0095b41fee88711",
+        "real_queue_mail_and_correlated_logs": true,
+        "running_project_mail_toggle_refused": true,
+        "sensitive_context_redacted": true,
+        "smtp_project_isolation": true,
+        "standalone_log_context_and_exception": true,
+        "target": "macos-x64"
+      },
+      "desktop": {
+        "native": "real WKWebView/WebView2 via debug-only W3C endpoint",
+        "checks": {
+          "sandbox_scripts_and_remote_requests_blocked": true,
+          "text_attachment_preview": true,
+          "delete_confirmation_cancel": true,
+          "image_attachment_preview": true,
+          "structured_log_filter_and_redaction": true,
+          "exception_stack": true,
+          "context_navigation": true,
+          "preferences_relaunch": true
+        },
+        "accessibility": [
+          {
+            "case": "mail-en-light",
+            "violations": []
+          },
+          {
+            "case": "mail-plain",
+            "violations": []
+          },
+          {
+            "case": "attachment-text-dialog",
+            "violations": []
+          },
+          {
+            "case": "mail-clear-review",
+            "violations": []
+          },
+          {
+            "case": "attachment-image-dialog",
+            "violations": []
+          },
+          {
+            "case": "logs-filtered",
+            "violations": []
+          },
+          {
+            "case": "exception-stack",
+            "violations": []
+          },
+          {
+            "case": "correlated-inspector",
+            "violations": []
+          },
+          {
+            "case": "activity-ru",
+            "violations": []
+          },
+          {
+            "case": "activity-ru-minimum",
+            "violations": []
+          },
+          {
+            "case": "activity-uz-Latn",
+            "violations": []
+          },
+          {
+            "case": "activity-uz-Latn-minimum",
+            "violations": []
+          },
+          {
+            "case": "activity-en",
+            "violations": []
+          },
+          {
+            "case": "activity-en-minimum",
+            "violations": []
+          },
+          {
+            "case": "activity-dark",
+            "violations": []
+          }
+        ],
+        "captures": [
+          {
+            "file": "mail-en-light.png",
+            "viewport": {
+              "height": 942,
+              "language": "en",
+              "scale": 1,
+              "theme": "light",
+              "width": 1536
+            }
+          },
+          {
+            "file": "mail-plain.png",
+            "viewport": {
+              "height": 942,
+              "language": "en",
+              "scale": 1,
+              "theme": "light",
+              "width": 1536
+            }
+          },
+          {
+            "file": "mail-attachment-text.png",
+            "viewport": {
+              "height": 942,
+              "language": "en",
+              "scale": 1,
+              "theme": "light",
+              "width": 1536
+            }
+          },
+          {
+            "file": "mail-attachment-image.png",
+            "viewport": {
+              "height": 942,
+              "language": "en",
+              "scale": 1,
+              "theme": "light",
+              "width": 1536
+            }
+          },
+          {
+            "file": "logs-filtered.png",
+            "viewport": {
+              "height": 942,
+              "language": "en",
+              "scale": 1,
+              "theme": "light",
+              "width": 1536
+            }
+          },
+          {
+            "file": "logs-exception.png",
+            "viewport": {
+              "height": 942,
+              "language": "en",
+              "scale": 1,
+              "theme": "light",
+              "width": 1536
+            }
+          },
+          {
+            "file": "activity-ru.png",
+            "viewport": {
+              "height": 942,
+              "language": "ru",
+              "scale": 1,
+              "theme": "light",
+              "width": 1536
+            }
+          },
+          {
+            "file": "activity-uz-Latn.png",
+            "viewport": {
+              "height": 942,
+              "language": "uz-Latn",
+              "scale": 1,
+              "theme": "light",
+              "width": 1536
+            }
+          },
+          {
+            "file": "activity-en.png",
+            "viewport": {
+              "height": 942,
+              "language": "en",
+              "scale": 1,
+              "theme": "light",
+              "width": 1536
+            }
+          },
+          {
+            "file": "activity-dark.png",
+            "viewport": {
+              "height": 942,
+              "language": "en",
+              "scale": 1,
+              "theme": "dark",
+              "width": 1536
+            }
+          }
+        ],
+        "viewport_attempts": [
+          {
+            "requested": {
+              "width": 1536,
+              "height": 1024
+            },
+            "actual": {
+              "height": 942,
+              "width": 1536
+            },
+            "matched": false
+          },
+          {
+            "requested": {
+              "width": 1536,
+              "height": 1024
+            },
+            "actual": {
+              "height": 942,
+              "width": 1536
+            },
+            "matched": false
+          },
+          {
+            "requested": {
+              "width": 820,
+              "height": 620
+            },
+            "actual": {
+              "height": 620,
+              "width": 820
+            },
+            "matched": true
+          },
+          {
+            "requested": {
+              "width": 1536,
+              "height": 1024
+            },
+            "actual": {
+              "height": 942,
+              "width": 1536
+            },
+            "matched": false
+          },
+          {
+            "requested": {
+              "width": 820,
+              "height": 620
+            },
+            "actual": {
+              "height": 620,
+              "width": 820
+            },
+            "matched": true
+          },
+          {
+            "requested": {
+              "width": 1536,
+              "height": 1024
+            },
+            "actual": {
+              "height": 942,
+              "width": 1536
+            },
+            "matched": false
+          },
+          {
+            "requested": {
+              "width": 820,
+              "height": 620
+            },
+            "actual": {
+              "height": 620,
+              "width": 820
+            },
+            "matched": true
+          },
+          {
+            "requested": {
+              "width": 1536,
+              "height": 1024
+            },
+            "actual": {
+              "height": 942,
+              "width": 1536
+            },
+            "matched": false
+          }
+        ],
+        "remote_requests": [],
+        "save_file_dialog": "not automated; native attachment export tested in backend fixture"
+      }
+    }
+  ]
+}

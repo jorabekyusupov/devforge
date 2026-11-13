@@ -42,6 +42,24 @@ sources:
   - id: desktop
     resource: ../../scripts/m11_desktop_smoke.py
     title: Native W3C controls HTML sandbox remote-request trap and locale checks
+  - id: local-checks
+    resource: ../evidence/m11/local-checks.json
+    title: Local core and default-feature build results
+  - id: local-native
+    resource: ../evidence/m11/local-native.json
+    title: Local real Laravel SMTP and queue acceptance
+  - id: local-desktop
+    resource: ../evidence/m11/local-desktop.json
+    title: Local WKWebView controls and axe results
+  - id: native-ci
+    resource: ../evidence/m11/ci-native.json
+    title: Three successful native jobs and verified artifact digests
+  - id: core
+    resource: ../evidence/m11/ci-core.json
+    title: Final macOS Windows full core and default debug builds
+  - id: attempts
+    resource: ../evidence/m11/ci-attempts.json
+    title: Initial Windows legacy upgrade failure and scoped correction
   - id: parser
     resource: https://docs.rs/mail-parser/1.0.1/mail_parser/
     title: Official MIME parser API and encoding support
@@ -52,9 +70,9 @@ sources:
 
 # Scope va holat
 
-M11 user topshirig'i bilan boshlandi. SMTP catcher va Mail/Logs ish sahifasi
-implementatsiyasi bor; native qabul va source reconciliation holati quyida
-saqlanadi. M12 avtomatik boshlanmaydi. No new public installer/release.
+M11 SMTP catcher va Mail/Logs ish sahifasi funksional qabuldan o‘tdi:
+macOS ARM64/Intel va Windows x64 real backend/native UI dalillari hamda source
+reconciliation quyida saqlanadi. M12 avtomatik boshlanmaydi. No new public installer/release.
 
 # Mail service va data chegarasi
 
@@ -133,7 +151,9 @@ Companion0.2.0 meaningful structured context, SMTP/Redis known credential redact
 exception location va log scopes qo'shadi. Context sensitive-key/value sanitization
 M7 kabi bounded/heuristic, universal PII/secret detector emas. DB QueryException
 bindings yoki raw SQL values transport qilinmaydi. Recognized0.1.0 bundle SHA'lari
-bilan backup + staged replacement update qilinadi. User-edited/foreign files yoki
+bilan backup + staged replacement update qilinadi. Windows Git checkout CRLF sabab known legacy hash bilan mos kelmagan; faqat
+tanilgan UTF8 bundle source uchun LF/CRLF canonical comparison qo‘shildi, unit
+fixture har OS’da CRLF bilan yoziladi. User-edited/foreign files yoki
 symlinks overwrite qilinmaydi. Existing M7 event history va provider opt-in saqlanadi.
 
 # Tekshiruv holati
@@ -147,6 +167,85 @@ invalid PNG fixture va explicit capture-enable sequence tuzatildi; ular product
 success evidence sifatida ko'rsatilmaydi. Parallel Cargo feature build/doc-test
 artefact collision'dan keyin local checks ketma-ket bajariladi.
 
-Final native platform/GUI evidence va end-of-phase source table qo'shiladi.
+Local `cargo test --workspace`89 passed/1 ignored; frontend29, locale3 va
+packaging6 checks o'tdi; fmt/clippy/typecheck ham o'tdi. Default-feature CLI va
+embedded-frontend Tauri **debug/no-bundle** build final product source bilan
+tayyorlandi. Bu release build yoki yangi tester installer emas. Full suite yakuniy
+hujjat/publication commit uchun qayta ishga tushirilmaydi.
+
+# Source bilan bosqich solishtirishi
+
+| Holat | Da'vo | Source va dalil |
+| --- | --- | --- |
+| Mos | Bounded authenticated local SMTP, MIME va scoped inbox | `crates/inspector/src/mail.rs`, auth/isolation/limits/persistence unit tests va `activity-native` real Laravel/queue fixture. |
+| Mos | Managed mail env, M10 boolean va secret isolation | `crates/projects/src/mail.rs`, `crates/workspace/src/mail.rs`, `manifest.rs`; native env-unchanged, frontend-credential-filter va manifest-no-credential assertions. |
+| Mos | Mail HTML/plain/attachment va Logs/context UI | `ActivityPage.tsx`, `InspectorPage.tsx`, `activity.test.tsx`, native W3C smoke. Safe HTML iframe, trap, preview va context navigation tekshiriladi. |
+| Mos | Structured capture va full retained log filters | `packages/laravel-inspector/src/Capture.php`, `crates/inspector/src/logs.rs`; standalone/queue/exception assertions hamda context-before-limit unit. |
+| O'zgargan | Schema3 ->4, companion0.1 ->0.2 | `crates/projects/src/project.rs` va inspector materialize; old JSON default false, known bundle staged backup/upgrade, CRLF canonical check. |
+| Amalga oshirilmagan | Arbitrary custom SMTP transportni global bloklash; PDF/SVG active preview | Managed MAIL_* routing mavjud; network firewall va active document renderer bu scope'da yo'q. Unsupported attachment Save bilan olinadi. |
+| Tekshirilmagan | OS Save dialog va signed installer/update/rollback | Backend export byte equality tekshirildi; native file-picker GUI, minimum OS, native credentials va distribution recovery M15 gate'lari. |
+
+# Core CI va source chegarasi
+
+Final core source `f18da61e19eecea2019ec8872d2981c62e8316d7`, run
+[43341821991](https://github.com/jorabekyusupov/devforge/actions/runs/43341821991).
+macOS job131611711110 va Windows job131611711449: har OS89 Rust passed/1 ignored,
+29 frontend,3 catalogs,6 packaging, fmt/clippy/typecheck va embedded frontend bilan
+default-feature debug/no-bundle desktop build o'tdi. Strict OKF26/0error/0warning.
+Per-job counters va log hashes [core evidence](../evidence/m11/ci-core.json)'da.
+Ignored credential test native SecretStore/system-UI acceptance o'rnini bosmaydi.
+
+Dastlabki `ab07756c3ad7d51dc58a59e5d0dbdf41efc0ed3f` core run43340463033'dagi
+Windows legacy-upgrade CRLF failure'i [attempts](../evidence/m11/ci-attempts.json)'da
+saqlandi. Final fix faqat known UTF8 bundle LF/CRLF comparison va CRLF test fixture:
+`git diff ab07756 f18da61 -- crates/inspector/src/lib.rs`. Normal SMTP/MIME/UI source
+o'zgarmagan. Native acceptance run43340467842 oldingi `ab07756` source'da; CRLF
+upgrade fix final core matrix'da alohida tekshirildi. Bir run barcha keyingi
+commitlarni tekshirgan deb da'vo qilinmaydi.
+
+# Native platforma qabuli
+
+[Run43340467842](https://github.com/jorabekyusupov/devforge/actions/runs/43340467842)
+uch targetda muvaffaqiyatli tugadi. Har birida actual managed PHP/Node/PostgreSQL,
+Laravel CLI va queue orqali SMTP mail, log va exception yuborildi; keyin haqiqiy
+WKWebView/WebView2 desktop controls debug-only W3C harness orqali tekshirildi.
+
+| Target | Job | Backend / UI assertions | Axe holatlari / topilma | Katta viewport actual |
+| --- | --- | --- | --- | --- |
+| macOS ARM64 | 131607221666 | 11 /8 o'tdi | 15 /0 | 1536x656 |
+| macOS Intel x64 | 131607221882 | 11 /8 o'tdi | 15 /0 | 1536x942 |
+| Windows x64 | 131607221487 | 11 /8 o'tdi | 15 /0 | 1536x1024 |
+
+Har targetda ru/uz-Latn/en, minimum820x620, light/dark, saved preference relaunch,
+HTML/plain, image/text preview, clear-review cancel, structured log filter/redaction,
+exception stack va request/job context navigation tekshirildi. Malicious HTML script
+execute bo'lmadi va remote-resource trap har targetda0 so'rov qayd etdi. Native
+attachment export byte equality o'tdi; OS Save dialog GUI avtomatlashtirilmadi.
+
+Hosted Mac katta oynasi runner ekran balandligi bilan cheklangan; requested1536x1024
+bilan actual teng deb ko'rsatilmaydi. Minimum820x620 uch platformada exact o'tdi;
+local Mac1536x1024 ham tekshirildi. Screenshots:
+[local Mac mail](../evidence/m11/mail-macos-light.png),
+[Mac exception](../evidence/m11/logs-macos-exception.png),
+[Intel mail](../evidence/m11/mail-macos-intel.png),
+[Windows mail](../evidence/m11/mail-windows-light.png).
+
+Uch artifact ZIP SHA256 GitHub digest bilan aynan mos:
+
+| Artifact | ID | SHA256 |
+| --- | --- | --- |
+| m11-macos-arm64 | 13999582772 | `4513310116ecd67c0791574d164dab477db951e23c0865d0d75d9a59fa91b821` |
+| m11-macos-x64 | 14001292483 | `00ff4e9f4fb5ba1a2a9fb97e877a5f433c84f673ac7b85b2caa36317bf72c4d9` |
+| m11-windows-x64 | 13999198222 | `8d3d15b581c4be2c09ceba22ed7820b201de8e6adb94cc603e6af1a176b1e7ff` |
+
+[Native evidence](../evidence/m11/ci-native.json) per-job backend/desktop report,
+JSON SHA256, actual viewport va artifact digest'larini saqlaydi. Workflow
+`.github/workflows/activity.yml`; backend command `native_workspace activity-native`,
+desktop command `python scripts/m11_desktop_smoke.py ...`. Test harness default
+production features'da yo'q; alohida default CLI/desktop build o'tdi. Local private
+fixture xizmatlari yakunlanganidan keyin fixture directory o'chirildi. Faqat public
+reports va synthetic screenshot'lar commit qilinadi; mail DB/credentials upload yo'q.
+Yakuniy docs push uchun product suite takrorlanmadi.
+
 M7.2 Xdebug, M15 signing/minimum-OS/native credential/system-dialog/redistribution
 masalalari yopilmadi. GUI screenshots yoki unit pass public release dalili emas.

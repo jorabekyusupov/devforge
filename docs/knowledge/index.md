@@ -25,7 +25,7 @@ mavzuni tanlang, so'ng faqat tegishli hujjatlar va ularning manbalarini o'qing.
 
 ## Manba va yuritish
 
-- [M11 mail va loglar](m11-mail-logs-results.md) - per-project local SMTP, safe MIME preview va structured log/exception filters; platform evidence alohida.
+- [M11 mail va loglar](m11-mail-logs-results.md) - per-project local SMTP, safe MIME preview va structured log/exception filters; ARM64/Intel/Windows backend va native UI qabuli, source chegarasi va ochiq release gate‘lari bilan.
 
 - [M10 takrorlanadigan muhit](m10-reproducible-results.md) - portable YAML, exact pins, local secret links, reviewed CLI setup va recovery;3 native target qabul va scoped cheklovlar bilan.
 

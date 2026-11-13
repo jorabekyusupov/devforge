@@ -7,5 +7,11 @@
   "native_axe_violations": 0,
   "source_scope": "Local working-tree core checks; local native UI preceded final full-context query unit and project-forget listener cleanup. Immutable-source CI records final platform evidence separately.",
   "packaging_tests": 6,
-  "clippy_test_support_all_targets": true
+  "clippy_test_support_all_targets": true,
+  "default_cli_build_passed": true,
+  "default_desktop_debug_build_passed": true,
+  "owned_local_private_fixture_removed": true,
+  "product_tests_rerun_for_final_docs_push": false,
+  "default_build_source": "f18da61e19eecea2019ec8872d2981c62e8316d7",
+  "default_build_mode": "debug/no-bundle, production default features without e2e or test-support"
 }

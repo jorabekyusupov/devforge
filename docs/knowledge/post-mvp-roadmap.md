@@ -36,7 +36,7 @@ M8 Laravel/Git wizard, preparation, PHP settings/diagnostics, recent/favorites
 va HTTPS review bilan functional native qabuldan o'tdi; actual source/job
 matritsasi [M8 natijalarida](m8-project-setup-results.md). System authorization
 dialoglari va release/minimum-OS/profile gate'lari M15'da qoladi. Keyingi reja
-M9 foydalanuvchi topshirigi bilan boshlandi; functional native qabul hamda Intel MySQL capability gap [M9 natijalarida](m9-services-results.md). M9 topshirigi M10 ni avtomatik boshlamagan; keyingi user so‘rovi M10 ni vakolatladi. M10 CLI funksional qabul holati va cheklovlari [M10 natijalarida](m10-reproducible-results.md). M11 keyingi user topshirigi bilan boshlandi; holat [M11 natijalarida](m11-mail-logs-results.md).
+M9 foydalanuvchi topshirigi bilan boshlandi; functional native qabul hamda Intel MySQL capability gap [M9 natijalarida](m9-services-results.md). M9 topshirigi M10 ni avtomatik boshlamagan; keyingi user so‘rovi M10 ni vakolatladi. M10 CLI funksional qabul holati va cheklovlari [M10 natijalarida](m10-reproducible-results.md). M11 SMTP/mail va kengaytirilgan loglar funksional qabuli macOS ARM64/Intel hamda Windows x64’da o‘tdi; source/job/artifact dalillari va ochiq dialog/release gate‘lari [M11 natijalarida](m11-mail-logs-results.md). M12 user topshirig‘isiz boshlanmaydi.
 
 M0-M6 tarixiy raqamlari saqlanadi. Keyingi ishlar bajarish ketma-ketligi bo'yicha
 qayta raqamlandi: oldingi M12 endi M7, oldingi M7 endi M15. Eski raqamlar faqat

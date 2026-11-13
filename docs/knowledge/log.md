@@ -2,7 +2,7 @@
 
 ## 2026-11-13
 
-- **M11 boshlandi:** [Mail va loglar](m11-mail-logs-results.md), authenticated SMTP sink, persistent inbox, attachment preview, rich log filters va companion update yaratildi; native qabul davom etmoqda.
+- **M11 functional qabul:** [Mail va loglar](m11-mail-logs-results.md), authenticated per-project SMTP, retained MIME inbox, image/text preview va rich log/exception/context viewer yaratildi. ARM64/Intel/Windows backend11 va UI8 assertions, har target15 axe/0, remote trap0; uch artifact SHA256 mos. Final core har OS89 Rust/29 frontend/3 locale/6 packaging, strict26/0/0. Windows CRLF legacy-upgrade failure va scoped fix, schema4/companion0.2 hamda source reconciliation saqlandi. Default-feature debug builds o'tdi; OS Save dialog, M7.2 va M15 gate'lari ochiq. M12 boshlanmadi; final docs push uchun product suite takrorlanmadi.
 
 - **M10 functional qabul:** [Takrorlanadigan muhit](m10-reproducible-results.md), pinned YAML, local credential links, reviewed CLI setup, env guards va recovery journal yaratildi. ARM64/Intel/Windows real CLI, ikki store, Laravel PG/Garnet va HTTP o‘tdi. Core har OS83 Rust/27 frontend; strict25/0/0. Windows fixture `.exe` va forgotten-cache ownership followup, uch verified artifact digest hamda source reconciliation saqlandi. GUI editor va M11 boshlanmadi; M15 gate‘lari ochiq.
 
