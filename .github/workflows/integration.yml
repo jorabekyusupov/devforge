@@ -16,7 +16,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include: ${{ fromJSON((inputs.target == 'windows-x64' || contains(github.event.head_commit.message, '[windows-integration]')) && '[{"os":"windows-latest","target":"windows-x64"}]' || inputs.target == 'macos-arm64' && '[{"os":"macos-15","target":"macos-arm64"}]' || inputs.target == 'macos-x64' && '[{"os":"macos-15-intel","target":"macos-x64"}]' || '[{"os":"macos-15","target":"macos-arm64"},{"os":"macos-15-intel","target":"macos-x64"},{"os":"windows-latest","target":"windows-x64"}]') }}
+        include: ${{ fromJSON((inputs.target == 'windows-x64' || contains(github.event.head_commit.message, '[windows-integration]')) && '[{"os":"windows-latest","target":"windows-x64"}]' || (inputs.target == 'macos-arm64' || contains(github.event.head_commit.message, '[arm-integration]')) && '[{"os":"macos-15","target":"macos-arm64"}]' || (inputs.target == 'macos-x64' || contains(github.event.head_commit.message, '[intel-integration]')) && '[{"os":"macos-15-intel","target":"macos-x64"}]' || '[{"os":"macos-15","target":"macos-arm64"},{"os":"macos-15-intel","target":"macos-x64"},{"os":"windows-latest","target":"windows-x64"}]') }}
     runs-on: ${{ matrix.os }}
     env:
       PYTHONUTF8: '1'

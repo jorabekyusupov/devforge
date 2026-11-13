@@ -95,6 +95,15 @@ fn run_case(root: &Path, archives: &Path, auto_discovery: bool) -> Result<()> {
     let collection = root.join("Discovered debug projects");
     if auto_discovery {
         use devforge_core::SettingsRepository;
+        // Discovery registers compatible installed defaults; M7 acceptance then
+        // explicitly prepares its PHP8.5 scenario and a distinct owned database.
+        let scenario_php = a.php.clone();
+        let scenario_node = a.node.clone();
+        let instance = w
+            .projects
+            .binding(&a.id)?
+            .ok_or("seed database missing")?
+            .instance_id;
         fs::create_dir_all(&collection)?;
         let discovered = collection.join("Auto debug Atlas");
         copy(&a.path, &discovered)?;
@@ -106,6 +115,34 @@ fn run_case(root: &Path, archives: &Path, auto_discovery: bool) -> Result<()> {
             .find(|p| p.path == fs::canonicalize(&discovered).unwrap())
             .ok_or("discovery did not register debug project")?;
         assert_eq!(a.debugger.mode, Mode::Off);
+        let site = w
+            .sites
+            .sites()?
+            .into_iter()
+            .find(|s| s.project_id == a.id)
+            .unwrap();
+        w.execute(
+            Command::Configure {
+                id: a.id.clone(),
+                revision: a.revision,
+                name: a.name.clone(),
+                php: scenario_php,
+                node: scenario_node,
+                domain: site.domain,
+                https: false,
+                vite: false,
+                queue: false,
+            },
+            &cancel,
+        )?;
+        w.execute(
+            Command::BindDatabase {
+                id: a.id.clone(),
+                instance,
+            },
+            &cancel,
+        )?;
+        a = w.projects.get(&a.id)?;
         let mut settings = devforge_platform::SqliteSettings::open(&data)?;
         let mut current = settings.load()?;
         current.project_folder = Some(
