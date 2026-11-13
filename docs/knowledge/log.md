@@ -4,6 +4,8 @@
 
 ## 2026-11-13
 
+- **E04.1 developer docs:** README desktop/MySQL/current-state, yangi CONTRIBUTING (scoped test/reuse/fixtures/ownership/UI/native evidence), validator qo'llanmasidagi drift tuzatildi.36 local link va diff review; strict OKF. E04 glossary/user pilot qoladi, product suite takrorlanmadi. [Holat](execution-status.md).
+
 - **TP01 CI test scope:** docs-only push/PR uchun conservative allowlist, 8 selector regression (actual Git diff/GITHUB_OUTPUT bilan); manual/code/unknown/mixed/history error old core checksni saqlaydi. Matrix nomlari va strict OKF saqlandi. [Execution evidence](execution-status.md). Remote policy natijasi pending; lokal product suite rerun qilinmadi.
 
 - **E00 bajarish boshlandi:** [Execution inventory](execution-status.md) source/platform/artifact, 16 oila va work-ID queue/decision/test map bilan integratsiya qilindi. Joriy user har accepted bosqich uchun implementation/test/commit/pushni vakolatladi; old planning tarixi saqlandi. Mustaqil M13.0 contracts, E03 Composer va E04 docs sub-agentlari boshlandi. E00 docs-only: product testlari qayta bajarilmadi; strict OKF/diff bilan qabul, actual minimum-OS/signing/client gate'lari ochiq.

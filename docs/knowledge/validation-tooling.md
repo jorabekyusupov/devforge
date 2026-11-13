@@ -77,8 +77,10 @@ Default repo ildizi skript joylashuvidan aniqlanadi, shell working directory'dan
 emas. `--bundle` nisbiy bo'lsa `--repo-root`ga nisbatan ishlaydi. Oddiy rejimda
 faqat format xatolari, `--strict` rejimida ogohlantirishlar ham exit 1 beradi.
 Muvaffaqiyat exit 0; noto'g'ri CLI yoki yo'q bundle exit 2. Yetishmayotgan
-dependency uchun aniq o'rnatish xabari beriladi. `--json` CI uchun mo'ljallangan;
-hozir repozitoriyga CI workflow qo'shilmagan.[^validator]
+dependency uchun aniq o'rnatish xabari beriladi. `--json` mashina oqiydigan
+natija uchun. Amaldagi [CI workflow](../../.github/workflows/check.yml) macOS va
+Windows core joblarida strict validatorni ishga tushiradi; workflow mavjudligi
+alohida run muvaffaqiyatli otganini bildirmaydi.[^validator]
 
 # Regression tekshiruvlari
 
@@ -105,9 +107,13 @@ shape tekshiruvlari bor; u OKF'ning barcha ixtiyoriy oilalari uchun to'liq schem
 sertifikatori emas.
 
 Bosqich oxirida kod, config va real test natijalari bilan solishtirishni agent
-[knowledge policy](knowledge-policy.md) bo'yicha alohida bajaradi. Shu vazifadagi
-solishtirish skript CLI'si, qoidalar, dependency'lar va testlarga tegishli;
-DevForge desktop runtime'i hali yaratilmagan va tekshirilmagan.
+[knowledge policy](knowledge-policy.md) bo'yicha alohida bajaradi. Validatorning
+dastlabki vazifasi skript CLI'si, qoidalar, dependency'lar va testlarga tegishli edi.
+Keyingi desktop/runtime implementatsiyasi va target dalillari
+[indeksdagi bosqich hisobotlarida](index.md) yuritiladi; validator pass ularning
+native ishlashiga dalil emas. Hujjatdagi mazmun ozgarganda strict validator va
+tegishli diff/link review yetarli; validator kodi ozgarmasa uning unittestlari yoki
+product suite qayta bajarilmaydi.
 
 [^request]: Suhbat manbasining validator va doimiy yuritish bo'limi.
 [^validator]: Repozitoriydagi read-only validator kodi va uning CLI interfeysi.

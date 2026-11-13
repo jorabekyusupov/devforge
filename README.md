@@ -1,11 +1,26 @@
 # DevForge
 
-A macOS and Windows desktop foundation for managing local development environments.
-The desktop provides local preferences, diagnostics, native menus/tray, and
-Russian, Uzbek Latin, and English interfaces. M2 adds a Rust runtime package store
-and process supervisor, exposed through the library and CLI. Project management
-and database bindings are now available through M3's library/CLI. Their desktop
-controls belong to the later UI phase.
+DevForge is a macOS and Windows desktop application for managing local Laravel
+development environments. The desktop manages projects, runtime versions, local
+services, domains/HTTPS, queue/Vite processes, mail/log capture, Inspector/Xdebug,
+portable `devforge.yaml` configuration and branch workspaces. Its interface is
+available in Russian, Uzbek Latin and English.
+
+Start with the path that matches your task:
+
+- **Use the desktop:** the sections below describe the current controls; the
+  [Windows tester guide](docs/guides/windows-tester-uz.html) covers internal packages.
+- **Build or contribute:** follow Development below and [CONTRIBUTING.md](CONTRIBUTING.md)
+  for isolated fixtures, focused checks and evidence requirements.
+- **Understand support or a limitation:** use the [knowledge index](docs/knowledge/index.md),
+  [completion record](docs/knowledge/m7-m12-completion.md) and
+  [Windows compatibility matrix](docs/knowledge/windows-compatibility.md).
+
+M0–M12 headings below retain the implementation history. Current source and
+per-target evidence take precedence over a historical milestone's original limits.
+Internal unsigned/ad-hoc packages are not a signed public release. External-agent
+integration is described in the [M13 plan](docs/knowledge/m13-external-agents-plan.md);
+a plan is not an implemented MCP server or proof of client compatibility.
 
 ## Development
 
@@ -21,21 +36,24 @@ WebView2. Python is only for repository knowledge tooling, not an app runtime.
 
 ```sh
 npm ci
-npm run check:locales
-node --test scripts/check_locales.test.mjs
-npm run typecheck
-npm test
-cargo test --workspace
-cargo clippy --workspace --all-targets -- -D warnings
 npm run tauri -- dev
 ```
+
+Choose checks for the changed behavior rather than running every suite after each
+edit. For example, a manifest change can use
+`cargo test -p devforge-projects --test manifest`; an affected configuration view
+can use `npm run test -w @devforge/desktop -- src/configuration.test.tsx` and
+`npm run typecheck`. Translation catalog changes use `npm run check:locales`. A documentation-only
+change needs the strict knowledge validator and scoped diff/link review, not a
+new desktop build. The [contributor workflow](CONTRIBUTING.md) explains when to
+expand coverage and how to reuse valid results. Required CI checks remain in force.
 
 The M1 task installed an isolated macOS toolchain without changing shell profiles.
 On that machine, prefix Rust-dependent commands with `scripts/with_rust.sh` when
 Cargo is not already on PATH, for example:
 
 ```sh
-scripts/with_rust.sh cargo test --workspace
+scripts/with_rust.sh cargo test -p devforge-projects --test manifest
 scripts/with_rust.sh npm run tauri -- build --debug --bundles app
 ```
 
@@ -51,7 +69,10 @@ artifacts are development builds, not signed/public releases.
   executable leases, owned process groups/jobs, readiness/restarts, bounded logs.
 - `crates/projects`: Laravel inspection/registry, scoped runtime context, native
   secret references, owned PostgreSQL clusters/roles and explicit `.env` patches.
-- `crates/cli`: doctor, runtime and project commands using the shared services.
+- `crates/serving`: owned local routes, HTTPS/CA and the fixed-purpose system helper.
+- `crates/workspace`: project setup, service orchestration, manifests and worktrees.
+- `crates/inspector` and `crates/debugger`: capture, mail/logs and native debug/profile services.
+- `crates/cli`: doctor, runtime, project, site, config, workspace and debug adapters.
 - `apps/desktop`: React presentation and a narrow Rust/Tauri IPC shell.
 - `shared/locales`: canonical registry and catalogs used by both WebView and native
   menus. Add a locale/catalog and rebuild; no per-language Rust/UI branch is needed.
@@ -100,7 +121,7 @@ Logs are raw child output: do not print credentials. Memory and persisted rotati
 are bounded. This core does not implement a privileged sandbox, standalone daemon,
 hard-killed macOS supervisor recovery or arbitrary renderer IPC. Project bindings
 are handled by `crates/projects`.
-Future desktop integration must use a worker and narrow typed commands.
+Desktop integration uses workers and typed commands; preserve that boundary when extending it.
 
 Meaningful M2 tests and an optional cached-candidate smoke are available:
 
@@ -347,8 +368,9 @@ profile budget is exceeded. Stop the failed project before retrying.
 
 Stop the project and select Off to restore its normal PHP runtime. The project
 PHP pin, `.env`, other projects and Inspector capture remain independent. M7.2
-introduces project metadata schema6 after M12's schema5; older builds refuse the
-new schema. Current source, native target evidence and release boundaries are in
+introduced project metadata schema6 after M12's schema5; discovery subsequently
+added schema7. Older builds refuse newer schemas. Current source, native target
+evidence and release boundaries are in
 [M7.2 results](docs/knowledge/m7-xdebug-results.md).
 
 The public CLI reads retained results and configures the desired mode. Close the
@@ -408,9 +430,11 @@ to reactivate it. Imported SQL must be trusted. Export uses a new filename, with
 overwriting an existing file. Exact engine/version and MySQL InnoDB table-only limits
 are described in [M9 results](docs/knowledge/m9-services-results.md).
 
-MySQL's current portable package is available for macOS ARM64 and Windows x64.
-Intel Mac uses PostgreSQL and Garnet in this phase. Native CI and release limitations
-are tracked separately; this source change does not publish a new installer.
+The original M9 provider had an Intel Mac gap. The completion introduced a common
+MySQL8.4.11 family for macOS ARM64/Intel and Windows x64; newer existing ARM64/Windows
+package selections remain available. Exact pins do not silently fall back across
+versions. See the [completion record](docs/knowledge/m7-m12-completion.md) for the
+source/package/native evidence; minimum-OS and public-release gates remain separate.
 
 ## M10 reproducible environments
 
@@ -475,7 +499,9 @@ and connections, without copying or migrating SQL. A stage journal supports revi
 and retry after failure/cancellation; this is not an all-or-nothing SQL/filesystem
 transaction. Pending interrupted service initialization needs recovery, not forced
 reinitialization. Host DNS/trust/elevation is handled by the existing explicit HTTPS
-flow. The MySQL Intel-Mac capability gap remains visible during planning.
+flow. Planning reports unsupported package/target combinations; it never silently
+substitutes a different version. The common MySQL family above closes the original
+Intel-Mac gap for its exact supported pins.
 
 Project metadata upgrades to schema3 for local credential links; older records
 remain readable by the new app. Older app builds refuse the new metadata schema;
@@ -508,7 +534,8 @@ bodies or SQL bindings are captured. Redaction is heuristic; capture remains opt
 existing local choice. M10 `--write-env` can explicitly patch mail fields with its
 review/backup contract. Standard Laravel MAIL_URL uses the null sentinel when capture
 is selected. Custom hardcoded transports are not intercepted by a network firewall.
-M11 introduced schema4; M7.2 above describes the current schema. See [M11 results](docs/knowledge/m11-mail-logs-results.md)
+M11 introduced schema4; discovery subsequently added schema7. See
+[M11 results](docs/knowledge/m11-mail-logs-results.md)
 for current native evidence and release/rollback limitations.
 
 ## M12 branch workspaces
@@ -591,7 +618,8 @@ devforge workspace remote-copy <workspace-id> remote-source.json --review <diges
 Output uses `schema: 1` and `result`. Plans contain metadata and secret names,
 never secret values. Checkout does not implicitly fetch promisor objects. Host Git
 uses the existing process-group/Windows Job adapter and does not need installed
-PHP/Node packages for cleanup. M12 introduced schema5; M7.2 adds schema6. Older builds refuse newer metadata.
+PHP/Node packages for cleanup. M12 introduced schema5, M7.2 added schema6 and
+discovery added schema7. Older builds refuse newer metadata.
 [M12 results](docs/knowledge/m12-workspaces-results.md) track native coverage,
 archive semantics and the open distribution/recovery gates.
 

@@ -229,3 +229,13 @@ rename/deletion/new branch/missing history fail-open full tanlanadi.
 GITHUB_OUTPUT integration agent tomonidan o'tdi. Workflow YAML/gating va diff review
 o'tdi. Remote Actions yangi policy qabuli hali pending; product tests lokal
 qayta bajarilmadi, chunki bu ozgarish app behavior'iga tegmaydi.
+
+# E04.1 — Developer hujjatlari
+
+README current-state/MySQL/desktop kirishlari sourcega moslandi; CONTRIBUTING
+scoped tests, isolated fixtures, ownership, evidence reuse va UI routing playbook
+qo'shildi. Validator qo'llanmasidagi no-CI/runtime-not-created eskirgan da'volari
+tuzatildi; sanali tarixiy natijalar saqlandi. Uch hujjatning36 local link targeti va
+scoped whitespace review agent tomonidan o'tdi; integrator diff review qildi.
+E04.1 documentation slice validated; E04ning termin/glossary va actual RU/UZ/EN
+user pilot qismi planned. Product code/test/build bu slice uchun bajarilmadi.
