@@ -270,6 +270,10 @@ project/dependency/provider license va redistribution review. Automatic updater,
 cross-version migration/rollback va public publish amalga oshirilmagan.
 To'liq dalillar, exact versiyalar va cheklovlar [M6 hisobotida](m6-distribution-results.md).
 
+Windows10 topshirigidan keyingi joriy Windows minimum target:22H2/build19045 x64.
+Windows10/11 actual desktop qabul gate'lari [moslik yozuvida](windows-compatibility.md)
+alohida; yuqoridagi M6 natijalari tarixiy qabulni bildiradi.
+
 **Rejadagi ishlar:**
 
 - Har target uchun installable artifact, prerequisite detection va owned

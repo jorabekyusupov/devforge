@@ -4,7 +4,7 @@
 
 ## 2026-11-13
 
-- **Windows10 mosligi:** [22H2 x64 floor](windows-compatibility.md), installer/preflight native architecture parity va uch tilli xabarlar; local platform10 passed/1 ignored,7 distribution contracts. Hosted build/installer tekshiruvi davom etadi; userda Win10 host yoq, actual19045 qabuli ochiq. Eski M6 handoff artifact/hash saqlandi, yangi tester HTML alohida.
+- **Windows10 mosligi yakuni:** [22H2 x64 floor](windows-compatibility.md), installer/preflight native architecture parity va uch tilli xabarlar. bb763e6 core macOS135/Windows132 Rust,44 frontend/OS va native binary builds otdi;1 credential test ignored/OS. Exact release installer661b76b test source bilan Server2025 da11 acceptance/3 locale/2140 file preservation va10 harness contractsdan otdi. Scan-derived registry holati, Python handle va Windows path formatidagi harness failure/fix tarixi saqlandi. Yangi13.6MB tester ZIP/HTML/BUILD-INFO/checksum tekshirildi; userda Win10 host yoq, actual19045 qabuli va M15 signed/public gates ochiq. Eski M6 handoff artifact/hash saqlandi; final docs push uchun product testlari takrorlanmaydi.
 
 - **Discovery/main/M7 integration:** schema7 ikki schema6 history’ni saqlaydi; reviewed Intel PHP8.5 CLI/FPM family qo‘shildi, old48 descriptor unchanged. Current production downloads va actual auto-discovered project’da debug/profile/ForgetRestore uch targetda o‘tdi. Har target20UI/22axe0; core124Mac/120Win Rust,42frontend. [Source/job/digest va fixture-failure chegaralari](../evidence/discovery-m7-integration/README.md) saqlandi. Main promotion user tomonidan vakolatlangan; strict validator va final remoteSHA handoff’da.
 

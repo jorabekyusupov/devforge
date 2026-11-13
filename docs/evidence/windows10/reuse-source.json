@@ -1,0 +1,12 @@
+{
+  "installer_run": "43467683180",
+  "installer_source": "bb763e6e2f18178315c61a3db8d3d6c205c2ad0a",
+  "original_run_conclusion": "failure",
+  "test_source": "661b76b64b5781a8d7277958dcbe564872ea0f6d",
+  "changed_paths": [
+    ".github/workflows/distribution.yml",
+    "scripts/m6_package_smoke.py",
+    "scripts/test_distribution.py"
+  ],
+  "installer_sha256": "af159ea75aa99b0207403a6756442e3bb31118fe930c00e209f469ca5ef5734f"
+}

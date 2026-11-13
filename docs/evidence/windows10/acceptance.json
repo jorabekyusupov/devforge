@@ -1,0 +1,107 @@
+{
+  "schema": 1,
+  "os": "Windows-2025Server-10.0.26100-SP0",
+  "architecture": "AMD64",
+  "channel": "internal-unsigned",
+  "signing_verified": false,
+  "cold_start_definition": "first process launch per locale after preference seed; OS disk caches are not flushed",
+  "memory_scope": "desktop main process RSS/working set only; WebView helpers and managed runtimes excluded",
+  "measurements": [
+    {
+      "app_version": "0.1.0",
+      "locale": "ru",
+      "measurement": "localized_shell_after_bootstrap_and_two_animation_frames",
+      "native_ui_synced": true,
+      "pid": 1628,
+      "release": true,
+      "schema": 1,
+      "shell_ready_ms": 3256.0449,
+      "parent_wall_ms": 3324.5352999999795,
+      "idle_main_cpu_percent_one_core": 0.0,
+      "idle_main_rss_bytes": 38096896,
+      "idle_sample_seconds": 5
+    },
+    {
+      "app_version": "0.1.0",
+      "locale": "uz-Latn",
+      "measurement": "localized_shell_after_bootstrap_and_two_animation_frames",
+      "native_ui_synced": true,
+      "pid": 844,
+      "release": true,
+      "schema": 1,
+      "shell_ready_ms": 5265.5126,
+      "parent_wall_ms": 5288.930400000027,
+      "idle_main_cpu_percent_one_core": 0.3124624107719902,
+      "idle_main_rss_bytes": 34492416,
+      "idle_sample_seconds": 5
+    },
+    {
+      "app_version": "0.1.0",
+      "locale": "en",
+      "measurement": "localized_shell_after_bootstrap_and_two_animation_frames",
+      "native_ui_synced": true,
+      "pid": 5716,
+      "release": true,
+      "schema": 1,
+      "shell_ready_ms": 1841.7356,
+      "parent_wall_ms": 1936.1962000000403,
+      "idle_main_cpu_percent_one_core": 0.0,
+      "idle_main_rss_bytes": 37531648,
+      "idle_sample_seconds": 5
+    }
+  ],
+  "checks": {
+    "permission_denied_target_then_retry": true,
+    "first_install": true,
+    "running_app_blocks_uninstall": true,
+    "three_locales_release_native_shell": true,
+    "second_launch_keeps_original_process": true,
+    "release_launch_preserves_existing_registry_rows": true,
+    "release_launch_preserves_other_project_db_bytes": true,
+    "same_version_reinstall_preserves_project_db": true,
+    "uninstall_preserves_project_db": true,
+    "reinstall_after_uninstall": true,
+    "default_data_roots_preserved": true
+  },
+  "hardware": {
+    "cpu": "AMD64 Family 25 Model 1 Stepping 1, AuthenticAMD",
+    "logical_cpus": 4,
+    "physical_memory_bytes": 17174360064
+  },
+  "package_manifest": {
+    "schema": 1,
+    "channel": "internal-unsigned",
+    "target": "x86_64-pc-windows-msvc",
+    "public_release_allowed": false,
+    "commit": "bb763e6e2f18178315c61a3db8d3d6c205c2ad0a",
+    "dirty_at_build": false,
+    "artifacts": [
+      {
+        "path": "target\\release\\bundle\\nsis\\DevForge_0.1.0_x64-setup.exe",
+        "sha256": "af159ea75aa99b0207403a6756442e3bb31118fe930c00e209f469ca5ef5734f",
+        "bytes": 13602328
+      }
+    ]
+  },
+  "administrator_enabled": false,
+  "denied_target": {
+    "return_code": 5,
+    "directory_exists": false
+  },
+  "prerequisites": {
+    "target": "windows-x86_64",
+    "os_version": "26100",
+    "os_supported": true,
+    "webview": "installer_detects_evergreen_webview2",
+    "vc_runtime": true,
+    "vc_runtime_help": "https://learn.microsoft.com/cpp/windows/latest-supported-vc-redist"
+  },
+  "preserved_existing_project_db_files": 2140,
+  "release_launch_changed_files": [
+    "projects/projects.sqlite3"
+  ],
+  "registry_derived_scan_fields": [
+    "discovery_entries.record.state",
+    "discovery_entries.record.problem"
+  ]
+}

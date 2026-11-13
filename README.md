@@ -9,6 +9,12 @@ controls belong to the later UI phase.
 
 ## Development
 
+Windows installer target: Windows 10 22H2 (build 19045) or later, native Intel/AMD
+x64, with VC v14 x64 and WebView2. Actual Windows 10 acceptance is still open
+because no test host is available; hosted Windows checks run Server 2025. See
+[compatibility evidence](docs/knowledge/windows-compatibility.md) and the
+[Uzbek Windows 10 tester guide](docs/guides/windows-10-tester-uz.html).
+
 Use Rust from `rust-toolchain.toml` and a compatible Node installation (CI uses
 24.22.2). macOS needs Xcode Command Line Tools; Windows needs MSVC Build Tools and
 WebView2. Python is only for repository knowledge tooling, not an app runtime.

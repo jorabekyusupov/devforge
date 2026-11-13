@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "run_id": 43474984058,
+  "job_id": 132056387771,
+  "conclusion": "success",
+  "url": "https://github.com/jorabekyusupov/devforge/actions/runs/43474984058",
+  "installer_source": "bb763e6e2f18178315c61a3db8d3d6c205c2ad0a",
+  "test_source": "661b76b64b5781a8d7277958dcbe564872ea0f6d",
+  "artifact_id": 14062512121,
+  "artifact_archive_sha256": "9b0fd7caf9ea4d9e4a2b22857ace762e3a0a36337c458f2700683f036622b2fd",
+  "installer_sha256": "af159ea75aa99b0207403a6756442e3bb31118fe930c00e209f469ca5ef5734f",
+  "distribution_contracts": 10,
+  "fixture_helper_profile": "debug (test-only helper); installed application is original release build",
+  "windows10_native_verified": false
+}

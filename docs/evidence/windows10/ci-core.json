@@ -1,0 +1,48 @@
+{
+  "schema": 1,
+  "source_commit": "bb763e6e2f18178315c61a3db8d3d6c205c2ad0a",
+  "run_id": 43467668694,
+  "url": "https://github.com/jorabekyusupov/devforge/actions/runs/43467668694",
+  "jobs": [
+    {
+      "id": 132031011702,
+      "name": "check (windows-latest)",
+      "conclusion": "success",
+      "host": "Microsoft Windows Server 2025 x64",
+      "rust_passed": 132,
+      "rust_ignored": 1,
+      "frontend_passed": 44,
+      "distribution_contracts": 7,
+      "locale_registry_catalog_checks": true,
+      "fmt": true,
+      "clippy": true,
+      "native_desktop_build": true,
+      "knowledge_strict": {
+        "documents": 31,
+        "errors": 0,
+        "warnings": 0
+      }
+    },
+    {
+      "id": 132031012158,
+      "name": "check (macos-latest)",
+      "conclusion": "success",
+      "host": "macOS 26 ARM64",
+      "rust_passed": 135,
+      "rust_ignored": 1,
+      "frontend_passed": 44,
+      "distribution_contracts": 7,
+      "locale_registry_catalog_checks": true,
+      "fmt": true,
+      "clippy": true,
+      "native_desktop_build": true,
+      "knowledge_strict": {
+        "documents": 31,
+        "errors": 0,
+        "warnings": 0
+      }
+    }
+  ],
+  "windows10_native_verified": false,
+  "scope": "Core regressions and native desktop builds. Server 2025 is not Windows 10 22H2 acceptance."
+}

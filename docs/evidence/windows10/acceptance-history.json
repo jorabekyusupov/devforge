@@ -1,0 +1,69 @@
+{
+  "schema": 1,
+  "initial_build": {
+    "run_id": 43467683180,
+    "job_id": 132031070044,
+    "source_commit": "bb763e6e2f18178315c61a3db8d3d6c205c2ad0a",
+    "build_success": true,
+    "installer_sha256": "af159ea75aa99b0207403a6756442e3bb31118fe930c00e209f469ca5ef5734f",
+    "installer_bytes": 13602328,
+    "complete_acceptance": false,
+    "completed_checks": {
+      "permission_denied_target_then_retry": true,
+      "first_install": true,
+      "running_app_blocks_uninstall": true,
+      "three_locales_release_native_shell": true,
+      "second_launch_keeps_original_process": true
+    },
+    "prerequisites": {
+      "target": "windows-x86_64",
+      "os_version": "26100",
+      "os_supported": true,
+      "webview": "installer_detects_evergreen_webview2",
+      "vc_runtime": true,
+      "vc_runtime_help": "https://learn.microsoft.com/cpp/windows/latest-supported-vc-redist"
+    },
+    "os": "Windows-2025Server-10.0.26100-SP0",
+    "failure": "Whole-file preservation assertion compared registry bytes captured before three release app launches with bytes after reinstall; exact changed-file diagnosis retained for follow-up replay."
+  },
+  "first_replay": {
+    "run_id": 43471541490,
+    "job_id": 132044436089,
+    "test_source": "a9da43e",
+    "installer_started": false,
+    "failure": "New Python fixture left SQLite handles open; Windows WinError32 during TemporaryDirectory cleanup. Fixed with explicit closing in 7cb6ad4."
+  },
+  "native_windows10_verified": false,
+  "second_replay": {
+    "run_id": 43471853729,
+    "job_id": 132045502286,
+    "test_source": "7cb6ad41700b8902e32714e6043b21dcdfeb2d7e",
+    "complete_acceptance": false,
+    "failure": "Only discovery_entries differed in semantic registry comparison after release launch. Workspace::reconcile_discovery updates derived state to detached for entries from a different root; preserve all identity/path/binding/ignored fields, normalize only state/problem across launch in 84b5809. Installer byte checks remain strict."
+  },
+  "local_followup": {
+    "source": "661b76b",
+    "distribution_contracts_passed": 10,
+    "scope": "Explicit SQLite close, discovery durable identity/suppression, portable path inventory and strict byte-change detection. Product binary remains bb763e6."
+  },
+  "third_replay": {
+    "run_id": 43473607342,
+    "job_id": 132051586088,
+    "test_source": "84b5809",
+    "complete_acceptance": false,
+    "registry_preservation_passed": true,
+    "only_changed_file": "projects\\projects.sqlite3",
+    "failure": "Harness compared a Windows relative path with a POSIX literal. Fixed inventory serialization to Path.as_posix in 661b76b; added byte-change/path regression test."
+  },
+  "final_replay": {
+    "run_id": 43474984058,
+    "job_id": 132056387771,
+    "test_source": "661b76b64b5781a8d7277958dcbe564872ea0f6d",
+    "conclusion": "success",
+    "checks": 11,
+    "preserved_project_db_files": 2140,
+    "installer_source": "bb763e6e2f18178315c61a3db8d3d6c205c2ad0a",
+    "installer_sha256": "af159ea75aa99b0207403a6756442e3bb31118fe930c00e209f469ca5ef5734f",
+    "product_binary_changed_since_initial_build": false
+  }
+}

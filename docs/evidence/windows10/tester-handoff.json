@@ -1,0 +1,30 @@
+{
+  "schema": 1,
+  "package": "output/distribution/DevForge-0.1.0-Windows10-22H2-x64-Tester-UZ.zip",
+  "bytes": 13591163,
+  "zip_sha256": "946eef22ecb1807ee920df78846bc2822baa8a47469db4011553918c96ca578d",
+  "installer_sha256": "af159ea75aa99b0207403a6756442e3bb31118fe930c00e209f469ca5ef5734f",
+  "installer_source": "bb763e6e2f18178315c61a3db8d3d6c205c2ad0a",
+  "acceptance_test_source": "661b76b64b5781a8d7277958dcbe564872ea0f6d",
+  "successful_acceptance_run": 43474984058,
+  "files": [
+    "BIRINCHI-OQING.txt",
+    "BOSHLANG.html",
+    "BUILD-INFO.json",
+    "DevForge_0.1.0_x64-setup.exe",
+    "SHA256SUMS.txt"
+  ],
+  "crc_and_all_hashes_verified": true,
+  "windows10_native_verified": false,
+  "guide_viewports": [
+    [
+      1360,
+      900
+    ],
+    [
+      390,
+      844
+    ]
+  ],
+  "guide_overflow": false
+}

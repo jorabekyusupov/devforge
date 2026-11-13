@@ -1,0 +1,55 @@
+{
+  "schema": 1,
+  "source_commit": "bb763e6e2f18178315c61a3db8d3d6c205c2ad0a",
+  "local_host": "27.2.1",
+  "architecture": "arm64",
+  "checks": {
+    "platform_tests": {
+      "command": "./scripts/with_rust.sh cargo test -p devforge-platform",
+      "passed": 10,
+      "ignored": 1,
+      "ignored_reason": "Native credential fixture requires verified interactive host"
+    },
+    "platform_clippy": {
+      "command": "./scripts/with_rust.sh cargo clippy -p devforge-platform --all-targets -- -D warnings",
+      "success": true
+    },
+    "distribution_contracts": {
+      "command": "python3 -m unittest scripts/test_distribution.py",
+      "passed": 7
+    },
+    "knowledge_strict": {
+      "documents": 31,
+      "errors": 0,
+      "warnings": 0
+    }
+  },
+  "guide": {
+    "path": "docs/guides/windows-10-tester-uz.html",
+    "browser": "Playwright CLI controlled browser on macOS",
+    "transport": "loopback HTTP",
+    "viewports": [
+      [
+        1360,
+        900
+      ],
+      [
+        390,
+        844
+      ]
+    ],
+    "horizontal_overflow": false,
+    "external_assets": 0,
+    "broken_internal_links": 0,
+    "visual_review": "Both full-page screenshots inspected",
+    "captures": [
+      "output/playwright/windows10-guide/desktop.png",
+      "output/playwright/windows10-guide/mobile.png"
+    ]
+  },
+  "windows_10_native_acceptance": {
+    "verified": false,
+    "reason": "User confirmed no Windows 10 22H2 x64 computer or VM available"
+  },
+  "scope": "Policy unit/contract and documentation checks; not Windows 10 runtime proof"
+}
