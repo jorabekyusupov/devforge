@@ -98,6 +98,7 @@ struct Preferences {
 }
 #[derive(Clone, Serialize)]
 pub struct Runtime {
+    pub replacement: Option<String>,
     pub problem: Option<String>,
     pub id: String,
     pub kind: String,
@@ -483,6 +484,7 @@ impl Workspace {
                     .filter(|e| *e != devforge_runtime::RuntimeError::NotInstalled)
                     .map(|e| e.to_string());
                 Runtime {
+                    replacement: self.catalog.superseded.get(id).cloned(),
                     id: id.clone(),
                     kind: p.kind.clone(),
                     version: p.version.clone(),
@@ -902,6 +904,9 @@ impl Workspace {
             }
             Command::Install { package } => {
                 let p = self.catalog.get(&package)?.clone();
+                if self.catalog.superseded.contains_key(&package) && !self.packages.is_present(&p) {
+                    return Err(devforge_runtime::RuntimeError::PackageSuperseded.into());
+                }
                 self.packages.download(&p, cancel, |_| {})?;
                 self.refresh_runtimes()?;
                 Ok(serde_json::json!({"installed":true}))

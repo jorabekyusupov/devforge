@@ -234,3 +234,17 @@ describe("daily workspace", () => {
     ).toHaveValue("node");
   });
 });
+
+it("offers the reviewed provider build without reinstalling a withdrawn identity", async () => {
+  const b = backend();
+  b.get().runtimes[0]!.installed = false;
+  b.get().runtimes[0]!.replacement = "php84-reviewed";
+  const user = await mount(b.api, "runtimes");
+  await user.click(
+    await screen.findByRole("button", { name: "Install updated build" }),
+  );
+  expect(b.api.execute).toHaveBeenCalledWith({
+    action: "install",
+    package: "php84-reviewed",
+  });
+});

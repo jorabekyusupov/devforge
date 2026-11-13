@@ -195,8 +195,9 @@ impl Manifest {
             catalog
                 .packages
                 .iter()
-                .find(|(_, p)| {
-                    p.kind == kind
+                .find(|(id, p)| {
+                    (!catalog.superseded.contains_key(*id) || self.pins.get(*id) == Some(&p.sha256))
+                        && p.kind == kind
                         && (if kind == "php" {
                             p.version.split('-').next().unwrap()
                         } else {

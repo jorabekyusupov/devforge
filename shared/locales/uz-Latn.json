@@ -106,7 +106,8 @@
       "process_exited": "Jarayon kutilmaganda yakunlandi.",
       "invalid_process": "Jarayon sozlamalari noto‘g‘ri.",
       "log_failed": "Jarayon loglarini saqlab bo‘lmadi.",
-      "file_budget": "Profile fayllari saqlash limitiga yetdi. Boshqariladigan PHP jarayoni to‘xtatildi. Eski profile’larni tozalab, loyihani qayta ishga tushiring."
+      "file_budget": "Profile fayllari saqlash limitiga yetdi. Boshqariladigan PHP jarayoni to‘xtatildi. Eski profile’larni tozalab, loyihani qayta ishga tushiring.",
+      "package_superseded": "Provider bu arxivni almashtirdi. Tekshirilgan yangi buildni o‘rnating; mavjud loyiha tanlovlari saqlanadi."
     }
   },
   "project": {
@@ -299,7 +300,9 @@
     "unsaved": "Saqlanmagan o‘zgarishlar",
     "unsavedHint": "O‘tishdan oldin sozlamalarni saqlang yoki o‘zgarishlarni bekor qiling.",
     "keepEditing": "Tahrirlashni davom ettirish",
-    "discard": "O‘zgarishlarni bekor qilish"
+    "discard": "O‘zgarishlarni bekor qilish",
+    "installReplacement": "Yangi buildni o‘rnatish",
+    "runtimeSuperseded": "Provider arxivni almashtirgan; eski tanlovlar saqlanadi."
   },
   "workspace": {
     "errors": {

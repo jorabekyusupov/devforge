@@ -21,6 +21,12 @@ pub fn run() -> Result<()> {
     let store = PackageStore::open(root.join("runtimes"), Limits::default())?;
     match args.first().map(String::as_str) {
         Some("install") => {
+            if args.get(2).is_none()
+                && catalog["superseded"].get(args[1].as_str()).is_some()
+                && !store.is_present(&package)
+            {
+                return Err(RuntimeError::PackageSuperseded);
+            }
             let emit = |p| eprintln!("{}", serde_json::to_string(&p).unwrap());
             let installed = if let Some(archive) = args.get(2) {
                 store.install_cached(

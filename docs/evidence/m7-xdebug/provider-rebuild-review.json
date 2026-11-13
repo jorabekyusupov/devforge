@@ -1,0 +1,51 @@
+{
+  "observed_date": "2026-11-13",
+  "old_descriptors_preserved": true,
+  "new_arm64_family": "8.5.12-staticphp20261113",
+  "artifacts": [
+    {
+      "id": "php-8.5.12-cli-macos-arm64",
+      "url": "https://dl.static-php.dev/v3/php-bin/common/php-8.5.12-cli-macos-aarch64.tar.gz",
+      "old_sha256": "cfbb53b904bb29f553c23cb51dfb9ec82bb69adaf9aeb6df8b6da29ea9f03553",
+      "current_sha256": "15b530298ac4e3560d685bbce5031dafa2db062f0b114b620db3fabfe25e326b",
+      "publisher_sha256": "15b530298ac4e3560d685bbce5031dafa2db062f0b114b620db3fabfe25e326b",
+      "payload_sha256": {
+        "php": "5445198f41b313a6fa43a13dfb7153adcbdfa3a00261fa3e07878bd7df5c6794"
+      },
+      "changed": true
+    },
+    {
+      "id": "php-8.5.12-fpm-macos-arm64",
+      "url": "https://dl.static-php.dev/v3/php-bin/common/php-8.5.12-fpm-macos-aarch64.tar.gz",
+      "old_sha256": "b11e25657f6190b86453a6989c631b25ed041329e9cdf6f85189d653133ce970",
+      "current_sha256": "7f40383764102dbad2db3f7d99f93d42f7a2c2e5906a6ab248ae85eb04d90183",
+      "publisher_sha256": "7f40383764102dbad2db3f7d99f93d42f7a2c2e5906a6ab248ae85eb04d90183",
+      "payload_sha256": {
+        "php-fpm": "a1173ee30966111edea0c2d26f2633e5acd095a6dca746a0ea9fc341d989b49a"
+      },
+      "changed": true
+    },
+    {
+      "id": "php-8.5.12-cli-macos-x64",
+      "url": "https://dl.static-php.dev/v3/php-bin/common/php-8.5.12-cli-macos-x86_64.tar.gz",
+      "old_sha256": "32c08d8d793d939c960f944d92abe16350dddf0ea79418256fa76633e110ce2b",
+      "current_sha256": "32c08d8d793d939c960f944d92abe16350dddf0ea79418256fa76633e110ce2b",
+      "publisher_sha256": "32c08d8d793d939c960f944d92abe16350dddf0ea79418256fa76633e110ce2b",
+      "payload_sha256": {
+        "php": "185f65a943a792dd745f53d98efec6b295a18ad5114bb9a23028979009e05d06"
+      },
+      "changed": false
+    },
+    {
+      "id": "php-8.5.12-fpm-macos-x64",
+      "url": "https://dl.static-php.dev/v3/php-bin/common/php-8.5.12-fpm-macos-x86_64.tar.gz",
+      "old_sha256": "7c166125797e536d6cda9a8267eb89fffd294b4f49878bb586dadbba713a879a",
+      "current_sha256": "7c166125797e536d6cda9a8267eb89fffd294b4f49878bb586dadbba713a879a",
+      "publisher_sha256": "7c166125797e536d6cda9a8267eb89fffd294b4f49878bb586dadbba713a879a",
+      "payload_sha256": {
+        "php-fpm": "90384bf2e2b7657a1f33615d6807a5a24fe21fc044c672c700f3f3b72c2c4b74"
+      },
+      "changed": false
+    }
+  ]
+}

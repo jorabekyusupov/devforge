@@ -24,6 +24,7 @@ captures = []
 viewport_attempts = []
 performance = []
 paint_waits = []
+operation_timings = []
 opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
 
@@ -145,8 +146,22 @@ def snap():
     return invoke("workspace_snapshot")
 
 
-def settled():
-    return wait(lambda: not snap()["busy"])
+def settled(seconds=120):
+    return wait(lambda: not snap()["busy"], seconds)
+
+
+def start_project():
+    started = time.monotonic()
+    debugger_button("Start project")
+    settled(300)
+    timing = {
+        "operation": "start_project",
+        "elapsed_seconds": time.monotonic() - started,
+        "build": "debug_e2e",
+        "scope": "includes verified SDK hashing and fixture services; not release latency",
+    }
+    operation_timings.append(timing)
+    print("M7_XDEBUG_START_TIMING:" + json.dumps(timing), flush=True)
 
 
 def row(id):
@@ -365,8 +380,7 @@ try:
     )
     button("Cancel", "dialog")
     configure("debug")
-    debugger_button("Start project")
-    settled()
+    start_project()
     fill("[name=debug-request-path]", "/m7-debug")
     debugger_button("Run request")
     wait(lambda: view(atlas)["session"]["state"] == "paused")
@@ -407,8 +421,7 @@ try:
     debugger_button("Stop project")
     settled()
     configure("profile")
-    debugger_button("Start project")
-    settled()
+    start_project()
     debugger_button("Run request")
     wait(
         lambda: view(atlas)["request"]["state"] == "completed"
@@ -455,7 +468,7 @@ try:
         screenshot("debugger-" + locale + ".png")
         audit("debugger-" + locale)
         assert not script(
-            "return [...document.querySelectorAll('main *')].some(e=>e.childElementCount===0 && /^(debugger|work|workspace|project|common|nav)\.[a-z]/.test(e.textContent.trim()))"
+            "return [...document.querySelectorAll('main *')].some(e=>e.childElementCount===0 && /^(debugger|work|workspace|project|common|nav)\\.[a-z]/.test(e.textContent.trim()))"
         )
         content_viewport(820, 620)
         audit("debugger-" + locale + "-minimum")
@@ -503,6 +516,7 @@ try:
         "captures": captures,
         "viewport_attempts": viewport_attempts,
         "paint_waits": paint_waits,
+        "operation_timings": operation_timings,
         "export_native_dialog": "not automated; actual bounded export verified in backend fixture",
     }
     (args.fixture / "m7-xdebug-desktop-result.json").write_text(

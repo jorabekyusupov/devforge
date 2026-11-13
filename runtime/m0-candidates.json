@@ -30,7 +30,8 @@
     "url": "https://dl.static-php.dev/v3/php-bin/common/php-8.5.12-cli-macos-aarch64.tar.gz",
     "sha256": "cfbb53b904bb29f553c23cb51dfb9ec82bb69adaf9aeb6df8b6da29ea9f03553",
     "checksum_source": "https://dl.static-php.dev/v3/php-bin/common/php-8.5.12-cli-macos-aarch64.tar.gz.sha256",
-    "provider": "StaticPHP v3 common; third-party candidate"
+    "provider": "StaticPHP v3 common; third-party candidate",
+    "superseded_by": "php-8.5.12-staticphp20261113-cli-macos-arm64"
   },
   {
     "id": "php-8.5.12-fpm-macos-arm64",
@@ -41,7 +42,8 @@
     "url": "https://dl.static-php.dev/v3/php-bin/common/php-8.5.12-fpm-macos-aarch64.tar.gz",
     "sha256": "b11e25657f6190b86453a6989c631b25ed041329e9cdf6f85189d653133ce970",
     "checksum_source": "https://dl.static-php.dev/v3/php-bin/common/php-8.5.12-fpm-macos-aarch64.tar.gz.sha256",
-    "provider": "StaticPHP v3 common; third-party candidate"
+    "provider": "StaticPHP v3 common; third-party candidate",
+    "superseded_by": "php-8.5.12-staticphp20261113-fpm-macos-arm64"
   },
   {
     "id": "composer-2.11.2",
@@ -246,5 +248,29 @@
     "sha256": "b7ef2d03588e0439f0d0a2250f43905f7464f1e96ace47703ceaf79094198150",
     "checksum_source": "https://repo.maven.apache.org/maven2/io/zonky/test/postgres/embedded-postgres-binaries-windows-amd64/18.6.0/embedded-postgres-binaries-windows-amd64-18.6.0.jar.sha256",
     "provider": "Zonky embedded PostgreSQL; third-party testing bundle candidate"
+  },
+  {
+    "id": "php-8.5.12-staticphp20261113-cli-macos-arm64",
+    "package": "php",
+    "sapi": "cli",
+    "version": "8.5.12",
+    "target": "macos-arm64",
+    "url": "https://dl.static-php.dev/v3/php-bin/common/php-8.5.12-cli-macos-aarch64.tar.gz",
+    "sha256": "15b530298ac4e3560d685bbce5031dafa2db062f0b114b620db3fabfe25e326b",
+    "checksum_source": "https://dl.static-php.dev/v3/php-bin/common/php-8.5.12-cli-macos-aarch64.tar.gz.sha256",
+    "provider": "StaticPHP v3 common; third-party candidate",
+    "build_revision": "reviewed20261113"
+  },
+  {
+    "id": "php-8.5.12-staticphp20261113-fpm-macos-arm64",
+    "package": "php",
+    "sapi": "fpm",
+    "version": "8.5.12",
+    "target": "macos-arm64",
+    "url": "https://dl.static-php.dev/v3/php-bin/common/php-8.5.12-fpm-macos-aarch64.tar.gz",
+    "sha256": "7f40383764102dbad2db3f7d99f93d42f7a2c2e5906a6ab248ae85eb04d90183",
+    "checksum_source": "https://dl.static-php.dev/v3/php-bin/common/php-8.5.12-fpm-macos-aarch64.tar.gz.sha256",
+    "provider": "StaticPHP v3 common; third-party candidate",
+    "build_revision": "reviewed20261113"
   }
 ]

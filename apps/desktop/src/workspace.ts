@@ -23,6 +23,7 @@ export interface Site {
   vite: boolean;
 }
 export interface Runtime {
+  replacement?: string | null;
   problem?: string | null;
   id: string;
   kind: string;

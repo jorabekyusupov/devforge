@@ -14,6 +14,8 @@ use std::{
 pub struct Catalog {
     pub packages: BTreeMap<String, Package>,
     #[serde(default)]
+    pub superseded: BTreeMap<String, String>,
+    #[serde(default)]
     pub defaults: BTreeMap<String, String>,
 }
 impl Catalog {

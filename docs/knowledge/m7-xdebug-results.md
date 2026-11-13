@@ -138,6 +138,36 @@ M15 gate'lari quyida saqlanadi. M15 signing,
 minimum OS, native credential/system-dialog, interrupted-install va licensing
 review gate'lari saqlanadi; public runtime/installer release qilinmaydi.[^workflow]
 
+# Provider arxivining tekshiruv paytidagi o‘zgarishi
+
+be6abd3 source run43397266598'da ikkala core job o'tdi:107/105 Rust,35 frontend,
+strict28/0/0. Windows native backend/CLI/UI12 axe/0 o'tdi. ARM64 fresh fixture
+normal PHP8.5 CLI arxivida IntegrityMismatch bilan faollashishni to'xtatdi.
+Primary object Last-Modified2026-11-13T08:59:22Z va yangi publisher SHA sidecar
+provider rebuild'ini ko'rsatdi. CLI/FPM yangi arxivlari aynan primary checksum'ga
+mos yuklandi va local PHP8.5.12, xdebug=false, PDO mysql/pgsql/sqlite hamda FPM
+version probe bilan tekshirildi. Intel CLI/FPM publisher hash'lari o'zgarmagan.
+
+Eski package descriptor va SHA o'zgartirilmadi. ARM64 uchun alohida
+`8.5.12-staticphp20261113` catalog family va superseded→replacement mapping
+qo'shildi. Installed legacy package'lar ishlashda davom etadi; eski ID'dagi yangi
+network install fail qiladi. CLI verified cached legacy archive'ni qabul qiladi.
+Runtimes'dagi explicit replacement install loyiha tanlovini o'zgartirmaydi.
+Portable manifest'da unlocked PHP8.5.12 active family'ni tanlaydi, explicit eski
+ID/hash pin esa saqlanadi. CLI/FPM family birga tanlanadi; actual PHP version
+8.5.12 bo'lib qoladi. Bu immutable upstream mirror emas: yana provider rebuild
+bo'lsa hash gate reject qiladi va yangi review kerak; M15 feed gate saqlanadi.
+
+Intel run'da release backend/CLI o'tib, debug desktop Start operatsiyasi120s
+fixture limitida busy edi. Earlier6205198 debug UI aynan shu qismdan o'tgan;
+release backend dalili ham bor. Ko'p executable'ni debug-build'da verify qilish
+xarajati ehtimoliy izoh, profiling bilan o'lchangan root cause emas. Start uchun
+cheklangan300s test budjeti va actual elapsed report qo'shildi; readiness/security
+assertion'lari yumshatilmadi. Original failed run va screenshot saqlanadi.
+
+Local catalog-family regression, full108 Rust/1 ignored,36 frontend va yangi
+locale keys tekshirildi; yakuniy native matrix yangi source bilan kutilmoqda.
+
 # Kod bilan solishtirish
 
 | Da'vo | Holat | Dalil/chegara |

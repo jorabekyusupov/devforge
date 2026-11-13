@@ -149,8 +149,9 @@ fn run(root: &Path, exe: &Path, cache: &Path) -> Result<serde_json::Value> {
         catalog
             .packages
             .iter()
-            .find(|(_, p)| {
-                p.target == target
+            .find(|(id, p)| {
+                !catalog.superseded.contains_key(*id)
+                    && p.target == target
                     && p.kind == kind
                     && (if kind == "php" {
                         p.version.split('-').next().unwrap()
@@ -171,8 +172,9 @@ fn run(root: &Path, exe: &Path, cache: &Path) -> Result<serde_json::Value> {
     let selected = catalog
         .packages
         .iter()
-        .filter(|(_, p)| {
-            p.target == target
+        .filter(|(id, p)| {
+            !catalog.superseded.contains_key(*id)
+                && p.target == target
                 && ((p.kind == "php" && p.version.split('-').next().unwrap() == "8.5.12")
                     || (p.kind == "node" && p.version == "v24.22.2")
                     || p.kind == "composer"
@@ -187,7 +189,7 @@ fn run(root: &Path, exe: &Path, cache: &Path) -> Result<serde_json::Value> {
         eprintln!("M10_INSTALL:{id}");
         let archived = candidates
             .iter()
-            .find(|c| c["url"].as_str() == Some(&p.url))
+            .find(|c| c["url"].as_str() == Some(&p.url) && c["sha256"].as_str() == Some(&p.sha256))
             .map(|c| {
                 cache.join(format!(
                     "{}-{}",

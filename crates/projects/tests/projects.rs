@@ -340,3 +340,42 @@ fn schema_four_records_keep_environment_and_runtime_selections_in_schema_six() {
         6
     );
 }
+
+#[test]
+fn provider_rebuild_keeps_legacy_pins_and_selects_a_separate_reviewed_family() {
+    let catalog = Catalog::bundled();
+    let old = "php-8.5.12-cli-macos-arm64";
+    assert_eq!(
+        catalog.get(old).unwrap().sha256,
+        "cfbb53b904bb29f553c23cb51dfb9ec82bb69adaf9aeb6df8b6da29ea9f03553"
+    );
+    let next = catalog.superseded.get(old).unwrap();
+    let cli = catalog.get(next).unwrap();
+    assert_eq!(cli.version, "8.5.12-staticphp20261113");
+    assert_ne!(cli.key().unwrap(), catalog.get(old).unwrap().key().unwrap());
+    assert_eq!(catalog.php_server(cli).unwrap().version, cli.version);
+    assert_eq!(
+        catalog
+            .php_server(catalog.get(old).unwrap())
+            .unwrap()
+            .version,
+        "8.5.12"
+    );
+    let portable=devforge_projects::manifest::Manifest::parse(b"schema: 1\nproject:\n  name: Fixture\n  domain: fixture.test\nruntimes:\n  php: 8.5.12\n  node: 24.22.2\n  composer: 2.11.2\npins: {}\n").unwrap();
+    assert_eq!(
+        portable
+            .resolve(&catalog, devforge_runtime::package::Target::MacosArm64)
+            .unwrap()["php"],
+        *next
+    );
+    let mut locked = portable;
+    locked
+        .pins
+        .insert(old.into(), catalog.get(old).unwrap().sha256.clone());
+    assert_eq!(
+        locked
+            .resolve(&catalog, devforge_runtime::package::Target::MacosArm64)
+            .unwrap()["php"],
+        old
+    );
+}

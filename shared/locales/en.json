@@ -106,7 +106,8 @@
       "process_exited": "The process exited unexpectedly.",
       "invalid_process": "The process configuration is invalid.",
       "log_failed": "Process logs could not be saved.",
-      "file_budget": "Profile output reached its storage budget. The owned PHP process was stopped. Clear retained profiles and restart."
+      "file_budget": "Profile output reached its storage budget. The owned PHP process was stopped. Clear retained profiles and restart.",
+      "package_superseded": "The provider replaced this archive. Install the reviewed replacement build; existing project pins remain unchanged."
     }
   },
   "project": {
@@ -299,7 +300,9 @@
     "unsaved": "Unsaved changes",
     "unsavedHint": "Save your settings before leaving, or discard these edits.",
     "keepEditing": "Keep editing",
-    "discard": "Discard changes"
+    "discard": "Discard changes",
+    "installReplacement": "Install updated build",
+    "runtimeSuperseded": "Provider archive replaced; existing pins are preserved."
   },
   "workspace": {
     "errors": {

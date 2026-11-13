@@ -690,11 +690,43 @@
       "executables": {
         "garnet": "net10.0/GarnetServer.exe"
       }
+    },
+    "php-8.5.12-staticphp20261113-cli-macos-arm64": {
+      "kind": "php",
+      "version": "8.5.12-staticphp20261113",
+      "variant": "cli",
+      "target": "macos-arm64",
+      "url": "https://dl.static-php.dev/v3/php-bin/common/php-8.5.12-cli-macos-aarch64.tar.gz",
+      "sha256": "15b530298ac4e3560d685bbce5031dafa2db062f0b114b620db3fabfe25e326b",
+      "archive": {
+        "kind": "tar_gz"
+      },
+      "executables": {
+        "php": "php"
+      }
+    },
+    "php-8.5.12-staticphp20261113-fpm-macos-arm64": {
+      "kind": "php",
+      "version": "8.5.12-staticphp20261113",
+      "variant": "fpm",
+      "target": "macos-arm64",
+      "url": "https://dl.static-php.dev/v3/php-bin/common/php-8.5.12-fpm-macos-aarch64.tar.gz",
+      "sha256": "7f40383764102dbad2db3f7d99f93d42f7a2c2e5906a6ab248ae85eb04d90183",
+      "archive": {
+        "kind": "tar_gz"
+      },
+      "executables": {
+        "php-fpm": "php-fpm"
+      }
     }
   },
   "defaults": {
     "laravel": "^13.0",
     "composer": "2.11.2",
     "caddy": "v2.11.9"
+  },
+  "superseded": {
+    "php-8.5.12-cli-macos-arm64": "php-8.5.12-staticphp20261113-cli-macos-arm64",
+    "php-8.5.12-fpm-macos-arm64": "php-8.5.12-staticphp20261113-fpm-macos-arm64"
   }
 }

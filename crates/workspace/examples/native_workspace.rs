@@ -167,15 +167,16 @@ fn main() -> Result<()> {
     let target = Target::current()?;
     let candidates: Vec<serde_json::Value> =
         serde_json::from_str(include_str!("../../../runtime/m0-candidates.json"))?;
-    for (id, p) in w.catalog.packages.iter().filter(|(_, p)| {
+    for (id, p) in w.catalog.packages.iter().filter(|(id, p)| {
         p.target == target
+            && !w.catalog.superseded.contains_key(*id)
             && (["php", "node", "caddy", "composer"].contains(&p.kind.as_str())
                 || (p.kind == "postgresql" && p.variant == "server"))
     }) {
         eprintln!("M5_INSTALL:{id}");
         let source = candidates
             .iter()
-            .find(|c| c["url"].as_str() == Some(&p.url))
+            .find(|c| c["url"].as_str() == Some(&p.url) && c["sha256"].as_str() == Some(&p.sha256))
             .unwrap();
         let archive = cache.join(format!(
             "{}-{}",
@@ -194,8 +195,9 @@ fn main() -> Result<()> {
         w.catalog
             .packages
             .iter()
-            .find(|(_, p)| {
+            .find(|(id, p)| {
                 p.kind == kind
+                    && !w.catalog.superseded.contains_key(*id)
                     && p.version.starts_with(v)
                     && p.target == target
                     && (kind != "php" || p.executables.contains_key("php"))

@@ -61,8 +61,9 @@ fn run(root: &Path, args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
     let m0: Vec<serde_json::Value> =
         serde_json::from_str(include_str!("../../../runtime/m0-candidates.json"))?;
     let mut installed = 0;
-    for (id, p) in catalog.packages.iter().filter(|(_, p)| {
-        p.target == target
+    for (id, p) in catalog.packages.iter().filter(|(id, p)| {
+        !catalog.superseded.contains_key(*id)
+            && p.target == target
             && (p.kind == "php"
                 || p.kind == "node"
                 || p.kind == "composer"
@@ -71,7 +72,10 @@ fn run(root: &Path, args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         eprintln!("Installing {id}");
         let source = m0
             .iter()
-            .find(|e| e["url"].as_str() == Some(p.url.as_str()))
+            .find(|e| {
+                e["url"].as_str() == Some(p.url.as_str())
+                    && e["sha256"].as_str() == Some(p.sha256.as_str())
+            })
             .ok_or("candidate not pinned in M0")?;
         let file = cache.join(format!(
             "{}-{}",
@@ -91,8 +95,9 @@ fn run(root: &Path, args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         catalog
             .packages
             .iter()
-            .find(|(_, p)| {
-                p.target == target
+            .find(|(id, p)| {
+                !catalog.superseded.contains_key(*id)
+                    && p.target == target
                     && p.kind == kind
                     && p.version.starts_with(version)
                     && (kind != "php" || p.executables.contains_key("php"))

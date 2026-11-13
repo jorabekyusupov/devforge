@@ -730,6 +730,8 @@ mod tests {
             RuntimeError::ProcessExited,
             RuntimeError::InvalidProcess,
             RuntimeError::LogFailed,
+            RuntimeError::FileBudget,
+            RuntimeError::PackageSuperseded,
         ];
         for json in [
             include_str!("../../../shared/locales/en.json"),

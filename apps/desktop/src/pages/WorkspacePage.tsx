@@ -391,6 +391,9 @@ export function WorkspacePage({
                       </td>
                       <td>
                         <code>{p.version}</code>
+                        {p.replacement && !p.installed && (
+                          <small>{t("work.runtimeSuperseded")}</small>
+                        )}
                       </td>
                       <td>
                         <StateBadge
@@ -404,7 +407,20 @@ export function WorkspacePage({
                         />
                       </td>
                       <td>
-                        {p.installed || p.problem ? (
+                        {p.replacement && !p.installed ? (
+                          <button
+                            disabled={api.busy}
+                            onClick={() =>
+                              void api.run({
+                                action: "install",
+                                package: p.replacement!,
+                              })
+                            }
+                          >
+                            <Download aria-hidden="true" />
+                            {t("work.installReplacement")}
+                          </button>
+                        ) : p.installed || p.problem ? (
                           <button
                             aria-label={t("work.removeRuntimeLabel", {
                               name: `${p.kind} ${p.version} ${p.variant}`,
