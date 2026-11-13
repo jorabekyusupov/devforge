@@ -499,12 +499,11 @@ impl Workspace {
                     .discovery_entries()?
                     .into_iter()
                     .find(|e| e.identity == identity)
+                    && let Some(id) = entry.project_id
                 {
-                    if let Some(id) = entry.project_id {
-                        let project = self.projects.get(&id)?;
-                        if !self.sites.sites()?.iter().any(|s| s.project_id == id) {
-                            self.configure_discovered_site(&project, &entry.name)?;
-                        }
+                    let project = self.projects.get(&id)?;
+                    if !self.sites.sites()?.iter().any(|s| s.project_id == id) {
+                        self.configure_discovered_site(&project, &entry.name)?;
                     }
                 }
                 Ok(serde_json::json!({"restored":true}))
