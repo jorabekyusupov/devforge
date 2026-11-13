@@ -2,7 +2,7 @@
 
 ## 2026-11-13
 
-- **M7.2 davom etmoqda:** [Xdebug debugger/profiler](m7-xdebug-results.md) native provider, schema6 project settings, DBGp/Cachegrind va uch tilli UI yaratildi. Local ARM64 Laravel/PHP va WKWebView11 axe/0 preliminary qabul o'tdi. Production builder/Windows/Intel yakuniy acceptance hali ochiq; M7.1 saqlanadi.
+- **M7 functional qabul tugadi:** [Xdebug debugger/profiler](m7-xdebug-results.md), verified optional SDK/DLL, schema6 project modes, authenticated DBGp, bounded Cachegrind/history/exports va uch tilli UI yaratildi. Core108/106 Rust,36 frontend,3 locale/6 packaging, strict28/0/0; uch native target backend/CLI/GUI12 axe/0. Provider rebuild'lari separate families bilan review qilindi, eski descriptor/pinlar saqlandi. Original Busy/TLS/resize/DOM failure'lar, exact source/job/artifact va viewport chegaralari qayd etildi. M7.1 untouched; M15 gates/Intel MySQL gap ochiq, M13 boshlanmadi.
 
 - **M12 functional qabul:** [Workspaces](m12-workspaces-results.md), new/existing Git branch, independent project/profile/domain/DB, PG/MySQL/SQLite copy, Redis/mail va reviewed archive yaratildi. Uch target backend/CLI/GUI,15 axe/0 per target; uch artifact hash mos. Core har OS96 Rust/31 frontend/3 locale/6 packaging, strict27/0/0. Initial localhost resolver fixture failure va test-only loopback fix saqlandi. Schema5, host Git owned tree, dirty/detached/nested/submodule guards va source reconciliation qayd etildi. Purge/reactivation, Intel MySQL va M15 gate'lari ochiq. User tartibi bo'yicha keyingi ish M7 qolgan qismi; M7.1 saqlanadi, M13 boshlanmaydi.
 

@@ -1,0 +1,294 @@
+{
+  "attempts": [
+    {
+      "run": 43383141720,
+      "source": "686f893fb268eb7879304bc2e9b83a1d7fea0732",
+      "conclusion": "cancelled",
+      "reason": "Cancelled as obsolete after native TLS and recovery fixes; successful core steps remain historical evidence.",
+      "jobs": [
+        {
+          "id": 131745354499,
+          "name": "check (macos-latest)",
+          "conclusion": "success",
+          "failed_steps": []
+        },
+        {
+          "id": 131745354583,
+          "name": "check (windows-latest)",
+          "conclusion": "success",
+          "failed_steps": []
+        },
+        {
+          "id": 131745354691,
+          "name": "xdebug-native / xdebug (macos-15-intel, macos-x64)",
+          "conclusion": "cancelled",
+          "failed_steps": []
+        },
+        {
+          "id": 131745354702,
+          "name": "xdebug-native / xdebug (macos-15, macos-arm64)",
+          "conclusion": "cancelled",
+          "failed_steps": []
+        },
+        {
+          "id": 131745354861,
+          "name": "xdebug-native / xdebug (windows-latest, windows-x64)",
+          "conclusion": "cancelled",
+          "failed_steps": []
+        }
+      ]
+    },
+    {
+      "run": 43384509700,
+      "source": "6a2ac02754a0637a594f232622e51a86e2916628",
+      "conclusion": "cancelled",
+      "reason": "Cancelled as obsolete after ownership/off-recovery and app-data path review.",
+      "jobs": [
+        {
+          "id": 131749719854,
+          "name": "check (macos-latest)",
+          "conclusion": "cancelled",
+          "failed_steps": []
+        },
+        {
+          "id": 131749720161,
+          "name": "check (windows-latest)",
+          "conclusion": "cancelled",
+          "failed_steps": []
+        },
+        {
+          "id": 131749720332,
+          "name": "xdebug-native / xdebug (windows-latest, windows-x64)",
+          "conclusion": "cancelled",
+          "failed_steps": []
+        },
+        {
+          "id": 131749720345,
+          "name": "xdebug-native / xdebug (macos-15-intel, macos-x64)",
+          "conclusion": "cancelled",
+          "failed_steps": []
+        },
+        {
+          "id": 131749720363,
+          "name": "xdebug-native / xdebug (macos-15, macos-arm64)",
+          "conclusion": "cancelled",
+          "failed_steps": []
+        }
+      ]
+    },
+    {
+      "run": 43385841939,
+      "source": "620519895b5b1b1c05d7aa6554d56a140abe8788",
+      "conclusion": "failure",
+      "reason": "Both production macOS SDK builds and all three native jobs succeeded; macOS core failed immediate post-stop Busy cleanup assertion.",
+      "jobs": [
+        {
+          "id": 131753991511,
+          "name": "check (windows-latest)",
+          "conclusion": "success",
+          "failed_steps": []
+        },
+        {
+          "id": 131753991705,
+          "name": "xdebug-native / xdebug (macos-15-intel, macos-x64)",
+          "conclusion": "success",
+          "failed_steps": []
+        },
+        {
+          "id": 131753991810,
+          "name": "check (macos-latest)",
+          "conclusion": "failure",
+          "failed_steps": [
+            "Run cargo test --workspace"
+          ]
+        },
+        {
+          "id": 131753991973,
+          "name": "xdebug-native / xdebug (macos-15, macos-arm64)",
+          "conclusion": "success",
+          "failed_steps": []
+        },
+        {
+          "id": 131753991998,
+          "name": "xdebug-native / xdebug (windows-latest, windows-x64)",
+          "conclusion": "success",
+          "failed_steps": []
+        }
+      ]
+    },
+    {
+      "run": 43397266598,
+      "source": "be6abd3ea2c65e049b2743e41c9ee9a2acec833b",
+      "conclusion": "failure",
+      "reason": "Both core jobs and Windows native passed; ARM64 stock PHP archive changed upstream and was rejected; Intel debug start exceeded120s fixture budget.",
+      "jobs": [
+        {
+          "id": 131791143415,
+          "name": "check (windows-latest)",
+          "conclusion": "success",
+          "failed_steps": []
+        },
+        {
+          "id": 131791143772,
+          "name": "xdebug-native / xdebug (windows-latest, windows-x64)",
+          "conclusion": "success",
+          "failed_steps": []
+        },
+        {
+          "id": 131791143774,
+          "name": "check (macos-latest)",
+          "conclusion": "success",
+          "failed_steps": []
+        },
+        {
+          "id": 131791143881,
+          "name": "xdebug-native / xdebug (macos-15, macos-arm64)",
+          "conclusion": "failure",
+          "failed_steps": [
+            "Real Laravel PHP Node PostgreSQL fixture"
+          ]
+        },
+        {
+          "id": 131791143909,
+          "name": "xdebug-native / xdebug (macos-15-intel, macos-x64)",
+          "conclusion": "failure",
+          "failed_steps": [
+            "Actual native debugger controls languages and accessibility"
+          ]
+        }
+      ]
+    },
+    {
+      "run": 43403571569,
+      "source": "23fedbee495540ec2a92c4009771e71a0287172f",
+      "conclusion": "failure",
+      "reason": "Both core and ARM native accepted; Windows/Intel failed before rendered breakpoint DOM; corrected by driver-only wait.",
+      "jobs": [
+        {
+          "id": 131812216102,
+          "name": "check (macos-latest)",
+          "conclusion": "success",
+          "failed_steps": []
+        },
+        {
+          "id": 131812216517,
+          "name": "xdebug-native / xdebug (windows-latest, windows-x64)",
+          "conclusion": "failure",
+          "failed_steps": [
+            "Actual native debugger controls languages and accessibility"
+          ]
+        },
+        {
+          "id": 131812216684,
+          "name": "xdebug-native / xdebug (macos-15-intel, macos-x64)",
+          "conclusion": "failure",
+          "failed_steps": [
+            "Actual native debugger controls languages and accessibility"
+          ]
+        },
+        {
+          "id": 131812216687,
+          "name": "check (windows-latest)",
+          "conclusion": "success",
+          "failed_steps": []
+        },
+        {
+          "id": 131812216748,
+          "name": "xdebug-native / xdebug (macos-15, macos-arm64)",
+          "conclusion": "success",
+          "failed_steps": []
+        }
+      ]
+    },
+    {
+      "run": 43405940038,
+      "source": "eefac76006f7e3dabe0ee526bc7cd8622e51480c",
+      "conclusion": "success",
+      "reason": "Accepted Windows native12/0; core intentionally skipped for targeted retry.",
+      "jobs": [
+        {
+          "id": 131820182067,
+          "name": "xdebug-native / xdebug (windows-latest, windows-x64)",
+          "conclusion": "success",
+          "failed_steps": []
+        },
+        {
+          "id": 131820184907,
+          "name": "check",
+          "conclusion": "skipped",
+          "failed_steps": []
+        }
+      ]
+    },
+    {
+      "run": 43407221155,
+      "source": "eefac76006f7e3dabe0ee526bc7cd8622e51480c",
+      "conclusion": "failure",
+      "reason": "Intel fresh stock PHP8.4 was replaced upstream and failed pinned checksum before activation.",
+      "jobs": [
+        {
+          "id": 131824407097,
+          "name": "xdebug-native / xdebug (macos-15-intel, macos-x64)",
+          "conclusion": "failure",
+          "failed_steps": [
+            "Real Laravel PHP Node PostgreSQL fixture"
+          ]
+        },
+        {
+          "id": 131824409243,
+          "name": "check",
+          "conclusion": "skipped",
+          "failed_steps": []
+        }
+      ]
+    },
+    {
+      "run": 43409476063,
+      "source": "c85835470ad7ca606129beea28bfb4172fa5439c",
+      "conclusion": "success",
+      "reason": "Accepted final Intel native12/0 with reviewed PHP8.4 family and normal runtime cache.",
+      "jobs": [
+        {
+          "id": 131832019709,
+          "name": "xdebug-native / xdebug (macos-15-intel, macos-x64)",
+          "conclusion": "success",
+          "failed_steps": []
+        },
+        {
+          "id": 131832021583,
+          "name": "check",
+          "conclusion": "skipped",
+          "failed_steps": []
+        }
+      ]
+    },
+    {
+      "run": 43409632986,
+      "source": "c85835470ad7ca606129beea28bfb4172fa5439c",
+      "conclusion": "success",
+      "reason": "Accepted final ARM native12/0 with reviewed PHP8.4/8.5 families and normal runtime cache.",
+      "jobs": [
+        {
+          "id": 131832528582,
+          "name": "xdebug-native / xdebug (macos-15, macos-arm64)",
+          "conclusion": "success",
+          "failed_steps": []
+        },
+        {
+          "id": 131832530580,
+          "name": "check",
+          "conclusion": "skipped",
+          "failed_steps": []
+        }
+      ]
+    }
+  ],
+  "final_source": "23fedbee495540ec2a92c4009771e71a0287172f",
+  "accepted_native_runs": [
+    43409632986,
+    43409476063,
+    43405940038
+  ],
+  "accepted_core_run": 43403571569,
+  "latest_source": "c85835470ad7ca606129beea28bfb4172fa5439c"
+}

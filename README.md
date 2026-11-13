@@ -299,10 +299,58 @@ telemetry listener is separate from the debug-only WebDriver acceptance endpoint
 See [companion setup and privacy](packages/laravel-inspector/README.md) and
 [M7 actual evidence/open work](docs/knowledge/m7-inspector-results.md). The declared
 Laravel11/12 compatibility requires separate runtime coverage; the current fixture
-uses Laravel13. Xdebug capability detection is implemented; extension installation,
-interactive debugging and function-level profiling remain later M7 work.
+uses Laravel13. The native Xdebug surface below adds optional extension/runtime
+management, interactive debugging and function-level profiling.
 `devforge inspect <project-id>` reads captured history and context summaries as JSON
 without starting a collector or printing its credentials.
+
+## M7.2 native debugger and function profiles
+
+Open **Debugger**, select a stopped project and choose **Prepare debug runtime**.
+Review the native-source/download consent. macOS builds a matching CLI/FPM and
+Xdebug in a private temporary prefix using Apple Command Line Tools; the first
+build can take tens of minutes. Windows installs the matching official NTS DLL.
+Completed SDKs are reused across projects with the same PHP version.
+
+The normal runtime catalog keeps older installed package identities and their
+checksums. If a provider replaces an archive, a reviewed build receives a separate
+ID; **Install updated build** installs it without changing project selections.
+A withdrawn build can still be restored from a verified cached archive through
+the CLI. Portable manifests retain explicit old pins and choose the active build
+only when no exact pin was provided.
+
+Choose **Configure Xdebug**, select Debug or Profile mode and a matching installed
+runtime, then start the project. In Debug mode, add a project-relative PHP file and
+line, enter a local GET path and choose **Run request**. **Continue** reaches a
+breakpoint; Step into/over/out, the call stack and masked read-only locals/source
+are available. **Stop request** ends a paused request while keeping the web runtime.
+
+In Profile mode, run a request and open **Function profiles**. Select a retained
+profile, search functions, inspect self/inclusive time, memory and call counts, or
+export Cachegrind to a new filename. Delete requires confirmation. Raw exports
+retain source paths and function names. History targets20 files/128MiB, with a
+32MiB file limit; the supervisor stops the project's owned processes if its sampled
+profile budget is exceeded. Stop the failed project before retrying.
+
+Stop the project and select Off to restore its normal PHP runtime. The project
+PHP pin, `.env`, other projects and Inspector capture remain independent. M7.2
+introduces project metadata schema6 after M12's schema5; older builds refuse the
+new schema. Current source, native target evidence and release boundaries are in
+[M7.2 results](docs/knowledge/m7-xdebug-results.md).
+
+The public CLI reads retained results and configures the desired mode. Close the
+desktop app for install/mode mutations; starting the desktop project activates the
+configured session. Built-in request triggering is GET-only; IDE integrations are
+part of the later roadmap.
+
+```sh
+devforge debug status <project-id>
+devforge debug install <project-id> --trust-source
+devforge debug mode <project-id> debug <runtime-id>
+devforge debug source <project-id> app/Http/Controllers/Controller.php
+devforge debug profile <project-id> <profile-id>
+devforge debug mode <project-id> off none
+```
 
 ## M8 project setup
 
@@ -440,7 +488,7 @@ bodies or SQL bindings are captured. Redaction is heuristic; capture remains opt
 existing local choice. M10 `--write-env` can explicitly patch mail fields with its
 review/backup contract. Standard Laravel MAIL_URL uses the null sentinel when capture
 is selected. Custom hardcoded transports are not intercepted by a network firewall.
-Metadata is now schema4; previous builds refuse it. See [M11 results](docs/knowledge/m11-mail-logs-results.md)
+M11 introduced schema4; M7.2 above describes the current schema. See [M11 results](docs/knowledge/m11-mail-logs-results.md)
 for current native evidence and release/rollback limitations.
 
 ## M12 branch workspaces
@@ -496,6 +544,6 @@ devforge workspace cleanup <workspace-id> --review <result.digest> --confirm
 Output uses `schema: 1` and `result`. Plans contain metadata and secret names,
 never secret values. Checkout does not implicitly fetch promisor objects. Host Git
 uses the existing process-group/Windows Job adapter and does not need installed
-PHP/Node packages for cleanup. Metadata is schema5; older builds refuse it.
+PHP/Node packages for cleanup. M12 introduced schema5; M7.2 adds schema6. Older builds refuse newer metadata.
 [M12 results](docs/knowledge/m12-workspaces-results.md) track native coverage,
 archive semantics and the open distribution/recovery gates.

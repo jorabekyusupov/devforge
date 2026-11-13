@@ -33,172 +33,218 @@ sources:
   - id: previous
     resource: /m7-inspector-results.md
     title: Bajarilgan M7.1 Inspector dalillari
+  - id: catalog
+    resource: ../../runtime/catalog.json
+    title: Active va legacy runtime families
+  - id: provider-review
+    resource: ../../docs/evidence/m7-xdebug/provider-rebuild-review.json
+    title: Primary provider rebuild review
+  - id: ci-core
+    resource: ../../docs/evidence/m7-xdebug/ci-core.json
+    title: Accepted core counters va source
+  - id: ci-native
+    resource: ../../docs/evidence/m7-xdebug/ci-native.json
+    title: Accepted native matrix va artifact digests
+  - id: boundaries
+    resource: ../../docs/evidence/m7-xdebug/source-boundaries.json
+    title: Source va preserved paths comparison
+  - id: attempts
+    resource: ../../docs/evidence/m7-xdebug/ci-attempts.json
+    title: Original CI attempts
 ---
 
-# Joriy holat
+# Yakuniy holat
 
-M12 yakunidan keyin qolgan M7.2 bajarilmoqda. M7.1 capture/Inspector companion va
-uning avvalgi qabul dalillari saqlanadi. Ushbu yozuv native matritsa tugaguncha
-M7 to'liq yopilganini bildirmaydi.[^request][^previous]
+M12 yakunidan keyin qolgan M7.2 funksional qabuldan o'tdi. M7.1 Inspector,
+Laravel companion va uning avvalgi dalillari saqlandi. M7 endi request/query/job/
+log/dump inspection, application profiling, optional native Xdebug debugger va
+function profiler'ni o'z ichiga oladi. M13 boshlanmadi.[^request][^previous]
 
-# Runtime va boshqaruv
+# Runtime va loyiha kontrakti
 
-Normal project PHP tanlovi o'zgarmaydi. Xdebug uchun stopped project'da reviewed
-install va Off/Debug/Profile konfiguratsiyasi mavjud. macOS normal StaticPHP
-common CLI/FPM native Xdebug module'ga kerakli exported PHP API'larni bermaydi;
-shu sabab optional matching CLI/FPM va Xdebug private prefix'da source'dan
-build qilinadi. PDO mysql/pgsql/sqlite saqlanadi. Studio paired binary spike'da
-PDO pgsql yo'qligi sabab universal provider sifatida olinmadi.[^provider][^recipe]
+Normal loyiha PHP tanlovi saqlanadi. Stopped project uchun reviewed install hamda
+Off/Debug/Profile sozlamasi mavjud. macOS stock StaticPHP common exportlari oddiy
+Xdebug module uchun yetarli bo'lmagani sabab matching CLI/FPM va Xdebug private
+prefix'da source'dan build qilinadi. Studio paired SDK spike'da PDO pgsql yo'q edi;
+u universal replacement sifatida olinmadi. Windows official matching NTS VS17
+x64 DLL publisher SHA256 bilan tekshiriladi.[^provider][^recipe]
 
-Windows official matching NTS VS17 x64 DLL SHA256 bilan olinadi. macOS PHP source,
-Xdebug3.5.3, SPC va build tools recipe'da pinned; transitive library inputs SPC
-orqali resolve qilinib actual SHA256 provenance'da yoziladi. Bu dependency'larning
-barchasi oldindan pinned yoki bit-reproducible build degan claim emas. Natijaviy
-archive digest va descriptor OS secret store'dagi key bilan attestation qilinadi;
-activation'da paket/resource integrity tekshiriladi. Inventory poll faqat receipt
-va file presence'ni o'qiydi, katta executable'larni har poll'da hash qilmaydi.
-Build private prefix'dan tashqarida package manager ishlatmaydi; Apple CLT va
-network talab qilinadi. Apple CLT Python HTTPS probe real TLS protocol xatosi
-berdi; shu source system curl bilan kutilgan SHA256'ga mos yuklandi. Builder
-secure HTTPS-only system curl va SHA256 yo'liga o'tdi; TLS verification o'chirilmaydi. Upstream GitHub API rate limit build'ni fail qilishi
-mumkin; prior runtime o'zgarmaydi, bounded log bilan retry mavjud.[^provider][^recipe]
+Recipe PHP8.4.27/8.5.12, Xdebug3.5.3, SPC va private tools'ni pin qiladi. SPC
+resolve qilgan transitive archive SHA256'lari va source locks provenance'da
+saqlanadi. Ularning hammasi oldindan pinned yoki build bit-reproducible degan
+claim yo'q. macOS output digest/descriptor OS SecretStore key bilan attestation
+qilinadi; executable/resource integrity ishlatishdan oldin tekshiriladi. Inventory
+poll faqat receipt/presence'ni o'qiydi. Eski attested SDK'lar recipe yangilanishida
+avtomatik o'chirilmaydi.[^provider][^recipe]
 
-DBGp listener ephemeral loopback port va per-session private key bilan ishlaydi.
-Breakpoint, Continue, Step into/over/out, stack frame va bounded read-only locals
-mavjud. Control queue16 bilan bounded; resume/step engine ACK'idan oldin Running
-holatini beradi, duplicate step Busy bo'ladi. Key/sensitive variable nomlari va known project secrets mask qilinadi;
-source viewer faqat project ichidagi PHP fayllarni ochadi. Arbitrary eval yoki
-variable mutation API yo'q. CLI debug status/source/profile va reviewed install/
-mode commands shu Rust boundary'dan foydalanadi. Public CLI read/config API;
-explicit CLI profile capture native fixture'da Context.debug_trigger orqali
-tekshirilgan. Built-in request trigger GET bilan cheklangan; external IDE/POST
-builder va arbitrary eval ushbu slice tarkibi emas. Boshqa process ushlab turgan
-active profile session history'si CLI status tomonidan prune qilinmaydi.[^core][^workspace]
+Compiler prefix short private temporary directory'da; app data'dagi spaces
+build'ni buzmaydi. Rust ownership managed process tree tugagach cancellation'da
+ham temporary prefix'ni tozalaydi. Apple CLT Python HTTPS probe TLS protocol
+xatosi bergani uchun builder secure HTTPS-only system curl va SHA256 ishlatadi.
+Product builder doctor, Homebrew yoki PECL'ni chaqirmaydi. Birinchi source build
+uzoq davom etishi mumkin; keyingi loyihalar matching SDK'ni qayta ishlatadi.
+Upstream GitHub API rate limit build failure/retry'ga sabab bo'lishi mumkin;
+oldingi runtime va project data saqlanadi.[^provider]
 
-Per-project generated INI mode/trigger/output'ni boshqaradi; project .env va
-normal PHP pin yozilmaydi. Frontend Node process'dan Xdebug environment ajratiladi.
-Stop/quit owned receipt/socket/request'ni yopadi; stale unlocked receipt faollashmaydi.
-Missing/moved breakpoint source Off'ga o'tishni bloklamaydi; yangi breakpoint
-project path bilan tekshiriladi. Receipt/history/cache linked path'lari refuse
-qilinadi. Compiler prefix app data'dagi spaces'dan ajratilgan short private
-temporary directory'da; Rust ownership cancellation'da ham uni tozalaydi.
-Schema6 debugger settings'ni default Off bilan qo'shadi; old records saqlanadi,
-old build yangi schema'ni qabul qilmaydi. Worktree/import/portable setup yangi
-project uchun local debug session'ni meros olmaydi.[^workspace][^core]
+Generated project INI mode/trigger/output'ni boshqaradi; project `.env`, normal
+PHP pin va Node tanlovi o'zgarmaydi. Frontend Node environment'dan Xdebug qiymatlari
+ajratiladi. Stop/quit owned socket, request va launch receipt'ni yopadi; stale
+unlocked receipt faollashmaydi. Schema6 settings'ni default Off bilan qo'shadi,
+old project records/pins saqlanadi. Old build yangi schema'ni refuse qiladi.
+Yangi import/worktree local debug session'ni meros olmaydi.[^workspace][^core]
 
-# Profiler
+# Debugger va profiler
 
-Triggered HTTP va explicit CLI invocation Xdebug Cachegrind yaratadi. Parser
-self/inclusive vaqt, call count, memory va summary'ni ko'rsatadi; top500 function
-qidirish, retained history, confirmed delete va no-clobber raw export mavjud.
-UI/project read pathlari scoped va bounded. Fayl32MiB, history20/128MiB; supervisor
-100ms intervalda own prefix uchun32MiB per file,128MiB/25 files budget'ni kuzatib,
-limitda faqat tegishli owned process tree'ni restart qilmasdan to'xtatadi. Bu disk
-write'ni har baytda cheklaydigan OS quota emas. Raw export real source paths va
-function nomlarini saqlaydi; UI esa project-relative paths/known values'ni mask
-qiladi. Profile argument yoki request body capture'ni yoqmaydi.[^core][^workspace]
+DBGp listener authenticated ephemeral loopback port'da. Breakpoint add/remove,
+Continue, Step into/over/out, paused request Stop, stack frame va bounded read-only
+locals/source mavjud. Control queue16 bilan cheklangan; resume engine ACK'idan
+oldin Running ko'rsatib duplicate step'ni Busy qiladi. Source viewer faqat project
+ichidagi PHP faylni o'qiydi. Known values va sensitive variable nomlari mask
+qilinadi; bu noma'lum developer data'sini avtomatik aniqlash kafolati emas.
+Missing/moved breakpoint source Off'ga o'tishni bloklamaydi.[^core][^workspace]
 
-# Dalillar va ochiq tekshiruv
+Built-in trigger faqat owned local GET path uchun. Arbitrary eval, variable
+mutation, POST builder va external IDE attach ushbu slice'ga kirmaydi. Public
+CLI `debug status/source/profile/install/mode` read/config API'dir. Explicit CLI
+profile capture native fixture'da Context.debug_trigger bilan tekshirilgan.
+IDE integrations keyingi roadmap'da qoladi.[^workspace][^native]
 
-Local macOS ARM64 PHP8.4.27/8.5.12 paired source-build spike va Xdebug3.5.3 load
-probe o'tdi; PDO uch drayver bor. Actual Laravel HTTP breakpoint, into/over/out,
-redacted locals/source, HTTP200, HTTP/CLI Cachegrind, export/delete/isolation,
-other-project PID preservation va Off normal-PHP recovery o'tdi. Bu dastlabki
-spike arxivlari bilan local integration dalili; production builder'ning yakuniy
-native CI source/build matritsasi alohida tekshiriladi.[^native]
+Cachegrind parser self/inclusive vaqt, calls, memory va total/peak summary'ni
+ko'rsatadi; top500 functions qidirish, retained history, confirmed delete va
+no-clobber raw export mavjud. Raw export source paths/function nomlarini saqlaydi.
+UI known values/pathlarni sanitize qiladi.32MiB per-file, history20/128MiB;
+supervisor100ms intervalda own prefix uchun32MiB/128MiB/25 files budjetini kuzatib,
+limitda tegishli owned process tree'ni restart qilmasdan to'xtatadi. Bu har baytdagi
+OS disk quota emas. Linked history/receipt/cache paths refuse qilinadi. Boshqa
+process active profile owner bo'lsa CLI status uning history'sini prune qilmaydi.
+Failed owned session Debugger sahifasidan Stop qilinib tiklanadi.[^core][^workspace]
 
-Local WKWebView'da genuine IPC/control flow, install review/cancel, breakpoint/
-source/locals, stepping, profile/filter/delete-cancel, ru/uz/en katta va minimum
-viewport, dark/relaunch o'tdi:11 axe holati0 violation. Native Save dialog
-avtomatlashtirilmadi; export actual backend fixture'da tekshirildi. Scoped spacing/privacy va stale-profile-read fix'dan keyingi native UI retry
-ham11 axe/0 bilan o'tdi. Oldingi retry aynan window resize'dagi ikki animatsiya
-kadrini kutishda timeout berdi; debugger breakpoint/locals assertions ungacha
-o'tgan edi. Harness paint wait endi bounded animation-frame-or-timer ACK bilan;
-functional/accessibility assertions saqlanadi. Yakuniy CI hali kutilmoqda.
-Local full workspace107 Rust passed/1 credential fixture ignored; keyingi UI recovery regression bilan35 frontend,
-clippy va strict OKF28/0/0 o'tdi; target matritsa o'rniga o'tmaydi.[^ui][^workflow]
+# Tekshiruv paytidagi provider rebuild
 
-6205198 manbada Windows x64 native backend/CLI/WebView2 va11 axe/0 o'tdi.
-Keyingi failed-session Stop boshqaruvi, live breakpoint add/remove va paused
-request stop scenario'lari local ARM64'da o'tdi; kengaygan native UI12 axe/0.
-Yakuniy uch target shu qo'shimcha holatlar bilan qayta tekshiriladi. Intel va
-ARM64 production SDK build hali davom etmoqda.
+Normal stock PHP arxivlari testlar davomida upstream'da almashtirildi. be6abd3
+ARM64 fresh fixture IntegrityMismatch'da faollashishni to'xtatdi. Primary CLI
+object Last-Modified2026-11-13T08:59:22Z edi. Yangi CLI/FPM archive bytes publisher
+SHA'lariga mos yuklandi; local PHP8.5.12/xdebug=false/PDO mysql,pgsql,sqlite va FPM
+probe o'tdi. Keyin Intel PHP8.4 ham almashgani aniqlandi; barcha8 macOS sidecar
+qayta tekshirildi.[^catalog][^provider-review]
 
-6205198 macOS core job131753991810 oldingi process-ownership test'da Stop'dan
-keyingi immediate package removal'da Busy oldi.8 local parallel process suite'da
-u takrorlanmadi; baseline deb e'lon qilinmaydi. Rust1.99.1 File lock kontrakti
-boshqa duplicated/inherited handle yopilmaguncha lock saqlanishini aytadi;
-parallel child startup ehtimoliy sabab, o'lchangan root cause emas. Test cleanup
-endi1 soniyagacha nonblocking Busy'ni kutadi; live-process Busy assertion va
-production lease semantics o'zgarmaydi. Shu12 process testi va clippy local o'tdi.
-Bu run'dagi original failure saqlanadi, success deb qayta yozilmaydi.
-[File contract source](https://github.com/rust-lang/rust/blob/1.99.1/library/std/src/fs.rs).
+Barcha pre-existing descriptor va SHA'lar o'zgarishsiz saqlandi. O'zgargan
+PHP8.4 ARM64/Intel hamda PHP8.5 ARM64 uchun alohida staticphp20261113 family va
+superseded→replacement mapping qo'shildi. Existing installed pins ishlaydi; eski
+missing ID'ga network install refuse qilinadi, verified cached legacy archive
+CLI'dan qabul qilinadi. Runtimes'dagi explicit replacement install loyiha tanlovini
+o'zgartirmaydi. Unlocked portable manifest active family'ni tanlaydi; explicit
+old ID/hash pin saqlanadi. CLI/FPM family va actual PHP patch versiyasi alohida
+assert qilindi. URL hali mutable: yana rebuild bo'lsa integrity gate reject qiladi,
+yangi review kerak. Immutable feed/distribution gate M15'da qoladi.[^catalog][^provider-review]
 
-M15 gate'lari quyida saqlanadi. M15 signing,
-minimum OS, native credential/system-dialog, interrupted-install va licensing
-review gate'lari saqlanadi; public runtime/installer release qilinmaydi.[^workflow]
+# Qabul dalillari
 
-# Provider arxivining tekshiruv paytidagi o‘zgarishi
+Core source23fedbee495540ec2a92c4009771e71a0287172f,
+run43403571569: macOS108 Rust/1 ignored, Windows106 Rust/1 ignored; har OS36
+frontend,3 locale regression,6 packaging checks, fmt/clippy va default-feature
+native debug/no-bundle build o'tdi. Ikki Unix-only link guard testi son farqini
+beradi. Ignored test native credential UI fixture'si; OS dialog qabulini
+anglatmaydi. Strict OKF28 hujjat/0 error/0 warning — faqat strukturaviy dalil.[^ci-core]
 
-be6abd3 source run43397266598'da ikkala core job o'tdi:107/105 Rust,35 frontend,
-strict28/0/0. Windows native backend/CLI/UI12 axe/0 o'tdi. ARM64 fresh fixture
-normal PHP8.5 CLI arxivida IntegrityMismatch bilan faollashishni to'xtatdi.
-Primary object Last-Modified2026-11-13T08:59:22Z va yangi publisher SHA sidecar
-provider rebuild'ini ko'rsatdi. CLI/FPM yangi arxivlari aynan primary checksum'ga
-mos yuklandi va local PHP8.5.12, xdebug=false, PDO mysql/pgsql/sqlite hamda FPM
-version probe bilan tekshirildi. Intel CLI/FPM publisher hash'lari o'zgarmagan.
-
-Eski package descriptor va SHA o'zgartirilmadi. ARM64 uchun alohida
-`8.5.12-staticphp20261113` catalog family va superseded→replacement mapping
-qo'shildi. Installed legacy package'lar ishlashda davom etadi; eski ID'dagi yangi
-network install fail qiladi. CLI verified cached legacy archive'ni qabul qiladi.
-Runtimes'dagi explicit replacement install loyiha tanlovini o'zgartirmaydi.
-Portable manifest'da unlocked PHP8.5.12 active family'ni tanlaydi, explicit eski
-ID/hash pin esa saqlanadi. CLI/FPM family birga tanlanadi; actual PHP version
-8.5.12 bo'lib qoladi. Bu immutable upstream mirror emas: yana provider rebuild
-bo'lsa hash gate reject qiladi va yangi review kerak; M15 feed gate saqlanadi.
-
-Intel run'da release backend/CLI o'tib, debug desktop Start operatsiyasi120s
-fixture limitida busy edi. Earlier6205198 debug UI aynan shu qismdan o'tgan;
-release backend dalili ham bor. Ko'p executable'ni debug-build'da verify qilish
-xarajati ehtimoliy izoh, profiling bilan o'lchangan root cause emas. Start uchun
-cheklangan300s test budjeti va actual elapsed report qo'shildi; readiness/security
-assertion'lari yumshatilmadi. Original failed run va screenshot saqlanadi.
-
-Local catalog-family regression, full108 Rust/1 ignored,36 frontend va yangi
-locale keys tekshirildi; yakuniy native matrix yangi source bilan kutilmoqda.
-
-# Kod bilan solishtirish
-
-| Da'vo | Holat | Dalil/chegara |
+| Target | Accepted source va native job | Natija |
 | --- | --- | --- |
-| Bajarilgan Inspector capture/app profiling | Mos | M7.1 source qayta yozilmadi; tarixiy report saqlanadi |
-| Optional project debug runtime/modes/ownership | O'zgargan | New debugger crate, schema6 va Workspace commands |
-| Actual breakpoints/function profiles ARM64 | Mos | Local PHP/Laravel va WKWebView fixture |
-| Yakuniy production builder va uch native target | Tekshirilmagan | CI matrix yakunlanishi kutilmoqda |
-| Signed distributive/minimum OS/native credential UI | Tekshirilmagan | M15 gate'lari |
+| macOS ARM64 | c858354, [job131832528582](https://github.com/jorabekyusupov/devforge/actions/runs/43409632986/job/131832528582) | Backend/CLI/WKWebView,12 axe/0 |
+| macOS Intel | c858354, [job131832019709](https://github.com/jorabekyusupov/devforge/actions/runs/43409476063/job/131832019709) | Backend/CLI/WKWebView,12 axe/0 |
+| Windows x64 | eefac76, [job131820182067](https://github.com/jorabekyusupov/devforge/actions/runs/43405940038/job/131820182067) | Backend/CLI/WebView2,12 axe/0 |
+
+Har target actual PHP8.4/8.5 Xdebug load, Laravel13/PostgreSQL HTTP breakpoint,
+step/paused Stop, masked locals/source, HTTP/CLI function profiles, scoped export/
+delete, cross-project denial, other-project PID preservation, normal PHP/.env/pin
+recovery va missing source'dan Off o'tishini tekshirdi. Public CLI success JSON va
+active external owner history guard ham o'tdi. GUI genuine IPC bilan live BP add/
+remove, profile/filter/delete-cancel, actual budget failure→Stop recovery, ru/uz/en,
+minimum window, dark/relaunch'ni tekshirdi.[^native][^ci-native]
+
+Bu assembled acceptance matrix. Core23fedbe'dan keyingi production logic o'zgarmadi:
+keyingi diff reviewed macOS catalog data, native test helper, workflow va docs'dir.
+Windows normal packages o'zgarmagan; uning qabul source'i alohida ko'rsatilgan.
+M7.1 source/report paths Git diff bilan unchanged tekshirildi.[^boundaries]
+
+Mac SDK'lar source6205198 job'larida production builder orqali yig'ildi va keyingi
+qabulda cache'dan olindi. Current builder SHA256
+41d7e7d6fb136c242b4a01488a9c5d58e058e7f9daa22553bcad68d350086749
+producer bilan bir xil. Har final artifact raw ZIP digest'i GitHub digest'iga mos;
+report va provenance SHA'lari ci-native.json'da. Private DB/env/SecretStore yoki raw
+profile artifactga kiritilmadi. CI cache faqat public runtime store'ni saqlaydi;
+marker/receipt va expected checksum aktivatsiyada yana tekshiriladi.[^ci-native]
+
+Hosted ARM content1536x656, Intel1536x942, Windows1536x1024; local ARM1536x1024.
+Minimum820x620, ru/uz/en va overflow assertions o'tdi. Hosted ekran chegaralari
+illustrative target bilan pixel-perfect tenglik deb ko'rsatilmaydi. Actual PNG'lar
+ko'rildi; yangi sahifa existing master va fresh Web Interface Guidelines review
+bilan tekshirildi. Native Save dialog avtomatlashtirilmadi; bounded export backend'da
+haqiqiy fayl bilan tekshirildi.[^ui][^ci-native]
+
+Final debug/e2e Start metrics ARM36.95/26.74s, Intel151.06/131.55s,
+Windows17.53/16.66s bo'ldi. Ular SDK verification va fixture services'ni o'z ichiga
+oladi; release latency benchmark emas. Default-feature local CLI va desktop
+binary'lari test-support/e2e'siz qayta build qilindi.[^ci-native]
+
+# Saqlangan muvaffaqiyatsiz urinishlar
+
+- Local SPC doctor kutilmagan auto-fix/Homebrew jarayonini boshlagan; aynan task
+  process tree to'xtatildi, global tool install tugamadi. Product builder doctor
+  ishlatmaydi. Local unauthenticated SPC GitHub403 va keyingi interrupted retry
+  production CI builder success deb ko'rsatilmadi.
+- Initial native UI resize ikki animation frame kutishda timeout berdi. Bounded
+  frame-or-timer ACK qo'shildi; functional/axe assertions saqlandi.
+-6205198 macOS core immediate post-Stop remove'da Busy oldi.8 local parallel suite'da
+  takrorlanmadi, baseline deb e'lon qilinmadi. Cleanup1s bounded wait oladi; live
+  lease Busy assertion va production semantics unchanged. Duplicated/inherited
+  handle ehtimoliy sabab, o'lchangan root cause emas; [Rust1.99.1 kontrakti](https://github.com/rust-lang/rust/blob/1.99.1/library/std/src/fs.rs).
+- Intel debug Start120s test budjetidan oshdi. Start-only300s budget/elapsed report
+  qo'shildi; readiness va security assertions o'zgarmadi. Release backend oldin ham
+  o'tgan. Debug hashing xarajati ehtimoliy izoh, profiling proof emas.
+- Windows/Intel test persisted BP count2'ni DOM render deb qabul qilib li13'ni juda
+  erta qidirdi. Actual failure PNG'da li13 keyin ko'ringan. Driver actual DOM'ni
+  kutadi; accepted native retries o'tdi.
+- Upstream mutable archive IntegrityMismatch'lari va yangi build review yuqorida
+  saqlandi. Old run failure/cancelled holatlari success'ga qayta yozilmadi.[^attempts]
+
+# Kod bilan solishtirish va chegara
+
+| Da'vo | Holat | Source/dalil |
+| --- | --- | --- |
+| M7.1 inspection/application profiling | Mos | Unchanged Inspector/companion/report, source-boundaries.json |
+| Optional verified SDK, modes, schema6, private INI | O'zgargan | debugger provider + projects execution + three native target |
+| Breakpoints/steps/locals/source/request Stop | Mos | Native real Laravel/PHP/DBGp va GUI |
+| Function profiles, limits/export/delete/isolation | Mos | Cachegrind/store, M2 budget regression, native/GUI12 |
+| Legacy pins va reviewed provider rebuild | O'zgargan | Immutable original descriptors, separate families, family/pin/UI tests |
+| Uch locale, minimum window va theme/relaunch | Mos | Registry catalogs,36 frontend va three native12/0 |
+| Signed release/minimum OS/native credential dialogs | Tekshirilmagan | M15 gate'lari |
+
+M7 functional qabul yopildi. M15'dagi signing/notarization/Authenticode, licensing,
+minimum/clean OS, native credential/system-dialog, interrupted-install/disk faults,
+update/schema rollback va immutable runtime feed review ochiq. Intel MySQL server
+capability gap M9'da qoladi. Laravel11/12 actual acceptance M7.1'dagi old chegara;
+bu Laravel13 fixture uni yopmaydi. Public installer yoki runtime release chiqarilmadi.
+
+# Takrorlash
+
+`.github/workflows/xdebug.yml` verified SDK cache bilan normal fixture, native
+backend/CLI va debug-only W3C UI'ni ishlatadi. `check.yml` default dispatch all;
+`suite=native,native_target=windows-x64|macos-arm64|macos-x64` failed target'ni
+alohida qaytaradi. Qabuldan keyingi docs-only push product suite'ni takrorlamaydi. Private local
+fixture/DB/env/SecretStore va source-build/download staging own process'lar
+qolmagani tekshirilgach o'chirildi; boshqa loyiha data'siga tegilmadi.
 
 [^request]: User: avval M12 to'liq, keyin qolgan M7; bajarilgan M7.1 saqlansin.
-[^core]: Bounded DBGp XML, authenticated launch receipt va Cachegrind parsing/store.
-[^provider]: OS-specific provider va existing managed package/process ownership adapters.
-[^recipe]: Exact critical source/tools checksums; transitive inputs actual provenance bilan.
-[^workspace]: Project revision/consent guards va common CLI/Tauri boundary.
-[^native]: Disposable real Laravel13/PostgreSQL fixture; no user project changes.
-[^ui]: Existing DevForge master va generated target; genuine native WebView screenshots.
-[^workflow]: Native matrix uchun test-only credential adapter; release qualification emas.
-[^previous]: Original M7.1 acceptance o'z source/job chegarasida saqlanadi.
-
-# Keyingi provider review
-
-43407221155 Intel retry normalPHP8.4 CLI IntegrityMismatch berdi: provider shu
-vaqtda8.4 ARM64/Intel arxivlarini ham almashtirgan. Barcha8 macOS original
-sidecar qayta tekshirildi. Eski descriptorlar saqlanib, o'zgargan PHP8.4 CLI/FPM
-juftlari uchun ham alohida staticphp20261113 family qo'shildi. Source-built
-Xdebug SDK script/recipe o'zgarmadi. Fresh fixture faqat active family'ni oladi,
-normal CLI va web PHP patch version'ini alohida assert qiladi. Native CI endi
-faqat checksum-pinned runtimes katalogini cache qiladi; project/DB/SecretStore
-ma'lumotlari cache qilinmaydi. Shu cache key katalog hash'iga bog'langan.
-
-Windows43405940038 sourceeefac76 native backend/CLI/GUI12 axe/0 o'tdi. Intel
-uchun oldingi DOM li paydo bo'lishidan oldin select qilish xatosi shu test-only
-fix bilan qayta tekshiriladi; product diff23fedbe→eefac76 yo'q.
+[^previous]: Original M7.1 source/job va dalillar o'z tarixiy chegarasida saqlanadi.
+[^core]: Bounded protocol/session/parser/store; eval va property mutation yo'q.
+[^provider]: OS-specific managed packages va existing owned process adapters.
+[^recipe]: Critical source/tool checksum'lar va actual transitive provenance.
+[^workspace]: Project revision/consent/lifecycle va common CLI/Tauri boundary.
+[^native]: Disposable actual Laravel13/PostgreSQL va real PHP/Xdebug fixture.
+[^ui]: Generated target illustrative, existing master va inspected actual native PNG'lar.
+[^catalog]: Optional superseded mapping; legacy package identities o'zgarmaydi.
+[^provider-review]: Primary publisher checksums, bytes/probes va subsequent native acceptance.
+[^ci-core]: Exact source/job log counters va default-feature build statuses.
+[^ci-native]: Per-target source/job/artifact/provenance digest mapping.
+[^boundaries]: Git path/source comparisons, SDK builder fingerprint va immutable catalog descriptors.
+[^attempts]: Original failure/cancellation holatlari va sabablarining alohida qaydi.

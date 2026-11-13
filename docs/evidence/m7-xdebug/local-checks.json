@@ -1,0 +1,26 @@
+{
+  "source": "c85835470ad7ca606129beea28bfb4172fa5439c",
+  "host": "local macOS ARM64",
+  "rust_passed": 108,
+  "rust_ignored": 1,
+  "frontend_passed": 36,
+  "locale_catalogs": 3,
+  "clippy_with_native_test_support": true,
+  "strict_okf": {
+    "documents": 28,
+    "errors": 0,
+    "warnings": 0
+  },
+  "native_note": "Local native and GUI pre-freeze iterations used equivalent source-built spike SDKs; final CI provides exact-source acceptance.",
+  "apple_clt_python_https_probe": "TLSV1_ALERT_PROTOCOL_VERSION",
+  "native_curl_same_source_sha256": "f073de91bea046106abf4d6071c963ea71e58571df6ce58948ceca89d121cb2d",
+  "gui_resize_attempt": "Original two-animation-frame wait timed out after successful breakpoint/source/locals assertions; bounded wait retry passed11 axe/0.",
+  "native_gui_accessibility_cases": 12,
+  "parallel_process_suites": 8,
+  "parallel_process_suite_failures": 0,
+  "cli_live_owner_retention_guard": true,
+  "provider_family_regression": true,
+  "reviewed_normal_php_cli_fpm": true,
+  "all_current_macos_publisher_sidecars_reviewed": true,
+  "default_cli_and_desktop_features_restored": true
+}

@@ -1,0 +1,2858 @@
+{
+  "product_source": "c85835470ad7ca606129beea28bfb4172fa5439c",
+  "accepted_windows_driver_source": "eefac76006f7e3dabe0ee526bc7cd8622e51480c",
+  "changes_after_core_source": [
+    ".github/workflows/check.yml",
+    ".github/workflows/xdebug.yml",
+    "crates/workspace/examples/native_workspace.rs",
+    "crates/workspace/examples/support/debugger.rs",
+    "docs/evidence/m7-xdebug/provider-rebuild-review.json",
+    "docs/knowledge/m7-xdebug-results.md",
+    "runtime/catalog.json",
+    "runtime/m0-candidates.json",
+    "scripts/m7_xdebug_desktop_smoke.py"
+  ],
+  "core_source": "23fedbee495540ec2a92c4009771e71a0287172f",
+  "sdk_builder_producer_source": "620519895b5b1b1c05d7aa6554d56a140abe8788",
+  "jobs": [
+    {
+      "target": "macos-arm64",
+      "source": "c85835470ad7ca606129beea28bfb4172fa5439c",
+      "run": 43409632986,
+      "job": 131832528582,
+      "url": "https://github.com/jorabekyusupov/devforge/actions/runs/43409632986/job/131832528582",
+      "conclusion": "success",
+      "artifact": {
+        "id": 14029941534,
+        "name": "m7-xdebug-macos-arm64",
+        "zip_sha256": "1552dc9bf919e446229205ede16b0d74da79a2407d297f0e939e7a9e7aa58e73",
+        "github_digest_matched": true
+      },
+      "reports": {
+        "native": {
+          "sha256": "032a01a8616cefbaa659eb195bb66d523cdb4b16025255800405a077fcc175c4",
+          "result": {
+            "checks": {
+              "cross_project_denial": true,
+              "locals_and_source_redacted": true,
+              "off_after_source_deleted": true,
+              "off_restores_normal_php": true,
+              "other_process_pids_unchanged": true,
+              "php84_native_web": true,
+              "profile_http_and_cli": true,
+              "profile_parse_export_delete": true,
+              "project_php_pin_and_env_unchanged": true,
+              "real_laravel_http_breakpoint": true,
+              "request_http_200": true,
+              "shutdown_cleans_own_sessions": true,
+              "step_into_over_out": true,
+              "stop_paused_request_preserves_web_runtime": true,
+              "verified_provider_install": true
+            },
+            "host": {
+              "arch": "aarch64",
+              "os": "macos"
+            },
+            "other_project_id": "5e6d3d1cc2114af1b3854e6dce922a56",
+            "passed": true,
+            "php_probes": [
+              {
+                "pdo": [
+                  "mysql",
+                  "pgsql",
+                  "sqlite"
+                ],
+                "php": "8.4.27",
+                "xdebug": "3.5.3"
+              },
+              {
+                "pdo": [
+                  "mysql",
+                  "pgsql",
+                  "sqlite"
+                ],
+                "php": "8.5.12",
+                "xdebug": "3.5.3"
+              }
+            ],
+            "project_id": "8755ef6c843247039d07476bf2ef22bc",
+            "runtime_id": "effd45aefaae87d19d4a6a23889a008f"
+          }
+        },
+        "cli": {
+          "sha256": "29283bda34da99b9f00ef44387bdf352c725c825df61a1049d6d8a8046dcbb45",
+          "result": {
+            "active_external_profile_history_preserved": true,
+            "known_secret_absent": true,
+            "project_mode_and_off_recovery": true,
+            "stable_json_status_source_profile": true,
+            "target": "macos-arm64"
+          }
+        },
+        "desktop": {
+          "sha256": "b0ce73354cead057d256d74b3868a8f94cf5d2a3fca957af41fff6fb6064d1f6",
+          "result": {
+            "native": "real WKWebView/WebView2 via debug-only W3C endpoint",
+            "checks": {
+              "real_breakpoint_source_and_redacted_locals": true,
+              "live_breakpoint_add_remove": true,
+              "step_into_over_out_and_continue": true,
+              "actual_function_profile_filter": true,
+              "delete_review_cancel_preserves_profile": true,
+              "failed_owned_runtime_can_be_stopped": true,
+              "other_project_remains_off": true,
+              "preferences_relaunch": true
+            },
+            "accessibility": [
+              {
+                "case": "runtime-install-review",
+                "violations": []
+              },
+              {
+                "case": "paused-breakpoint-source-locals",
+                "violations": []
+              },
+              {
+                "case": "function-profile",
+                "violations": []
+              },
+              {
+                "case": "profile-delete-confirmation",
+                "violations": []
+              },
+              {
+                "case": "debugger-ru",
+                "violations": []
+              },
+              {
+                "case": "debugger-ru-minimum",
+                "violations": []
+              },
+              {
+                "case": "debugger-uz-Latn",
+                "violations": []
+              },
+              {
+                "case": "debugger-uz-Latn-minimum",
+                "violations": []
+              },
+              {
+                "case": "debugger-en",
+                "violations": []
+              },
+              {
+                "case": "debugger-en-minimum",
+                "violations": []
+              },
+              {
+                "case": "failed-runtime-recovery",
+                "violations": []
+              },
+              {
+                "case": "debugger-dark",
+                "violations": []
+              }
+            ],
+            "captures": [
+              {
+                "file": "debugger-en-light.png",
+                "viewport": {
+                  "height": 656,
+                  "language": "en",
+                  "scale": 1,
+                  "theme": "light",
+                  "width": 1536
+                }
+              },
+              {
+                "file": "function-profile.png",
+                "viewport": {
+                  "height": 656,
+                  "language": "en",
+                  "scale": 1,
+                  "theme": "light",
+                  "width": 1536
+                }
+              },
+              {
+                "file": "debugger-ru.png",
+                "viewport": {
+                  "height": 656,
+                  "language": "ru",
+                  "scale": 1,
+                  "theme": "light",
+                  "width": 1536
+                }
+              },
+              {
+                "file": "debugger-uz-Latn.png",
+                "viewport": {
+                  "height": 656,
+                  "language": "uz-Latn",
+                  "scale": 1,
+                  "theme": "light",
+                  "width": 1536
+                }
+              },
+              {
+                "file": "debugger-en.png",
+                "viewport": {
+                  "height": 656,
+                  "language": "en",
+                  "scale": 1,
+                  "theme": "light",
+                  "width": 1536
+                }
+              },
+              {
+                "file": "debugger-dark.png",
+                "viewport": {
+                  "height": 656,
+                  "language": "en",
+                  "scale": 1,
+                  "theme": "dark",
+                  "width": 1536
+                }
+              }
+            ],
+            "viewport_attempts": [
+              {
+                "requested": {
+                  "width": 1536,
+                  "height": 1024
+                },
+                "actual": {
+                  "height": 656,
+                  "width": 1536
+                },
+                "matched": false
+              },
+              {
+                "requested": {
+                  "width": 1536,
+                  "height": 1024
+                },
+                "actual": {
+                  "height": 656,
+                  "width": 1536
+                },
+                "matched": false
+              },
+              {
+                "requested": {
+                  "width": 820,
+                  "height": 620
+                },
+                "actual": {
+                  "height": 620,
+                  "width": 820
+                },
+                "matched": true
+              },
+              {
+                "requested": {
+                  "width": 1536,
+                  "height": 1024
+                },
+                "actual": {
+                  "height": 656,
+                  "width": 1536
+                },
+                "matched": false
+              },
+              {
+                "requested": {
+                  "width": 820,
+                  "height": 620
+                },
+                "actual": {
+                  "height": 620,
+                  "width": 820
+                },
+                "matched": true
+              },
+              {
+                "requested": {
+                  "width": 1536,
+                  "height": 1024
+                },
+                "actual": {
+                  "height": 656,
+                  "width": 1536
+                },
+                "matched": false
+              },
+              {
+                "requested": {
+                  "width": 820,
+                  "height": 620
+                },
+                "actual": {
+                  "height": 620,
+                  "width": 820
+                },
+                "matched": true
+              },
+              {
+                "requested": {
+                  "width": 1536,
+                  "height": 1024
+                },
+                "actual": {
+                  "height": 656,
+                  "width": 1536
+                },
+                "matched": false
+              }
+            ],
+            "paint_waits": [
+              {
+                "focused": true,
+                "source": "animation-frame",
+                "visibility": "visible"
+              },
+              {
+                "focused": true,
+                "source": "animation-frame",
+                "visibility": "visible"
+              },
+              {
+                "focused": true,
+                "source": "animation-frame",
+                "visibility": "visible"
+              },
+              {
+                "focused": true,
+                "source": "animation-frame",
+                "visibility": "visible"
+              },
+              {
+                "focused": true,
+                "source": "animation-frame",
+                "visibility": "visible"
+              },
+              {
+                "focused": true,
+                "source": "animation-frame",
+                "visibility": "visible"
+              },
+              {
+                "focused": true,
+                "source": "animation-frame",
+                "visibility": "visible"
+              },
+              {
+                "focused": true,
+                "source": "animation-frame",
+                "visibility": "visible"
+              },
+              {
+                "focused": true,
+                "source": "animation-frame",
+                "visibility": "visible"
+              },
+              {
+                "focused": true,
+                "source": "animation-frame",
+                "visibility": "visible"
+              },
+              {
+                "focused": true,
+                "source": "animation-frame",
+                "visibility": "visible"
+              },
+              {
+                "focused": true,
+                "source": "animation-frame",
+                "visibility": "visible"
+              },
+              {
+                "focused": true,
+                "source": "animation-frame",
+                "visibility": "visible"
+              },
+              {
+                "focused": true,
+                "source": "animation-frame",
+                "visibility": "visible"
+              },
+              {
+                "focused": true,
+                "source": "animation-frame",
+                "visibility": "visible"
+              },
+              {
+                "focused": true,
+                "source": "animation-frame",
+                "visibility": "visible"
+              },
+              {
+                "focused": true,
+                "source": "animation-frame",
+                "visibility": "visible"
+              },
+              {
+                "focused": true,
+                "source": "animation-frame",
+                "visibility": "visible"
+              },
+              {
+                "focused": true,
+                "source": "animation-frame",
+                "visibility": "visible"
+              },
+              {
+                "focused": true,
+                "source": "animation-frame",
+                "visibility": "visible"
+              },
+              {
+                "focused": true,
+                "source": "animation-frame",
+                "visibility": "visible"
+              },
+              {
+                "focused": true,
+                "source": "animation-frame",
+                "visibility": "visible"
+              },
+              {
+                "focused": true,
+                "source": "animation-frame",
+                "visibility": "visible"
+              },
+              {
+                "focused": true,
+                "source": "animation-frame",
+                "visibility": "visible"
+              }
+            ],
+            "operation_timings": [
+              {
+                "operation": "start_project",
+                "elapsed_seconds": 36.950829750000025,
+                "build": "debug_e2e",
+                "scope": "includes verified SDK hashing and fixture services; not release latency"
+              },
+              {
+                "operation": "start_project",
+                "elapsed_seconds": 26.739148750000027,
+                "build": "debug_e2e",
+                "scope": "includes verified SDK hashing and fixture services; not release latency"
+              }
+            ],
+            "export_native_dialog": "not automated; actual bounded export verified in backend fixture"
+          }
+        }
+      },
+      "provenance": {
+        "8.4.27": {
+          "sha256": "2271e8976d938da9be72a4dd2f70b782b459dad9a00ff0ce703d95655974f489",
+          "result": {
+            "schema": 1,
+            "version": "8.4.27",
+            "target": "macos-arm64",
+            "recipe_sha256": "3b57ba212f621f414da76c904b0aff8131c4473d2c062b4839f5f04d3f12796e",
+            "builder_sha256": "41d7e7d6fb136c242b4a01488a9c5d58e058e7f9daa22553bcad68d350086749",
+            "source_lock": {
+              "pkg-config-aarch64-macos": {
+                "source_type": "archive",
+                "filename": "pkg-config-aarch64-darwin.txz",
+                "move_path": null,
+                "lock_as": 3,
+                "hash": "2ee360d582953279b6c6426ea59a21e5af9722e5"
+              },
+              "apcu": {
+                "source_type": "archive",
+                "filename": "apcu.tgz",
+                "move_path": "php-src/ext/apcu",
+                "lock_as": 1,
+                "hash": "9057e3f8dc946ab6826ae3bd818209ece0cf313d"
+              },
+              "igbinary": {
+                "source_type": "archive",
+                "filename": "igbinary.tgz",
+                "move_path": "php-src/ext/igbinary",
+                "lock_as": 1,
+                "hash": "6c5bc9706135744cadd139195533df6afcb61ddf"
+              },
+              "msgpack": {
+                "source_type": "archive",
+                "filename": "msgpack.tgz",
+                "move_path": "php-src/ext/msgpack",
+                "lock_as": 1,
+                "hash": "ed6ced63f80266ad2f79676d85c670381fa67b70"
+              },
+              "redis": {
+                "source_type": "archive",
+                "filename": "redis.tgz",
+                "move_path": "php-src/ext/redis",
+                "lock_as": 1,
+                "hash": "24a7cd4038088ad7d484a702da03e8aba3a62f1d"
+              },
+              "ext-zip": {
+                "source_type": "archive",
+                "filename": "ext-zip.tgz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "4460a7cc9d5d641d84a73e0a7cf8414f9fdad35b"
+              },
+              "xdebug": {
+                "source_type": "archive",
+                "filename": "xdebug-3.5.3.tgz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "80ff025b3a21d6b4ebcf6bfc3cc94456e1529690"
+              },
+              "micro": {
+                "source_type": "git",
+                "dirname": "micro",
+                "move_path": "php-src/sapi/micro",
+                "lock_as": 1,
+                "hash": "fb6d497b6f4cf138ee3851a30c905d64b7b19aed"
+              },
+              "libiconv-Darwin-aarch64--default": {
+                "source_type": "archive",
+                "filename": "libiconv-aarch64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "40391ae2020961ff6ed418fa35231b0557eb5814"
+              },
+              "xz-Darwin-aarch64--default": {
+                "source_type": "archive",
+                "filename": "xz-aarch64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "2241a017841c3835a6f627070fbd31be9e2a50a1"
+              },
+              "zlib-Darwin-aarch64--default": {
+                "source_type": "archive",
+                "filename": "zlib-aarch64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "4fad62c112d03c46423e49a10de99fd48ab4769f"
+              },
+              "libxml2": {
+                "source_type": "archive",
+                "filename": "GNOME-libxml2-v2.15.4-0-g9649899.tar.gz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "2bdd4831130636714412b93b78fecb30f0e00f6f"
+              },
+              "frankenphp": {
+                "source_type": "archive",
+                "filename": "php-frankenphp-caddy-v1.13.5-0-ga3663e9.tar.gz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "54bf6a85749ec3769943429dfea19056d4ce8db6"
+              },
+              "brotli-Darwin-aarch64--default": {
+                "source_type": "archive",
+                "filename": "brotli-aarch64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "62f33aa0de01cfa14fb75e77ee72c73cc5e76ed3"
+              },
+              "watcher": {
+                "source_type": "archive",
+                "filename": "e-dant-watcher-release-0.14.5-0-g06f84a1.tar.gz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "89ba560e26de9b107de9aede4ab60592ec46618d"
+              },
+              "php-src": {
+                "source_type": "archive",
+                "filename": "php-8.4.27.tar.xz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "80ee7824846300c6ec172c79047eb7626660217c"
+              },
+              "bzip2-Darwin-aarch64--default": {
+                "source_type": "archive",
+                "filename": "bzip2-aarch64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "f7d0acbb15c8b5ecc2e87404fb7747af91147045"
+              },
+              "openssl-Darwin-aarch64--default": {
+                "source_type": "archive",
+                "filename": "openssl-aarch64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "52795e738637c834525766779ccc6f7042fdf4f9"
+              },
+              "libssh2-Darwin-aarch64--default": {
+                "source_type": "archive",
+                "filename": "libssh2-aarch64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "828f7a9093a877e4774257d126befbb4175e4950"
+              },
+              "nghttp3": {
+                "source_type": "archive",
+                "filename": "nghttp3-1.19.0.tar.xz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "59228e2266dcf810af1fcd6e8b6f94d1c96f1550"
+              },
+              "ngtcp2": {
+                "source_type": "archive",
+                "filename": "ngtcp2-1.26.0.tar.xz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "c693ea5c55e2f0c255753f2984e2819a2210f875"
+              },
+              "nghttp2": {
+                "source_type": "archive",
+                "filename": "nghttp2-1.71.0.tar.xz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "c910b9c2e04403a7b3020cb05e442b0773f0d136"
+              },
+              "zstd": {
+                "source_type": "archive",
+                "filename": "zstd-1.5.7.tar.gz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "6c7dd9c829561ac5475b72592a079a01ab7f3eab"
+              },
+              "libcares-Darwin-aarch64--default": {
+                "source_type": "archive",
+                "filename": "libcares-aarch64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "08664e3c89a5cfb5066754b542d267f0336ce6b5"
+              },
+              "gmp-Darwin-aarch64--default": {
+                "source_type": "archive",
+                "filename": "gmp-aarch64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "a150d561ce8b72314905a4f204489bd9a06a5fdd"
+              },
+              "libsodium-Darwin-aarch64--default": {
+                "source_type": "archive",
+                "filename": "libsodium-aarch64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "785c40410e5aed1a1ddfc7d4c2c8824821da5b5d"
+              },
+              "ldap": {
+                "source_type": "archive",
+                "filename": "openldap-2.7.2.tgz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "5fad4b407cb2872c2b89f7218f073c17062176b1"
+              },
+              "ncurses-Darwin-aarch64--default": {
+                "source_type": "archive",
+                "filename": "ncurses-aarch64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "4f14927b71d8d7ceb26dd04e769811f1c330ac20"
+              },
+              "gettext": {
+                "source_type": "archive",
+                "filename": "gettext-1.0.tar.xz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "19a8dc3889d465325aa5e7a3106f0a34056249b0"
+              },
+              "libunistring": {
+                "source_type": "archive",
+                "filename": "libunistring-1.5.tar.gz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "a1b0a7a08c2c599fef0a54ecddf83e17a974cb2e"
+              },
+              "libidn2": {
+                "source_type": "archive",
+                "filename": "libidn2-2.3.8.tar.gz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "06fe2744b016dfc4a58acc3699644e290eb3d37a"
+              },
+              "libedit": {
+                "source_type": "archive",
+                "filename": "libedit-20260512-3.1.tar.gz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "b2ccdbec187a5ad4338ff6f75f8a190fdabe2c5f"
+              },
+              "krb5": {
+                "source_type": "archive",
+                "filename": "krb5-1.22.2.tar.gz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "8aba5b980607e2ccecb24d23a6959ec964adcb53"
+              },
+              "curl": {
+                "source_type": "archive",
+                "filename": "curl-8.23.0.tar.xz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "4c9464a88f1a37c547f826b1767c6643de32a031"
+              },
+              "libpng-Darwin-aarch64--default": {
+                "source_type": "archive",
+                "filename": "libpng-aarch64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "1618416a7c6b932741e68548ccb62b09fe7f1efc"
+              },
+              "libaom-Darwin-aarch64--default": {
+                "source_type": "archive",
+                "filename": "libaom-aarch64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "7c2041179fda1d1b53f47fb07aa4bff96b7e8ac6"
+              },
+              "libwebp-Darwin-aarch64--default": {
+                "source_type": "archive",
+                "filename": "libwebp-aarch64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "875977d17baaa13a659bc0e6ef58efbfb39ca8f5"
+              },
+              "libjpeg": {
+                "source_type": "archive",
+                "filename": "libjpeg-turbo-libjpeg-turbo-3.2.1-0-g7b49937.tar.gz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "0de9bda1fb7229d5c01d423527538b0b710ab0ad"
+              },
+              "libavif": {
+                "source_type": "archive",
+                "filename": "AOMediaCodec-libavif-v1.4.2-0-gc5240fc.tar.gz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "8a376a6a66b58c8b95085a3ee70af4794d517d4e"
+              },
+              "freetype": {
+                "source_type": "archive",
+                "filename": "freetype-freetype-VER-2-15-0-0-g37515cf.tar.gz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "283cc555b95af726fe4f9730fd03227a469f8626"
+              },
+              "icu-Darwin-aarch64--default": {
+                "source_type": "archive",
+                "filename": "icu-aarch64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "5d61cce7d4e29aa73b83a463660188cfb1cf916b"
+              },
+              "onig-Darwin-aarch64--default": {
+                "source_type": "archive",
+                "filename": "onig-aarch64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "798e7d20e4f255aeef315ad39edf1a1f25a30c52"
+              },
+              "libxslt": {
+                "source_type": "archive",
+                "filename": "libxslt-1.1.45.tar.xz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "1963cfecbdc6fc48aeb3a9ed31e026be4cde01c1"
+              },
+              "postgresql": {
+                "source_type": "archive",
+                "filename": "postgres-postgres-REL_18_7-0-gf5c41f6.tar.gz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "6f46a64b0f70252462eb157df7ac02daa60bcf28"
+              },
+              "sqlite-Darwin-aarch64--default": {
+                "source_type": "archive",
+                "filename": "sqlite-aarch64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "f41e19d282e5088e27c7adf9b9097f3ccc8f74dd"
+              },
+              "liblz4-Darwin-aarch64--default": {
+                "source_type": "archive",
+                "filename": "liblz4-aarch64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "be0440260c953bd275f24e87c8c91c68f32d31e3"
+              },
+              "libzip": {
+                "source_type": "archive",
+                "filename": "libzip-1.12.1.tar.xz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "39d312fcb5ef01dc676dafd5115da01dd0eb05f7"
+              }
+            },
+            "source_build": true,
+            "probe": {
+              "php": "8.4.27",
+              "xdebug": "3.5.3",
+              "pdo": [
+                "mysql",
+                "pgsql",
+                "sqlite"
+              ]
+            },
+            "input_sha256": {
+              "openldap-2.7.2.tgz": "aad731aa22118ff327b9b4ddfc4b6f18ef9476586205da88a532e90940b523d2",
+              "ngtcp2-1.26.0.tar.xz": "7804aa0fa1c39942ba322a90805824c37231f7675b08d0c3cc4332858a7b085e",
+              "libwebp-aarch64-darwin.txz": "34574d2506c0ff36782e1a78bfe18429a4b6ef4645a2b364255e12dcb41ee7af",
+              "openssl-aarch64-darwin.txz": "de94d32f6a6f3f44274660d50571304855d37e542c7b79b92a375f62f7874d5f",
+              "php-8.4.27.tar.xz": "dcf93923b0e38e0d5252b25b796520b5a47761a08b3488b6d0b5d1115764d3f0",
+              "curl-8.23.0.tar.xz": "8dadd7d2536a314f982ad05a651b713f426bf7d02cc2c76cffb9796f2218e6c5",
+              "zlib-aarch64-darwin.txz": "b769fca873f99ddf71803911a2dec8bff3d421fd90417fb99356f8717c46bac4",
+              "igbinary.tgz": "91da821443db125282a6aea039f24588dd28ff5d71e8187f6ecc41165bceafbc",
+              "bzip2-aarch64-darwin.txz": "be0d57cdf4752b857d42a670af7793629c1ef7a51f61020be8631b30b6985099",
+              "libjpeg-turbo-libjpeg-turbo-3.2.1-0-g7b49937.tar.gz": "f9d7fad5a49dcab5270cccd2a75f567e21cbc5fcea408671034f083651874c86",
+              "pkg-config-aarch64-darwin.txz": "7541c2f775e6a535acb47c8bab0a60d4c4c13eb62d09df334b21fecedd71a21e",
+              "apcu.tgz": "ca9c1820810a168786f8048a4c3f8c9e3fd941407ad1553259fb2e30b5f057bf",
+              "freetype-freetype-VER-2-15-0-0-g37515cf.tar.gz": "144a7ca44e8ff1de2cdfd559a3ab9551668e98df42ccc0bef04f152f8b270b64",
+              "libpng-aarch64-darwin.txz": "179ff2271af74aff070133702b3fb2aa6d357d2b0eafe2f55be80d3b10198742",
+              "e-dant-watcher-release-0.14.5-0-g06f84a1.tar.gz": "7098217c78e6deb6ab92bc7b469e3d016ae82185bb2ff6cb2b7531ae4ef34e43",
+              "libssh2-aarch64-darwin.txz": "54b585c760ff735224a24b7a88d7f12eea3e64631703b81a0b1da617cf93e602",
+              "libsodium-aarch64-darwin.txz": "2bc1def2b50424285bdddf7c7af5ce724357bd1c3baea492d11081cf67b71794",
+              "sqlite-aarch64-darwin.txz": "6cf49206a049beaf39860870d477e586c503d326a7cf189ff1ec72a81226e822",
+              "libcares-aarch64-darwin.txz": "d36fa5f5cfbeb02f28c3ed44dc0d3a40246c7b7683b6a224ec7b7f55c597d653",
+              "liblz4-aarch64-darwin.txz": "cda06e8b903421500d27c8eecc08e68fc609d57890bda7c271e72f13903374ea",
+              "gettext-1.0.tar.xz": "71132a3fb71e68245b8f2ac4e9e97137d3e5c02f415636eb508ae607bc01add7",
+              "php-frankenphp-caddy-v1.13.5-0-ga3663e9.tar.gz": "72ba57dfeef5df16aeaaa6734e3134e901d3488821ee9fbaa2a0e4fec3ff0422",
+              "libedit-20260512-3.1.tar.gz": "432d5e7ea8b0116dd39f2eca7bc11d0eed77faa6b77ea526ace89907c23ea4a0",
+              "msgpack.tgz": "e30be355ab79aaea4568692fbd6073fd7c7f50ea8d3cf12edce40fc0c921d868",
+              "xz-aarch64-darwin.txz": "a1a2aae23d031cf8753a148e5d7cdb32ede51deda0f1d64e54b5670805980814",
+              "ncurses-aarch64-darwin.txz": "53dbe7afb5066198fd00227461aad6614e817763b28723c2774c9bc4bb31fb29",
+              "onig-aarch64-darwin.txz": "7130f36644c6a0329a6debd94dd20b0303b643daaeeca1594e9bc9786711013a",
+              "icu-aarch64-darwin.txz": "53c7675851fe00f383710267ba765b0883023bc350fca3d76bc1e529500599f5",
+              "nghttp3-1.19.0.tar.xz": "228e17f5cc3d4de7bfced9912bd09de30e7f45741cc47503cf88d3fa9209e155",
+              "AOMediaCodec-libavif-v1.4.2-0-gc5240fc.tar.gz": "e7f11216722ef8b17dcf0186d6be1739be634bbe73312b16a025aa53c08c3d7a",
+              "libidn2-2.3.8.tar.gz": "f557911bf6171621e1f72ff35f5b1825bb35b52ed45325dcdee931e5d3c0787a",
+              "zstd-1.5.7.tar.gz": "eb33e51f49a15e023950cd7825ca74a4a2b43db8354825ac24fc1b7ee09e6fa3",
+              "GNOME-libxml2-v2.15.4-0-g9649899.tar.gz": "e6a7327f851b2798f228f6a0cf8cceb67e5ff11f7b01c07430c8bdfb33edc01c",
+              "postgres-postgres-REL_18_7-0-gf5c41f6.tar.gz": "b67c45c4d1fed213e0bc61ea0c353c52e48c01020cc815c8f42e853a57aa813b",
+              "redis.tgz": "0d5141f634bd1db6c1ddcda053d25ecf2c4fc1c395430d534fd3f8d51dd7f0b5",
+              "libiconv-aarch64-darwin.txz": "a5730f0b96f861ea92dd9df23785600bfc930239d59710c8fe50f67acb210a7f",
+              "brotli-aarch64-darwin.txz": "00aa21cc887c8e5acc222de09d95ea69f79b34f66bc776fd5b17f31305a37336",
+              "libxslt-1.1.45.tar.xz": "9acfe68419c4d06a45c550321b3212762d92f41465062ca4ea19e632ee5d216e",
+              "ext-zip.tgz": "9fab1f8653d40249bd433ad2c3ca02431f9a5ab06d50f988c8ec53fc6a846eef",
+              "xdebug-3.5.3.tgz": "f073de91bea046106abf4d6071c963ea71e58571df6ce58948ceca89d121cb2d",
+              "libzip-1.12.1.tar.xz": "c40062022a1963c80573d48f6070792297cecd7c6bffe3aefcac0d8b9bee8913",
+              "nghttp2-1.71.0.tar.xz": "c0f55121d88650e4b9227aec28cebaf664d2417ca60fe70be0f8d38829f52116",
+              "gmp-aarch64-darwin.txz": "554438ee716a4032aee04287a704e48b1a4e23919757ff1454f411bb84786e8a",
+              "krb5-1.22.2.tar.gz": "3243ffbc8ea4d4ac22ddc7dd2a1dc54c57874c40648b60ff97009763554eaf13",
+              "libaom-aarch64-darwin.txz": "94f0738efd28a38481877b234b00b3a2d5dd0e4d384665fa6d6bdd01b9201b73",
+              "libunistring-1.5.tar.gz": "5b0ecd46cbf225375f20ab4056197e66a7ac590e2684c069af407ae3383c9d81"
+            },
+            "compiler": "Apple clang version 17.0.0 (clang-1700.0.13.5)",
+            "archive_sha256": "18f3af76f4aca6806bc14996683ef60a9185a26bcf8e5fda287b91388f20a2ea"
+          }
+        },
+        "8.5.12": {
+          "sha256": "2ac4c1a609d552cceec89a227937eb1dbbfa9274b59bd819358109e82435b6bd",
+          "result": {
+            "schema": 1,
+            "version": "8.5.12",
+            "target": "macos-arm64",
+            "recipe_sha256": "3b57ba212f621f414da76c904b0aff8131c4473d2c062b4839f5f04d3f12796e",
+            "builder_sha256": "41d7e7d6fb136c242b4a01488a9c5d58e058e7f9daa22553bcad68d350086749",
+            "source_lock": {
+              "pkg-config-aarch64-macos": {
+                "source_type": "archive",
+                "filename": "pkg-config-aarch64-darwin.txz",
+                "move_path": null,
+                "lock_as": 3,
+                "hash": "2ee360d582953279b6c6426ea59a21e5af9722e5"
+              },
+              "apcu": {
+                "source_type": "archive",
+                "filename": "apcu.tgz",
+                "move_path": "php-src/ext/apcu",
+                "lock_as": 1,
+                "hash": "9057e3f8dc946ab6826ae3bd818209ece0cf313d"
+              },
+              "igbinary": {
+                "source_type": "archive",
+                "filename": "igbinary.tgz",
+                "move_path": "php-src/ext/igbinary",
+                "lock_as": 1,
+                "hash": "6c5bc9706135744cadd139195533df6afcb61ddf"
+              },
+              "msgpack": {
+                "source_type": "archive",
+                "filename": "msgpack.tgz",
+                "move_path": "php-src/ext/msgpack",
+                "lock_as": 1,
+                "hash": "ed6ced63f80266ad2f79676d85c670381fa67b70"
+              },
+              "redis": {
+                "source_type": "archive",
+                "filename": "redis.tgz",
+                "move_path": "php-src/ext/redis",
+                "lock_as": 1,
+                "hash": "24a7cd4038088ad7d484a702da03e8aba3a62f1d"
+              },
+              "ext-zip": {
+                "source_type": "archive",
+                "filename": "ext-zip.tgz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "4460a7cc9d5d641d84a73e0a7cf8414f9fdad35b"
+              },
+              "xdebug": {
+                "source_type": "archive",
+                "filename": "xdebug-3.5.3.tgz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "80ff025b3a21d6b4ebcf6bfc3cc94456e1529690"
+              },
+              "micro": {
+                "source_type": "git",
+                "dirname": "micro",
+                "move_path": "php-src/sapi/micro",
+                "lock_as": 1,
+                "hash": "fb6d497b6f4cf138ee3851a30c905d64b7b19aed"
+              },
+              "libiconv-Darwin-aarch64--default": {
+                "source_type": "archive",
+                "filename": "libiconv-aarch64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "40391ae2020961ff6ed418fa35231b0557eb5814"
+              },
+              "xz-Darwin-aarch64--default": {
+                "source_type": "archive",
+                "filename": "xz-aarch64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "2241a017841c3835a6f627070fbd31be9e2a50a1"
+              },
+              "zlib-Darwin-aarch64--default": {
+                "source_type": "archive",
+                "filename": "zlib-aarch64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "4fad62c112d03c46423e49a10de99fd48ab4769f"
+              },
+              "libxml2": {
+                "source_type": "archive",
+                "filename": "GNOME-libxml2-v2.15.4-0-g9649899.tar.gz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "2bdd4831130636714412b93b78fecb30f0e00f6f"
+              },
+              "frankenphp": {
+                "source_type": "archive",
+                "filename": "php-frankenphp-caddy-v1.13.5-0-ga3663e9.tar.gz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "54bf6a85749ec3769943429dfea19056d4ce8db6"
+              },
+              "brotli-Darwin-aarch64--default": {
+                "source_type": "archive",
+                "filename": "brotli-aarch64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "62f33aa0de01cfa14fb75e77ee72c73cc5e76ed3"
+              },
+              "watcher": {
+                "source_type": "archive",
+                "filename": "e-dant-watcher-release-0.14.5-0-g06f84a1.tar.gz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "89ba560e26de9b107de9aede4ab60592ec46618d"
+              },
+              "php-src": {
+                "source_type": "archive",
+                "filename": "php-8.5.12.tar.xz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "8b109435683351da5c2486ceb21d2311c3892244"
+              },
+              "bzip2-Darwin-aarch64--default": {
+                "source_type": "archive",
+                "filename": "bzip2-aarch64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "f7d0acbb15c8b5ecc2e87404fb7747af91147045"
+              },
+              "openssl-Darwin-aarch64--default": {
+                "source_type": "archive",
+                "filename": "openssl-aarch64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "52795e738637c834525766779ccc6f7042fdf4f9"
+              },
+              "libssh2-Darwin-aarch64--default": {
+                "source_type": "archive",
+                "filename": "libssh2-aarch64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "828f7a9093a877e4774257d126befbb4175e4950"
+              },
+              "nghttp3": {
+                "source_type": "archive",
+                "filename": "nghttp3-1.19.0.tar.xz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "59228e2266dcf810af1fcd6e8b6f94d1c96f1550"
+              },
+              "ngtcp2": {
+                "source_type": "archive",
+                "filename": "ngtcp2-1.26.0.tar.xz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "c693ea5c55e2f0c255753f2984e2819a2210f875"
+              },
+              "nghttp2": {
+                "source_type": "archive",
+                "filename": "nghttp2-1.71.0.tar.xz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "c910b9c2e04403a7b3020cb05e442b0773f0d136"
+              },
+              "zstd": {
+                "source_type": "archive",
+                "filename": "zstd-1.5.7.tar.gz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "6c7dd9c829561ac5475b72592a079a01ab7f3eab"
+              },
+              "libcares-Darwin-aarch64--default": {
+                "source_type": "archive",
+                "filename": "libcares-aarch64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "08664e3c89a5cfb5066754b542d267f0336ce6b5"
+              },
+              "gmp-Darwin-aarch64--default": {
+                "source_type": "archive",
+                "filename": "gmp-aarch64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "a150d561ce8b72314905a4f204489bd9a06a5fdd"
+              },
+              "libsodium-Darwin-aarch64--default": {
+                "source_type": "archive",
+                "filename": "libsodium-aarch64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "785c40410e5aed1a1ddfc7d4c2c8824821da5b5d"
+              },
+              "ldap": {
+                "source_type": "archive",
+                "filename": "openldap-2.7.2.tgz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "5fad4b407cb2872c2b89f7218f073c17062176b1"
+              },
+              "ncurses-Darwin-aarch64--default": {
+                "source_type": "archive",
+                "filename": "ncurses-aarch64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "4f14927b71d8d7ceb26dd04e769811f1c330ac20"
+              },
+              "gettext": {
+                "source_type": "archive",
+                "filename": "gettext-1.0.tar.xz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "19a8dc3889d465325aa5e7a3106f0a34056249b0"
+              },
+              "libunistring": {
+                "source_type": "archive",
+                "filename": "libunistring-1.5.tar.gz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "a1b0a7a08c2c599fef0a54ecddf83e17a974cb2e"
+              },
+              "libidn2": {
+                "source_type": "archive",
+                "filename": "libidn2-2.3.8.tar.gz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "06fe2744b016dfc4a58acc3699644e290eb3d37a"
+              },
+              "libedit": {
+                "source_type": "archive",
+                "filename": "libedit-20260512-3.1.tar.gz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "b2ccdbec187a5ad4338ff6f75f8a190fdabe2c5f"
+              },
+              "krb5": {
+                "source_type": "archive",
+                "filename": "krb5-1.22.2.tar.gz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "8aba5b980607e2ccecb24d23a6959ec964adcb53"
+              },
+              "curl": {
+                "source_type": "archive",
+                "filename": "curl-8.23.0.tar.xz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "4c9464a88f1a37c547f826b1767c6643de32a031"
+              },
+              "libpng-Darwin-aarch64--default": {
+                "source_type": "archive",
+                "filename": "libpng-aarch64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "1618416a7c6b932741e68548ccb62b09fe7f1efc"
+              },
+              "libaom-Darwin-aarch64--default": {
+                "source_type": "archive",
+                "filename": "libaom-aarch64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "7c2041179fda1d1b53f47fb07aa4bff96b7e8ac6"
+              },
+              "libwebp-Darwin-aarch64--default": {
+                "source_type": "archive",
+                "filename": "libwebp-aarch64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "875977d17baaa13a659bc0e6ef58efbfb39ca8f5"
+              },
+              "libjpeg": {
+                "source_type": "archive",
+                "filename": "libjpeg-turbo-libjpeg-turbo-3.2.1-0-g7b49937.tar.gz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "0de9bda1fb7229d5c01d423527538b0b710ab0ad"
+              },
+              "libavif": {
+                "source_type": "archive",
+                "filename": "AOMediaCodec-libavif-v1.4.2-0-gc5240fc.tar.gz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "8a376a6a66b58c8b95085a3ee70af4794d517d4e"
+              },
+              "freetype": {
+                "source_type": "archive",
+                "filename": "freetype-freetype-VER-2-15-0-0-g37515cf.tar.gz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "283cc555b95af726fe4f9730fd03227a469f8626"
+              },
+              "icu-Darwin-aarch64--default": {
+                "source_type": "archive",
+                "filename": "icu-aarch64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "5d61cce7d4e29aa73b83a463660188cfb1cf916b"
+              },
+              "onig-Darwin-aarch64--default": {
+                "source_type": "archive",
+                "filename": "onig-aarch64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "798e7d20e4f255aeef315ad39edf1a1f25a30c52"
+              },
+              "libxslt": {
+                "source_type": "archive",
+                "filename": "libxslt-1.1.45.tar.xz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "1963cfecbdc6fc48aeb3a9ed31e026be4cde01c1"
+              },
+              "postgresql": {
+                "source_type": "archive",
+                "filename": "postgres-postgres-REL_18_7-0-gf5c41f6.tar.gz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "6f46a64b0f70252462eb157df7ac02daa60bcf28"
+              },
+              "sqlite-Darwin-aarch64--default": {
+                "source_type": "archive",
+                "filename": "sqlite-aarch64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "f41e19d282e5088e27c7adf9b9097f3ccc8f74dd"
+              },
+              "liblz4-Darwin-aarch64--default": {
+                "source_type": "archive",
+                "filename": "liblz4-aarch64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "be0440260c953bd275f24e87c8c91c68f32d31e3"
+              },
+              "libzip": {
+                "source_type": "archive",
+                "filename": "libzip-1.12.1.tar.xz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "39d312fcb5ef01dc676dafd5115da01dd0eb05f7"
+              }
+            },
+            "source_build": true,
+            "probe": {
+              "php": "8.5.12",
+              "xdebug": "3.5.3",
+              "pdo": [
+                "mysql",
+                "pgsql",
+                "sqlite"
+              ]
+            },
+            "input_sha256": {
+              "openldap-2.7.2.tgz": "aad731aa22118ff327b9b4ddfc4b6f18ef9476586205da88a532e90940b523d2",
+              "ngtcp2-1.26.0.tar.xz": "7804aa0fa1c39942ba322a90805824c37231f7675b08d0c3cc4332858a7b085e",
+              "libwebp-aarch64-darwin.txz": "34574d2506c0ff36782e1a78bfe18429a4b6ef4645a2b364255e12dcb41ee7af",
+              "openssl-aarch64-darwin.txz": "de94d32f6a6f3f44274660d50571304855d37e542c7b79b92a375f62f7874d5f",
+              "curl-8.23.0.tar.xz": "8dadd7d2536a314f982ad05a651b713f426bf7d02cc2c76cffb9796f2218e6c5",
+              "zlib-aarch64-darwin.txz": "b769fca873f99ddf71803911a2dec8bff3d421fd90417fb99356f8717c46bac4",
+              "igbinary.tgz": "91da821443db125282a6aea039f24588dd28ff5d71e8187f6ecc41165bceafbc",
+              "bzip2-aarch64-darwin.txz": "be0d57cdf4752b857d42a670af7793629c1ef7a51f61020be8631b30b6985099",
+              "libjpeg-turbo-libjpeg-turbo-3.2.1-0-g7b49937.tar.gz": "f9d7fad5a49dcab5270cccd2a75f567e21cbc5fcea408671034f083651874c86",
+              "pkg-config-aarch64-darwin.txz": "7541c2f775e6a535acb47c8bab0a60d4c4c13eb62d09df334b21fecedd71a21e",
+              "apcu.tgz": "ca9c1820810a168786f8048a4c3f8c9e3fd941407ad1553259fb2e30b5f057bf",
+              "freetype-freetype-VER-2-15-0-0-g37515cf.tar.gz": "144a7ca44e8ff1de2cdfd559a3ab9551668e98df42ccc0bef04f152f8b270b64",
+              "libpng-aarch64-darwin.txz": "179ff2271af74aff070133702b3fb2aa6d357d2b0eafe2f55be80d3b10198742",
+              "e-dant-watcher-release-0.14.5-0-g06f84a1.tar.gz": "7098217c78e6deb6ab92bc7b469e3d016ae82185bb2ff6cb2b7531ae4ef34e43",
+              "libssh2-aarch64-darwin.txz": "54b585c760ff735224a24b7a88d7f12eea3e64631703b81a0b1da617cf93e602",
+              "libsodium-aarch64-darwin.txz": "2bc1def2b50424285bdddf7c7af5ce724357bd1c3baea492d11081cf67b71794",
+              "sqlite-aarch64-darwin.txz": "6cf49206a049beaf39860870d477e586c503d326a7cf189ff1ec72a81226e822",
+              "libcares-aarch64-darwin.txz": "d36fa5f5cfbeb02f28c3ed44dc0d3a40246c7b7683b6a224ec7b7f55c597d653",
+              "liblz4-aarch64-darwin.txz": "cda06e8b903421500d27c8eecc08e68fc609d57890bda7c271e72f13903374ea",
+              "gettext-1.0.tar.xz": "71132a3fb71e68245b8f2ac4e9e97137d3e5c02f415636eb508ae607bc01add7",
+              "php-frankenphp-caddy-v1.13.5-0-ga3663e9.tar.gz": "72ba57dfeef5df16aeaaa6734e3134e901d3488821ee9fbaa2a0e4fec3ff0422",
+              "libedit-20260512-3.1.tar.gz": "432d5e7ea8b0116dd39f2eca7bc11d0eed77faa6b77ea526ace89907c23ea4a0",
+              "msgpack.tgz": "e30be355ab79aaea4568692fbd6073fd7c7f50ea8d3cf12edce40fc0c921d868",
+              "xz-aarch64-darwin.txz": "a1a2aae23d031cf8753a148e5d7cdb32ede51deda0f1d64e54b5670805980814",
+              "ncurses-aarch64-darwin.txz": "53dbe7afb5066198fd00227461aad6614e817763b28723c2774c9bc4bb31fb29",
+              "onig-aarch64-darwin.txz": "7130f36644c6a0329a6debd94dd20b0303b643daaeeca1594e9bc9786711013a",
+              "icu-aarch64-darwin.txz": "53c7675851fe00f383710267ba765b0883023bc350fca3d76bc1e529500599f5",
+              "nghttp3-1.19.0.tar.xz": "228e17f5cc3d4de7bfced9912bd09de30e7f45741cc47503cf88d3fa9209e155",
+              "AOMediaCodec-libavif-v1.4.2-0-gc5240fc.tar.gz": "e7f11216722ef8b17dcf0186d6be1739be634bbe73312b16a025aa53c08c3d7a",
+              "libidn2-2.3.8.tar.gz": "f557911bf6171621e1f72ff35f5b1825bb35b52ed45325dcdee931e5d3c0787a",
+              "zstd-1.5.7.tar.gz": "eb33e51f49a15e023950cd7825ca74a4a2b43db8354825ac24fc1b7ee09e6fa3",
+              "GNOME-libxml2-v2.15.4-0-g9649899.tar.gz": "e6a7327f851b2798f228f6a0cf8cceb67e5ff11f7b01c07430c8bdfb33edc01c",
+              "postgres-postgres-REL_18_7-0-gf5c41f6.tar.gz": "b67c45c4d1fed213e0bc61ea0c353c52e48c01020cc815c8f42e853a57aa813b",
+              "redis.tgz": "0d5141f634bd1db6c1ddcda053d25ecf2c4fc1c395430d534fd3f8d51dd7f0b5",
+              "libiconv-aarch64-darwin.txz": "a5730f0b96f861ea92dd9df23785600bfc930239d59710c8fe50f67acb210a7f",
+              "brotli-aarch64-darwin.txz": "00aa21cc887c8e5acc222de09d95ea69f79b34f66bc776fd5b17f31305a37336",
+              "libxslt-1.1.45.tar.xz": "9acfe68419c4d06a45c550321b3212762d92f41465062ca4ea19e632ee5d216e",
+              "ext-zip.tgz": "9fab1f8653d40249bd433ad2c3ca02431f9a5ab06d50f988c8ec53fc6a846eef",
+              "xdebug-3.5.3.tgz": "f073de91bea046106abf4d6071c963ea71e58571df6ce58948ceca89d121cb2d",
+              "libzip-1.12.1.tar.xz": "c40062022a1963c80573d48f6070792297cecd7c6bffe3aefcac0d8b9bee8913",
+              "nghttp2-1.71.0.tar.xz": "c0f55121d88650e4b9227aec28cebaf664d2417ca60fe70be0f8d38829f52116",
+              "gmp-aarch64-darwin.txz": "554438ee716a4032aee04287a704e48b1a4e23919757ff1454f411bb84786e8a",
+              "krb5-1.22.2.tar.gz": "3243ffbc8ea4d4ac22ddc7dd2a1dc54c57874c40648b60ff97009763554eaf13",
+              "libaom-aarch64-darwin.txz": "94f0738efd28a38481877b234b00b3a2d5dd0e4d384665fa6d6bdd01b9201b73",
+              "php-8.5.12.tar.xz": "08bc2eba2a588654ade1357174aa646b761556c862dda0678345ee29ed481209",
+              "libunistring-1.5.tar.gz": "5b0ecd46cbf225375f20ab4056197e66a7ac590e2684c069af407ae3383c9d81"
+            },
+            "compiler": "Apple clang version 17.0.0 (clang-1700.0.13.5)",
+            "archive_sha256": "56146cecf631364ad3780172258397d7d9c3117d88198b52277d0cf5c2b4fd9c"
+          }
+        }
+      }
+    },
+    {
+      "target": "macos-x64",
+      "source": "c85835470ad7ca606129beea28bfb4172fa5439c",
+      "run": 43409476063,
+      "job": 131832019709,
+      "url": "https://github.com/jorabekyusupov/devforge/actions/runs/43409476063/job/131832019709",
+      "conclusion": "success",
+      "artifact": {
+        "id": 14030813420,
+        "name": "m7-xdebug-macos-x64",
+        "zip_sha256": "0f8cdebe1aac08b77e42198bb5a0040f892ca2fd66fe257c9608c4529d288924",
+        "github_digest_matched": true
+      },
+      "reports": {
+        "native": {
+          "sha256": "c40425903216b37681cb10ea86b97cfbd498eeff2389670c68b33ac1a89020c7",
+          "result": {
+            "checks": {
+              "cross_project_denial": true,
+              "locals_and_source_redacted": true,
+              "off_after_source_deleted": true,
+              "off_restores_normal_php": true,
+              "other_process_pids_unchanged": true,
+              "php84_native_web": true,
+              "profile_http_and_cli": true,
+              "profile_parse_export_delete": true,
+              "project_php_pin_and_env_unchanged": true,
+              "real_laravel_http_breakpoint": true,
+              "request_http_200": true,
+              "shutdown_cleans_own_sessions": true,
+              "step_into_over_out": true,
+              "stop_paused_request_preserves_web_runtime": true,
+              "verified_provider_install": true
+            },
+            "host": {
+              "arch": "x86_64",
+              "os": "macos"
+            },
+            "other_project_id": "caf5ccb821ef4c60aef810533965f088",
+            "passed": true,
+            "php_probes": [
+              {
+                "pdo": [
+                  "mysql",
+                  "pgsql",
+                  "sqlite"
+                ],
+                "php": "8.4.27",
+                "xdebug": "3.5.3"
+              },
+              {
+                "pdo": [
+                  "mysql",
+                  "pgsql",
+                  "sqlite"
+                ],
+                "php": "8.5.12",
+                "xdebug": "3.5.3"
+              }
+            ],
+            "project_id": "3c31f64f7d324afca8f67e4779acb8b3",
+            "runtime_id": "7a665982e47f16682ab7e948d9ee732a"
+          }
+        },
+        "cli": {
+          "sha256": "5d3ea3bc1ce774aff1c149d3e12bcfc56e577ad1638ccdf8a4a24ffe2c49a3fd",
+          "result": {
+            "active_external_profile_history_preserved": true,
+            "known_secret_absent": true,
+            "project_mode_and_off_recovery": true,
+            "stable_json_status_source_profile": true,
+            "target": "macos-x64"
+          }
+        },
+        "desktop": {
+          "sha256": "f5b55b73eb8841dc33642595d11cbe23ca2d9b4e56776ff9df6845bebfa5e27b",
+          "result": {
+            "native": "real WKWebView/WebView2 via debug-only W3C endpoint",
+            "checks": {
+              "real_breakpoint_source_and_redacted_locals": true,
+              "live_breakpoint_add_remove": true,
+              "step_into_over_out_and_continue": true,
+              "actual_function_profile_filter": true,
+              "delete_review_cancel_preserves_profile": true,
+              "failed_owned_runtime_can_be_stopped": true,
+              "other_project_remains_off": true,
+              "preferences_relaunch": true
+            },
+            "accessibility": [
+              {
+                "case": "runtime-install-review",
+                "violations": []
+              },
+              {
+                "case": "paused-breakpoint-source-locals",
+                "violations": []
+              },
+              {
+                "case": "function-profile",
+                "violations": []
+              },
+              {
+                "case": "profile-delete-confirmation",
+                "violations": []
+              },
+              {
+                "case": "debugger-ru",
+                "violations": []
+              },
+              {
+                "case": "debugger-ru-minimum",
+                "violations": []
+              },
+              {
+                "case": "debugger-uz-Latn",
+                "violations": []
+              },
+              {
+                "case": "debugger-uz-Latn-minimum",
+                "violations": []
+              },
+              {
+                "case": "debugger-en",
+                "violations": []
+              },
+              {
+                "case": "debugger-en-minimum",
+                "violations": []
+              },
+              {
+                "case": "failed-runtime-recovery",
+                "violations": []
+              },
+              {
+                "case": "debugger-dark",
+                "violations": []
+              }
+            ],
+            "captures": [
+              {
+                "file": "debugger-en-light.png",
+                "viewport": {
+                  "height": 942,
+                  "language": "en",
+                  "scale": 1,
+                  "theme": "light",
+                  "width": 1536
+                }
+              },
+              {
+                "file": "function-profile.png",
+                "viewport": {
+                  "height": 942,
+                  "language": "en",
+                  "scale": 1,
+                  "theme": "light",
+                  "width": 1536
+                }
+              },
+              {
+                "file": "debugger-ru.png",
+                "viewport": {
+                  "height": 942,
+                  "language": "ru",
+                  "scale": 1,
+                  "theme": "light",
+                  "width": 1536
+                }
+              },
+              {
+                "file": "debugger-uz-Latn.png",
+                "viewport": {
+                  "height": 942,
+                  "language": "uz-Latn",
+                  "scale": 1,
+                  "theme": "light",
+                  "width": 1536
+                }
+              },
+              {
+                "file": "debugger-en.png",
+                "viewport": {
+                  "height": 942,
+                  "language": "en",
+                  "scale": 1,
+                  "theme": "light",
+                  "width": 1536
+                }
+              },
+              {
+                "file": "debugger-dark.png",
+                "viewport": {
+                  "height": 942,
+                  "language": "en",
+                  "scale": 1,
+                  "theme": "dark",
+                  "width": 1536
+                }
+              }
+            ],
+            "viewport_attempts": [
+              {
+                "requested": {
+                  "width": 1536,
+                  "height": 1024
+                },
+                "actual": {
+                  "height": 942,
+                  "width": 1536
+                },
+                "matched": false
+              },
+              {
+                "requested": {
+                  "width": 1536,
+                  "height": 1024
+                },
+                "actual": {
+                  "height": 942,
+                  "width": 1536
+                },
+                "matched": false
+              },
+              {
+                "requested": {
+                  "width": 820,
+                  "height": 620
+                },
+                "actual": {
+                  "height": 620,
+                  "width": 820
+                },
+                "matched": true
+              },
+              {
+                "requested": {
+                  "width": 1536,
+                  "height": 1024
+                },
+                "actual": {
+                  "height": 942,
+                  "width": 1536
+                },
+                "matched": false
+              },
+              {
+                "requested": {
+                  "width": 820,
+                  "height": 620
+                },
+                "actual": {
+                  "height": 620,
+                  "width": 820
+                },
+                "matched": true
+              },
+              {
+                "requested": {
+                  "width": 1536,
+                  "height": 1024
+                },
+                "actual": {
+                  "height": 942,
+                  "width": 1536
+                },
+                "matched": false
+              },
+              {
+                "requested": {
+                  "width": 820,
+                  "height": 620
+                },
+                "actual": {
+                  "height": 620,
+                  "width": 820
+                },
+                "matched": true
+              },
+              {
+                "requested": {
+                  "width": 1536,
+                  "height": 1024
+                },
+                "actual": {
+                  "height": 942,
+                  "width": 1536
+                },
+                "matched": false
+              }
+            ],
+            "paint_waits": [
+              {
+                "focused": true,
+                "source": "animation-frame",
+                "visibility": "visible"
+              },
+              {
+                "focused": true,
+                "source": "animation-frame",
+                "visibility": "visible"
+              },
+              {
+                "focused": true,
+                "source": "animation-frame",
+                "visibility": "visible"
+              },
+              {
+                "focused": true,
+                "source": "animation-frame",
+                "visibility": "visible"
+              },
+              {
+                "focused": true,
+                "source": "animation-frame",
+                "visibility": "visible"
+              },
+              {
+                "focused": true,
+                "source": "animation-frame",
+                "visibility": "visible"
+              },
+              {
+                "focused": true,
+                "source": "animation-frame",
+                "visibility": "visible"
+              },
+              {
+                "focused": true,
+                "source": "animation-frame",
+                "visibility": "visible"
+              },
+              {
+                "focused": true,
+                "source": "animation-frame",
+                "visibility": "visible"
+              },
+              {
+                "focused": true,
+                "source": "animation-frame",
+                "visibility": "visible"
+              },
+              {
+                "focused": true,
+                "source": "animation-frame",
+                "visibility": "visible"
+              },
+              {
+                "focused": true,
+                "source": "animation-frame",
+                "visibility": "visible"
+              },
+              {
+                "focused": true,
+                "source": "animation-frame",
+                "visibility": "visible"
+              },
+              {
+                "focused": true,
+                "source": "animation-frame",
+                "visibility": "visible"
+              },
+              {
+                "focused": true,
+                "source": "animation-frame",
+                "visibility": "visible"
+              },
+              {
+                "focused": true,
+                "source": "animation-frame",
+                "visibility": "visible"
+              },
+              {
+                "focused": true,
+                "source": "animation-frame",
+                "visibility": "visible"
+              },
+              {
+                "focused": true,
+                "source": "animation-frame",
+                "visibility": "visible"
+              },
+              {
+                "focused": true,
+                "source": "animation-frame",
+                "visibility": "visible"
+              },
+              {
+                "focused": true,
+                "source": "animation-frame",
+                "visibility": "visible"
+              },
+              {
+                "focused": true,
+                "source": "animation-frame",
+                "visibility": "visible"
+              },
+              {
+                "focused": true,
+                "source": "animation-frame",
+                "visibility": "visible"
+              },
+              {
+                "focused": true,
+                "source": "animation-frame",
+                "visibility": "visible"
+              },
+              {
+                "focused": true,
+                "source": "animation-frame",
+                "visibility": "visible"
+              }
+            ],
+            "operation_timings": [
+              {
+                "operation": "start_project",
+                "elapsed_seconds": 151.0590274680003,
+                "build": "debug_e2e",
+                "scope": "includes verified SDK hashing and fixture services; not release latency"
+              },
+              {
+                "operation": "start_project",
+                "elapsed_seconds": 131.5460570979999,
+                "build": "debug_e2e",
+                "scope": "includes verified SDK hashing and fixture services; not release latency"
+              }
+            ],
+            "export_native_dialog": "not automated; actual bounded export verified in backend fixture"
+          }
+        }
+      },
+      "provenance": {
+        "8.4.27": {
+          "sha256": "d6bb40d12a2f4e560cda5f09761e9af9ea28c91df39cb0ab44ec05afa8dcab00",
+          "result": {
+            "schema": 1,
+            "version": "8.4.27",
+            "target": "macos-x64",
+            "recipe_sha256": "3b57ba212f621f414da76c904b0aff8131c4473d2c062b4839f5f04d3f12796e",
+            "builder_sha256": "41d7e7d6fb136c242b4a01488a9c5d58e058e7f9daa22553bcad68d350086749",
+            "source_lock": {
+              "pkg-config-x86_64-macos": {
+                "source_type": "archive",
+                "filename": "pkg-config-x86_64-darwin.txz",
+                "move_path": null,
+                "lock_as": 3,
+                "hash": "34c1ff919e11d5fe18ef33548741e4e724a22767"
+              },
+              "apcu": {
+                "source_type": "archive",
+                "filename": "apcu.tgz",
+                "move_path": "php-src/ext/apcu",
+                "lock_as": 1,
+                "hash": "9057e3f8dc946ab6826ae3bd818209ece0cf313d"
+              },
+              "igbinary": {
+                "source_type": "archive",
+                "filename": "igbinary.tgz",
+                "move_path": "php-src/ext/igbinary",
+                "lock_as": 1,
+                "hash": "6c5bc9706135744cadd139195533df6afcb61ddf"
+              },
+              "msgpack": {
+                "source_type": "archive",
+                "filename": "msgpack.tgz",
+                "move_path": "php-src/ext/msgpack",
+                "lock_as": 1,
+                "hash": "ed6ced63f80266ad2f79676d85c670381fa67b70"
+              },
+              "redis": {
+                "source_type": "archive",
+                "filename": "redis.tgz",
+                "move_path": "php-src/ext/redis",
+                "lock_as": 1,
+                "hash": "24a7cd4038088ad7d484a702da03e8aba3a62f1d"
+              },
+              "ext-zip": {
+                "source_type": "archive",
+                "filename": "ext-zip.tgz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "4460a7cc9d5d641d84a73e0a7cf8414f9fdad35b"
+              },
+              "xdebug": {
+                "source_type": "archive",
+                "filename": "xdebug-3.5.3.tgz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "80ff025b3a21d6b4ebcf6bfc3cc94456e1529690"
+              },
+              "micro": {
+                "source_type": "git",
+                "dirname": "micro",
+                "move_path": "php-src/sapi/micro",
+                "lock_as": 1,
+                "hash": "fb6d497b6f4cf138ee3851a30c905d64b7b19aed"
+              },
+              "libiconv-Darwin-x86_64--default": {
+                "source_type": "archive",
+                "filename": "libiconv-x86_64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "9469362b15e19235b70e1b6d916795f731eb11f1"
+              },
+              "xz-Darwin-x86_64--default": {
+                "source_type": "archive",
+                "filename": "xz-x86_64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "ad71570b60cbb410e6937b0c2bf3b6440f141974"
+              },
+              "zlib-Darwin-x86_64--default": {
+                "source_type": "archive",
+                "filename": "zlib-x86_64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "f1a9c2197edcf0a19ce500f67d056901b4125a9e"
+              },
+              "libxml2": {
+                "source_type": "archive",
+                "filename": "GNOME-libxml2-v2.15.4-0-g9649899.tar.gz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "2bdd4831130636714412b93b78fecb30f0e00f6f"
+              },
+              "frankenphp": {
+                "source_type": "archive",
+                "filename": "php-frankenphp-caddy-v1.13.5-0-ga3663e9.tar.gz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "54bf6a85749ec3769943429dfea19056d4ce8db6"
+              },
+              "brotli-Darwin-x86_64--default": {
+                "source_type": "archive",
+                "filename": "brotli-x86_64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "738269b059f364ab278fb85bda43e4f660bc867d"
+              },
+              "watcher": {
+                "source_type": "archive",
+                "filename": "e-dant-watcher-release-0.14.5-0-g06f84a1.tar.gz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "89ba560e26de9b107de9aede4ab60592ec46618d"
+              },
+              "php-src": {
+                "source_type": "archive",
+                "filename": "php-8.4.27.tar.xz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "80ee7824846300c6ec172c79047eb7626660217c"
+              },
+              "bzip2-Darwin-x86_64--default": {
+                "source_type": "archive",
+                "filename": "bzip2-x86_64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "eee01c3e9421820ff65eda0c63b20b1cccf98925"
+              },
+              "openssl-Darwin-x86_64--default": {
+                "source_type": "archive",
+                "filename": "openssl-x86_64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "ff3e441a56db6daf42ba24f251175e814b308478"
+              },
+              "libssh2-Darwin-x86_64--default": {
+                "source_type": "archive",
+                "filename": "libssh2-x86_64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "ec1e8e6e82dc29934de204697bb8a87b357b4a35"
+              },
+              "nghttp3": {
+                "source_type": "archive",
+                "filename": "nghttp3-1.19.0.tar.xz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "59228e2266dcf810af1fcd6e8b6f94d1c96f1550"
+              },
+              "ngtcp2": {
+                "source_type": "archive",
+                "filename": "ngtcp2-1.26.0.tar.xz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "c693ea5c55e2f0c255753f2984e2819a2210f875"
+              },
+              "nghttp2": {
+                "source_type": "archive",
+                "filename": "nghttp2-1.71.0.tar.xz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "c910b9c2e04403a7b3020cb05e442b0773f0d136"
+              },
+              "zstd": {
+                "source_type": "archive",
+                "filename": "zstd-1.5.7.tar.gz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "6c7dd9c829561ac5475b72592a079a01ab7f3eab"
+              },
+              "libcares-Darwin-x86_64--default": {
+                "source_type": "archive",
+                "filename": "libcares-x86_64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "488020aa71e16ea70301be9fee80683dcea8e602"
+              },
+              "gmp-Darwin-x86_64--default": {
+                "source_type": "archive",
+                "filename": "gmp-x86_64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "821784b61a348291b3f3f4d164f4ccb69a9ce3ef"
+              },
+              "libsodium-Darwin-x86_64--default": {
+                "source_type": "archive",
+                "filename": "libsodium-x86_64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "d354c5c68f39bde97c0d91be68a10c9bc7754a0e"
+              },
+              "ldap": {
+                "source_type": "archive",
+                "filename": "openldap-2.7.2.tgz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "5fad4b407cb2872c2b89f7218f073c17062176b1"
+              },
+              "ncurses-Darwin-x86_64--default": {
+                "source_type": "archive",
+                "filename": "ncurses-x86_64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "3115d34af77f942f2863fe6d7e9c12c7c46b89bf"
+              },
+              "gettext": {
+                "source_type": "archive",
+                "filename": "gettext-1.0.tar.xz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "19a8dc3889d465325aa5e7a3106f0a34056249b0"
+              },
+              "libunistring": {
+                "source_type": "archive",
+                "filename": "libunistring-1.5.tar.gz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "a1b0a7a08c2c599fef0a54ecddf83e17a974cb2e"
+              },
+              "libidn2": {
+                "source_type": "archive",
+                "filename": "libidn2-2.3.8.tar.gz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "06fe2744b016dfc4a58acc3699644e290eb3d37a"
+              },
+              "libedit": {
+                "source_type": "archive",
+                "filename": "libedit-20260512-3.1.tar.gz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "b2ccdbec187a5ad4338ff6f75f8a190fdabe2c5f"
+              },
+              "krb5": {
+                "source_type": "archive",
+                "filename": "krb5-1.22.2.tar.gz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "8aba5b980607e2ccecb24d23a6959ec964adcb53"
+              },
+              "curl": {
+                "source_type": "archive",
+                "filename": "curl-8.23.0.tar.xz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "4c9464a88f1a37c547f826b1767c6643de32a031"
+              },
+              "libpng-Darwin-x86_64--default": {
+                "source_type": "archive",
+                "filename": "libpng-x86_64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "963b47477a1283dc0e945a895455ccdd12647b33"
+              },
+              "libaom-Darwin-x86_64--default": {
+                "source_type": "archive",
+                "filename": "libaom-x86_64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "34a45e08df7e24cf0e03e7a4c0ea78619d70d311"
+              },
+              "libwebp-Darwin-x86_64--default": {
+                "source_type": "archive",
+                "filename": "libwebp-x86_64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "f0685898cc111bfd616b7976016215b719d9e282"
+              },
+              "libjpeg": {
+                "source_type": "archive",
+                "filename": "libjpeg-turbo-libjpeg-turbo-3.2.1-0-g7b49937.tar.gz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "0de9bda1fb7229d5c01d423527538b0b710ab0ad"
+              },
+              "libavif": {
+                "source_type": "archive",
+                "filename": "AOMediaCodec-libavif-v1.4.2-0-gc5240fc.tar.gz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "8a376a6a66b58c8b95085a3ee70af4794d517d4e"
+              },
+              "freetype": {
+                "source_type": "archive",
+                "filename": "freetype-freetype-VER-2-15-0-0-g37515cf.tar.gz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "283cc555b95af726fe4f9730fd03227a469f8626"
+              },
+              "icu-Darwin-x86_64--default": {
+                "source_type": "archive",
+                "filename": "icu-x86_64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "df74517873d8ce00d093e02737ec3cacaa89d256"
+              },
+              "onig-Darwin-x86_64--default": {
+                "source_type": "archive",
+                "filename": "onig-x86_64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "57f86b20337e3681409f965328e85de8c61dd251"
+              },
+              "libxslt": {
+                "source_type": "archive",
+                "filename": "libxslt-1.1.45.tar.xz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "1963cfecbdc6fc48aeb3a9ed31e026be4cde01c1"
+              },
+              "postgresql": {
+                "source_type": "archive",
+                "filename": "postgres-postgres-REL_18_7-0-gf5c41f6.tar.gz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "6f46a64b0f70252462eb157df7ac02daa60bcf28"
+              },
+              "sqlite-Darwin-x86_64--default": {
+                "source_type": "archive",
+                "filename": "sqlite-x86_64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "679a4cbe6b13a2d682077627c929c6dbef7b81da"
+              },
+              "liblz4-Darwin-x86_64--default": {
+                "source_type": "archive",
+                "filename": "liblz4-x86_64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "eaafbd0be6136c26243698f0398b5e1bab41dc41"
+              },
+              "libzip": {
+                "source_type": "archive",
+                "filename": "libzip-1.12.1.tar.xz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "39d312fcb5ef01dc676dafd5115da01dd0eb05f7"
+              }
+            },
+            "source_build": true,
+            "probe": {
+              "php": "8.4.27",
+              "xdebug": "3.5.3",
+              "pdo": [
+                "mysql",
+                "pgsql",
+                "sqlite"
+              ]
+            },
+            "input_sha256": {
+              "openldap-2.7.2.tgz": "aad731aa22118ff327b9b4ddfc4b6f18ef9476586205da88a532e90940b523d2",
+              "ngtcp2-1.26.0.tar.xz": "7804aa0fa1c39942ba322a90805824c37231f7675b08d0c3cc4332858a7b085e",
+              "php-8.4.27.tar.xz": "dcf93923b0e38e0d5252b25b796520b5a47761a08b3488b6d0b5d1115764d3f0",
+              "curl-8.23.0.tar.xz": "8dadd7d2536a314f982ad05a651b713f426bf7d02cc2c76cffb9796f2218e6c5",
+              "zlib-x86_64-darwin.txz": "f94c46c656172b951f17a9c21faa2fd0debfcf7dc4950bda8e899eb41537e694",
+              "gmp-x86_64-darwin.txz": "4d5c53c358324b644d0a1845faf4b7732234fd5a223583a8cab4b7d39cfc66f7",
+              "libwebp-x86_64-darwin.txz": "7a31b9be9fae2c67317f42c3ee6924495c3f20d9965fa26e983399e9854262fd",
+              "sqlite-x86_64-darwin.txz": "9437979cddb28b4ea834c89fa675c1cdb9d4135d4ca3c3c650f112b4358cd547",
+              "igbinary.tgz": "91da821443db125282a6aea039f24588dd28ff5d71e8187f6ecc41165bceafbc",
+              "libjpeg-turbo-libjpeg-turbo-3.2.1-0-g7b49937.tar.gz": "f9d7fad5a49dcab5270cccd2a75f567e21cbc5fcea408671034f083651874c86",
+              "libpng-x86_64-darwin.txz": "3e959066629e61b73f060d32270b20cb83de1e572dd48394df210092e5f76305",
+              "apcu.tgz": "ca9c1820810a168786f8048a4c3f8c9e3fd941407ad1553259fb2e30b5f057bf",
+              "freetype-freetype-VER-2-15-0-0-g37515cf.tar.gz": "144a7ca44e8ff1de2cdfd559a3ab9551668e98df42ccc0bef04f152f8b270b64",
+              "libaom-x86_64-darwin.txz": "a0c05702f43ed43df29a5f07b1ee785b598283644c3e94ce56902edf0c7258ed",
+              "e-dant-watcher-release-0.14.5-0-g06f84a1.tar.gz": "7098217c78e6deb6ab92bc7b469e3d016ae82185bb2ff6cb2b7531ae4ef34e43",
+              "onig-x86_64-darwin.txz": "318c30faf148f8bdcf557ab916800685ce7ad31e65d6aac067144a8d7495d665",
+              "ncurses-x86_64-darwin.txz": "3f6ff85d9bad112f64ea62b2c1c539b1a2234ebcf7c9c28740ac34f52a37878d",
+              "gettext-1.0.tar.xz": "71132a3fb71e68245b8f2ac4e9e97137d3e5c02f415636eb508ae607bc01add7",
+              "php-frankenphp-caddy-v1.13.5-0-ga3663e9.tar.gz": "72ba57dfeef5df16aeaaa6734e3134e901d3488821ee9fbaa2a0e4fec3ff0422",
+              "icu-x86_64-darwin.txz": "d01942a8d1862d97a6a31b6ba763d42d12054c1192d5402cde2191f5fa1a4ceb",
+              "libiconv-x86_64-darwin.txz": "7d29c52a9920c21c68354df5a447ccc9ff3b531e62e184846d7f1edc885a2961",
+              "libedit-20260512-3.1.tar.gz": "432d5e7ea8b0116dd39f2eca7bc11d0eed77faa6b77ea526ace89907c23ea4a0",
+              "pkg-config-x86_64-darwin.txz": "06c2f33c89c113226b86fdcd559dfc3f3747b1c5bfc0fffab91a66e803456290",
+              "libsodium-x86_64-darwin.txz": "489537f1ca3268b8f209e69de0b1536669ee718d9b982eba2fe69cc6380971a7",
+              "openssl-x86_64-darwin.txz": "6736020048d50d00c509f11e31bd92040880f2535797fd8f1871accf5208217f",
+              "msgpack.tgz": "e30be355ab79aaea4568692fbd6073fd7c7f50ea8d3cf12edce40fc0c921d868",
+              "nghttp3-1.19.0.tar.xz": "228e17f5cc3d4de7bfced9912bd09de30e7f45741cc47503cf88d3fa9209e155",
+              "AOMediaCodec-libavif-v1.4.2-0-gc5240fc.tar.gz": "e7f11216722ef8b17dcf0186d6be1739be634bbe73312b16a025aa53c08c3d7a",
+              "bzip2-x86_64-darwin.txz": "45835de8a177f1d5e9c2d80a6e0aacd843a112ed6d9f702f2613439121127cb1",
+              "libidn2-2.3.8.tar.gz": "f557911bf6171621e1f72ff35f5b1825bb35b52ed45325dcdee931e5d3c0787a",
+              "zstd-1.5.7.tar.gz": "eb33e51f49a15e023950cd7825ca74a4a2b43db8354825ac24fc1b7ee09e6fa3",
+              "xz-x86_64-darwin.txz": "d931205f317d4c7935d29681c0678f5c32ce8203ab25f17a6d04166d7de97899",
+              "GNOME-libxml2-v2.15.4-0-g9649899.tar.gz": "e6a7327f851b2798f228f6a0cf8cceb67e5ff11f7b01c07430c8bdfb33edc01c",
+              "postgres-postgres-REL_18_7-0-gf5c41f6.tar.gz": "b67c45c4d1fed213e0bc61ea0c353c52e48c01020cc815c8f42e853a57aa813b",
+              "redis.tgz": "0d5141f634bd1db6c1ddcda053d25ecf2c4fc1c395430d534fd3f8d51dd7f0b5",
+              "libxslt-1.1.45.tar.xz": "9acfe68419c4d06a45c550321b3212762d92f41465062ca4ea19e632ee5d216e",
+              "liblz4-x86_64-darwin.txz": "aa461d1508aafa53324bb729bdc72d8f7cd165baa2d565d7b53cb88128d1165a",
+              "brotli-x86_64-darwin.txz": "5ec539d8e0a60d216c5f0e4e780d22f1dda498940d59e1213b58890edf4d3101",
+              "ext-zip.tgz": "9fab1f8653d40249bd433ad2c3ca02431f9a5ab06d50f988c8ec53fc6a846eef",
+              "xdebug-3.5.3.tgz": "f073de91bea046106abf4d6071c963ea71e58571df6ce58948ceca89d121cb2d",
+              "libzip-1.12.1.tar.xz": "c40062022a1963c80573d48f6070792297cecd7c6bffe3aefcac0d8b9bee8913",
+              "libssh2-x86_64-darwin.txz": "fd63486f2420a65d3b858d1e2121883426e4e0167ee26ce569ad806f30a6b5a4",
+              "nghttp2-1.71.0.tar.xz": "c0f55121d88650e4b9227aec28cebaf664d2417ca60fe70be0f8d38829f52116",
+              "krb5-1.22.2.tar.gz": "3243ffbc8ea4d4ac22ddc7dd2a1dc54c57874c40648b60ff97009763554eaf13",
+              "libcares-x86_64-darwin.txz": "1a130fd3be9eb9b5acb2737c50da7d31bfa20e22671d832d81c8ce032b72e525",
+              "libunistring-1.5.tar.gz": "5b0ecd46cbf225375f20ab4056197e66a7ac590e2684c069af407ae3383c9d81"
+            },
+            "compiler": "Apple clang version 17.0.0 (clang-1700.0.13.5)",
+            "archive_sha256": "d338040a9957fadfb34f946f7dfeb67589481c89518782b2a5ad9a9652b2f9c7"
+          }
+        },
+        "8.5.12": {
+          "sha256": "4d8c62f4ed0d2865b992664f18d8a56b919da6cf46ed963908ce1c08a5dc918c",
+          "result": {
+            "schema": 1,
+            "version": "8.5.12",
+            "target": "macos-x64",
+            "recipe_sha256": "3b57ba212f621f414da76c904b0aff8131c4473d2c062b4839f5f04d3f12796e",
+            "builder_sha256": "41d7e7d6fb136c242b4a01488a9c5d58e058e7f9daa22553bcad68d350086749",
+            "source_lock": {
+              "pkg-config-x86_64-macos": {
+                "source_type": "archive",
+                "filename": "pkg-config-x86_64-darwin.txz",
+                "move_path": null,
+                "lock_as": 3,
+                "hash": "34c1ff919e11d5fe18ef33548741e4e724a22767"
+              },
+              "apcu": {
+                "source_type": "archive",
+                "filename": "apcu.tgz",
+                "move_path": "php-src/ext/apcu",
+                "lock_as": 1,
+                "hash": "9057e3f8dc946ab6826ae3bd818209ece0cf313d"
+              },
+              "igbinary": {
+                "source_type": "archive",
+                "filename": "igbinary.tgz",
+                "move_path": "php-src/ext/igbinary",
+                "lock_as": 1,
+                "hash": "6c5bc9706135744cadd139195533df6afcb61ddf"
+              },
+              "msgpack": {
+                "source_type": "archive",
+                "filename": "msgpack.tgz",
+                "move_path": "php-src/ext/msgpack",
+                "lock_as": 1,
+                "hash": "ed6ced63f80266ad2f79676d85c670381fa67b70"
+              },
+              "redis": {
+                "source_type": "archive",
+                "filename": "redis.tgz",
+                "move_path": "php-src/ext/redis",
+                "lock_as": 1,
+                "hash": "24a7cd4038088ad7d484a702da03e8aba3a62f1d"
+              },
+              "ext-zip": {
+                "source_type": "archive",
+                "filename": "ext-zip.tgz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "4460a7cc9d5d641d84a73e0a7cf8414f9fdad35b"
+              },
+              "xdebug": {
+                "source_type": "archive",
+                "filename": "xdebug-3.5.3.tgz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "80ff025b3a21d6b4ebcf6bfc3cc94456e1529690"
+              },
+              "micro": {
+                "source_type": "git",
+                "dirname": "micro",
+                "move_path": "php-src/sapi/micro",
+                "lock_as": 1,
+                "hash": "fb6d497b6f4cf138ee3851a30c905d64b7b19aed"
+              },
+              "libiconv-Darwin-x86_64--default": {
+                "source_type": "archive",
+                "filename": "libiconv-x86_64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "9469362b15e19235b70e1b6d916795f731eb11f1"
+              },
+              "xz-Darwin-x86_64--default": {
+                "source_type": "archive",
+                "filename": "xz-x86_64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "ad71570b60cbb410e6937b0c2bf3b6440f141974"
+              },
+              "zlib-Darwin-x86_64--default": {
+                "source_type": "archive",
+                "filename": "zlib-x86_64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "f1a9c2197edcf0a19ce500f67d056901b4125a9e"
+              },
+              "libxml2": {
+                "source_type": "archive",
+                "filename": "GNOME-libxml2-v2.15.4-0-g9649899.tar.gz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "2bdd4831130636714412b93b78fecb30f0e00f6f"
+              },
+              "frankenphp": {
+                "source_type": "archive",
+                "filename": "php-frankenphp-caddy-v1.13.5-0-ga3663e9.tar.gz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "54bf6a85749ec3769943429dfea19056d4ce8db6"
+              },
+              "brotli-Darwin-x86_64--default": {
+                "source_type": "archive",
+                "filename": "brotli-x86_64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "738269b059f364ab278fb85bda43e4f660bc867d"
+              },
+              "watcher": {
+                "source_type": "archive",
+                "filename": "e-dant-watcher-release-0.14.5-0-g06f84a1.tar.gz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "89ba560e26de9b107de9aede4ab60592ec46618d"
+              },
+              "php-src": {
+                "source_type": "archive",
+                "filename": "php-8.5.12.tar.xz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "8b109435683351da5c2486ceb21d2311c3892244"
+              },
+              "bzip2-Darwin-x86_64--default": {
+                "source_type": "archive",
+                "filename": "bzip2-x86_64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "eee01c3e9421820ff65eda0c63b20b1cccf98925"
+              },
+              "openssl-Darwin-x86_64--default": {
+                "source_type": "archive",
+                "filename": "openssl-x86_64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "ff3e441a56db6daf42ba24f251175e814b308478"
+              },
+              "libssh2-Darwin-x86_64--default": {
+                "source_type": "archive",
+                "filename": "libssh2-x86_64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "ec1e8e6e82dc29934de204697bb8a87b357b4a35"
+              },
+              "nghttp3": {
+                "source_type": "archive",
+                "filename": "nghttp3-1.19.0.tar.xz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "59228e2266dcf810af1fcd6e8b6f94d1c96f1550"
+              },
+              "ngtcp2": {
+                "source_type": "archive",
+                "filename": "ngtcp2-1.26.0.tar.xz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "c693ea5c55e2f0c255753f2984e2819a2210f875"
+              },
+              "nghttp2": {
+                "source_type": "archive",
+                "filename": "nghttp2-1.71.0.tar.xz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "c910b9c2e04403a7b3020cb05e442b0773f0d136"
+              },
+              "zstd": {
+                "source_type": "archive",
+                "filename": "zstd-1.5.7.tar.gz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "6c7dd9c829561ac5475b72592a079a01ab7f3eab"
+              },
+              "libcares-Darwin-x86_64--default": {
+                "source_type": "archive",
+                "filename": "libcares-x86_64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "488020aa71e16ea70301be9fee80683dcea8e602"
+              },
+              "gmp-Darwin-x86_64--default": {
+                "source_type": "archive",
+                "filename": "gmp-x86_64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "821784b61a348291b3f3f4d164f4ccb69a9ce3ef"
+              },
+              "libsodium-Darwin-x86_64--default": {
+                "source_type": "archive",
+                "filename": "libsodium-x86_64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "d354c5c68f39bde97c0d91be68a10c9bc7754a0e"
+              },
+              "ldap": {
+                "source_type": "archive",
+                "filename": "openldap-2.7.2.tgz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "5fad4b407cb2872c2b89f7218f073c17062176b1"
+              },
+              "ncurses-Darwin-x86_64--default": {
+                "source_type": "archive",
+                "filename": "ncurses-x86_64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "3115d34af77f942f2863fe6d7e9c12c7c46b89bf"
+              },
+              "gettext": {
+                "source_type": "archive",
+                "filename": "gettext-1.0.tar.xz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "19a8dc3889d465325aa5e7a3106f0a34056249b0"
+              },
+              "libunistring": {
+                "source_type": "archive",
+                "filename": "libunistring-1.5.tar.gz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "a1b0a7a08c2c599fef0a54ecddf83e17a974cb2e"
+              },
+              "libidn2": {
+                "source_type": "archive",
+                "filename": "libidn2-2.3.8.tar.gz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "06fe2744b016dfc4a58acc3699644e290eb3d37a"
+              },
+              "libedit": {
+                "source_type": "archive",
+                "filename": "libedit-20260512-3.1.tar.gz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "b2ccdbec187a5ad4338ff6f75f8a190fdabe2c5f"
+              },
+              "krb5": {
+                "source_type": "archive",
+                "filename": "krb5-1.22.2.tar.gz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "8aba5b980607e2ccecb24d23a6959ec964adcb53"
+              },
+              "curl": {
+                "source_type": "archive",
+                "filename": "curl-8.23.0.tar.xz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "4c9464a88f1a37c547f826b1767c6643de32a031"
+              },
+              "libpng-Darwin-x86_64--default": {
+                "source_type": "archive",
+                "filename": "libpng-x86_64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "963b47477a1283dc0e945a895455ccdd12647b33"
+              },
+              "libaom-Darwin-x86_64--default": {
+                "source_type": "archive",
+                "filename": "libaom-x86_64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "34a45e08df7e24cf0e03e7a4c0ea78619d70d311"
+              },
+              "libwebp-Darwin-x86_64--default": {
+                "source_type": "archive",
+                "filename": "libwebp-x86_64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "f0685898cc111bfd616b7976016215b719d9e282"
+              },
+              "libjpeg": {
+                "source_type": "archive",
+                "filename": "libjpeg-turbo-libjpeg-turbo-3.2.1-0-g7b49937.tar.gz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "0de9bda1fb7229d5c01d423527538b0b710ab0ad"
+              },
+              "libavif": {
+                "source_type": "archive",
+                "filename": "AOMediaCodec-libavif-v1.4.2-0-gc5240fc.tar.gz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "8a376a6a66b58c8b95085a3ee70af4794d517d4e"
+              },
+              "freetype": {
+                "source_type": "archive",
+                "filename": "freetype-freetype-VER-2-15-0-0-g37515cf.tar.gz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "283cc555b95af726fe4f9730fd03227a469f8626"
+              },
+              "icu-Darwin-x86_64--default": {
+                "source_type": "archive",
+                "filename": "icu-x86_64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "df74517873d8ce00d093e02737ec3cacaa89d256"
+              },
+              "onig-Darwin-x86_64--default": {
+                "source_type": "archive",
+                "filename": "onig-x86_64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "57f86b20337e3681409f965328e85de8c61dd251"
+              },
+              "libxslt": {
+                "source_type": "archive",
+                "filename": "libxslt-1.1.45.tar.xz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "1963cfecbdc6fc48aeb3a9ed31e026be4cde01c1"
+              },
+              "postgresql": {
+                "source_type": "archive",
+                "filename": "postgres-postgres-REL_18_7-0-gf5c41f6.tar.gz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "6f46a64b0f70252462eb157df7ac02daa60bcf28"
+              },
+              "sqlite-Darwin-x86_64--default": {
+                "source_type": "archive",
+                "filename": "sqlite-x86_64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "679a4cbe6b13a2d682077627c929c6dbef7b81da"
+              },
+              "liblz4-Darwin-x86_64--default": {
+                "source_type": "archive",
+                "filename": "liblz4-x86_64-darwin.txz",
+                "move_path": null,
+                "lock_as": 2,
+                "hash": "eaafbd0be6136c26243698f0398b5e1bab41dc41"
+              },
+              "libzip": {
+                "source_type": "archive",
+                "filename": "libzip-1.12.1.tar.xz",
+                "move_path": null,
+                "lock_as": 1,
+                "hash": "39d312fcb5ef01dc676dafd5115da01dd0eb05f7"
+              }
+            },
+            "source_build": true,
+            "probe": {
+              "php": "8.5.12",
+              "xdebug": "3.5.3",
+              "pdo": [
+                "mysql",
+                "pgsql",
+                "sqlite"
+              ]
+            },
+            "input_sha256": {
+              "openldap-2.7.2.tgz": "aad731aa22118ff327b9b4ddfc4b6f18ef9476586205da88a532e90940b523d2",
+              "ngtcp2-1.26.0.tar.xz": "7804aa0fa1c39942ba322a90805824c37231f7675b08d0c3cc4332858a7b085e",
+              "curl-8.23.0.tar.xz": "8dadd7d2536a314f982ad05a651b713f426bf7d02cc2c76cffb9796f2218e6c5",
+              "zlib-x86_64-darwin.txz": "f94c46c656172b951f17a9c21faa2fd0debfcf7dc4950bda8e899eb41537e694",
+              "gmp-x86_64-darwin.txz": "4d5c53c358324b644d0a1845faf4b7732234fd5a223583a8cab4b7d39cfc66f7",
+              "libwebp-x86_64-darwin.txz": "7a31b9be9fae2c67317f42c3ee6924495c3f20d9965fa26e983399e9854262fd",
+              "sqlite-x86_64-darwin.txz": "9437979cddb28b4ea834c89fa675c1cdb9d4135d4ca3c3c650f112b4358cd547",
+              "igbinary.tgz": "91da821443db125282a6aea039f24588dd28ff5d71e8187f6ecc41165bceafbc",
+              "libjpeg-turbo-libjpeg-turbo-3.2.1-0-g7b49937.tar.gz": "f9d7fad5a49dcab5270cccd2a75f567e21cbc5fcea408671034f083651874c86",
+              "libpng-x86_64-darwin.txz": "3e959066629e61b73f060d32270b20cb83de1e572dd48394df210092e5f76305",
+              "apcu.tgz": "ca9c1820810a168786f8048a4c3f8c9e3fd941407ad1553259fb2e30b5f057bf",
+              "freetype-freetype-VER-2-15-0-0-g37515cf.tar.gz": "144a7ca44e8ff1de2cdfd559a3ab9551668e98df42ccc0bef04f152f8b270b64",
+              "libaom-x86_64-darwin.txz": "a0c05702f43ed43df29a5f07b1ee785b598283644c3e94ce56902edf0c7258ed",
+              "e-dant-watcher-release-0.14.5-0-g06f84a1.tar.gz": "7098217c78e6deb6ab92bc7b469e3d016ae82185bb2ff6cb2b7531ae4ef34e43",
+              "onig-x86_64-darwin.txz": "318c30faf148f8bdcf557ab916800685ce7ad31e65d6aac067144a8d7495d665",
+              "ncurses-x86_64-darwin.txz": "3f6ff85d9bad112f64ea62b2c1c539b1a2234ebcf7c9c28740ac34f52a37878d",
+              "gettext-1.0.tar.xz": "71132a3fb71e68245b8f2ac4e9e97137d3e5c02f415636eb508ae607bc01add7",
+              "php-frankenphp-caddy-v1.13.5-0-ga3663e9.tar.gz": "72ba57dfeef5df16aeaaa6734e3134e901d3488821ee9fbaa2a0e4fec3ff0422",
+              "icu-x86_64-darwin.txz": "d01942a8d1862d97a6a31b6ba763d42d12054c1192d5402cde2191f5fa1a4ceb",
+              "libiconv-x86_64-darwin.txz": "7d29c52a9920c21c68354df5a447ccc9ff3b531e62e184846d7f1edc885a2961",
+              "libedit-20260512-3.1.tar.gz": "432d5e7ea8b0116dd39f2eca7bc11d0eed77faa6b77ea526ace89907c23ea4a0",
+              "pkg-config-x86_64-darwin.txz": "06c2f33c89c113226b86fdcd559dfc3f3747b1c5bfc0fffab91a66e803456290",
+              "libsodium-x86_64-darwin.txz": "489537f1ca3268b8f209e69de0b1536669ee718d9b982eba2fe69cc6380971a7",
+              "openssl-x86_64-darwin.txz": "6736020048d50d00c509f11e31bd92040880f2535797fd8f1871accf5208217f",
+              "msgpack.tgz": "e30be355ab79aaea4568692fbd6073fd7c7f50ea8d3cf12edce40fc0c921d868",
+              "nghttp3-1.19.0.tar.xz": "228e17f5cc3d4de7bfced9912bd09de30e7f45741cc47503cf88d3fa9209e155",
+              "AOMediaCodec-libavif-v1.4.2-0-gc5240fc.tar.gz": "e7f11216722ef8b17dcf0186d6be1739be634bbe73312b16a025aa53c08c3d7a",
+              "bzip2-x86_64-darwin.txz": "45835de8a177f1d5e9c2d80a6e0aacd843a112ed6d9f702f2613439121127cb1",
+              "libidn2-2.3.8.tar.gz": "f557911bf6171621e1f72ff35f5b1825bb35b52ed45325dcdee931e5d3c0787a",
+              "zstd-1.5.7.tar.gz": "eb33e51f49a15e023950cd7825ca74a4a2b43db8354825ac24fc1b7ee09e6fa3",
+              "xz-x86_64-darwin.txz": "d931205f317d4c7935d29681c0678f5c32ce8203ab25f17a6d04166d7de97899",
+              "GNOME-libxml2-v2.15.4-0-g9649899.tar.gz": "e6a7327f851b2798f228f6a0cf8cceb67e5ff11f7b01c07430c8bdfb33edc01c",
+              "postgres-postgres-REL_18_7-0-gf5c41f6.tar.gz": "b67c45c4d1fed213e0bc61ea0c353c52e48c01020cc815c8f42e853a57aa813b",
+              "redis.tgz": "0d5141f634bd1db6c1ddcda053d25ecf2c4fc1c395430d534fd3f8d51dd7f0b5",
+              "libxslt-1.1.45.tar.xz": "9acfe68419c4d06a45c550321b3212762d92f41465062ca4ea19e632ee5d216e",
+              "liblz4-x86_64-darwin.txz": "aa461d1508aafa53324bb729bdc72d8f7cd165baa2d565d7b53cb88128d1165a",
+              "brotli-x86_64-darwin.txz": "5ec539d8e0a60d216c5f0e4e780d22f1dda498940d59e1213b58890edf4d3101",
+              "ext-zip.tgz": "9fab1f8653d40249bd433ad2c3ca02431f9a5ab06d50f988c8ec53fc6a846eef",
+              "xdebug-3.5.3.tgz": "f073de91bea046106abf4d6071c963ea71e58571df6ce58948ceca89d121cb2d",
+              "libzip-1.12.1.tar.xz": "c40062022a1963c80573d48f6070792297cecd7c6bffe3aefcac0d8b9bee8913",
+              "libssh2-x86_64-darwin.txz": "fd63486f2420a65d3b858d1e2121883426e4e0167ee26ce569ad806f30a6b5a4",
+              "nghttp2-1.71.0.tar.xz": "c0f55121d88650e4b9227aec28cebaf664d2417ca60fe70be0f8d38829f52116",
+              "krb5-1.22.2.tar.gz": "3243ffbc8ea4d4ac22ddc7dd2a1dc54c57874c40648b60ff97009763554eaf13",
+              "libcares-x86_64-darwin.txz": "1a130fd3be9eb9b5acb2737c50da7d31bfa20e22671d832d81c8ce032b72e525",
+              "php-8.5.12.tar.xz": "08bc2eba2a588654ade1357174aa646b761556c862dda0678345ee29ed481209",
+              "libunistring-1.5.tar.gz": "5b0ecd46cbf225375f20ab4056197e66a7ac590e2684c069af407ae3383c9d81"
+            },
+            "compiler": "Apple clang version 17.0.0 (clang-1700.0.13.5)",
+            "archive_sha256": "4df456f74115ef00de6cb1f6440dc452d0d0d13647eb561f6c1f846579f1237a"
+          }
+        }
+      }
+    },
+    {
+      "target": "windows-x64",
+      "source": "eefac76006f7e3dabe0ee526bc7cd8622e51480c",
+      "run": 43405940038,
+      "job": 131820182067,
+      "url": "https://github.com/jorabekyusupov/devforge/actions/runs/43405940038/job/131820182067",
+      "conclusion": "success",
+      "artifact": {
+        "id": 14028620312,
+        "name": "m7-xdebug-windows-x64",
+        "zip_sha256": "4caf2d1734cca298184e506378fec6e40944421f8312f57d76d262aa25942a93",
+        "github_digest_matched": true
+      },
+      "reports": {
+        "native": {
+          "sha256": "c422c6d10f053a10067cbd87712cf4302f0995f43a1e9674e49acf8f775774d6",
+          "result": {
+            "checks": {
+              "cross_project_denial": true,
+              "locals_and_source_redacted": true,
+              "off_after_source_deleted": true,
+              "off_restores_normal_php": true,
+              "other_process_pids_unchanged": true,
+              "php84_native_web": true,
+              "profile_http_and_cli": true,
+              "profile_parse_export_delete": true,
+              "project_php_pin_and_env_unchanged": true,
+              "real_laravel_http_breakpoint": true,
+              "request_http_200": true,
+              "shutdown_cleans_own_sessions": true,
+              "step_into_over_out": true,
+              "stop_paused_request_preserves_web_runtime": true,
+              "verified_provider_install": true
+            },
+            "host": {
+              "arch": "x86_64",
+              "os": "windows"
+            },
+            "other_project_id": "4ea645c9e2274fff8dc3f1f07908a9a8",
+            "passed": true,
+            "php_probes": [
+              {
+                "pdo": [],
+                "php": "8.4.27",
+                "xdebug": "3.5.3"
+              },
+              {
+                "pdo": [],
+                "php": "8.5.12",
+                "xdebug": "3.5.3"
+              }
+            ],
+            "project_id": "094e50ff8dbf43f897e88d11514b16a8",
+            "runtime_id": "852ad08b0b36b2eafde5dde00016e773"
+          }
+        },
+        "cli": {
+          "sha256": "5299b0942dec98225555f968c86864987d938877cb7de1df1056899abcf53aac",
+          "result": {
+            "active_external_profile_history_preserved": true,
+            "known_secret_absent": true,
+            "project_mode_and_off_recovery": true,
+            "stable_json_status_source_profile": true,
+            "target": "windows-x64"
+          }
+        },
+        "desktop": {
+          "sha256": "e691d99cd56f653c11fe54e7c964a6ae9e93b734ef9e212179b230e5a3e88eed",
+          "result": {
+            "native": "real WKWebView/WebView2 via debug-only W3C endpoint",
+            "checks": {
+              "real_breakpoint_source_and_redacted_locals": true,
+              "live_breakpoint_add_remove": true,
+              "step_into_over_out_and_continue": true,
+              "actual_function_profile_filter": true,
+              "delete_review_cancel_preserves_profile": true,
+              "failed_owned_runtime_can_be_stopped": true,
+              "other_project_remains_off": true,
+              "preferences_relaunch": true
+            },
+            "accessibility": [
+              {
+                "case": "runtime-install-review",
+                "violations": []
+              },
+              {
+                "case": "paused-breakpoint-source-locals",
+                "violations": []
+              },
+              {
+                "case": "function-profile",
+                "violations": []
+              },
+              {
+                "case": "profile-delete-confirmation",
+                "violations": []
+              },
+              {
+                "case": "debugger-ru",
+                "violations": []
+              },
+              {
+                "case": "debugger-ru-minimum",
+                "violations": []
+              },
+              {
+                "case": "debugger-uz-Latn",
+                "violations": []
+              },
+              {
+                "case": "debugger-uz-Latn-minimum",
+                "violations": []
+              },
+              {
+                "case": "debugger-en",
+                "violations": []
+              },
+              {
+                "case": "debugger-en-minimum",
+                "violations": []
+              },
+              {
+                "case": "failed-runtime-recovery",
+                "violations": []
+              },
+              {
+                "case": "debugger-dark",
+                "violations": []
+              }
+            ],
+            "captures": [
+              {
+                "file": "debugger-en-light.png",
+                "viewport": {
+                  "height": 1024,
+                  "language": "en",
+                  "scale": 1,
+                  "theme": "light",
+                  "width": 1536
+                }
+              },
+              {
+                "file": "function-profile.png",
+                "viewport": {
+                  "height": 1024,
+                  "language": "en",
+                  "scale": 1,
+                  "theme": "light",
+                  "width": 1536
+                }
+              },
+              {
+                "file": "debugger-ru.png",
+                "viewport": {
+                  "height": 1024,
+                  "language": "ru",
+                  "scale": 1,
+                  "theme": "light",
+                  "width": 1536
+                }
+              },
+              {
+                "file": "debugger-uz-Latn.png",
+                "viewport": {
+                  "height": 1024,
+                  "language": "uz-Latn",
+                  "scale": 1,
+                  "theme": "light",
+                  "width": 1536
+                }
+              },
+              {
+                "file": "debugger-en.png",
+                "viewport": {
+                  "height": 1024,
+                  "language": "en",
+                  "scale": 1,
+                  "theme": "light",
+                  "width": 1536
+                }
+              },
+              {
+                "file": "debugger-dark.png",
+                "viewport": {
+                  "height": 1024,
+                  "language": "en",
+                  "scale": 1,
+                  "theme": "dark",
+                  "width": 1536
+                }
+              }
+            ],
+            "viewport_attempts": [
+              {
+                "requested": {
+                  "width": 1536,
+                  "height": 1024
+                },
+                "actual": {
+                  "height": 1024,
+                  "width": 1536
+                },
+                "matched": true
+              },
+              {
+                "requested": {
+                  "width": 1536,
+                  "height": 1024
+                },
+                "actual": {
+                  "height": 1024,
+                  "width": 1536
+                },
+                "matched": true
+              },
+              {
+                "requested": {
+                  "width": 820,
+                  "height": 620
+                },
+                "actual": {
+                  "height": 620,
+                  "width": 820
+                },
+                "matched": true
+              },
+              {
+                "requested": {
+                  "width": 1536,
+                  "height": 1024
+                },
+                "actual": {
+                  "height": 1024,
+                  "width": 1536
+                },
+                "matched": true
+              },
+              {
+                "requested": {
+                  "width": 820,
+                  "height": 620
+                },
+                "actual": {
+                  "height": 620,
+                  "width": 820
+                },
+                "matched": true
+              },
+              {
+                "requested": {
+                  "width": 1536,
+                  "height": 1024
+                },
+                "actual": {
+                  "height": 1024,
+                  "width": 1536
+                },
+                "matched": true
+              },
+              {
+                "requested": {
+                  "width": 820,
+                  "height": 620
+                },
+                "actual": {
+                  "height": 620,
+                  "width": 820
+                },
+                "matched": true
+              },
+              {
+                "requested": {
+                  "width": 1536,
+                  "height": 1024
+                },
+                "actual": {
+                  "height": 1024,
+                  "width": 1536
+                },
+                "matched": true
+              }
+            ],
+            "paint_waits": [
+              {
+                "focused": true,
+                "source": "animation-frame",
+                "visibility": "visible"
+              },
+              {
+                "focused": true,
+                "source": "animation-frame",
+                "visibility": "visible"
+              },
+              {
+                "focused": true,
+                "source": "animation-frame",
+                "visibility": "visible"
+              },
+              {
+                "focused": true,
+                "source": "animation-frame",
+                "visibility": "visible"
+              },
+              {
+                "focused": true,
+                "source": "animation-frame",
+                "visibility": "visible"
+              },
+              {
+                "focused": true,
+                "source": "animation-frame",
+                "visibility": "visible"
+              },
+              {
+                "focused": true,
+                "source": "animation-frame",
+                "visibility": "visible"
+              },
+              {
+                "focused": true,
+                "source": "animation-frame",
+                "visibility": "visible"
+              },
+              {
+                "focused": true,
+                "source": "animation-frame",
+                "visibility": "visible"
+              },
+              {
+                "focused": true,
+                "source": "animation-frame",
+                "visibility": "visible"
+              },
+              {
+                "focused": true,
+                "source": "animation-frame",
+                "visibility": "visible"
+              },
+              {
+                "focused": true,
+                "source": "animation-frame",
+                "visibility": "visible"
+              },
+              {
+                "focused": true,
+                "source": "animation-frame",
+                "visibility": "visible"
+              }
+            ],
+            "operation_timings": [
+              {
+                "operation": "start_project",
+                "elapsed_seconds": 17.52772129999994,
+                "build": "debug_e2e",
+                "scope": "includes verified SDK hashing and fixture services; not release latency"
+              },
+              {
+                "operation": "start_project",
+                "elapsed_seconds": 16.659252599999945,
+                "build": "debug_e2e",
+                "scope": "includes verified SDK hashing and fixture services; not release latency"
+              }
+            ],
+            "export_native_dialog": "not automated; actual bounded export verified in backend fixture"
+          }
+        }
+      },
+      "provenance": {}
+    }
+  ]
+}

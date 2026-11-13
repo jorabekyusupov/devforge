@@ -29,8 +29,9 @@ holat [M7 natijalarida](m7-inspector-results.md); M8 keyingi user topshirig'i bi
 
 M7.1 uchun Laravel companion, opt-in Inspector va request/query profiling kodi
 yaratildi. Native platforma dalillari va cheklovlari o'sha hisobotda yuritiladi.
-M7.2 Xdebug extension/debugger/function-profiler boshqaruvi hali amalga
-oshirilmagan; M7 bosqichi to'liq yakunlangan deb hisoblanmaydi.
+M7.2 optional native Xdebug runtime, debugger va function profiler bilan funksional
+qabuldan o'tdi; [M7.2 natijalari](m7-xdebug-results.md) uch target/source/artifact
+matritsasi va release chegaralarini saqlaydi. M7 functional bosqichi yopildi.
 
 M8 Laravel/Git wizard, preparation, PHP settings/diagnostics, recent/favorites
 va HTTPS review bilan functional native qabuldan o'tdi; actual source/job

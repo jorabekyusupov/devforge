@@ -25,7 +25,7 @@ mavzuni tanlang, so'ng faqat tegishli hujjatlar va ularning manbalarini o'qing.
 
 ## Manba va yuritish
 
-- [M7.2 Xdebug](m7-xdebug-results.md) - optional native runtime, interactive debugger va function profiles; implementatsiya va davom etayotgan native verification chegaralari.
+- [M7.2 Xdebug](m7-xdebug-results.md) - optional native runtime, interactive debugger va function profiles; uch native target qabuli, artifact/source mapping va M15 chegaralari.
 
 - [M12 workspaces](m12-workspaces-results.md) - reviewed Git worktree projectlari, alohida muhit/DB va arxivlovchi cleanup; ARM64/Intel/Windows native backend/CLI/UI qabuli va source chegarasi bilan.
 
@@ -37,7 +37,7 @@ mavzuni tanlang, so'ng faqat tegishli hujjatlar va ularning manbalarini o'qing.
 
 - [M8 loyihani tayyorlash](m8-project-setup-results.md) - Laravel/Git wizard, PHP/env/dependency setup, recent/favorites va HTTPS review uch native targetda o'tdi; system-dialog/release gate'lari alohida.
 
-- [M7 Inspector](m7-inspector-results.md) - M7.1 Laravel capture/profiling uch native targetda o'tdi; M7.2 Xdebug boshqaruvi hali ochiq.
+- [M7 Inspector](m7-inspector-results.md) - M7.1 Laravel capture/profiling uch native targetda o'tgan tarixiy dalil; M7.2 yakuni alohida yuqorida.
 
 - [M6 distributiv va qabul](m6-distribution-results.md) - ichki paketlash, data preservation, Windows tester HTML qo'llanmasi va ochiq release gate holati.
 - [M5 kundalik boshqaruv](m5-daily-workspace-results.md) - real desktop controls, project lifecycle va macOS/Windows native GUI dalillari.
