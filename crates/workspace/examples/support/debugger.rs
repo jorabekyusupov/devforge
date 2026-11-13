@@ -14,6 +14,32 @@ fn wait(
             return Ok(v);
         }
         if Instant::now() > until {
+            let diagnostics = w
+                .snapshot()?
+                .logs
+                .into_iter()
+                .filter(|l| l.project_id.as_deref() == Some(id))
+                .map(|l| {
+                    let codes = [
+                        "SQLSTATE",
+                        "sessions",
+                        "autoload",
+                        "Permission",
+                        "Primary script",
+                        "Xdebug",
+                        "Fatal",
+                        "Exception",
+                    ]
+                    .into_iter()
+                    .filter(|code| l.text.contains(code))
+                    .collect::<Vec<_>>();
+                    (l.process, codes)
+                })
+                .collect::<Vec<_>>();
+            eprintln!(
+                "M7_SAFE_FAILURE_CATEGORIES: {}",
+                serde_json::to_string(&diagnostics)?
+            );
             return Err(format!("debug wait expired: {v}").into());
         }
         std::thread::sleep(Duration::from_millis(30));
@@ -143,6 +169,20 @@ fn run_case(root: &Path, archives: &Path, auto_discovery: bool) -> Result<()> {
             &cancel,
         )?;
         a = w.projects.get(&a.id)?;
+        exec(
+            &w,
+            secrets.as_ref(),
+            &a.id,
+            Tool::Php,
+            vec!["artisan".into(), "config:clear".into()],
+        )?;
+        exec(
+            &w,
+            secrets.as_ref(),
+            &a.id,
+            Tool::Php,
+            vec!["artisan".into(), "migrate".into(), "--force".into()],
+        )?;
         let mut settings = devforge_platform::SqliteSettings::open(&data)?;
         let mut current = settings.load()?;
         current.project_folder = Some(
@@ -267,6 +307,23 @@ fn run_case(root: &Path, archives: &Path, auto_discovery: bool) -> Result<()> {
         "M7_PRIVATE_VALUE",
         "M7_PRIVATE_SENTINEL",
     )?;
+    if auto_discovery {
+        w.start(&a.id)?;
+        let normal_url = w
+            .snapshot()?
+            .projects
+            .into_iter()
+            .find(|p| p.project.id == a.id)
+            .unwrap()
+            .serving
+            .unwrap()
+            .fallback_url;
+        assert_eq!(get(&(normal_url + "/m7-debug"))?["result"], 21);
+        w.stop(&a.id)?;
+        eprintln!(
+            "M7_INTEGRATION_PHASE: explicitly prepared discovered Laravel normal HTTP passed"
+        );
+    }
     w.start(&b.id)?;
     let other_pids = pids(&w, &b.id)?;
     mode(&mut w, &a.id, Some(runtime.clone()), Mode::Debug)?;
