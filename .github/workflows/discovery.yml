@@ -39,8 +39,8 @@ jobs:
       - run: npm run check:locales
       - run: npm run typecheck
       - run: npm test
-      - name: Isolated real Laravel runtimes and preservation fixture
-        run: cargo run --release -p devforge-workspace --example native_workspace --features test-support -- discovery-fixture empty-cache
+      - name: Isolated real Laravel discovery fixture
+        run: cargo run --release -p devforge-workspace --example native_workspace --features test-support -- discovery-prepare discovery-fixture empty-cache
       - name: Native watcher identity recovery and automatic Laravel HTTP
         run: target/release/examples/native_workspace discovery-native discovery-fixture
       - name: Native debug-only desktop with real IPC
@@ -58,7 +58,7 @@ jobs:
           name: discovery-${{ matrix.target }}
           retention-days: 7
           path: |
-            discovery-fixture/m5-native-result.json
+            discovery-fixture/discovery-fixture.json
             discovery-fixture/discovery-native-result.json
             discovery-fixture/discovery-desktop-result.json
             output/playwright/discovery/*.png

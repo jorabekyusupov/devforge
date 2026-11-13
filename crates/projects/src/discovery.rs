@@ -305,7 +305,7 @@ mod tests {
         let root = tempfile::tempdir().unwrap();
         laravel(&root.path().join("locked"));
         let path = root.path().join("locked");
-        fs::set_permissions(&path, fs::Permissions::from_mode(0)).unwrap();
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o000)).unwrap();
         let result = scan(root.path(), &Cancellation::default());
         fs::set_permissions(&path, fs::Permissions::from_mode(0o700)).unwrap();
         assert!(!result.complete);

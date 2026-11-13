@@ -34,6 +34,12 @@ fn main() -> Result<()> {
         std::process::exit(code);
     }
     let args: Vec<_> = std::env::args().skip(1).collect();
+    if args.first().map(String::as_str) == Some("discovery-prepare") {
+        return discovery::prepare(
+            Path::new(args.get(1).ok_or("fixture required")?),
+            Path::new(args.get(2).ok_or("cache required")?),
+        );
+    }
     if args.first().map(String::as_str) == Some("discovery-native") {
         return discovery::run(Path::new(args.get(1).ok_or("fixture required")?));
     }

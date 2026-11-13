@@ -193,7 +193,7 @@ async fn native_picker_test(
     path: String,
 ) -> Result<serde_json::Value, String> {
     use objc2::MainThreadMarker;
-    use objc2_app_kit::{NSApplication, NSButton, NSOpenPanel, NSView};
+    use objc2_app_kit::{NSApplication, NSModalResponseOK, NSOpenPanel};
     use objc2_foundation::{NSString, NSURL};
     if !["navigate", "inspect", "select", "cancel"].contains(&action.as_str()) {
         return Err("invalid fixture action".into());
@@ -203,24 +203,6 @@ async fn native_picker_test(
         .map_err(|_| "fixture root unavailable")?;
     if !selected.starts_with(data.parent().ok_or("fixture parent unavailable")?) {
         return Err("path outside acceptance fixture".into());
-    }
-    fn press_button(view: &NSView, title: &str) -> bool {
-        if let Some(button) = view.downcast_ref::<NSButton>() {
-            if (button.title().to_string() == title || button.keyEquivalent().to_string() == "\r")
-                && button.isEnabled()
-            {
-                unsafe {
-                    button.performClick(None);
-                }
-                return true;
-            }
-        }
-        for child in view.subviews().iter() {
-            if press_button(&child, title) {
-                return true;
-            }
-        }
-        false
     }
     let (tx, rx) = std::sync::mpsc::sync_channel(1);
     app.run_on_main_thread(move||{
@@ -234,10 +216,11 @@ async fn native_picker_test(
                     let directory=panel.directoryURL().and_then(|url|url.path()).map(|p|p.to_string());
                     if action=="select" {
                         if directory.as_ref().and_then(|p|std::fs::canonicalize(p).ok()).as_ref()!=Some(&selected){return Err("native directory has not settled");}
-                        let content=panel.contentView().ok_or("native content view unavailable")?;
-                        if !press_button(&content,&panel.prompt().to_string()) && !press_button(&content,"Open"){return Err("native Open button not found");}
+                        if panel.URL().is_none(){return Err("native selection is empty");}
+                        if let Some(parent)=panel.sheetParent(){parent.endSheet_returnCode(panel,NSModalResponseOK);}else{application.stopModalWithCode(NSModalResponseOK);}
+                        panel.orderOut(None);
                     }else if action=="cancel"{unsafe{panel.cancel(None);}}
-                    return Ok(serde_json::json!({"native_panel":true,"action":action,"directory":directory}));
+                    return Ok(serde_json::json!({"native_panel":true,"action":action,"directory":directory,"active":application.isActive(),"selected_urls":panel.URLs().iter().filter_map(|u|u.path().map(|p|p.to_string())).collect::<Vec<_>>()}));
                 }
             }
             Err("visible native open panel not found")

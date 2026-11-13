@@ -14,6 +14,7 @@ fn wait_scan(
     loop {
         if let Some(report) = service.take() {
             if report.root == root
+                && report.complete
                 && report.candidates.len() == count
                 && expected_name.is_none_or(|name| report.candidates.iter().any(|c| c.name == name))
             {
@@ -56,9 +57,18 @@ pub fn run(root: &Path) -> Result<()> {
     let before = serde_json::to_value(&manual)?;
     let folder = root.join("discovery projects Ўзбек");
     if folder.exists() {
-        let baseline: serde_json::Value =
-            serde_json::from_slice(&fs::read(root.join("m5-native-result.json"))?)?;
-        if baseline["passed"] != true {
+        let owned = if root.join("discovery-fixture.json").exists() {
+            serde_json::from_slice::<serde_json::Value>(&fs::read(
+                root.join("discovery-fixture.json"),
+            )?)?["prepared"]
+                == true
+        } else {
+            serde_json::from_slice::<serde_json::Value>(&fs::read(
+                root.join("m5-native-result.json"),
+            )?)?["passed"]
+                == true
+        };
+        if !owned {
             return Err("not a disposable native fixture".into());
         }
         for project in w
@@ -204,7 +214,7 @@ pub fn run(root: &Path) -> Result<()> {
     let mut chosen = settings.load()?;
     chosen.language = "en".into();
     chosen.theme = Theme::Light;
-    chosen.project_folder = Some(folder.to_string_lossy().into_owned());
+    chosen.project_folder = Some(dunce::simplified(&folder).to_string_lossy().into_owned());
     settings.save(&chosen)?;
     // Root unavailable does not manufacture missing projects.
     let bad = scan(&root.join("absent"), &Cancellation::default());
@@ -241,6 +251,62 @@ pub fn run(root: &Path) -> Result<()> {
             .len(),
         1
     );
+    #[cfg(windows)]
+    {
+        let junction = folder.join("Junction child");
+        let target = no_runtime.join("Needs runtime");
+        let output = std::process::Command::new("cmd.exe")
+            .args(["/D", "/C", "mklink", "/J"])
+            .arg(&junction)
+            .arg(&target)
+            .output()?;
+        if !output.status.success() {
+            return Err(format!(
+                "fixture junction creation failed: {}",
+                String::from_utf8_lossy(&output.stderr)
+            )
+            .into());
+        }
+        let found = scan(&folder, &Cancellation::default());
+        assert!(found.skipped > 0);
+        assert!(found.candidates.iter().all(|c| c.path != junction));
+        fs::remove_dir(&junction)?;
+        assert!(target.join("composer.json").exists());
+    }
+    #[cfg(unix)]
+    {
+        let link = folder.join("Symlink child");
+        let target = no_runtime.join("Needs runtime");
+        std::os::unix::fs::symlink(&target, &link)?;
+        let found = scan(&folder, &Cancellation::default());
+        assert!(found.skipped > 0);
+        assert!(found.candidates.iter().all(|c| c.path != link));
+        fs::remove_file(&link)?;
+        assert!(target.join("composer.json").exists());
+    }
+    // Native parent monitoring recovers after the configured directory is removed.
+    let recovery_root = root.join("root-recovery");
+    fs::create_dir_all(&recovery_root)?;
+    let recovery_root = fs::canonicalize(recovery_root)?;
+    let recovery = Service::new();
+    recovery.set_root(recovery_root.clone());
+    wait_scan(&recovery, &recovery_root, 0, None)?;
+    fs::remove_dir(&recovery_root)?;
+    let recovery_started = Instant::now();
+    loop {
+        if let Some(report) = recovery.take() {
+            if report.problem.as_deref() == Some("unavailable") {
+                break;
+            }
+        }
+        if recovery_started.elapsed() > Duration::from_secs(8) {
+            return Err("root deletion was not observed".into());
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    fs::create_dir(&recovery_root)?;
+    wait_scan(&recovery, &recovery_root, 0, None)?;
+    drop(recovery);
     // Force the production fallback branch, then rely on its real 30-second
     // timer and filesystem reads. No manufactured scan result or fake clock.
     let fallback_root = root.join("fallback-case");
@@ -277,7 +343,7 @@ pub fn run(root: &Path) -> Result<()> {
     let count = service.event_count();
     drop(service);
     w.shutdown()?;
-    let report = json!({"target":Target::current()?,"no_runtime_candidate":true,"automatic_registration":true,"native_watch_incomplete_copy":true,"watch_copy_to_registration_ms":copy_ms,"native_event_count":count,"rename_preserves_id_domain":true,"forget_restore":true,"manual_metadata_preserved":true,"fifty_root_switches":true,"case_only_rename":true,"long_unicode_path":true,"periodic_fallback_ms":fallback_ms,"event_storm_10000_ms":storm_ms,"real_laravel_http":response,"cold_100_scan_ms":cold,"system_hosts_trust_unchanged":true,"ui_project_id":restored.id,"ui_root":folder,"passed":true});
+    let report = json!({"target":Target::current()?,"no_runtime_candidate":true,"automatic_registration":true,"native_watch_incomplete_copy":true,"watch_copy_to_registration_ms":copy_ms,"native_event_count":count,"rename_preserves_id_domain":true,"forget_restore":true,"manual_metadata_preserved":true,"fifty_root_switches":true,"case_only_rename":true,"native_root_delete_recreate":true,"reparse_children_skipped":true,"long_unicode_path":true,"periodic_fallback_ms":fallback_ms,"event_storm_10000_ms":storm_ms,"real_laravel_http":response,"cold_100_scan_ms":cold,"system_hosts_trust_unchanged":true,"ui_project_id":restored.id,"ui_root":dunce::simplified(&folder),"passed":true});
     fs::write(
         root.join("discovery-native-result.json"),
         serde_json::to_vec_pretty(&report)?,
@@ -305,4 +371,116 @@ impl ScanBudget {
         assert!(ms < 3000);
         Ok(ms)
     }
+}
+
+/// Focused acceptance setup: real Laravel and verified serving tools, without
+/// unrelated queue/Vite/PostgreSQL workloads hiding discovery failures.
+pub fn prepare(root: &Path, cache: &Path) -> Result<()> {
+    fs::create_dir_all(root)?;
+    let root = fs::canonicalize(root)?;
+    let data = root.join("data");
+    fs::create_dir_all(&data)?;
+    let secrets = Arc::new(devforge_workspace::testing::FixtureSecrets::open(
+        data.join("e2e-secrets.json"),
+    ));
+    let mut w = Workspace::open(&data, secrets.clone())?;
+    let target = Target::current()?;
+    let candidates: Vec<serde_json::Value> =
+        serde_json::from_str(include_str!("../../../../runtime/m0-candidates.json"))?;
+    for (id, p) in w.catalog.packages.iter().filter(|(_, p)| {
+        p.target == target
+            && (p.kind == "caddy"
+                || p.kind == "composer"
+                || p.kind == "php" && p.version.starts_with("8.5.")
+                || p.kind == "node" && p.version.trim_start_matches('v').starts_with("24."))
+    }) {
+        eprintln!("DISCOVERY_PREPARE: verified runtime {id}");
+        let source = candidates
+            .iter()
+            .find(|c| c["url"].as_str() == Some(&p.url))
+            .ok_or("runtime source missing")?;
+        let archive = cache.join(format!(
+            "{}-{}",
+            source["id"].as_str().unwrap(),
+            p.url.rsplit('/').next().unwrap()
+        ));
+        if archive.exists() {
+            w.packages
+                .install_cached(p, &archive, &Cancellation::default(), |_| {})?;
+        } else {
+            w.packages.download(p, &Cancellation::default(), |_| {})?;
+        }
+    }
+    w.refresh_runtimes()?;
+    let choose = |kind: &str| {
+        w.catalog
+            .packages
+            .iter()
+            .find(|(_, p)| {
+                p.target == target
+                    && p.kind == kind
+                    && (kind != "php"
+                        || p.version.starts_with("8.5.") && p.executables.contains_key("php"))
+                    && (kind != "node" || p.version.trim_start_matches('v').starts_with("24."))
+            })
+            .map(|(id, _)| id.clone())
+            .unwrap()
+    };
+    let php = choose("php");
+    let node = choose("node");
+    let seed = root.join("tooling");
+    tiny(&seed)?;
+    let bootstrap = w
+        .projects
+        .import(&seed, "Tooling", &php, &node, &w.catalog)?;
+    let studio = root.join("Studio Русский project");
+    eprintln!("DISCOVERY_PREPARE: actual Laravel Composer installation");
+    super::exec(
+        &w,
+        secrets.as_ref(),
+        &bootstrap.id,
+        Tool::Composer,
+        vec![
+            "create-project".into(),
+            "laravel/laravel".into(),
+            studio.as_os_str().into(),
+            "v13.11.0".into(),
+            "--no-dev".into(),
+            "--no-scripts".into(),
+            "--no-plugins".into(),
+            "--no-interaction".into(),
+            "--prefer-dist".into(),
+        ],
+    )?;
+    w.projects.forget(&bootstrap.id, bootstrap.revision)?;
+    let atlas = root.join("Atlas Ўзбек project");
+    super::copy(&studio, &atlas)?;
+    for (path, name) in [(&studio, "Studio"), (&atlas, "Atlas")] {
+        w.execute(
+            Command::Import {
+                path: path.clone(),
+                name: name.into(),
+                php: php.clone(),
+                node: node.clone(),
+                domain: format!(
+                    "manual-{}-{}.devforge.test",
+                    name.to_lowercase(),
+                    &w.sites.owner()?[..8]
+                ),
+                https: false,
+                vite: false,
+                queue: false,
+            },
+            &Cancellation::default(),
+        )?;
+    }
+    w.shutdown()?;
+    fs::write(
+        root.join("discovery-fixture.json"),
+        serde_json::to_vec_pretty(
+            &json!({"prepared":true,"real_laravel":true,"target":target,"manual_projects":w.projects.list()?.len()}),
+        )?,
+    )?;
+    eprintln!("DISCOVERY_PREPARE: completed");
+    Ok(())
 }

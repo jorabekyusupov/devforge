@@ -164,10 +164,13 @@ try:
             wait(lambda:invoke('native_picker_test',{'action':'inspect','path':selected}))
             if action=='select':
                 native_actions.append(invoke('native_picker_test',{'action':'navigate','path':selected}))
-                wait(lambda:pathlib.Path(invoke('native_picker_test',{'action':'inspect','path':selected})['directory']).resolve()==pathlib.Path(selected).resolve())
-            native_actions.append(invoke('native_picker_test',{'action':action,'path':selected}))
+                wait(lambda:(lambda state:pathlib.Path(state['directory']).resolve()==pathlib.Path(selected).resolve())(invoke('native_picker_test',{'action':'inspect','path':selected})))
+            native_result=invoke('native_picker_test',{'action':action,'path':selected});native_actions.append(native_result)
+            if action=='select':
+                assert len(native_result['selected_urls'])==1,native_result
+                chosen=native_result['selected_urls'][0]
             wait(lambda:script("return document.querySelector('.discovery-settings').getAttribute('aria-busy')==='false'"))
-            assert pathlib.Path(script("return document.querySelector('#project-folder').value")).resolve()==pathlib.Path(selected).resolve()
+            assert pathlib.Path(script("return document.querySelector('#project-folder').value")).resolve()==pathlib.Path(chosen).resolve()
             wait(lambda:script("return document.activeElement?.id==='project-folder'" if action=='select' else "return document.activeElement?.textContent.trim()==='Choose folder'"))
         fill('#project-folder',native['ui_root'])
         checks['native_system_folder_picker']={'select':True,'cancel':True,'focus_return':True,'method':'actual visible NSOpenPanel operated by debug-only AppKit fixture; no mocked picker return','actions':native_actions}

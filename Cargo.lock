@@ -1181,6 +1181,7 @@ version = "0.1.0"
 dependencies = [
  "devforge-core",
  "dirs 6.0.0",
+ "dunce",
  "keyring",
  "rusqlite",
  "serde",

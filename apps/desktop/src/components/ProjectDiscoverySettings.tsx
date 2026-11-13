@@ -208,7 +208,8 @@ export function ProjectDiscoverySettings({
           <span>
             {t("discovery.count", {
               count: report.entries.filter(
-                (e) => !e.ignored && e.state !== "detached",
+                (e) =>
+                  !e.ignored && e.state !== "detached" && e.state !== "missing",
               ).length,
             })}
           </span>

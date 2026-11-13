@@ -51,7 +51,9 @@ pub fn resolve_project_folder(input: &str, home: &Path) -> Result<PathBuf, Error
         return Err(ErrorCode::InvalidProjectFolder);
     }
     std::fs::read_dir(&path).map_err(|_| ErrorCode::ProjectFolderUnavailable)?;
-    std::fs::canonicalize(path).map_err(|_| ErrorCode::ProjectFolderUnavailable)
+    std::fs::canonicalize(path)
+        .map(|p| dunce::simplified(&p).to_path_buf())
+        .map_err(|_| ErrorCode::ProjectFolderUnavailable)
 }
 
 pub struct SqliteSettings {
@@ -302,7 +304,8 @@ mod discovery_tests {
         std::fs::create_dir(home.path().join("Devforge")).unwrap();
         assert_eq!(
             resolve_project_folder("~/Devforge", home.path()).unwrap(),
-            std::fs::canonicalize(home.path().join("Devforge")).unwrap()
+            dunce::simplified(&std::fs::canonicalize(home.path().join("Devforge")).unwrap())
+                .to_path_buf()
         );
         for input in ["", "  ", "relative", "bad\npath"] {
             assert_eq!(
