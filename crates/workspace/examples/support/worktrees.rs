@@ -321,7 +321,16 @@ pub fn run(root: &Path) -> Result<()> {
         .collect::<Vec<_>>();
     assert_ne!(urls[0], urls[1]);
     assert_ne!(urls[1], urls[2]);
-    let client = reqwest::blocking::Client::builder().no_proxy().build()?;
+    let mut client = reqwest::blocking::Client::builder().no_proxy();
+    for value in &urls {
+        let parsed = url::Url::parse(value)?;
+        let host = parsed.host_str().ok_or("fallback hostname missing")?;
+        client = client.resolve(
+            host,
+            ([127, 0, 0, 1], parsed.port_or_known_default().unwrap()).into(),
+        );
+    }
+    let client = client.build()?;
     for (url, expected) in urls.iter().zip([7, 11, 13]) {
         let response: serde_json::Value = client
             .get(format!("{url}/m12-workspace"))

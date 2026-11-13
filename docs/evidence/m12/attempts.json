@@ -12,5 +12,18 @@
       "outcome": "Initial GUI screenshots used system appearance, which was dark locally.",
       "correction": "Choose explicit light in the harness, fix checkbox row direction/detail alignment and reinspect real light/dark captures. No pixel-perfect claim."
     }
+  ],
+  "ci_attempts": [
+    {
+      "source": "6f68bd4cae13725ab82b1d967a15834b003033fd",
+      "run": 43362038130,
+      "failed_jobs": [
+        131677569099,
+        131677569358,
+        131677569427
+      ],
+      "outcome": "Native HTTP fixture used libc DNS for *.localhost; all3 hosted resolvers returned DNS errors.",
+      "correction": "Resolve each fallback hostname to127.0.0.1 in the reqwest test client, preserving URL/Host header and real Caddy routing. Product serving and system DNS unchanged."
+    }
   ]
 }
