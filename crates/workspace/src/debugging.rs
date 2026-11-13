@@ -251,9 +251,16 @@ impl Workspace {
     }
     pub fn debug_view(&self, id: &str) -> Result<serde_json::Value> {
         let p = self.projects.get(id)?;
-        let dir = self.debug_directory(id)?.join("profiles");
+        let directory = self.debug_directory(id)?;
+        let dir = directory.join("profiles");
         let a = self.debugging.get(id);
-        if a.is_none_or(|s| s.request().state != "running") {
+        // A CLI reader has no in-memory activation for the desktop's session.
+        // Never prune files belonging to that other live owner.
+        let external_owner = a.is_none()
+            && debug::session::read(&directory, id)
+                .map_err(convert)?
+                .is_some();
+        if !external_owner && a.is_none_or(|s| s.request().state != "running") {
             debug::store::trim(&dir).map_err(convert)?;
         }
         let version = self.catalog.get(&p.php)?.version.split('-').next().unwrap();

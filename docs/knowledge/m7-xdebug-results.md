@@ -69,7 +69,11 @@ mavjud. Control queue16 bilan bounded; resume/step engine ACK'idan oldin Running
 holatini beradi, duplicate step Busy bo'ladi. Key/sensitive variable nomlari va known project secrets mask qilinadi;
 source viewer faqat project ichidagi PHP fayllarni ochadi. Arbitrary eval yoki
 variable mutation API yo'q. CLI debug status/source/profile va reviewed install/
-mode commands shu Rust boundary'dan foydalanadi.[^core][^workspace]
+mode commands shu Rust boundary'dan foydalanadi. Public CLI read/config API;
+explicit CLI profile capture native fixture'da Context.debug_trigger orqali
+tekshirilgan. Built-in request trigger GET bilan cheklangan; external IDE/POST
+builder va arbitrary eval ushbu slice tarkibi emas. Boshqa process ushlab turgan
+active profile session history'si CLI status tomonidan prune qilinmaydi.[^core][^workspace]
 
 Per-project generated INI mode/trigger/output'ni boshqaradi; project .env va
 normal PHP pin yozilmaydi. Frontend Node process'dan Xdebug environment ajratiladi.

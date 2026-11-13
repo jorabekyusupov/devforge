@@ -504,13 +504,39 @@ pub fn cli(root: &Path, executable: &Path) -> Result<()> {
         .ok_or("retained CLI profile missing")?;
     let parsed = run(&["debug", "profile", id, profile])?;
     assert!(!parsed["result"]["functions"].as_array().unwrap().is_empty());
+    let project =
+        devforge_projects::project::ProjectStore::open(root.join("data/projects"))?.get(id)?;
+    let directory = fs::canonicalize(root.join("data/projects"))?
+        .join("debugging")
+        .join(id);
+    let owner = debug::session::Activation::start(
+        &directory,
+        id,
+        runtime.into(),
+        Mode::Profile,
+        &project.path,
+        vec![],
+        vec![],
+    )?;
+    let protected = directory.join("profiles/cachegrind.external-owner.out");
+    let file = fs::File::create(&protected)?;
+    file.set_len(33 * 1024 * 1024)?;
+    file.set_modified(std::time::SystemTime::now() - Duration::from_secs(5))?;
+    drop(file);
+    run(&["debug", "status", id])?;
+    assert!(
+        protected.exists(),
+        "CLI status pruned an externally owned active profile"
+    );
+    drop(owner);
+    fs::remove_file(protected)?;
     run(&["debug", "mode", id, "debug", runtime])?;
     assert_eq!(
         run(&["debug", "status", id])?["result"]["settings"]["mode"],
         "debug"
     );
     run(&["debug", "mode", id, "off", "none"])?;
-    let report = json!({"target":Target::current()?,"stable_json_status_source_profile":true,"project_mode_and_off_recovery":true,"known_secret_absent":true});
+    let report = json!({"target":Target::current()?,"stable_json_status_source_profile":true,"project_mode_and_off_recovery":true,"active_external_profile_history_preserved":true,"known_secret_absent":true});
     fs::write(
         root.join("m7-xdebug-cli-result.json"),
         serde_json::to_vec_pretty(&report)?,
