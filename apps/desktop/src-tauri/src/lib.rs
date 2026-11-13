@@ -382,6 +382,11 @@ pub fn run() {
         ])
         .on_menu_event(|app, event| menu_action(app, event.id.as_ref()))
         .on_window_event(|window, event| {
+            if matches!(event, tauri::WindowEvent::Focused(true))
+                && let Some(state) = window.app_handle().try_state::<workspace::State>()
+            {
+                state.request_discovery();
+            }
             if let tauri::WindowEvent::CloseRequested { api, .. } = event
                 && window.app_handle().tray_by_id("main").is_some()
             {

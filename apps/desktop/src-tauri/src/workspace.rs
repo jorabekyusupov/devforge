@@ -39,6 +39,11 @@ impl State {
             service.set_root(root);
         }
     }
+    pub fn request_discovery(&self) {
+        if let Some(service) = self.discovery.lock().unwrap().as_ref() {
+            service.request();
+        }
+    }
     pub fn start_discovery_coordinator(&self) {
         let state = self.clone();
         std::thread::spawn(move || {

@@ -12,14 +12,13 @@ fn wait_scan(
 ) -> Result<devforge_projects::discovery::Scan> {
     let started = Instant::now();
     loop {
-        if let Some(report) = service.take() {
-            if report.root == root
-                && report.complete
-                && report.candidates.len() == count
-                && expected_name.is_none_or(|name| report.candidates.iter().any(|c| c.name == name))
-            {
-                return Ok(report);
-            }
+        if let Some(report) = service.take()
+            && report.root == root
+            && report.complete
+            && report.candidates.len() == count
+            && expected_name.is_none_or(|name| report.candidates.iter().any(|c| c.name == name))
+        {
+            return Ok(report);
         }
         if started.elapsed() > Duration::from_secs(8) {
             return Err(format!(
@@ -41,6 +40,49 @@ fn tiny(path: &Path) -> Result<()> {
     )?;
     Ok(())
 }
+/// Observe only this acceptance process; no system configuration or permissions.
+fn process_resources() -> Result<serde_json::Value> {
+    let pid = std::process::id().to_string();
+    #[cfg(windows)]
+    {
+        let output = std::process::Command::new("powershell.exe")
+            .args(["-NoProfile", "-Command", &format!(
+                "$p=Get-Process -Id {pid}; @{{handles=$p.HandleCount;threads=$p.Threads.Count;rss_bytes=$p.WorkingSet64}} | ConvertTo-Json -Compress"
+            )])
+            .output()?;
+        if !output.status.success() {
+            return Err("own-process resource observation failed".into());
+        }
+        Ok(serde_json::from_slice(&output.stdout)?)
+    }
+    #[cfg(not(windows))]
+    {
+        let read = |program: &str, args: &[&str]| -> Result<String> {
+            let output = std::process::Command::new(program).args(args).output()?;
+            if !output.status.success() {
+                return Err("own-process resource observation failed".into());
+            }
+            Ok(String::from_utf8(output.stdout)?)
+        };
+        let handles = read("/usr/sbin/lsof", &["-a", "-p", &pid, "-Ff"])?
+            .lines()
+            .filter(|line| {
+                line.strip_prefix('f')
+                    .is_some_and(|fd| fd.parse::<u64>().is_ok())
+            })
+            .count();
+        let threads = read("/bin/ps", &["-M", "-p", &pid])?
+            .lines()
+            .count()
+            .saturating_sub(1);
+        let rss = read("/bin/ps", &["-o", "rss=", "-p", &pid])?
+            .trim()
+            .parse::<u64>()?
+            * 1024;
+        Ok(json!({"handles":handles,"threads":threads,"rss_bytes":rss}))
+    }
+}
+
 pub fn run(root: &Path) -> Result<()> {
     let root = fs::canonicalize(root)?;
     let system_hosts_path = devforge_serving::system::hosts_path()?;
@@ -104,6 +146,56 @@ pub fn run(root: &Path) -> Result<()> {
             "needs_runtime"
         );
     }
+    // Deny access only to an owned disposable fixture directory, then restore
+    // its exact original permissions before asserting the unavailable result.
+    let denied_root = root.join("permission-case");
+    fs::create_dir_all(&denied_root)?;
+    tiny(&denied_root.join("app"))?;
+    let mut permission_workspace = Workspace::open(root.join("permission-data"), secrets.clone())?;
+    permission_workspace.reconcile_discovery(scan(&denied_root, &Cancellation::default()))?;
+    let permission_before =
+        serde_json::to_value(permission_workspace.projects.discovery_entries()?)?;
+    #[cfg(unix)]
+    let denied_scan = {
+        use std::os::unix::fs::PermissionsExt;
+        let previous = fs::metadata(&denied_root)?.permissions();
+        fs::set_permissions(&denied_root, fs::Permissions::from_mode(0o000))?;
+        let result = scan(&denied_root, &Cancellation::default());
+        fs::set_permissions(&denied_root, previous)?;
+        result
+    };
+    #[cfg(windows)]
+    let denied_scan = {
+        let who = std::process::Command::new("whoami.exe").output()?;
+        if !who.status.success() {
+            return Err("fixture user resolution failed".into());
+        }
+        let user = String::from_utf8(who.stdout)?.trim().to_owned();
+        let deny = std::process::Command::new("icacls.exe")
+            .arg(&denied_root)
+            .args(["/deny", &format!("{user}:(RX)")])
+            .output()?;
+        if !deny.status.success() {
+            return Err("owned fixture deny-access setup failed".into());
+        }
+        let result = scan(&denied_root, &Cancellation::default());
+        let restore = std::process::Command::new("icacls.exe")
+            .arg(&denied_root)
+            .args(["/remove:d", &user])
+            .output()?;
+        if !restore.status.success() {
+            return Err("owned fixture access restoration failed".into());
+        }
+        result
+    };
+    assert!(!denied_scan.complete);
+    assert_eq!(denied_scan.problem.as_deref(), Some("unavailable"));
+    permission_workspace.reconcile_discovery(denied_scan)?;
+    assert_eq!(
+        permission_before,
+        serde_json::to_value(permission_workspace.projects.discovery_entries()?)?
+    );
+    drop(permission_workspace);
     let service = Service::new();
     service.set_root(folder.clone());
     w.reconcile_discovery(wait_scan(&service, &folder, 0, None)?)?;
@@ -115,10 +207,10 @@ pub fn run(root: &Path) -> Result<()> {
     {
         let deadline = Instant::now() + Duration::from_secs(8);
         loop {
-            if let Some(report) = service.take() {
-                if report.watch_paths.contains(&added) {
-                    break;
-                }
+            if let Some(report) = service.take()
+                && report.watch_paths.contains(&added)
+            {
+                break;
             }
             if Instant::now() > deadline {
                 return Err("child watcher was not armed".into());
@@ -335,10 +427,10 @@ pub fn run(root: &Path) -> Result<()> {
     fs::remove_dir(&recovery_root).map_err(|e| format!("remove watched empty root: {e}"))?;
     let recovery_started = Instant::now();
     loop {
-        if let Some(report) = recovery.take() {
-            if report.problem.as_deref() == Some("unavailable") {
-                break;
-            }
+        if let Some(report) = recovery.take()
+            && report.problem.as_deref() == Some("unavailable")
+        {
+            break;
         }
         if recovery_started.elapsed() > Duration::from_secs(8) {
             return Err("root deletion was not observed".into());
@@ -363,10 +455,10 @@ pub fn run(root: &Path) -> Result<()> {
     let fallback_started = Instant::now();
     tiny(&fallback_root.join("late"))?;
     loop {
-        if let Some(report) = fallback.take() {
-            if report.candidates.len() == 1 {
-                break;
-            }
+        if let Some(report) = fallback.take()
+            && report.candidates.len() == 1
+        {
+            break;
         }
         if fallback_started.elapsed() > Duration::from_secs(35) {
             return Err("periodic fallback did not converge".into());
@@ -388,9 +480,35 @@ pub fn run(root: &Path) -> Result<()> {
     let count = service.event_count();
     drop(service);
     w.shutdown()?;
+    // Unlike coalesced root invalidations above, wait for each of these 50 root
+    // generations so the native backend really replaces handles before Drop.
+    std::thread::sleep(Duration::from_millis(500));
+    let resources_before = process_resources()?;
+    for _ in 0..5 {
+        let lifecycle = Service::new();
+        for n in 0..10 {
+            let active = if n % 2 == 0 { &no_runtime } else { &folder };
+            lifecycle.set_root(active.clone());
+            wait_scan(&lifecycle, active, 1, None)?;
+        }
+        drop(lifecycle);
+    }
+    std::thread::sleep(Duration::from_millis(500));
+    let resources_after = process_resources()?;
+    for (key, allowance) in [
+        ("handles", 8),
+        ("threads", 2),
+        ("rss_bytes", 32 * 1024 * 1024),
+    ] {
+        assert!(
+            resources_after[key].as_u64().unwrap()
+                <= resources_before[key].as_u64().unwrap() + allowance,
+            "unbounded native watcher resource trend: {resources_before} -> {resources_after}"
+        );
+    }
     assert_eq!(hosts_before, fs::read(system_hosts_path)?);
     assert_eq!(authority_before, w.sites.root().join("authority").exists());
-    let report = json!({"target":Target::current()?,"no_runtime_candidate":true,"automatic_registration":true,"native_watch_incomplete_copy":true,"watch_copy_to_registration_ms":copy_ms,"native_event_count":count,"rename_preserves_id_domain":true,"forget_restore":true,"manual_metadata_preserved":true,"fifty_root_switches":true,"case_only_rename":true,"native_root_delete_recreate":true,"reparse_children_skipped":true,"long_unicode_path":true,"periodic_fallback_ms":fallback_ms,"event_storm_10000_ms":storm_ms,"real_laravel_http":response,"cold_100_scan_ms":cold,"system_hosts_unchanged":true,"authority_store_unchanged":true,"system_trust_operations_invoked":false,"restore_preserves_profile":true,"ui_project_id":restored.id,"ui_root":dunce::simplified(&folder),"passed":true});
+    let report = json!({"target":Target::current()?,"no_runtime_candidate":true,"permission_denied_preserves_registry":true,"automatic_registration":true,"native_watch_incomplete_copy":true,"watch_copy_to_registration_ms":copy_ms,"native_event_count":count,"rename_preserves_id_domain":true,"forget_restore":true,"manual_metadata_preserved":true,"fifty_root_switches":true,"case_only_rename":true,"native_root_delete_recreate":true,"reparse_children_skipped":true,"long_unicode_path":true,"periodic_fallback_ms":fallback_ms,"event_storm_10000_ms":storm_ms,"real_laravel_http":response,"cold_100_scan_ms":cold,"system_hosts_unchanged":true,"authority_store_unchanged":true,"system_trust_operations_invoked":false,"restore_preserves_profile":true,"resource_lifecycle_generations":50,"resources_before":resources_before,"resources_after":resources_after,"ui_project_id":restored.id,"ui_root":dunce::simplified(&folder),"passed":true});
     fs::write(
         root.join("discovery-native-result.json"),
         serde_json::to_vec_pretty(&report)?,

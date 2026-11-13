@@ -131,6 +131,15 @@ try:
     # Native window remount must restore saved settings and monitor without Projects open.
     quit_app();launch();click('a[href="#settings"]');wait(lambda:script("return document.querySelector('#project-folder')?.value===arguments[0]",native['ui_root']))
     checks['saved_folder_survives_native_relaunch']=True
+    # Close-to-tray must preserve the process/monitor; restoring focus requests a scan.
+    wait(lambda:snap()['snapshot']['discovery']['state']!='scanning')
+    before_focus=snap()['snapshot']['discovery']['last_scan']
+    invoke('main_window_action',{'action':'close'})
+    wait(lambda:invoke('main_window_action',{'action':'status'}) is False,5)
+    assert process.poll() is None
+    assert invoke('main_window_action',{'action':'show'}) is True
+    wait(lambda:snap()['snapshot']['discovery']['last_scan']>before_focus,6)
+    checks['close_to_tray_focus_recovery']=True
     for locale in ['en','ru','uz-Latn']:
         click('input[value="'+locale+'"]');wait(lambda:script('return document.documentElement.lang===arguments[0]',locale))
         for theme in ['light','dark']:
@@ -142,6 +151,13 @@ try:
     script("document.querySelector('.discovery-settings').scrollIntoView({block:'center'})");assert script('return document.documentElement.scrollWidth<=innerWidth+1');audit('folder-small');screenshot('folder-small.png')
     checks['small_window_no_horizontal_overflow']=True
     content_viewport(1536,1024)
+    click('#project-folder')
+    keyboard_env=os.environ.copy();keyboard_env.update(DEVFORGE_PICKER_PID=str(snap()['host_pid']),DEVFORGE_PICKER_ACTION='tab')
+    keyboard_command=['powershell','-NoProfile','-File',str(pathlib.Path(__file__).with_name('discovery_native_picker.ps1'))] if os.name=='nt' else [os.sys.executable,str(pathlib.Path(__file__).with_name('discovery_native_picker_macos.py'))]
+    keyboard_result=subprocess.run(keyboard_command,env=keyboard_env,text=True,capture_output=True,timeout=30)
+    assert keyboard_result.returncode==0,(keyboard_result.stdout,keyboard_result.stderr)
+    wait(lambda:script("return document.activeElement?.textContent.trim()==='Choose folder'"),5)
+    checks['keyboard_tab_reaches_folder_picker']=json.loads(keyboard_result.stdout)
     if os.name=='nt':
         picker_results=[]
         selected=pathlib.Path(native['ui_root']);fill('#project-folder',str(args.fixture.resolve()/'no-runtime-root'))

@@ -5,6 +5,31 @@ Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
 $pickerPid = [int]$env:DEVFORGE_PICKER_PID
 $action = $env:DEVFORGE_PICKER_ACTION
+Add-Type @'
+using System;
+using System.Runtime.InteropServices;
+public static class PickerNativeButton {
+    [DllImport("user32.dll", SetLastError=true)]
+    public static extern IntPtr SendMessageTimeout(IntPtr h, uint m, UIntPtr w, IntPtr l, uint flags, uint timeout, out UIntPtr result);
+    [DllImport("user32.dll")]
+    public static extern uint GetWindowThreadProcessId(IntPtr h, out uint process);
+    [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
+    [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+    [DllImport("user32.dll")] public static extern void keybd_event(byte vk, byte scan, uint flags, UIntPtr extra);
+}
+'@
+if ($action -eq 'tab') {
+    $handle = (Get-Process -Id $pickerPid).MainWindowHandle
+    [void][PickerNativeButton]::SetForegroundWindow($handle)
+    Start-Sleep -Milliseconds 150
+    [uint32]$owner = 0
+    [void][PickerNativeButton]::GetWindowThreadProcessId([PickerNativeButton]::GetForegroundWindow(), [ref]$owner)
+    if ($owner -ne $pickerPid) { throw 'Test app is not the foreground keyboard target' }
+    [PickerNativeButton]::keybd_event(9, 0, 0, [UIntPtr]::Zero)
+    [PickerNativeButton]::keybd_event(9, 0, 2, [UIntPtr]::Zero)
+    @{ native_keyboard_tab = $true; pid_matched = $true } | ConvertTo-Json -Compress
+    exit 0
+}
 $condition = New-Object System.Windows.Automation.AndCondition(
     (New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::ProcessIdProperty, $pickerPid)),
     (New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::ClassNameProperty, '#32770'))
@@ -36,16 +61,6 @@ if ($button.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Patt
     $method = 'LegacyIAccessiblePattern'
 } else {
     # A real native HWND button may have no UIA provider on hosted runners.
-    Add-Type @'
-using System;
-using System.Runtime.InteropServices;
-public static class PickerNativeButton {
-    [DllImport("user32.dll", SetLastError=true)]
-    public static extern IntPtr SendMessageTimeout(IntPtr h, uint m, UIntPtr w, IntPtr l, uint flags, uint timeout, out UIntPtr result);
-    [DllImport("user32.dll")]
-    public static extern uint GetWindowThreadProcessId(IntPtr h, out uint process);
-}
-'@
     $handle = [IntPtr]$button.Current.NativeWindowHandle
     [uint32]$owner = 0
     [void][PickerNativeButton]::GetWindowThreadProcessId($handle, [ref]$owner)

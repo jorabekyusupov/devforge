@@ -59,7 +59,16 @@ def press(element,identifier,remaining):
 if not ax.AXIsProcessTrusted():
  raise SystemExit('Existing Accessibility access is unavailable for native dialog automation; no permission was requested or changed.')
 pid=int(os.environ['DEVFORGE_PICKER_PID']);action=os.environ['DEVFORGE_PICKER_ACTION']
-assert action in ['select','cancel']
+assert action in ['select','cancel','tab']
+if action=='tab':
+ ax.CGEventCreateKeyboardEvent.argtypes=[ref,c.c_ushort,c.c_bool];ax.CGEventCreateKeyboardEvent.restype=ref
+ ax.CGEventPostToPid.argtypes=[c.c_int,ref]
+ for down in [True,False]:
+  event=ax.CGEventCreateKeyboardEvent(None,48,down)
+  if not event:raise RuntimeError('Native keyboard event creation failed')
+  ax.CGEventPostToPid(pid,event);cf.CFRelease(event)
+ print(json.dumps({'native_keyboard_tab':True,'pid_matched':True,'existing_accessibility_permission':True}))
+ raise SystemExit(0)
 app=ax.AXUIElementCreateApplication(pid);ax.AXUIElementSetMessagingTimeout(app,1.0)
 try:
  deadline=time.monotonic()+20
