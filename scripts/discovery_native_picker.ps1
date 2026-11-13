@@ -13,6 +13,9 @@ public static class PickerNativeButton {
     public static extern IntPtr SendMessageTimeout(IntPtr h, uint m, UIntPtr w, IntPtr l, uint flags, uint timeout, out UIntPtr result);
     [DllImport("user32.dll")]
     public static extern uint GetWindowThreadProcessId(IntPtr h, out uint process);
+    [DllImport("user32.dll")] public static extern IntPtr GetDlgItem(IntPtr h, int id);
+    [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr h);
+    [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern int GetClassName(IntPtr h, System.Text.StringBuilder text, int count);
     [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
     [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
     [DllImport("user32.dll")] public static extern void keybd_event(byte vk, byte scan, uint flags, UIntPtr extra);
@@ -37,7 +40,11 @@ $condition = New-Object System.Windows.Automation.AndCondition(
 $deadline = [DateTime]::UtcNow.AddSeconds(20)
 $dialog = $null
 while ([DateTime]::UtcNow -lt $deadline -and $null -eq $dialog) {
-    $dialog = [System.Windows.Automation.AutomationElement]::RootElement.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
+    $dialogs = [System.Windows.Automation.AutomationElement]::RootElement.FindAll([System.Windows.Automation.TreeScope]::Descendants, $condition)
+    foreach ($candidate in $dialogs) {
+        $candidateHandle = [IntPtr]$candidate.Current.NativeWindowHandle
+        if ($candidateHandle -ne [IntPtr]::Zero -and [PickerNativeButton]::IsWindowVisible($candidateHandle)) { $dialog = $candidate; break }
+    }
     if ($null -eq $dialog) { Start-Sleep -Milliseconds 100 }
 }
 if ($null -eq $dialog) { throw 'Native folder dialog for the test PID was not found' }
@@ -46,27 +53,24 @@ if ($action -eq 'select') {
 } elseif ($action -eq 'cancel') {
     $id = '2'
 } else { throw 'Unknown native picker test action' }
-$buttonCondition = New-Object System.Windows.Automation.AndCondition(
-    (New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::AutomationIdProperty, $id)),
-    (New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::Button))
-)
-$button = $dialog.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $buttonCondition)
-if ($null -eq $button) { throw "Native picker button $id was not found" }
-$pattern = $null
-if ($button.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern, [ref]$pattern)) {
-    $pattern.Invoke()
-    $method = 'InvokePattern'
-} elseif ($button.TryGetCurrentPattern([System.Windows.Automation.LegacyIAccessiblePattern]::Pattern, [ref]$pattern)) {
-    $pattern.DoDefaultAction()
-    $method = 'LegacyIAccessiblePattern'
-} else {
-    # A real native HWND button may have no UIA provider on hosted runners.
-    $handle = [IntPtr]$button.Current.NativeWindowHandle
-    [uint32]$owner = 0
-    [void][PickerNativeButton]::GetWindowThreadProcessId($handle, [ref]$owner)
-    if ($handle -eq [IntPtr]::Zero -or $owner -ne $pickerPid) { throw 'Native button handle does not belong to test PID' }
-    [UIntPtr]$result = [UIntPtr]::Zero
-    if ([PickerNativeButton]::SendMessageTimeout($handle, 0x00F5, [UIntPtr]::Zero, [IntPtr]::Zero, 2, 5000, [ref]$result) -eq [IntPtr]::Zero) { throw 'Native button press failed' }
-    $method = 'BM_CLICK'
+# Common-dialog IDs are Win32 control IDs. Hosted UIA providers may omit the
+# Button role/pattern altogether; operate the real HWND control directly.
+$dialogHandle = [IntPtr]$dialog.Current.NativeWindowHandle
+$handle = [IntPtr]::Zero
+$deadline = [DateTime]::UtcNow.AddSeconds(5)
+do {
+    $handle = [PickerNativeButton]::GetDlgItem($dialogHandle, [int]$id)
+    if ($handle -eq [IntPtr]::Zero) { Start-Sleep -Milliseconds 100 }
+} while ($handle -eq [IntPtr]::Zero -and [DateTime]::UtcNow -lt $deadline)
+$class = New-Object System.Text.StringBuilder 256
+[void][PickerNativeButton]::GetClassName($handle, $class, 256)
+[uint32]$owner = 0
+[void][PickerNativeButton]::GetWindowThreadProcessId($handle, [ref]$owner)
+if ($handle -eq [IntPtr]::Zero -or $owner -ne $pickerPid -or $class.ToString() -ne 'Button') {
+    $controls = $dialog.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition)
+    $summary = @($controls | Select-Object -First 80 | ForEach-Object { @{ id=$_.Current.AutomationId; role=$_.Current.ControlType.ProgrammaticName; class=$_.Current.ClassName; name=$_.Current.Name } }) | ConvertTo-Json -Compress
+    throw "Real native button $id unavailable (class=$class, ownPID=$($owner -eq $pickerPid)); own-dialog controls=$summary"
 }
-@{ native_dialog = $true; pid_matched = $true; action = $action; control = $id; method = $method } | ConvertTo-Json -Compress
+[UIntPtr]$result = [UIntPtr]::Zero
+if ([PickerNativeButton]::SendMessageTimeout($handle, 0x00F5, [UIntPtr]::Zero, [IntPtr]::Zero, 2, 5000, [ref]$result) -eq [IntPtr]::Zero) { throw 'Native button press failed' }
+@{ native_dialog=$true; pid_matched=$true; action=$action; control=$id; native_class=$class.ToString(); method='BM_CLICK actual HWND button' } | ConvertTo-Json -Compress

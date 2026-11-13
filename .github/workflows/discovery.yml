@@ -44,8 +44,10 @@ jobs:
       - run: npm run check:locales
       - run: npm run typecheck
       - run: npm test
+      - name: Fetch pinned native fixture archives with audited transport
+        run: python scripts/discovery_runtime_cache.py "${{ matrix.target }}" "${{ env.DISCOVERY_FIXTURE }}/archives"
       - name: Isolated real Laravel discovery fixture
-        run: cargo run --release -p devforge-workspace --example native_workspace --features test-support -- discovery-prepare "${{ env.DISCOVERY_FIXTURE }}" empty-cache
+        run: cargo run --release -p devforge-workspace --example native_workspace --features test-support -- discovery-prepare "${{ env.DISCOVERY_FIXTURE }}" "${{ env.DISCOVERY_FIXTURE }}/archives"
       - name: Native watcher identity recovery and automatic Laravel HTTP
         run: target/release/examples/native_workspace discovery-native "${{ env.DISCOVERY_FIXTURE }}"
       - name: Native debug-only desktop with real IPC

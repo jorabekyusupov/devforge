@@ -96,7 +96,14 @@ try:
     wait(lambda:invoke('bootstrap')['settings']['project_folder'].endswith('Devforge'))
     default_root=invoke('bootstrap')['settings']['project_folder'];assert pathlib.Path(default_root).is_dir()
     checks['explicit_default_create_save']=True
+    sibling_prefix='Sibling-'+uuid.uuid4().hex[:6]+'-'
     custom=args.fixture.resolve()/('UI custom Ўзбек '+uuid.uuid4().hex[:6]);custom.mkdir(exist_ok=True)
+    # Exercise the promised event-to-visible-row budget with100 direct projects,
+    # not a one-project root. Seed99 before activating this fresh collection.
+    for index in range(99):
+        sibling=custom/(sibling_prefix+str(index));(sibling/'public').mkdir(parents=True)
+        (sibling/'composer.json').write_text('{"require":{"laravel/framework":"^13","php":"^8.4"}}')
+        (sibling/'artisan').write_text('<?php');(sibling/'public/index.php').write_text('<?php')
     fill('#project-folder',str(custom));button('Save folder','.discovery-settings')
     wait(lambda:pathlib.Path(invoke('bootstrap')['settings']['project_folder']).resolve()==custom.resolve())
     checks['custom_unicode_path_saved']=True
@@ -105,6 +112,7 @@ try:
     def is_auto(project):
         try:return os.path.samefile(project['project']['path'],auto)
         except OSError:return False
+    wait(lambda:sum(r['project']['name'].startswith(sibling_prefix) for r in snap()['snapshot']['projects'])==99,30)
     # Real native event, not Scan now or an IPC-injected snapshot.
     name='UI Auto '+uuid.uuid4().hex[:6];auto=custom/name;auto.mkdir(exist_ok=True);(auto/'public').mkdir(exist_ok=True)
     (auto/'composer.json').write_text('{"require":{"laravel/framework":"^13","php":"^8.4"}}')
@@ -115,7 +123,7 @@ try:
     auto_id=project_row['project']['id']
     wait(lambda:script("return !!document.querySelector(arguments[0])",'a.project-row[href$="'+auto_id+'"]'),10)
     assert time.monotonic()-started<5
-    checks['native_event_to_ui_under_5s']=True
+    checks['native_event_to_ui_under_5s']={'passed':True,'direct_project_count':100,'elapsed_ms':round((time.monotonic()-started)*1000)}
     project(auto_id)
     wait(lambda:script("return document.querySelector('.project-detail h2')?.textContent===arguments[0]",name));audit('discovered-project');screenshot('projects-discovered.png')
     button('Forget project');wait(lambda:script("return !!document.querySelector('dialog[open]')"));button('Remove','dialog');wait(lambda:not any(r['project']['id']==auto_id for r in snap()['snapshot']['projects']))
