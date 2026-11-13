@@ -372,3 +372,23 @@ VM borligi haqidagi savolga “Hozir mavjud emas” deb javob berdi. Agent19045 
 x64 floor, Win11 bilan umumiy installer va alohida actual Win10 acceptance gate
 tanladi. Bu talab minimum OS actual sinovi otganini anglatmaydi. Mavjud runtime
 pinlari va tayyor funksiyalarni saqlash, test/OKF va yakuniy push jarayoni davom etadi.
+
+### M13 tashqi agent integratsiyasi rejasi — 2026-11-13
+
+User Herd imkoniyatlaridan ichki prompt bilan kod yozdirish va AI providerlarni
+API orqali ulashni chiqarib, faqat «Codex + Herd» kabi tashqi agent ishlata
+oladigan funksiyalarni so'radi. Keyin DevForge uchun shu foydali imkoniyatlarning
+barchasini, tashqi har qanday mos AI agent ulana oladigan qilib rejalashni topshirdi.
+Bu explicit scope ichki chat/provider/model picker emas, MCP/CLI orqali tashqi
+agent bilan ishlashdir. M13 batafsil arxitektura, feature oilalari, ruxsat va
+test bosqichlari assistant taklifi; implementatsiya yoki barcha client/OS native
+qabuli mavjud deb ko'rsatilmaydi. Reja tayyorlash product kodini boshlash yoki
+publish qilish ko'rsatmasi sifatida talqin qilinmaydi.
+
+### Birlashtirilgan bajarish rejasi — 2026-11-13
+
+User yetti rol sub-agent tahlilidagi barcha taklif va ishlar hamda boshqa chatdagi tashqi AI agent imkoniyatlari rejasini qamragan batafsil ketma-ket reja tuzishni soradi. Har doim barcha testlarni qayta-qayta yuritmaslik, faqat jarayonga aloqadorlarini bajarish va parallel qilish mumkin bolgan mustaqil ishlarni sub-agentlarga ajratish explicit qoida. Mac mini dagi installed UI skilllardan maqsad/yonalishiga qarab, oldingi ishlar kabi foydalanish ham rejaga kiritilishi soraldi. Bular ish usuli bo'yicha confirmed talablar; feature/arxitektura tafsilotlari proposed. [Birlashtirilgan reja](../integrated-execution-plan.md) barcha taklif mappingi, M13 manba reja integratsiyasi va qabul mezonlarini saqlaydi. Bu planning topshirigi, product implementation yoki publish vakolati emas.
+
+### Rejani bajarish va bosqichma-bosqich push — 2026-11-13
+
+User birlashtirilgan reja boyicha barcha ishlarni boshlash va har bosqich yakunida push qilishni topshirdi. Bu keyingi topshiriq planning-only chegarasini tegishli implementation/test/commit/push uchun almashtiradi. Parallel mustaqil ishlar sub-agentlarga ajratiladi, faqat ta'sirlangan testlar bajariladi. Ochiq minimum-OS/signing/client gate'lari dalilsiz yopilmaydi; public release yoki system permission o'zgarishi oddiy source push bilan bir xil emas. Bosqich natijalari execution-status yozuvida kuzatiladi.

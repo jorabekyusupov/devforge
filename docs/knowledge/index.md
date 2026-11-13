@@ -18,12 +18,18 @@ mavzuni tanlang, so'ng faqat tegishli hujjatlar va ularning manbalarini o'qing.
 
 ## Taklif va ochiq masalalar
 
+- [Birlashtirilgan bajarish rejasi](integrated-execution-plan.md) - yetti rol va tashqi agentlar rejasi, aniq dependency, parallel sub-agentlar, maqsadli test siyosati va Mac mini UI skill routing.
+
+- [M13 tashqi agentlar integratsiyasi](m13-external-agents-plan.md) - MCP/JSON CLI, yagona manager, imkoniyatlar va M13.0–M13.9 qabul rejasi; ichki AI chat/provider ulash scope'da emas.
+
 - [M6 dan keyingi roadmap](post-mvp-roadmap.md) - yangi M7 debugging/profiling bilan boshlanadi; yakuniy beta/tarqatish M15'ga ko'chirilgan, eski-yangi raqamlar mosligi berilgan.
 
 - [MVP birinchi bosqich rejasi](mvp-phase-1-plan.md) - macOS va Windows hamda rus, o'zbek va ingliz tillari uchun bosqichlar, natijalar va qabul mezonlari.
 - [Birinchi MVP taklifi](mvp-proposal.md) - tavsiya etilgan birinchi ish jarayoni, funksiyalar va hali tasdiqlanmagan chegaralar.
 
 ## Manba va yuritish
+
+- [Execution holati va E00 inventari](execution-status.md) - source/platform evidence, barcha work ID holati, scoped test va qoldiq tashqi gate.
 
 - [Windows 10/11 mosligi](windows-compatibility.md) - 22H2 x64 minimum, installer/preflight va actual Windows10 qabul chegarasi.
 

@@ -15,6 +15,9 @@ sources:
   - id: m6
     resource: /m6-distribution-results.md
     title: Ichki paketlar va ochiq release tekshiruvlari
+  - id: external-agents
+    resource: /m13-external-agents-plan.md
+    title: M13 tashqi agentlar uchun aniqlashtirilgan scope va bajarish rejasi
 ---
 
 # Holat va raqamlash
@@ -49,6 +52,14 @@ M0-M6 tarixiy raqamlari saqlanadi. Keyingi ishlar bajarish ketma-ketligi bo'yich
 qayta raqamlandi: oldingi M12 endi M7, oldingi M7 endi M15. Eski raqamlar faqat
 quyidagi moslik jadvali va suhbat tarixiga murojaat qilish uchun ishlatiladi.
 
+Keyingi user topshirig'i M13 scope'ni aniqlashtirdi: tashqi MCP/CLI agentlari
+uchun barcha foydali DevForge imkoniyatlari rejalashtiriladi. Ichki AI chat,
+promptdan kod yozdirish UI'i va model/provider API ulash chiqarildi. Oldingi
+M13'dagi «keyin preview/diff va agent interfeysi» yo'nalishi shu qaror bilan
+almashtirildi; connection/permission/operation Settings UI scope'da qoladi.
+[M13.0–M13.9 batafsil reja](m13-external-agents-plan.md) source inventari va
+qabul mezonlarini saqlaydi. Bu rejalash, implementation boshlangan emas.[^external-agents]
+
 # Yangi ketma-ketlik
 
 | Yangi bosqich | Avvalgi taklif | Asosiy ishlar va natija |
@@ -59,7 +70,7 @@ quyidagi moslik jadvali va suhbat tarixiga murojaat qilish uchun ishlatiladi.
 | **M10 — Takrorlanadigan muhit** | M10 | devforge.yaml, mavjud CLI orqali setup, aniq runtime versiyalari va lokal secret references, .env o'zgarishlarini oldindan ko'rish, jamoa konfiguratsiyasi. Natija: repository boshqa qurilmada mos muhit bilan ochiladi. |
 | **M11 — Mail va kengaytirilgan loglar** | M11 | Lokal SMTP/mail catcher, HTML/plain text va attachment preview; M7'dagi hodisa modeliga tayangan boy Laravel log/exception viewer, qidirish va filtrlar. Natija: mail va app xatolari bitta joyda tekshiriladi. |
 | **M12 — Workspaces** | M13 | Branch/worktree uchun alohida loyiha, domen, port va bo'sh yoki clone DB; yaratish va ownership-aware cleanup. M10 konfiguratsiyasi qayta ishlatiladi. Natija: parallel feature/agent ishlari bir-biriga ta'sir qilmaydi. |
-| **M13 — AI integratsiyasi** | M14 | Mavjud CLI'ni barqaror JSON bilan kengaytirish, project-scoped MCP, runtime/query/log/mail konteksti; keyin preview/diff va agent interfeysi. Natija: agent haqiqiy loyiha kontekstidan boshqariladigan API orqali foydalanadi. |
+| **M13 — Tashqi agent integratsiyasi** | M14 | Umumiy manager, versioned JSON CLI, project-scoped MCP stdio/HTTP, runtime/service/DB/env/HTTPS, diagnostika/mail/debug/test/workspace konteksti va ruxsatlar. Ichki AI chat/model API scope'da emas. [Batafsil reja](m13-external-agents-plan.md). |
 | **M14 — Ulashish va integratsiyalar** | M15 | Vaqtinchalik tunnel orqali ulashish va uni tugatish, IDE/DB client integratsiyasi; keyin tanlangan deploy provider'lari. Natija: tester yoki mijoz lokal loyihani o'z qurilmasidan tekshiradi. |
 | **M15 — Yakuniy beta va tarqatish** | M7 | Yakuniy tester regressiyalari, toza/minimum OS va native credential/system-dialog acceptance, uzilgan install/download va disk xatolari, diagnostika eksporti, signing/notarization/Authenticode, licensing review, app update va schema/rollback strategiyasi. Natija: tekshirilgan tarqatish nomzodi va aniq qo'llab-quvvatlash matritsasi. |
 
@@ -89,3 +100,8 @@ Public release/deploy o'zining alohida ruxsatli scope'i bilan bajariladi.
 [^request]: Suhbatdagi «M7 ohirgi bosqichga qoy ... m12 birinchiga qoy» ko'rsatmasi; qolgan funksiyalar avvalgi assistant taklifidan tartiblandi.
 [^foundation]: M0-M6 scope va dalillar qayta raqamlanmadi.
 [^m6]: Ichki acceptance ommaviy signed release tayyorligini bildirmaydi.
+[^external-agents]: [Joriy tashqi agent rejasi va scope](m13-external-agents-plan.md).
+
+# Birlashtirilgan execution tartibi
+
+[Yetti rol va tashqi agentlar birlashtirilgan rejasi](integrated-execution-plan.md) M13.0–M13.9 raqamlarini saqlaydi; barcha qoshimcha takliflar, parallel sub-agent ownership, faqat ta’sirlangan testlar va vazifaga mos installed UI skill tartibini belgilaydi. Bu execution proposal, implementation dalili emas.
