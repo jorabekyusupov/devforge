@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 export interface Project {
+  mail?: boolean;
   services?: ServiceSelection;
   php_settings?: PhpSettings;
   id: string;
@@ -210,8 +211,59 @@ export interface InspectionView {
   } | null;
   profiles: Record<string, InspectionProfile>;
 }
+export interface MailSummary {
+  id: string;
+  received_ms: number;
+  subject: string;
+  from: string;
+  to: string;
+  bytes: number;
+  attachments: number;
+}
+export interface MailAttachment {
+  index: number;
+  name: string;
+  mime: string;
+  bytes: number;
+  cid: string | null;
+}
+export interface MailDetail {
+  truncated?: boolean;
+  summary: MailSummary;
+  text: string;
+  html: string;
+  attachments: MailAttachment[];
+}
+export interface MailPart {
+  attachment: MailAttachment;
+  base64: string;
+}
+export interface MailView {
+  enabled: boolean;
+  running: boolean;
+  port: number | null;
+  inbox: { messages: MailSummary[]; total: number; page: number };
+}
+export interface LogFilter {
+  query: string;
+  level: string;
+  kind: string;
+  since: number;
+  page: number;
+}
+export interface LogPage {
+  entries: InspectionEvent[];
+  total: number;
+  page: number;
+}
 export interface WorkspaceBackend {
-  inspector?(id: string): Promise<InspectionView>;
+  inbox?(id: string, query: string, page: number): Promise<MailView>;
+  message?(id: string, message: string): Promise<MailDetail>;
+  part?(id: string, message: string, index: number): Promise<MailPart>;
+  logs?(id: string, filter: LogFilter): Promise<LogPage>;
+  chooseMailFile?(name: string): Promise<string | null>;
+
+  inspector?(id: string, context?: string): Promise<InspectionView>;
   snapshot(): Promise<{
     snapshot: Snapshot;
     busy: boolean;
@@ -236,6 +288,20 @@ export type ProjectInput = {
   queue: boolean;
 };
 export type Command =
+  | { action: "mail_configure"; id: string; enabled: boolean }
+  | {
+      action: "mail_delete";
+      id: string;
+      message: string | null;
+      consent: boolean;
+    }
+  | {
+      action: "mail_save";
+      id: string;
+      message: string;
+      index: number;
+      path: string;
+    }
   | {
       action: "activate_database_generation";
       id: string;

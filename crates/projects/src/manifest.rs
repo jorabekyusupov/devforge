@@ -8,6 +8,8 @@ use std::{collections::BTreeMap, fs, io::Read, path::Path};
 #[serde(deny_unknown_fields)]
 pub struct Manifest {
     pub schema: u32,
+    #[serde(default)]
+    pub mail: Option<bool>,
     pub project: Project,
     pub runtimes: Runtimes,
     #[serde(default)]

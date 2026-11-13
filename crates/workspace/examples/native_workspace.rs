@@ -12,6 +12,8 @@ use std::{
     path::{Path, PathBuf},
     sync::Arc,
 };
+#[path = "support/activity.rs"]
+mod activity;
 #[path = "support/inspector.rs"]
 mod inspector;
 #[path = "support/onboarding.rs"]
@@ -28,6 +30,16 @@ fn main() -> Result<()> {
         std::process::exit(code);
     }
     let args: Vec<_> = std::env::args().skip(1).collect();
+    if args.first().map(String::as_str) == Some("activity-send") {
+        return activity::send_ui(
+            Path::new(args.get(1).ok_or("fixture required")?),
+            args.get(2).ok_or("project required")?,
+            args.get(3).ok_or("trap port required")?,
+        );
+    }
+    if args.first().map(String::as_str) == Some("activity-native") {
+        return activity::run(Path::new(args.get(1).ok_or("fixture required")?));
+    }
     if args.first().map(String::as_str) == Some("services-retention") {
         return services::retention(Path::new(args.get(1).ok_or("fixture required")?));
     }

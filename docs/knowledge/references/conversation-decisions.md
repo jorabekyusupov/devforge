@@ -270,3 +270,14 @@ M10 roadmap'dagi reviewed reproducible environment/CLI scope'ini bajaradi.
 Bosqich oxirida tests, OKF/source reconciliation va final push cadence saqlanadi;
 M11 avtomatik boshlanmaydi. Implementatsiya va cheklovlar
 [M10 hisobotida](../m10-reproducible-results.md) yuritiladi.
+
+## M11 topshirigi
+
+Foydalanuvchi keyingi bosqichni boshlashni so'radi:
+
+> M11 ni boshla barcha ishlar tugagandan song
+
+Roadmap M11 lokal SMTP/mail catcher va boy Laravel log/exception viewer scope'ini
+bajarish, tests/OKF/source reconciliation va final push cadence saqlanadi. M12
+auto-start emas. [M11 hisobotida](../m11-mail-logs-results.md) implementation
+choices, actual verification va cheklovlar alohida yuritiladi.

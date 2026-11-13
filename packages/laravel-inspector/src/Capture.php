@@ -13,7 +13,7 @@ final class Capture
     private array $parents = [];
     public function __construct(private string $endpoint, private string $token, private string $project)
     {
-        $this->secrets = array_values(array_filter([$token, config('app.key'), config('database.connections.pgsql.password'), config('database.connections.mysql.password')]));
+        $this->secrets = array_values(array_filter([$token, config('app.key'), config('database.connections.pgsql.password'), config('database.connections.mysql.password'), config('database.redis.default.password'), config('database.redis.cache.password'), config('mail.mailers.smtp.password')], fn ($v) => is_string($v) && $v !== ''));
         register_shutdown_function(function (): void {
             while ($this->scope !== null) $this->finish(['interrupted' => true]);
             $this->flush();
@@ -54,12 +54,21 @@ final class Capture
         $this->events[] = ['kind' => $kind, 'context' => $this->scope['id'], 'name' => $this->cleanString($name), 'duration_ms' => max(0, $milliseconds), 'data' => $this->clean($data)];
         if (count($this->events) >= 20 || $kind === 'dump') $this->flush();
     }
+    public function log(string $level, string $message, array $context = [], ?\Throwable $exception = null): void
+    {
+        $own = $this->scope === null;
+        if ($own && $this->offline) return;
+        if ($own) $this->begin('log', 'console');
+        $this->emit('log', $level, 0, ['message' => $message, 'context' => $context, 'source' => $own ? 'console' : $this->scope['kind']]);
+        if ($exception !== null) $this->exception($exception);
+        if ($own) { $this->flush(); $this->scope = null; $this->count = 0; }
+    }
     public function exception(\Throwable $error): void
     {
         if ($this->scope === null || isset($this->scope['exceptions'][spl_object_id($error)])) return;
         $this->scope['exceptions'][spl_object_id($error)] = true;
         $message = $error instanceof \Illuminate\Database\QueryException ? 'Database query failed: '.$error->getCode() : $error->getMessage();
-        $this->emit('exception', get_class($error), 0, ['message' => $message, 'trace' => array_slice(array_map(fn ($frame) => ['file' => isset($frame['file']) ? basename($frame['file']) : '', 'line' => $frame['line'] ?? 0, 'function' => ($frame['class'] ?? '').($frame['function'] ?? '')], $error->getTrace()), 0, 15)]);
+        $this->emit('exception', get_class($error), 0, ['message' => $message, 'file' => basename($error->getFile()), 'line' => $error->getLine(), 'trace' => array_slice(array_map(fn ($frame) => ['file' => isset($frame['file']) ? basename($frame['file']) : '', 'line' => $frame['line'] ?? 0, 'function' => ($frame['class'] ?? '').($frame['function'] ?? '')], $error->getTrace()), 0, 15)]);
     }
     public function dump(mixed $value): void { $this->emit('dump', get_debug_type($value), 0, $this->clean($value)); }
     private function cleanString(string $value): string

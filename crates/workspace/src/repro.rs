@@ -255,6 +255,7 @@ impl Workspace {
             .collect();
         let mut m = Manifest {
             schema: 1,
+            mail: Some(p.mail),
             project: manifest::Project {
                 name: p.name.clone(),
                 domain: site.domain,
@@ -328,6 +329,7 @@ impl Workspace {
         };
         let mut m = Manifest {
             schema: 1,
+            mail: None,
             project: manifest::Project {
                 name,
                 domain: format!("{slug}.devforge.test"),
@@ -504,6 +506,9 @@ impl Workspace {
         if m.setup.generate_key {
             keys.push("APP_KEY".into());
         }
+        if m.mail.unwrap_or_else(|| p.as_ref().is_some_and(|p| p.mail)) {
+            keys.extend(devforge_projects::mail::KEYS.iter().map(|s| s.to_string()));
+        }
         keys.sort();
         keys.dedup();
         let mut env = EnvPlan::preview(path, &keys)?;
@@ -572,7 +577,7 @@ impl Workspace {
             write_env,
             database_action,
             environment_file: serde_json::json!({"exists":path.join(".env").exists(),"create_from_example":write_env&&m.setup.create_env&&!path.join(".env").exists(),"generate_key_if_empty":write_env&&m.setup.generate_key,"values_redacted":true}),
-            settings: serde_json::json!({"project":m.project,"php_settings":m.php_settings,"services":m.services,"setup":m.setup,"scripts_enabled":false,"plugins_enabled":false}),
+            settings: serde_json::json!({"project":m.project,"php_settings":m.php_settings,"services":m.services,"setup":m.setup,"scripts_enabled":false,"plugins_enabled":false,"mail":m.mail}),
             blockers,
             state_hash: hash(&serde_json::to_vec(&state).unwrap()),
             digest: String::new(),
@@ -867,6 +872,11 @@ impl Workspace {
                     redis_instance: redis,
                 },
             )?;
+            if let Some(enabled) = m.mail {
+                self.configure_mail(&id, enabled)?;
+            } else if self.projects.get(&id)?.mail {
+                self.ensure_mail(&id)?;
+            }
             if cancel.is_cancelled() {
                 return Err(code("setup_cancelled"));
             }

@@ -8,7 +8,8 @@
     "main": "Asosiy navigatsiya",
     "runtimes": "Runtime’lar",
     "services": "Xizmatlar va loglar",
-    "inspector": "Inspektor"
+    "inspector": "Inspektor",
+    "activity": "Mail va loglar"
   },
   "common": {
     "saved": "Avtomatik saqlandi",
@@ -130,7 +131,8 @@
       "administrator_unsupported": "PostgreSQL’ni ishga tushirish uchun DevForge’ni administrator huquqisiz oching.",
       "invalid_backup": "Backup arxivi yaroqsiz yoki tekshiruv summasi mos emas.",
       "backup_unsupported": "Backup baza turi, versiyasi yoki obyektlari qo‘llanmaydi.",
-      "backup_destination_exists": "Bu nomdagi fayl mavjud. Boshqa nom bilan eksport qiling."
+      "backup_destination_exists": "Bu nomdagi fayl mavjud. Boshqa nom bilan eksport qiling.",
+      "mail_unavailable": "Mail capture ochilmadi. Loyihani to‘xtatib qayta yoqing va lokal portni tekshiring."
     }
   },
   "serving": {
@@ -270,7 +272,10 @@
       "restore_backup": "Xizmat amali bajarilmoqda…",
       "install_redis_client": "Xizmat amali bajarilmoqda…",
       "unbind_database": "Xizmat amali bajarilmoqda…",
-      "activate_database_generation": "Xizmat amali bajarilmoqda…"
+      "activate_database_generation": "Xizmat amali bajarilmoqda…",
+      "mail_configure": "Mail amali bajarilmoqda…",
+      "mail_delete": "Mail amali bajarilmoqda…",
+      "mail_save": "Mail amali bajarilmoqda…"
     },
     "kinds": {
       "php": "PHP",
@@ -355,7 +360,9 @@
       "manifest_env_multiline": "Ko‘p qatorli secretni .env ga yozib bo‘lmaydi. Boshqariladigan jarayon muhitidan foydalaning.",
       "manifest_redis_client_missing": "Redis drayverlarini tanlashdan oldin Predis o‘rnating yoki setup parametrini yoqing.",
       "manifest_dependency_failed": "Dependency setup bajarilmadi. config status va lokal loglarni tekshirib tuzating, so‘ng yangi reja oling.",
-      "manifest_usage": "Foydalanish: config init|export|plan|setup|secret|status. Setup uchun --review va --trust kerak."
+      "manifest_usage": "Foydalanish: config init|export|plan|setup|secret|status. Setup uchun --review va --trust kerak.",
+      "mail_unavailable": "Mail capture ochilmadi. Loyihani to‘xtatib qayta yoqing va lokal portni tekshiring.",
+      "mail_export_failed": "Attachment saqlanmadi. Yozish mumkin bo‘lgan yangi fayl nomini tanlang."
     }
   },
   "runtimes": {
@@ -462,7 +469,9 @@
     },
     "pages": "Hodisa sahifalari",
     "previous": "Oldingi",
-    "next": "Keyingi"
+    "next": "Keyingi",
+    "contextFilter": "Kontekst filtri",
+    "clearContext": "Kontekst filtrini tozalash"
   },
   "setup": {
     "newProject": "Yangi loyiha",
@@ -553,5 +562,77 @@
     "available": "Mavjud",
     "unmet": "Talab bajarilmagan",
     "platformUnavailable": "Loyihaning haqiqiy platforma talablarini tekshirish uchun bog‘liqliklarni o‘rnating."
+  },
+  "activity": {
+    "title": "Mail va loglar",
+    "description": "Lokal xatlar va ilova hodisalari.",
+    "project": "Loyiha",
+    "views": "Faollik bo‘limlari",
+    "inbox": "Kiruvchi xatlar",
+    "logs": "Loglar",
+    "running": "SMTP ishlayapti",
+    "stopped": "SMTP to‘xtagan",
+    "stop": "Capture’ni to‘xtatish",
+    "start": "Capture’ni boshlash",
+    "clearInbox": "Inbox’ni tozalash",
+    "installCapture": "Capture’ni o‘rnatish/yangilash",
+    "search": "Qidirish",
+    "searchMail": "Mavzu yoki yuboruvchini qidirish…",
+    "searchLogs": "Xabar yoki kontekstni qidirish…",
+    "mailHint": "Lokal SMTP autentifikatsiya talab qiladi va xatlarni tashqariga uzatmaydi. Capture sozlamasidan oldin loyihani to‘xtating. 200 ta xat, 64 MiB gacha; har xat 2 MiB gacha.",
+    "logsHint": "Log capture alohida yoqiladi. Capture paketi loyiha fayllarini o‘zgartiradi. Maxfiy kontekst kalitlari yashiriladi; saqlash hajmi cheklangan.",
+    "failed": "Faollik yuklanmadi. Qayta urinib ko‘ring yoki capture holatini tekshiring.",
+    "completed": "Amal bajarildi.",
+    "level": "Daraja",
+    "kind": "Turi",
+    "period": "Davr",
+    "noSubject": "Mavzusiz",
+    "emptyMail": "Hali xat yo‘q.",
+    "emptyLogs": "Mos log topilmadi.",
+    "selectMail": "Ko‘rish uchun xatni tanlang.",
+    "selectLog": "Log yoki exception’ni tanlang.",
+    "from": "Kimdan",
+    "to": "Kimga",
+    "plainText": "Oddiy matn",
+    "htmlPreview": "Xatning HTML ko‘rinishi",
+    "remoteBlocked": "Tashqi resurs va havolalar bloklangan. Inline rasmlar attachment sifatida ko‘riladi.",
+    "attachments": "Attachment’lar",
+    "preview": "Ko‘rish",
+    "save": "Saqlash",
+    "saveAttachment": "Attachment’ni saqlash",
+    "delete": "Xatni o‘chirish",
+    "confirm": "Amalni ko‘rib chiqish",
+    "deleteHint": "Tanlangan xat yoki loyiha inbox’i o‘chirilsinmi? Buni qaytarib bo‘lmaydi.",
+    "continue": "Davom etish",
+    "previous": "Oldingi",
+    "next": "Keyingi",
+    "noText": "Oddiy matn qismi yo‘q.",
+    "noPreview": "Bu formatni preview qilib bo‘lmaydi. Tekshirish uchun attachment’ni saqlang.",
+    "context": "Kontekst",
+    "trace": "Request/job trace’ni ochish",
+    "stack": "Stack trace",
+    "truncated": "Preview qisqartirilgan.",
+    "levels": {
+      "all": "Barcha darajalar",
+      "debug": "Debug",
+      "info": "Info",
+      "notice": "Notice",
+      "warning": "Warning",
+      "error": "Error",
+      "critical": "Critical",
+      "alert": "Alert",
+      "emergency": "Emergency"
+    },
+    "kinds": {
+      "all": "Barcha turlar",
+      "log": "Log",
+      "exception": "Exception"
+    },
+    "hours_one": "Oxirgi {{count}} soat",
+    "count_one": "{{count}} ta element",
+    "attachmentsCount_one": "{{count}} ta attachment",
+    "hours_other": "Oxirgi {{count}} soat",
+    "count_other": "{{count}} ta element",
+    "attachmentsCount_other": "{{count}} ta attachment"
   }
 }

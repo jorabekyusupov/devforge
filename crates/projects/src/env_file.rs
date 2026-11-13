@@ -163,6 +163,7 @@ impl EnvPlan {
             .collect::<BTreeMap<_, _>>();
         let mut sensitive = vec![];
         crate::cache::apply_environment(store, &p, secrets, &mut environment, &mut sensitive)?;
+        crate::mail::apply(store, &p, secrets, &mut environment, &mut sensitive)?;
         let mut values = environment
             .into_iter()
             .map(|(k, v)| {

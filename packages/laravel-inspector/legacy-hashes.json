@@ -1,0 +1,6 @@
+{
+  "composer.json": "4e5f44f6ceb3f8db89a9e70f110a2a21d916fd2c9321a75e589dc39076e8068d",
+  "src/Capture.php": "b12e7fd4929062975ae4ad9602e34f0ab71dddea0393a38ee72a2599dc6aa18e",
+  "src/RequestCapture.php": "318764545e7da881f19b6287ec1b76c0e3ce3d225e853a059e54a71383fb459d",
+  "src/InspectorServiceProvider.php": "a440f695f15d99c76cb09fb90250630d7603566f8c537bfba1eccc34d1f95af8"
+}

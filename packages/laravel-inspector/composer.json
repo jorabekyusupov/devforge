@@ -1,9 +1,23 @@
 {
   "name": "devforge/laravel-inspector",
   "description": "Opt-in local Laravel telemetry for DevForge",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "library",
-  "require": {"php": "^8.3", "illuminate/support": "^11.0 || ^12.0 || ^13.0", "symfony/var-dumper": "^7.0 || ^8.0"},
-  "autoload": {"psr-4": {"DevForge\\Inspector\\": "src/"}},
-  "extra": {"laravel": {"providers": ["DevForge\\Inspector\\InspectorServiceProvider"]}}
+  "require": {
+    "php": "^8.3",
+    "illuminate/support": "^11.0 || ^12.0 || ^13.0",
+    "symfony/var-dumper": "^7.0 || ^8.0"
+  },
+  "autoload": {
+    "psr-4": {
+      "DevForge\\Inspector\\": "src/"
+    }
+  },
+  "extra": {
+    "laravel": {
+      "providers": [
+        "DevForge\\Inspector\\InspectorServiceProvider"
+      ]
+    }
+  }
 }

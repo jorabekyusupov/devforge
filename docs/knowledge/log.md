@@ -2,6 +2,8 @@
 
 ## 2026-11-13
 
+- **M11 boshlandi:** [Mail va loglar](m11-mail-logs-results.md), authenticated SMTP sink, persistent inbox, attachment preview, rich log filters va companion update yaratildi; native qabul davom etmoqda.
+
 - **M10 functional qabul:** [Takrorlanadigan muhit](m10-reproducible-results.md), pinned YAML, local credential links, reviewed CLI setup, env guards va recovery journal yaratildi. ARM64/Intel/Windows real CLI, ikki store, Laravel PG/Garnet va HTTP o‘tdi. Core har OS83 Rust/27 frontend; strict25/0/0. Windows fixture `.exe` va forgotten-cache ownership followup, uch verified artifact digest hamda source reconciliation saqlandi. GUI editor va M11 boshlanmadi; M15 gate‘lari ochiq.
 
 - **M9 functional qabul:** [Database/services](m9-services-results.md), owned MySQL, dedicated Garnet/.NET, cache/queue profiles, staged backups va retained connections yaratildi. ARM64/Windows MySQL va Intel PG/Garnet native backend/UI o‘tdi;10 axe/0 per target. Core har OS75 Rust/27 frontend/3 locale/6 packaging; strict24/0/0. Windows monitor PID failure va `--no-monitor` fix, uch verified artifact digest, source/text boundary va cleanup qayd etildi. Intel MySQL hamda M15 release gates ochiq; M10 boshlanmadi.

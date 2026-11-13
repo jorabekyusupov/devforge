@@ -1,0 +1,16 @@
+{
+  "attachment_export": true,
+  "environment_unchanged": true,
+  "frontend_credentials_filtered": true,
+  "laravel_smtp_html_plain_attachments": true,
+  "mail_restart_preserves_port_and_inbox": true,
+  "manifest_mail_boolean_no_credential": true,
+  "message_id": "9bf79cbd09ed42898ef97a5ca9b10b54",
+  "project_id": "c52c81f69d7b41b5a5b16aa3ebd1a1d7",
+  "real_queue_mail_and_correlated_logs": true,
+  "running_project_mail_toggle_refused": true,
+  "sensitive_context_redacted": true,
+  "smtp_project_isolation": true,
+  "standalone_log_context_and_exception": true,
+  "target": "macos-arm64"
+}

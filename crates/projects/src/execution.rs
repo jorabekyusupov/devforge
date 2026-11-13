@@ -88,6 +88,7 @@ impl Context {
             let key = name.to_string_lossy();
             !key.starts_with("DB_")
                 && !key.starts_with("REDIS_")
+                && !key.starts_with("MAIL_")
                 && !key.starts_with("DEVFORGE_INSPECTOR_")
                 && key != "DATABASE_URL"
                 && key != "APP_KEY"
@@ -122,6 +123,7 @@ impl Context {
     ) -> Result<Self> {
         let mut project = store.get(id)?;
         project.services = Default::default();
+        project.mail = false;
         Self::prepare(project, store, catalog, packages, secrets)
     }
     pub fn resolve(
@@ -165,6 +167,7 @@ impl Context {
             node_constraint: "*".into(),
             environment_names: vec![],
             environment_references: Default::default(),
+            mail: false,
             revision: 0,
             active: true,
             php_settings: Default::default(),
@@ -293,6 +296,7 @@ impl Context {
             &mut environment,
             &mut sensitive,
         )?;
+        crate::mail::apply(store, &project, secrets, &mut environment, &mut sensitive)?;
         let mut paths = vec![
             node.path().parent().unwrap().to_path_buf(),
             php.path().parent().unwrap().to_path_buf(),

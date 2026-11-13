@@ -312,6 +312,8 @@ pub fn run() {
             save_settings,
             workspace::workspace_snapshot,
             workspace::inspector_snapshot,
+            workspace::activity_read,
+            workspace::choose_mail_file,
             workspace::workspace_command,
             workspace::workspace_cancel,
             workspace::open_project,

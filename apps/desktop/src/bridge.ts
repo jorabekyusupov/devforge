@@ -43,9 +43,70 @@ export const desktopBackend: Backend = {
     return listen<string>("workspace-exit-error", (e) => callback(e.payload));
   },
   workspace: {
-    async inspector(id) {
+    async inbox(id, query, page) {
       ensureDesktop();
-      return invoke("inspector_snapshot", { id });
+      return invoke("activity_read", {
+        request: {
+          id,
+          query,
+          page,
+          kind: "inbox",
+          message: null,
+          index: null,
+          filter: null,
+        },
+      });
+    },
+    async message(id, message) {
+      ensureDesktop();
+      return invoke("activity_read", {
+        request: {
+          id,
+          message,
+          query: "",
+          page: 0,
+          kind: "message",
+          index: null,
+          filter: null,
+        },
+      });
+    },
+    async part(id, message, index) {
+      ensureDesktop();
+      return invoke("activity_read", {
+        request: {
+          id,
+          message,
+          index,
+          query: "",
+          page: 0,
+          kind: "part",
+          filter: null,
+        },
+      });
+    },
+    async logs(id, filter) {
+      ensureDesktop();
+      return invoke("activity_read", {
+        request: {
+          id,
+          filter,
+          query: "",
+          page: 0,
+          kind: "logs",
+          message: null,
+          index: null,
+        },
+      });
+    },
+    async chooseMailFile(name) {
+      ensureDesktop();
+      return invoke("choose_mail_file", { name });
+    },
+
+    async inspector(id, context) {
+      ensureDesktop();
+      return invoke("inspector_snapshot", { id, context: context ?? null });
     },
     async snapshot() {
       ensureDesktop();

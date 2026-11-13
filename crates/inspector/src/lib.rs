@@ -1,4 +1,6 @@
 //! Opt-in, authenticated loopback Laravel telemetry. No Tauri or project execution.
+pub mod logs;
+pub mod mail;
 pub mod profile;
 mod sanitize;
 use axum::{
@@ -235,13 +237,16 @@ impl Store {
         Ok(())
     }
     fn list(&self, id: &str) -> Result<Vec<Record>> {
-        let mut s=self.connection.prepare("SELECT sequence,received,body FROM events WHERE project=?1 AND received>=?2 ORDER BY sequence DESC LIMIT 200")?;
+        self.context(id, None)
+    }
+    fn context(&self, id: &str, context: Option<&str>) -> Result<Vec<Record>> {
+        let mut s=self.connection.prepare("SELECT sequence,received,body FROM events WHERE project=?1 AND received>=?2 AND (?3 IS NULL OR json_extract(body,'$.context')=?3) ORDER BY sequence DESC LIMIT 200")?;
         let cutoff = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map_err(|_| Error)?
             .as_millis() as i64
             - 86_400_000;
-        let rows = s.query_map(params![id, cutoff], |r| {
+        let rows = s.query_map(params![id, cutoff, context], |r| {
             Ok((
                 r.get::<_, i64>(0)?,
                 r.get::<_, i64>(1)?,
@@ -493,6 +498,19 @@ pub fn read(root: &Path, id: &str) -> Result<View> {
         events: Store { connection }.list(id)?,
     })
 }
+pub fn read_context(root: &Path, id: &str, context: &str) -> Result<Vec<Record>> {
+    if !valid_id(id) || !valid_id(context) {
+        return Err(Error);
+    }
+    if !root.join("events.sqlite3").exists() {
+        return Ok(vec![]);
+    }
+    let connection = Connection::open_with_flags(
+        root.join("events.sqlite3"),
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
+    )?;
+    Store { connection }.context(id, Some(context))
+}
 pub fn materialize(project: &Path) -> Result<PathBuf> {
     let parent = project.join(".devforge");
     if let Ok(m) = fs::symlink_metadata(&parent) {
@@ -544,10 +562,74 @@ pub fn materialize(project: &Path) -> Result<PathBuf> {
         {
             return Err(Error);
         }
+        let known: BTreeMap<String, String> = serde_json::from_str(include_str!(
+            "../../../packages/laravel-inspector/legacy-hashes.json"
+        ))
+        .map_err(|_| Error)?;
+        let mut upgrade = false;
+        let src = fs::symlink_metadata(directory.join("src"))?;
+        if !src.is_dir() || src.file_type().is_symlink() {
+            return Err(Error);
+        }
+        for entry in fs::read_dir(&directory)? {
+            let name = entry?.file_name();
+            if !["src", "composer.json", ".devforge-owned"]
+                .iter()
+                .any(|s| name == *s)
+            {
+                return Err(Error);
+            }
+        }
+        for entry in fs::read_dir(directory.join("src"))? {
+            let name = entry?.file_name();
+            if ![
+                "Capture.php",
+                "RequestCapture.php",
+                "InspectorServiceProvider.php",
+            ]
+            .iter()
+            .any(|s| name == *s)
+            {
+                return Err(Error);
+            }
+        }
         for (name, body) in files {
             let p = directory.join(name);
             let m = fs::symlink_metadata(&p)?;
-            if m.file_type().is_symlink() || fs::read(p)? != body.as_bytes() {
+            if !m.is_file() || m.file_type().is_symlink() {
+                return Err(Error);
+            }
+            let bytes = fs::read(p)?;
+            if bytes != body.as_bytes() {
+                use sha2::{Digest, Sha256};
+                let hash = Sha256::digest(&bytes)
+                    .iter()
+                    .map(|b| format!("{b:02x}"))
+                    .collect::<String>();
+                if known.get(name) != Some(&hash) {
+                    return Err(Error);
+                }
+                upgrade = true;
+            }
+        }
+        if upgrade {
+            let stage = tempfile::tempdir_in(&parent)?;
+            for (name, body) in files {
+                let p = stage.path().join(name);
+                fs::create_dir_all(p.parent().ok_or(Error)?)?;
+                fs::write(p, body)?;
+            }
+            fs::write(
+                stage.path().join(".devforge-owned"),
+                b"laravel-inspector-v1",
+            )?;
+            let backup = parent.join(format!(
+                "laravel-inspector-backup-{}",
+                uuid::Uuid::new_v4().simple()
+            ));
+            fs::rename(&directory, &backup)?;
+            if fs::rename(stage.path(), &directory).is_err() {
+                let _ = fs::rename(&backup, &directory);
                 return Err(Error);
             }
         }
@@ -722,5 +804,58 @@ mod tests {
             assert!(materialize(fresh.path()).is_err());
             assert_eq!(fs::read_dir(other.path()).unwrap().count(), 0);
         }
+    }
+}
+
+#[cfg(test)]
+mod upgrade_tests {
+    use super::*;
+    #[test]
+    fn recognized_legacy_bundle_is_backed_up_but_user_edits_are_not_overwritten() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join(".devforge/laravel-inspector");
+        fs::create_dir_all(root.join("src")).unwrap();
+        for (name, body) in [
+            (
+                "composer.json",
+                include_str!("../tests/fixtures/legacy/composer.json"),
+            ),
+            (
+                "src/Capture.php",
+                include_str!("../tests/fixtures/legacy/src/Capture.php"),
+            ),
+            (
+                "src/RequestCapture.php",
+                include_str!("../tests/fixtures/legacy/src/RequestCapture.php"),
+            ),
+            (
+                "src/InspectorServiceProvider.php",
+                include_str!("../tests/fixtures/legacy/src/InspectorServiceProvider.php"),
+            ),
+        ] {
+            fs::write(root.join(name), body).unwrap();
+        }
+        fs::write(root.join(".devforge-owned"), b"laravel-inspector-v1").unwrap();
+        materialize(temp.path()).unwrap();
+        assert!(
+            fs::read_to_string(root.join("src/Capture.php"))
+                .unwrap()
+                .contains("public function log")
+        );
+        assert!(
+            fs::read_dir(temp.path().join(".devforge"))
+                .unwrap()
+                .flatten()
+                .any(|e| e
+                    .file_name()
+                    .to_string_lossy()
+                    .starts_with("laravel-inspector-backup-"))
+        );
+        fs::write(root.join("src/Capture.php"), "USER EDIT").unwrap();
+        assert!(materialize(temp.path()).is_err());
+        assert_eq!(
+            fs::read(root.join("src/Capture.php")).unwrap(),
+            b"USER EDIT"
+        );
     }
 }

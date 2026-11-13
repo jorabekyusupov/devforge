@@ -20,8 +20,8 @@ final class InspectorServiceProvider extends ServiceProvider
         $events->listen(\Illuminate\Log\Events\MessageLogged::class, function ($event) use ($capture) {
             $exception = $event->context['exception'] ?? null;
             $message = $exception instanceof \Illuminate\Database\QueryException ? get_class($exception) : (is_string($event->message) ? $event->message : get_debug_type($event->message));
-            $capture->emit('log', $event->level, 0, ['message' => $message]);
-            if ($exception instanceof \Throwable) $capture->exception($exception);
+            $context = $event->context; unset($context['exception']);
+            $capture->log($event->level, $message, $context, $exception instanceof \Throwable ? $exception : null);
         });
         $events->listen(\Illuminate\Queue\Events\JobProcessing::class, fn ($event) => $capture->begin('job', $event->job->resolveName()));
         $events->listen(\Illuminate\Queue\Events\JobProcessed::class, fn ($event) => $capture->finish(['status' => 'succeeded']));

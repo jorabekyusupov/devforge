@@ -10,6 +10,7 @@ import {
   Settings2,
   Power,
   ScanSearch,
+  Mail,
 } from "lucide-react";
 import {
   desktopBackend,
@@ -21,10 +22,12 @@ import {
 } from "./bridge";
 import { SettingsPage } from "./pages/SettingsPage";
 import { WorkspacePage } from "./pages/WorkspacePage";
+import { ActivityPage } from "./pages/ActivityPage";
 import { InspectorPage } from "./pages/InspectorPage";
 import { DiagnosticsPage } from "./pages/DiagnosticsPage";
 
 type Page =
+  | "activity"
   | "inspector"
   | "projects"
   | "runtimes"
@@ -40,6 +43,7 @@ const validPage = (value: string): Page => {
     "settings",
     "diagnostics",
     "inspector",
+    "activity",
   ].includes(route)
     ? (route as Page)
     : "projects";
@@ -166,6 +170,7 @@ export function App({ backend = desktopBackend }: { backend?: Backend }) {
     { id: "runtimes", icon: Layers, group: "workspace" },
     { id: "services", icon: Server, group: "workspace" },
     { id: "inspector", icon: ScanSearch, group: "workspace" },
+    { id: "activity", icon: Mail, group: "workspace" },
     { id: "settings", icon: Settings2, group: "application" },
     { id: "diagnostics", icon: Activity, group: "application" },
   ] as const;
@@ -227,7 +232,13 @@ export function App({ backend = desktopBackend }: { backend?: Backend }) {
           <p className="breadcrumb">
             <span>
               {t(
-                ["projects", "runtimes", "services", "inspector"].includes(page)
+                [
+                  "projects",
+                  "runtimes",
+                  "services",
+                  "inspector",
+                  "activity",
+                ].includes(page)
                   ? "nav.workspace"
                   : "nav.application",
               )}
@@ -292,6 +303,7 @@ export function App({ backend = desktopBackend }: { backend?: Backend }) {
           />
         )}
 
+        {page === "activity" && <ActivityPage backend={backend.workspace} />}
         {page === "inspector" && <InspectorPage backend={backend.workspace} />}
 
         {page === "diagnostics" && (

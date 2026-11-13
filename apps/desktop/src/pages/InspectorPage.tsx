@@ -24,6 +24,9 @@ export function InspectorPage({ backend }: { backend?: WorkspaceBackend }) {
   const id = projects.some((p) => p.project.id === project)
     ? project
     : (projects[0]?.project.id ?? "");
+  const [contextFilter, setContextFilter] = useState(
+    () => new URLSearchParams(location.hash.split("?")[1]).get("context") ?? "",
+  );
   const [view, setView] = useState<InspectionView | null>(null),
     [kind, setKind] = useState("all"),
     [eventPage, setEventPage] = useState(0),
@@ -44,7 +47,9 @@ export function InspectorPage({ backend }: { backend?: WorkspaceBackend }) {
     async function poll() {
       try {
         if (!backend?.inspector) throw new Error();
-        const value = await backend.inspector(id);
+        const value = await (contextFilter
+          ? backend.inspector(id, contextFilter)
+          : backend.inspector(id));
         if (alive) {
           setView(value);
           setFailure(false);
@@ -60,13 +65,14 @@ export function InspectorPage({ backend }: { backend?: WorkspaceBackend }) {
       alive = false;
       clearTimeout(timer);
     };
-  }, [id, backend, revision]);
+  }, [id, backend, revision, contextFilter]);
   useEffect(() => {
     if (confirm) dialog.current?.showModal();
   }, [confirm]);
   const filtered = (view?.capture.events ?? []).filter(
     (e) =>
       (kind === "all" || e.kind === kind) &&
+      (!contextFilter || e.context === contextFilter) &&
       `${e.name} ${JSON.stringify(e.data)}`
         .toLocaleLowerCase()
         .includes(query.toLocaleLowerCase()),
@@ -121,6 +127,7 @@ export function InspectorPage({ backend }: { backend?: WorkspaceBackend }) {
                 value={id}
                 onChange={(e) => {
                   setProject(e.target.value);
+                  setContextFilter("");
                   location.hash = `inspector?project=${encodeURIComponent(e.target.value)}`;
                 }}
               >
@@ -170,6 +177,19 @@ export function InspectorPage({ backend }: { backend?: WorkspaceBackend }) {
               </button>
             </div>
           </div>
+          {contextFilter && (
+            <p className="notice">
+              {t("inspector.contextFilter")}: <code>{contextFilter}</code>
+              <button
+                onClick={() => {
+                  setContextFilter("");
+                  location.hash = `inspector?project=${id}`;
+                }}
+              >
+                {t("inspector.clearContext")}
+              </button>
+            </p>
+          )}
           <p className="muted inspector-hint">{t("inspector.localHint")}</p>
           {failure ? (
             <div className="notice error" role="alert">

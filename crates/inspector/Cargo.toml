@@ -7,10 +7,14 @@ rust-version.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 axum = { version = "0.8.9", default-features = false, features = ["http1", "json", "tokio"] }
-tokio = { version = "1.54.1", features = ["rt", "net", "sync", "time", "macros"] }
+tokio = { version = "1.54.1", features = ["rt", "net", "sync", "time", "macros", "io-util"] }
 rusqlite = { version = "0.41.1", default-features = false, features = ["bundled"] }
 uuid = { version = "1.29.2", features = ["v4"] }
 regex = "1.13.1"
 tempfile = "3.27.0"
+mail-parser = { version="1.0.1", features=["full_encoding"] }
+base64 = "0.23.1"
+zeroize = "1.9.0"
+sha2 = "0.11.1"
 [dev-dependencies]
 reqwest = { version = "0.13.5", default-features = false, features = ["blocking", "json"] }

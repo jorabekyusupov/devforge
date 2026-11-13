@@ -28,6 +28,7 @@
   },
   "dependencies": {
     "@tauri-apps/api": "2.12.4",
+    "dompurify": "3.4.17",
     "i18next": "27.1.1",
     "lucide-react": "1.71.0",
     "react": "19.3.1",

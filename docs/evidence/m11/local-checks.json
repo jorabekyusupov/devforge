@@ -1,0 +1,11 @@
+{
+  "rust_passed": 89,
+  "rust_ignored": 1,
+  "frontend_passed": 29,
+  "locale_catalogs": 3,
+  "native_axe_cases": 15,
+  "native_axe_violations": 0,
+  "source_scope": "Local working-tree core checks; local native UI preceded final full-context query unit and project-forget listener cleanup. Immutable-source CI records final platform evidence separately.",
+  "packaging_tests": 6,
+  "clippy_test_support_all_targets": true
+}

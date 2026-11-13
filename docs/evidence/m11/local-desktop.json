@@ -1,0 +1,269 @@
+{
+  "native": "real WKWebView/WebView2 via debug-only W3C endpoint",
+  "checks": {
+    "sandbox_scripts_and_remote_requests_blocked": true,
+    "text_attachment_preview": true,
+    "delete_confirmation_cancel": true,
+    "image_attachment_preview": true,
+    "structured_log_filter_and_redaction": true,
+    "exception_stack": true,
+    "context_navigation": true,
+    "preferences_relaunch": true
+  },
+  "accessibility": [
+    {
+      "case": "mail-en-light",
+      "violations": []
+    },
+    {
+      "case": "mail-plain",
+      "violations": []
+    },
+    {
+      "case": "attachment-text-dialog",
+      "violations": []
+    },
+    {
+      "case": "mail-clear-review",
+      "violations": []
+    },
+    {
+      "case": "attachment-image-dialog",
+      "violations": []
+    },
+    {
+      "case": "logs-filtered",
+      "violations": []
+    },
+    {
+      "case": "exception-stack",
+      "violations": []
+    },
+    {
+      "case": "correlated-inspector",
+      "violations": []
+    },
+    {
+      "case": "activity-ru",
+      "violations": []
+    },
+    {
+      "case": "activity-ru-minimum",
+      "violations": []
+    },
+    {
+      "case": "activity-uz-Latn",
+      "violations": []
+    },
+    {
+      "case": "activity-uz-Latn-minimum",
+      "violations": []
+    },
+    {
+      "case": "activity-en",
+      "violations": []
+    },
+    {
+      "case": "activity-en-minimum",
+      "violations": []
+    },
+    {
+      "case": "activity-dark",
+      "violations": []
+    }
+  ],
+  "captures": [
+    {
+      "file": "mail-en-light.png",
+      "viewport": {
+        "height": 1024,
+        "language": "en",
+        "scale": 2,
+        "theme": "light",
+        "width": 1536
+      }
+    },
+    {
+      "file": "mail-plain.png",
+      "viewport": {
+        "height": 1024,
+        "language": "en",
+        "scale": 2,
+        "theme": "light",
+        "width": 1536
+      }
+    },
+    {
+      "file": "mail-attachment-text.png",
+      "viewport": {
+        "height": 1024,
+        "language": "en",
+        "scale": 2,
+        "theme": "light",
+        "width": 1536
+      }
+    },
+    {
+      "file": "mail-attachment-image.png",
+      "viewport": {
+        "height": 1024,
+        "language": "en",
+        "scale": 2,
+        "theme": "light",
+        "width": 1536
+      }
+    },
+    {
+      "file": "logs-filtered.png",
+      "viewport": {
+        "height": 1024,
+        "language": "en",
+        "scale": 2,
+        "theme": "light",
+        "width": 1536
+      }
+    },
+    {
+      "file": "logs-exception.png",
+      "viewport": {
+        "height": 1024,
+        "language": "en",
+        "scale": 2,
+        "theme": "light",
+        "width": 1536
+      }
+    },
+    {
+      "file": "activity-ru.png",
+      "viewport": {
+        "height": 1024,
+        "language": "ru",
+        "scale": 2,
+        "theme": "light",
+        "width": 1536
+      }
+    },
+    {
+      "file": "activity-uz-Latn.png",
+      "viewport": {
+        "height": 1024,
+        "language": "uz-Latn",
+        "scale": 2,
+        "theme": "light",
+        "width": 1536
+      }
+    },
+    {
+      "file": "activity-en.png",
+      "viewport": {
+        "height": 1024,
+        "language": "en",
+        "scale": 2,
+        "theme": "light",
+        "width": 1536
+      }
+    },
+    {
+      "file": "activity-dark.png",
+      "viewport": {
+        "height": 1024,
+        "language": "en",
+        "scale": 2,
+        "theme": "dark",
+        "width": 1536
+      }
+    }
+  ],
+  "viewport_attempts": [
+    {
+      "requested": {
+        "width": 1536,
+        "height": 1024
+      },
+      "actual": {
+        "height": 1024,
+        "width": 1536
+      },
+      "matched": true
+    },
+    {
+      "requested": {
+        "width": 1536,
+        "height": 1024
+      },
+      "actual": {
+        "height": 1024,
+        "width": 1536
+      },
+      "matched": true
+    },
+    {
+      "requested": {
+        "width": 820,
+        "height": 620
+      },
+      "actual": {
+        "height": 620,
+        "width": 820
+      },
+      "matched": true
+    },
+    {
+      "requested": {
+        "width": 1536,
+        "height": 1024
+      },
+      "actual": {
+        "height": 1024,
+        "width": 1536
+      },
+      "matched": true
+    },
+    {
+      "requested": {
+        "width": 820,
+        "height": 620
+      },
+      "actual": {
+        "height": 620,
+        "width": 820
+      },
+      "matched": true
+    },
+    {
+      "requested": {
+        "width": 1536,
+        "height": 1024
+      },
+      "actual": {
+        "height": 1024,
+        "width": 1536
+      },
+      "matched": true
+    },
+    {
+      "requested": {
+        "width": 820,
+        "height": 620
+      },
+      "actual": {
+        "height": 620,
+        "width": 820
+      },
+      "matched": true
+    },
+    {
+      "requested": {
+        "width": 1536,
+        "height": 1024
+      },
+      "actual": {
+        "height": 1024,
+        "width": 1536
+      },
+      "matched": true
+    }
+  ],
+  "remote_requests": [],
+  "save_file_dialog": "not automated; native attachment export tested in backend fixture"
+}

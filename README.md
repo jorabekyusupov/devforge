@@ -412,3 +412,33 @@ flow. The MySQL Intel-Mac capability gap remains visible during planning.
 Project metadata upgrades to schema3 for local credential links; older records
 remain readable by the new app. Older app builds refuse the new metadata schema;
 this is not a tested downgrade/rollback strategy. See the M15 release gates.
+
+## M11 mail and logs
+
+Open **Mail & logs**, choose a stopped project, then **Start capture**. DevForge
+starts an authenticated localhost SMTP sink and injects standard Laravel MAIL_*
+settings into its managed PHP/web/queue contexts. It never relays outgoing mail.
+Use the running desktop capture when sending through managed CLI PHP contexts;
+raw SMTP credentials stay in the local credential store. Stop the project before
+changing capture. Inbox data and the allocated port survive capture restart; Quit
+closes the listener. Unrelated external development services are not changed.
+
+The inbox supports subject/sender/recipient search, HTML/plain text and image/text
+attachment preview, Save, and confirmed delete/clear. Remote HTML resources, scripts,
+forms and links are blocked. Inline images can be viewed as attachments. Unsupported
+formats (including PDF/SVG) use Save rather than active embedding. Limits:2MiB raw
+message,50 attachments,200 retained messages and64MiB raw data per project; body
+preview is truncated at65,536 characters. Captured mail may contain private data.
+
+In **Logs**, install/update the companion and explicitly enable capture. Search and
+filter level/type/time over retained M7 events, inspect sanitized structured context
+and exception frames, or follow a context to Inspector. Companion updates back up
+recognized old bundles and refuse edited/foreign files. No stack arguments, request
+bodies or SQL bindings are captured. Redaction is heuristic; capture remains opt-in.
+
+`devforge.yaml` can export an optional `mail: true|false`; absence preserves an
+existing local choice. M10 `--write-env` can explicitly patch mail fields with its
+review/backup contract. Standard Laravel MAIL_URL uses the null sentinel when capture
+is selected. Custom hardcoded transports are not intercepted by a network firewall.
+Metadata is now schema4; previous builds refuse it. See [M11 results](docs/knowledge/m11-mail-logs-results.md)
+for current native evidence and release/rollback limitations.

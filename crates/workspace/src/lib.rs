@@ -1,5 +1,7 @@
 //! Shared daily-workspace orchestration. No Tauri or UI types, no credentials in DTOs.
+mod mail;
 pub mod repro;
+pub use devforge_inspector::logs::Filter as LogFilter;
 mod services;
 pub mod setup;
 mod system_setup;
@@ -215,6 +217,21 @@ pub enum Command {
         id: String,
         revision: u64,
     },
+    MailConfigure {
+        id: String,
+        enabled: bool,
+    },
+    MailDelete {
+        id: String,
+        message: Option<String>,
+        consent: bool,
+    },
+    MailSave {
+        id: String,
+        message: String,
+        index: usize,
+        path: PathBuf,
+    },
     Start {
         id: String,
     },
@@ -333,6 +350,7 @@ pub struct Workspace {
     runtime_cache: Vec<Runtime>,
     history: Vec<Log>,
     inspector: Option<devforge_inspector::Collector>,
+    mail: BTreeMap<String, devforge_inspector::mail::MailServer>,
     php_capabilities: BTreeMap<String, serde_json::Value>,
 }
 impl Workspace {
@@ -372,6 +390,7 @@ impl Workspace {
             runtime_cache: vec![],
             history: vec![],
             inspector: None,
+            mail: BTreeMap::new(),
             php_capabilities: BTreeMap::new(),
         };
         w.refresh_runtimes()?;
@@ -444,6 +463,18 @@ impl Workspace {
         cancel: &Cancellation,
     ) -> Result<serde_json::Value> {
         match command {
+            Command::MailConfigure { id, enabled } => self.configure_mail(&id, enabled),
+            Command::MailDelete {
+                id,
+                message,
+                consent,
+            } => self.mail_delete(&id, message.as_deref(), consent),
+            Command::MailSave {
+                id,
+                message,
+                index,
+                path,
+            } => self.mail_save(&id, &message, index, &path),
             Command::ActivateDatabaseGeneration {
                 id,
                 instance,
@@ -524,6 +555,9 @@ impl Workspace {
                 consent,
             } => self.https_apply(&id, &ticket, &digest, consent),
             Command::InspectorInstall { id } => {
+                if self.projects.get(&id)?.mail {
+                    self.ensure_mail(&id)?;
+                }
                 if self.sessions.contains_key(&id) {
                     return Err(error("inspection_stop_first"));
                 }
@@ -544,7 +578,7 @@ impl Workspace {
                         vec![
                             "require",
                             "--dev",
-                            "devforge/laravel-inspector:0.1.0",
+                            "devforge/laravel-inspector:0.2.0",
                             "--no-scripts",
                             "--no-plugins",
                             "--no-interaction",
@@ -640,6 +674,9 @@ impl Workspace {
                 Ok(serde_json::json!({"cleared":true}))
             }
             Command::InspectorProbe { id } => {
+                if self.projects.get(&id)?.mail {
+                    self.ensure_mail(&id)?;
+                }
                 let result=Context::resolve(&self.projects,&id,&self.catalog,&self.packages,self.secrets.as_ref())?
                     .invocation(Tool::Php,vec!["-r".into(),r#"echo json_encode(['loaded'=>extension_loaded('xdebug'),'version'=>phpversion('xdebug')?:null,'mode'=>ini_get('xdebug.mode')?:null,'php'=>PHP_VERSION]);"#.into()],&self.catalog,&self.packages)?
                     .run(self.projects.root().join("inspection-probe-logs"))?;
@@ -736,6 +773,7 @@ impl Workspace {
             }
             Command::Forget { id, revision } => {
                 self.stop(&id)?;
+                self.mail.remove(&id);
                 self.projects.forget(&id, revision)?;
                 self.sites.remove(&id)?;
                 self.preferences.development.remove(&id);
@@ -843,6 +881,9 @@ impl Workspace {
             return Err(error("already_running"));
         }
         let project = self.projects.get(id)?;
+        if project.mail {
+            self.ensure_mail(id)?;
+        }
         if project.services.uses_redis() {
             self.ensure_cache(
                 project
@@ -979,17 +1020,26 @@ impl Workspace {
         for (_, mut server) in std::mem::take(&mut self.caches) {
             server.stop()?;
         }
+        self.mail.clear();
         self.inspector.take();
         Ok(())
     }
     pub fn inspector_view(&self, id: &str) -> Result<serde_json::Value> {
+        self.inspector_context(id, None)
+    }
+    pub fn inspector_context(&self, id: &str, context: Option<&str>) -> Result<serde_json::Value> {
         let p = self.projects.get(id)?;
-        let capture = if let Some(i) = &self.inspector {
+        let mut capture = if let Some(i) = &self.inspector {
             i.view(id)
         } else {
             devforge_inspector::read(&self.root.join("inspector"), id)
         }
         .map_err(|_| error("inspection_unavailable"))?;
+        if let Some(context) = context {
+            capture.events =
+                devforge_inspector::read_context(&self.root.join("inspector"), id, context)
+                    .map_err(|_| error("inspection_unavailable"))?;
+        }
         Ok(
             serde_json::json!({"profiles":devforge_inspector::profile::analyze(&capture.events),"capture":capture,"companion_installed":p.path.join("vendor/devforge/laravel-inspector/src/InspectorServiceProvider.php").is_file(),"php_capability":self.php_capabilities.get(id)}),
         )

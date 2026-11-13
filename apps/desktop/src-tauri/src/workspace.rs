@@ -107,11 +107,14 @@ pub async fn workspace_snapshot(state: tauri::State<'_, State>) -> Result<View, 
 pub async fn inspector_snapshot(
     state: tauri::State<'_, State>,
     id: String,
+    context: Option<String>,
 ) -> Result<serde_json::Value, Error> {
     let state = state.inner().clone();
-    tauri::async_runtime::spawn_blocking(move || state.with(|w| w.inspector_view(&id)))
-        .await
-        .map_err(|_| State::failure("inspection_unavailable"))?
+    tauri::async_runtime::spawn_blocking(move || {
+        state.with(|w| w.inspector_context(&id, context.as_deref()))
+    })
+    .await
+    .map_err(|_| State::failure("inspection_unavailable"))?
 }
 #[tauri::command]
 pub async fn workspace_command(
@@ -270,4 +273,97 @@ pub fn main_window_action(app: tauri::AppHandle, action: String) -> Result<bool,
     window
         .is_visible()
         .map_err(|_| State::failure("open_failed"))
+}
+
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ActivityRequest {
+    id: String,
+    kind: String,
+    query: String,
+    page: usize,
+    message: Option<String>,
+    index: Option<usize>,
+    filter: Option<devforge_workspace::LogFilter>,
+}
+#[tauri::command]
+pub async fn activity_read(
+    state: tauri::State<'_, State>,
+    request: ActivityRequest,
+) -> Result<serde_json::Value, Error> {
+    let ActivityRequest {
+        id,
+        kind,
+        query,
+        page,
+        message,
+        index,
+        filter,
+    } = request;
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        state.with(|w| match kind.as_str() {
+            "inbox" => w.mail_view(&id, &query, page),
+            "message" => w.mail_message(
+                &id,
+                message
+                    .as_deref()
+                    .ok_or_else(|| State::failure("mail_unavailable"))?,
+            ),
+            "part" => w.mail_part(
+                &id,
+                message
+                    .as_deref()
+                    .ok_or_else(|| State::failure("mail_unavailable"))?,
+                index.ok_or_else(|| State::failure("mail_unavailable"))?,
+            ),
+            "logs" => w.logs_view(&id, &filter.unwrap_or_default()),
+            _ => Err(State::failure("mail_unavailable")),
+        })
+    })
+    .await
+    .map_err(|_| State::failure("mail_unavailable"))?
+}
+#[tauri::command]
+pub async fn choose_mail_file(
+    app: tauri::AppHandle,
+    preferences: tauri::State<'_, crate::AppState>,
+    name: String,
+) -> Result<Option<PathBuf>, Error> {
+    use tauri_plugin_dialog::DialogExt;
+    let preferences = preferences.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let snapshot = preferences
+            .snapshot(None)
+            .map_err(|_| State::failure("storage_unavailable"))?;
+        let bundle: serde_json::Value = serde_json::from_str(crate::BUNDLE).unwrap();
+        let title = bundle["catalogs"][snapshot.resolved_locale]["activity"]["saveAttachment"]
+            .as_str()
+            .unwrap_or("DevForge");
+        let name = name
+            .rsplit(['/', '\\'])
+            .next()
+            .unwrap_or("attachment")
+            .chars()
+            .filter(|c| !c.is_control() && !"<>:\"|?*".contains(*c))
+            .take(120)
+            .collect::<String>();
+        let name = if name.trim_matches(['.', ' ']).is_empty() {
+            "attachment.bin"
+        } else {
+            name.trim_matches(['.', ' '])
+        };
+        app.dialog()
+            .file()
+            .set_title(title)
+            .set_file_name(name)
+            .blocking_save_file()
+            .map(|p| {
+                p.into_path()
+                    .map_err(|_| State::failure("mail_export_failed"))
+            })
+            .transpose()
+    })
+    .await
+    .map_err(|_| State::failure("mail_export_failed"))?
 }

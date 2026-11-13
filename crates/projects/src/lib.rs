@@ -6,6 +6,7 @@ pub mod database_store;
 pub mod env_file;
 pub mod environment;
 pub mod execution;
+pub mod mail;
 pub mod manifest;
 pub mod mysql_service;
 pub mod php_settings;
@@ -26,6 +27,7 @@ pub enum ProjectError {
     StorageUnavailable,
     SecretUnavailable,
     InvalidEnvironment,
+    MailUnavailable,
     RuntimeUnavailable,
     ExecutionFailed,
     DatabaseUnavailable,
@@ -104,6 +106,7 @@ mod localization_tests {
                 super::ProjectError::StorageUnavailable,
                 super::ProjectError::SecretUnavailable,
                 super::ProjectError::InvalidEnvironment,
+                super::ProjectError::MailUnavailable,
                 super::ProjectError::RuntimeUnavailable,
                 super::ProjectError::ExecutionFailed,
                 super::ProjectError::DatabaseUnavailable,

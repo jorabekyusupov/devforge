@@ -1,0 +1,54 @@
+name: Native mail and structured logs
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Native target
+        type: choice
+        default: all
+        options: [all, macos-arm64, macos-x64, windows-x64]
+permissions:
+  contents: read
+jobs:
+  activity:
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(inputs.target == 'windows-x64' && '[{"os":"windows-latest","target":"windows-x64"}]' || inputs.target == 'macos-arm64' && '[{"os":"macos-15","target":"macos-arm64"}]' || inputs.target == 'macos-x64' && '[{"os":"macos-15-intel","target":"macos-x64"}]' || '[{"os":"macos-15","target":"macos-arm64"},{"os":"macos-15-intel","target":"macos-x64"},{"os":"windows-latest","target":"windows-x64"}]') }}
+    runs-on: ${{ matrix.os }}
+    env:
+      PYTHONUTF8: '1'
+      PYTHONIOENCODING: utf-8
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24.22.2'
+          cache: npm
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.13'
+      - run: rustup show
+      - run: npm ci
+      - name: Real Laravel PHP Node PostgreSQL fixture
+        run: cargo run --release -p devforge-workspace --example native_workspace --features test-support -- m11-fixture empty-cache
+      - name: Laravel SMTP MIME queue logs isolation persistence and export
+        run: target/release/examples/native_workspace activity-native m11-fixture
+      - name: Native debug-only WebDriver desktop
+        run: npm run tauri -- build --debug --no-bundle --features e2e
+      - name: Real Mail and Logs UI HTML sandbox attachments filters and languages
+        env:
+          WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: --disable-gpu
+        run: python scripts/m11_desktop_smoke.py m11-fixture target/debug/devforge-desktop target/release/examples/native_workspace
+      - name: Public reports and screenshots only
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: m11-${{ matrix.target }}
+          retention-days: 7
+          path: |
+            m11-fixture/m11-native-result.json
+            m11-fixture/m11-desktop-result.json
+            output/playwright/m11/*.png
+          if-no-files-found: warn

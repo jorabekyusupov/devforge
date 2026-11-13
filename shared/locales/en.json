@@ -8,7 +8,8 @@
     "main": "Main navigation",
     "runtimes": "Runtimes",
     "services": "Services & logs",
-    "inspector": "Inspector"
+    "inspector": "Inspector",
+    "activity": "Mail & logs"
   },
   "common": {
     "saved": "Saved automatically",
@@ -130,7 +131,8 @@
       "administrator_unsupported": "Start DevForge without administrator privileges to run PostgreSQL.",
       "invalid_backup": "The backup archive is invalid or its checksum does not match.",
       "backup_unsupported": "This backup engine, version or database objects are not supported.",
-      "backup_destination_exists": "A file already exists there. Export with a different name."
+      "backup_destination_exists": "A file already exists there. Export with a different name.",
+      "mail_unavailable": "Mail capture is unavailable. Stop the project, retry capture and check the local port."
     }
   },
   "serving": {
@@ -270,7 +272,10 @@
       "restore_backup": "Applying service operation…",
       "install_redis_client": "Applying service operation…",
       "unbind_database": "Applying service operation…",
-      "activate_database_generation": "Applying service operation…"
+      "activate_database_generation": "Applying service operation…",
+      "mail_configure": "Applying mail operation…",
+      "mail_delete": "Applying mail operation…",
+      "mail_save": "Applying mail operation…"
     },
     "kinds": {
       "php": "PHP",
@@ -355,7 +360,9 @@
       "manifest_env_multiline": "A multiline secret cannot be written to .env. Use managed process environment instead.",
       "manifest_redis_client_missing": "Install Predis or enable its explicit setup option before selecting Redis drivers.",
       "manifest_dependency_failed": "Dependency setup failed. Check config status and the private tool logs; fix and review a fresh plan.",
-      "manifest_usage": "Usage: config init|export|plan|setup|secret|status. Setup requires --review and --trust."
+      "manifest_usage": "Usage: config init|export|plan|setup|secret|status. Setup requires --review and --trust.",
+      "mail_unavailable": "Mail capture is unavailable. Stop the project, retry capture and check the local port.",
+      "mail_export_failed": "Could not save the attachment. Choose a new writable filename."
     }
   },
   "runtimes": {
@@ -462,7 +469,9 @@
     },
     "pages": "Event pages",
     "previous": "Previous",
-    "next": "Next"
+    "next": "Next",
+    "contextFilter": "Context filter",
+    "clearContext": "Clear context filter"
   },
   "setup": {
     "newProject": "New project",
@@ -553,5 +562,77 @@
     "available": "Available",
     "unmet": "Requirement not met",
     "platformUnavailable": "Install dependencies to check the project’s actual platform requirements."
+  },
+  "activity": {
+    "title": "Mail & logs",
+    "description": "Local mail and application events.",
+    "project": "Project",
+    "views": "Activity views",
+    "inbox": "Inbox",
+    "logs": "Logs",
+    "running": "SMTP running",
+    "stopped": "SMTP stopped",
+    "stop": "Stop capture",
+    "start": "Start capture",
+    "clearInbox": "Clear inbox",
+    "installCapture": "Install/update capture",
+    "search": "Search",
+    "searchMail": "Search subject or sender…",
+    "searchLogs": "Search message or context…",
+    "mailHint": "Local SMTP requires authentication and never relays mail. Stop the project before changing capture. Keeps the latest 200 messages, up to 64 MiB; each message up to 2 MiB.",
+    "logsHint": "Logs are opt-in. Capture package changes affect the project. Sensitive context keys are redacted; retention is bounded.",
+    "failed": "Could not load this activity. Retry or check that capture is running.",
+    "completed": "Operation completed.",
+    "level": "Level",
+    "kind": "Type",
+    "period": "Period",
+    "noSubject": "No subject",
+    "emptyMail": "No mail captured.",
+    "emptyLogs": "No matching logs.",
+    "selectMail": "Select a message to preview.",
+    "selectLog": "Select a log or exception.",
+    "from": "From",
+    "to": "To",
+    "plainText": "Plain text",
+    "htmlPreview": "Mail HTML preview",
+    "remoteBlocked": "Remote resources and links are blocked. Inline images are available as attachments.",
+    "attachments": "Attachments",
+    "preview": "Preview",
+    "save": "Save",
+    "saveAttachment": "Save attachment",
+    "delete": "Delete message",
+    "confirm": "Review action",
+    "deleteHint": "Delete the selected message or clear this project inbox? This cannot be undone.",
+    "continue": "Continue",
+    "previous": "Previous",
+    "next": "Next",
+    "noText": "No plain-text body.",
+    "noPreview": "Preview is unavailable for this file type. Save the attachment to inspect it.",
+    "context": "Context",
+    "trace": "Open request/job trace",
+    "stack": "Stack trace",
+    "truncated": "Preview is truncated.",
+    "levels": {
+      "all": "All levels",
+      "debug": "Debug",
+      "info": "Info",
+      "notice": "Notice",
+      "warning": "Warning",
+      "error": "Error",
+      "critical": "Critical",
+      "alert": "Alert",
+      "emergency": "Emergency"
+    },
+    "kinds": {
+      "all": "All types",
+      "log": "Log",
+      "exception": "Exception"
+    },
+    "hours_one": "Last {{count}} hour",
+    "count_one": "{{count}} item",
+    "attachmentsCount_one": "{{count}} attachment",
+    "hours_other": "Last {{count}} hours",
+    "count_other": "{{count}} items",
+    "attachmentsCount_other": "{{count}} attachments"
   }
 }

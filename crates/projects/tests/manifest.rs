@@ -3,6 +3,7 @@ use devforge_runtime::package::Target;
 fn sample() -> Manifest {
     let mut m = Manifest {
         schema: 1,
+        mail: None,
         project: Project {
             name: "Atlas".into(),
             domain: "atlas.devforge.test".into(),

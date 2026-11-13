@@ -502,6 +502,9 @@ impl Workspace {
                 return Err(error("setup_stop_first"));
             }
             let project = self.projects.get(id)?;
+            if project.mail {
+                self.ensure_mail(id)?;
+            }
             let mut changed = vec![];
             self.stage("environment", Some(id));
             if let Some(plan) = devforge_projects::env_file::EnvPlan::application(
@@ -640,7 +643,7 @@ impl Workspace {
         cancel: &Cancellation,
     ) -> Result<serde_json::Value> {
         let project = self.projects.get(id)?;
-        let context = Context::resolve(
+        let context = Context::tooling(
             &self.projects,
             id,
             &self.catalog,
@@ -674,7 +677,7 @@ impl Workspace {
         value["platform_check_available"] = false.into();
         value["platform_requirements"] = serde_json::json!([]);
         if project.path.join("composer.lock").is_file() {
-            let context = Context::resolve(
+            let context = Context::tooling(
                 &self.projects,
                 id,
                 &self.catalog,
