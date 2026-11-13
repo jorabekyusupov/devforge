@@ -1,0 +1,47 @@
+{
+  "product_source": "15a9377b59ec212f51e1c016b1401651b0502777",
+  "source_boundary": "M7 native report precedes unrelated M12 UI/SSH and catalog additions; exact candidate is checked by hosted runs. Latest local backend/CLI/UI use this candidate.",
+  "target": "macos-arm64",
+  "rust": {
+    "passed": 116,
+    "failed": 0,
+    "ignored": 1,
+    "ignored_reason": "Explicit native credential roundtrip remains a separate M15 gate"
+  },
+  "frontend": {
+    "passed": 38,
+    "failed": 0
+  },
+  "checks": [
+    "cargo fmt --all -- --check",
+    "cargo clippy --workspace --all-targets -- -D warnings",
+    "cargo clippy -p devforge-workspace --all-targets --features test-support -- -D warnings",
+    "cargo test --workspace",
+    "npm run check:locales",
+    "npm run typecheck",
+    "npm test"
+  ],
+  "native_reports": {
+    "completion-native-result.json": "13f646596171c6e8eb2b648f2594060ae245a1088b6ce49771d3b1cd1791dd10",
+    "completion-cli-result.json": "2031408655cd1905683a09f4761ef81fe90cf0a24b6f08d93e777060af07fabe",
+    "completion-desktop-result.json": "9d19241de4f58c42f6c443326f95c4ad3c8e3d03c5a19d4cfeb9e0e6b13f1cb9",
+    "m7-xdebug-native-result.json": "100df9a6ab6208da636825be80fc1a5a62641a378ee20c09cc38e7f8491c4639",
+    "m7-xdebug-cli-result.json": "29283bda34da99b9f00ef44387bdf352c725c825df61a1049d6d8a8046dcbb45",
+    "m7-xdebug-desktop-result.json": "528f3d3a60973eaa143b3db6d57b2d934bdde90bb1aadbdb9999662d71c1c70e"
+  },
+  "native_ui": {
+    "debugger_axe_cases": 13,
+    "completion_axe_cases": 9,
+    "violations": 0,
+    "engine": "real WKWebView via debug-only W3C endpoint",
+    "secret_adapter": "FixtureSecrets; production OS credentials not claimed"
+  },
+  "external_tooling": "agent-desktop unavailable; existing native W3C harness used without OS permission changes",
+  "os_version": "27.2.1",
+  "supplemental_crlf_native": {
+    "source": "c5c3231156c7af8d964ab6100330a46cfbb56351",
+    "per_repository_core_autocrlf": true,
+    "result": "passed",
+    "global_git_configuration_unchanged": true
+  }
+}

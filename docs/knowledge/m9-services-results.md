@@ -65,6 +65,11 @@ sources:
     title: Official EDB binary archive channel
 ---
 
+> Davom yozuvi: ushbu hisobot oldingi accepted source'ning tarixiy dalilidir.
+> GET/read-only locals, Intel MySQL, GUI editor va archive-only kabi chegaralarning
+> kengayishi [M7–M12 completion](m7-m12-completion.md) yozuvida yuritiladi;
+> joriy hosted tekshiruv hali yakunlanmoqda.
+
 # Holat
 
 M9 managed PostgreSQL/MySQL, Garnet, loyiha service profile va logical backup

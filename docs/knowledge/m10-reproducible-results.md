@@ -56,6 +56,11 @@ sources:
     title: Official YAML parser options budget and opt-in feature boundaries
 ---
 
+> Davom yozuvi: ushbu hisobot oldingi accepted source'ning tarixiy dalilidir.
+> GET/read-only locals, Intel MySQL, GUI editor va archive-only kabi chegaralarning
+> kengayishi [M7–M12 completion](m7-m12-completion.md) yozuvida yuritiladi;
+> joriy hosted tekshiruv hali yakunlanmoqda.
+
 # Scope va holat
 
 Foydalanuvchi M10 ni boshlashni so'radi. Roadmap'dagi CLI-first kontrakt yaratildi;

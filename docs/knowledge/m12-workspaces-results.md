@@ -62,6 +62,11 @@ sources:
     title: Official Git linked worktree remove and branch semantics
 ---
 
+> Davom yozuvi: ushbu hisobot oldingi accepted source'ning tarixiy dalilidir.
+> GET/read-only locals, Intel MySQL, GUI editor va archive-only kabi chegaralarning
+> kengayishi [M7–M12 completion](m7-m12-completion.md) yozuvida yuritiladi;
+> joriy hosted tekshiruv hali yakunlanmoqda.
+
 # Holat va scope
 
 M12 funksional qabuli yakunlandi: macOS ARM64/Intel va Windows x64 backend,
