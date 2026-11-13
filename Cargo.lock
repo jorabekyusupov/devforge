@@ -1128,6 +1128,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "devforge-control"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "devforge-core"
 version = "0.1.0"
 dependencies = [

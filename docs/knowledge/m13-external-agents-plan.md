@@ -133,7 +133,7 @@ ko'rsatilmaydi. Har biri faqat grant berilgan loyiha va imkoniyatlar bilan ishla
 | Database | Metadata/connection test, owned test DB/role, bind/switch, schema inspect va cheklangan read-only query. Clone, backup, export/import/restore generation review bilan. |
 | Logs/errors | Oxirgi exception, stack/file/line/context, level/time/search filters, cursor pagination va yangi xatolarni kutish. |
 | Inspector/performance | Request/job/CLI trace, SQL/N+1/duplicate/slow queries, dump/dd, HTTP/cache events, capture toggle, profile summary va before/after solishtirish. |
-| Debugger/profiler | Capability/status, optional Xdebug install/mode, breakpoints, start/pause/step/continue, stack/scopes/locals, bounded evaluate; mutation existing revision va alohida grant bilan. Profile/history/export. |
+| Debugger/profiler | Capability/status, optional Xdebug install/mode, breakpoints, start/pause/step/continue, stack/scopes/primitive locals; arbitrary expression eval scope’da emas, mutation existing revision va alohida grant bilan. Profile/history/export. |
 | Mail | SMTP holati, scoped list/show/wait, sender/recipient/subject/time filters, verification/reset URL ajratish, attachment metadata/controlled export, reviewed delete. |
 | Execution/tests | Loyiha runtime'i bilan PHP/Artisan/Composer/Node/npm/Git invocation; test runner, exit code, bounded output, timeout/cancel, artifact references. |
 | HTTP verification | Managed site'ga HTTP request/probe, readiness/TLS/response summary va trace correlation. Redirect/host chegarasi saqlanadi; tokenlar reference orqali beriladi. |
@@ -287,3 +287,10 @@ qabuli emas. Source/model/provider konfiguratsiyasi o'zgartirilmadi.
 [^http]: [Streamable HTTP](https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/streamable-http).
 [^authorization]: [Authorization](https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization).
 [^rust-sdk]: [Official Rust SDK](https://github.com/modelcontextprotocol/rust-sdk).
+
+## Bajarish davomiyligi
+
+Keyingi user implementation va har accepted bosqich pushni vakolatladi.
+[M13.0.1 holati](execution-status.md) va [control-plane ADR](../architecture/control-plane.md)
+contract foundationni qayd etadi; manager/MCP va toliq per-tool payload API hali
+amalga oshmagan. Yuqoridagi planning-only tekshiruv qaydi tarixiy planning bosqichiga tegishli.

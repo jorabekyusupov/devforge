@@ -4,6 +4,8 @@
 
 ## 2026-11-13
 
+- **M13.0.1 contract foundation:** devforge-control,16oila/153operation non-live inventory, versioned envelope/project/grant/review/idempotency/state/freshness guards va control-plane ADR.13focused contract test (QA policy correctionsdan keyin), scoped fmt/clippy o'tdi; dependency upgrade yo'q. Toliq M13.0 payload/dispatch/TS sync hamda manager/IPC/MCP native/client qabuli qoladi. [Execution](execution-status.md).
+
 - **E04.1 developer docs:** README desktop/MySQL/current-state, yangi CONTRIBUTING (scoped test/reuse/fixtures/ownership/UI/native evidence), validator qo'llanmasidagi drift tuzatildi.36 local link va diff review; strict OKF. E04 glossary/user pilot qoladi, product suite takrorlanmadi. [Holat](execution-status.md).
 
 - **TP01 CI test scope:** docs-only push/PR uchun conservative allowlist, 8 selector regression (actual Git diff/GITHUB_OUTPUT bilan); manual/code/unknown/mixed/history error old core checksni saqlaydi. Matrix nomlari va strict OKF saqlandi. [Execution evidence](execution-status.md). Remote policy natijasi pending; lokal product suite rerun qilinmadi.

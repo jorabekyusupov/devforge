@@ -227,8 +227,10 @@ ozgarishda oldingi barcha product checks qoladi. Push before va PR base farqi,
 rename/deletion/new branch/missing history fail-open full tanlanadi.
 `scripts/ci_scope.py` uchun 8 focused unittest, actual temporary Git diff va
 GITHUB_OUTPUT integration agent tomonidan o'tdi. Workflow YAML/gating va diff review
-o'tdi. Remote Actions yangi policy qabuli hali pending; product tests lokal
-qayta bajarilmadi, chunki bu ozgarish app behavior'iga tegmaydi.
+o'tdi. Remote docs-only policy run43486644920/source0089b2f macOS va Windows joblarida
+success: selector/8test/strict OKF o'tdi, product test/build steps skipped ekanligi
+job-step natijalari bilan tekshirildi. Code-change full branch run6940822 alohida.
+Product tests lokal qayta bajarilmadi, chunki bu ozgarish app behavior'iga tegmaydi.
 
 # E04.1 — Developer hujjatlari
 
@@ -239,3 +241,30 @@ tuzatildi; sanali tarixiy natijalar saqlandi. Uch hujjatning36 local link target
 scoped whitespace review agent tomonidan o'tdi; integrator diff review qildi.
 E04.1 documentation slice validated; E04ning termin/glossary va actual RU/UZ/EN
 user pilot qismi planned. Product code/test/build bu slice uchun bajarilmadi.
+
+# M13.0.1 — Control contract foundation
+
+`crates/control` (devforge-control) qo'shildi: api_version1 envelope/ID, canonical
+registered binding va scoped resource containment; mustaqil scopes/expiry/revoke;
+project/action/revision/digest/expiry review; client/project/key/digest idempotency;
+operation state/cancel/freshness. [ADR](../architecture/control-plane.md).
+Embedded inventory16oila/153operation uchun core/new/unsupported, scope/effect/review
+policy saqlaydi; hammasi available:false, live tools deb e'lon qilinmaydi.
+
+Scoped validation: `cargo test -p devforge-control --test contracts`13passed;
+`cargo fmt -p devforge-control -- --check` va
+`cargo clippy -p devforge-control --all-targets -- -D warnings` o'tdi.
+Bu framework-independent kontrakt qabuli; macOS/Windows authenticated IPC yoki
+actual MCP client/native acceptance emas. Cargo lockda faqat local crate qo'shildi,
+uchinchi tomon dependency versiyalari o'zgarmadi. Existing runtime testlari rerun qilinmadi.
+
+M13.0.1 validated; toliq M13.0 hali in_progress. M13.0.2da per-tool typed payload
+schemas, bounded pagination/output, adapter dispatch/error mapping va Rust–TS contract
+sync qoladi. M13.1 live owner gate yopilmadi. Plan mavjudligi manager/MCP bor degani emas.
+
+Mustaqil QA reviewdan keyin non-live policy inventory tuzatildi: project code
+bajarishi mumkin bolgan start/restart/setup/create/select/capture amallari ExecutionTest
+grantini ham talab qiladi; Inspector companion install Xdebug SDK installidan ajratildi.
+Read-plan va apply effect/reviewlari, mail delete effekti va family/operation union
+consistency regressiyalari qo'shildi.13test final inventoryga tegishli; old10test
+natijasiga emas. Bu live authorization/IPC acceptance degani emas.
