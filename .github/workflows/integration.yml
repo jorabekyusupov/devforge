@@ -32,12 +32,7 @@ jobs:
           python-version: '3.13'
       - run: rustup show
       - run: npm ci
-      - run: cargo fmt --all -- --check
-      - run: cargo clippy --workspace --all-targets --features devforge-workspace/test-support -- -D warnings
-      - run: cargo test --workspace
-      - run: npm run check:locales
-      - run: npm run typecheck
-      - run: npm test
+      # Full code suites run in check.yml on both OSes. This job exercises real native integration.
       - name: Per-user isolated discovery fixtures
         run: python -c "import os,pathlib,tempfile; p=pathlib.Path(tempfile.gettempdir())/'devforge-integrated-discovery'; pathlib.Path(os.environ['GITHUB_ENV']).open('a',encoding='utf-8').write('DISCOVERY_FIXTURE='+str(p)+'\n')"
       - name: Audit live current catalog packages and architectures
