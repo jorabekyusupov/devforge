@@ -3,6 +3,7 @@ use super::*;
 use devforge_projects::{env_file::EnvPlan, manifest::Manifest};
 use sha2::{Digest, Sha256};
 use std::{ffi::OsString, io::Write};
+mod erase;
 mod git;
 mod lifecycle;
 mod remote;

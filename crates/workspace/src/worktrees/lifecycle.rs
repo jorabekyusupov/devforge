@@ -326,7 +326,7 @@ impl Workspace {
             record.stage = "purging".into();
             self.save_worktree(&record)?;
             if retained.exists() {
-                fs::remove_dir_all(retained)?;
+                erase::payload(&retained)?;
             }
             record.stage = "purged".into();
             self.save_worktree(&record)?;
@@ -412,7 +412,7 @@ impl Workspace {
         self.save()?;
         // The archive remains intact until activation succeeds; remove only this duplicate afterwards.
         if retained.exists() {
-            fs::remove_dir_all(retained)?;
+            erase::payload(&retained)?;
         }
         record.stage = "ready".into();
         record.last_error = None;
