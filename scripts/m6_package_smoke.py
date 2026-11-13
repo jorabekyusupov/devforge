@@ -3,6 +3,7 @@
 Does not touch system trust. Data/DB fixtures are retained by installer operations.
 """
 import argparse, ctypes, hashlib, json, os, pathlib, platform, shutil, signal, sqlite3, subprocess, time
+from contextlib import closing
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 def run(*args,**kwargs):return subprocess.run(args,check=True,**kwargs)
 def wait(test,seconds=60):
@@ -17,7 +18,7 @@ def project_registry_snapshot(path):
     # A launch may add feature tables or checkpoint SQLite pages. Preserve every
     # existing table's definition and rows, without treating page layout as data.
     if not path.exists():return {}
-    with sqlite3.connect(path.resolve().as_uri()+'?mode=ro',uri=True) as db:
+    with closing(sqlite3.connect(path.resolve().as_uri()+'?mode=ro',uri=True)) as db:
         tables=db.execute("SELECT name,sql FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name").fetchall()
         return {name:(schema,sorted(repr(row) for row in db.execute('SELECT * FROM "'+name.replace('"','""')+'"'))) for name,schema in tables}
 def verify_registry_preserved(before,after):
