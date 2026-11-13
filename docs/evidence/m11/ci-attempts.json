@@ -1,0 +1,11 @@
+{
+  "attempts": [
+    {
+      "source": "ab07756c3ad7d51dc58a59e5d0dbdf41efc0ed3f",
+      "run": 43340463033,
+      "windows_job": 131607205021,
+      "outcome": "legacy companion upgrade test failed because Windows checkout CRLF differed from known LF SHA256",
+      "followup": "Normalize LF/CRLF only for verified known UTF8 bundle source; content edits, foreign files and symlinks still refused. Add CRLF fixture on all OS."
+    }
+  ]
+}

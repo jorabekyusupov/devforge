@@ -600,9 +600,14 @@ pub fn materialize(project: &Path) -> Result<PathBuf> {
                 return Err(Error);
             }
             let bytes = fs::read(p)?;
-            if bytes != body.as_bytes() {
+            // Git checkouts may use CRLF; normalize line endings only for these
+            // known UTF-8 source files. All other user edits still fail closed.
+            let canonical = std::str::from_utf8(&bytes)
+                .map_err(|_| Error)?
+                .replace("\r\n", "\n");
+            if canonical != body.replace("\r\n", "\n") {
                 use sha2::{Digest, Sha256};
-                let hash = Sha256::digest(&bytes)
+                let hash = Sha256::digest(canonical.as_bytes())
                     .iter()
                     .map(|b| format!("{b:02x}"))
                     .collect::<String>();
@@ -833,7 +838,11 @@ mod upgrade_tests {
                 include_str!("../tests/fixtures/legacy/src/InspectorServiceProvider.php"),
             ),
         ] {
-            fs::write(root.join(name), body).unwrap();
+            fs::write(
+                root.join(name),
+                body.replace("\r\n", "\n").replace("\n", "\r\n"),
+            )
+            .unwrap();
         }
         fs::write(root.join(".devforge-owned"), b"laravel-inspector-v1").unwrap();
         materialize(temp.path()).unwrap();
