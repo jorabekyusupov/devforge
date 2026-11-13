@@ -169,6 +169,24 @@ fn run_case(root: &Path, archives: &Path, auto_discovery: bool) -> Result<()> {
             &cancel,
         )?;
         a = w.projects.get(&a.id)?;
+        // A cloned source tree does not inherit the seed project's managed
+        // secrets. Prepare this project's own test environment explicitly.
+        for (key, value) in [
+            ("APP_ENV", "testing"),
+            ("APP_KEY", "0123456789abcdef0123456789abcdef"),
+            ("SESSION_DRIVER", "file"),
+            ("QUEUE_CONNECTION", "database"),
+            ("LOG_CHANNEL", "stderr"),
+        ] {
+            a = devforge_projects::environment::set(
+                &w.projects,
+                secrets.as_ref(),
+                &a.id,
+                a.revision,
+                key,
+                value,
+            )?;
+        }
         exec(
             &w,
             secrets.as_ref(),
