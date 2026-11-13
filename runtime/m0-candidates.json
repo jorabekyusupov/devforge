@@ -8,7 +8,8 @@
     "url": "https://dl.static-php.dev/v3/php-bin/common/php-8.4.27-cli-macos-aarch64.tar.gz",
     "sha256": "ef03c8fcb789892683c9091f26699e63438494ebef6e63f7a99e8adb25f065cb",
     "checksum_source": "https://dl.static-php.dev/v3/php-bin/common/php-8.4.27-cli-macos-aarch64.tar.gz.sha256",
-    "provider": "StaticPHP v3 common; third-party candidate"
+    "provider": "StaticPHP v3 common; third-party candidate",
+    "superseded_by": "php-8.4.27-staticphp20261113-cli-macos-arm64"
   },
   {
     "id": "php-8.4.27-fpm-macos-arm64",
@@ -19,7 +20,8 @@
     "url": "https://dl.static-php.dev/v3/php-bin/common/php-8.4.27-fpm-macos-aarch64.tar.gz",
     "sha256": "b615ed61a4605074775838fc5ce64178da77b99a70f30330d1dbf25b9869a72f",
     "checksum_source": "https://dl.static-php.dev/v3/php-bin/common/php-8.4.27-fpm-macos-aarch64.tar.gz.sha256",
-    "provider": "StaticPHP v3 common; third-party candidate"
+    "provider": "StaticPHP v3 common; third-party candidate",
+    "superseded_by": "php-8.4.27-staticphp20261113-fpm-macos-arm64"
   },
   {
     "id": "php-8.5.12-cli-macos-arm64",
@@ -162,7 +164,8 @@
     "url": "https://dl.static-php.dev/v3/php-bin/common/php-8.4.27-cli-macos-x86_64.tar.gz",
     "sha256": "4ca9f866595b8c10a42327b3905a51197a5af5d8cc611b97afb39386ac929b34",
     "checksum_source": "https://dl.static-php.dev/v3/php-bin/common/php-8.4.27-cli-macos-x86_64.tar.gz.sha256",
-    "provider": "StaticPHP v3 common; third-party candidate"
+    "provider": "StaticPHP v3 common; third-party candidate",
+    "superseded_by": "php-8.4.27-staticphp20261113-cli-macos-x64"
   },
   {
     "id": "php-8.4.27-fpm-macos-x64",
@@ -173,7 +176,8 @@
     "url": "https://dl.static-php.dev/v3/php-bin/common/php-8.4.27-fpm-macos-x86_64.tar.gz",
     "sha256": "acfe4f13b724a0fd04d8a22f9ddb7dd2742ca74e03c49014e574c0510064600e",
     "checksum_source": "https://dl.static-php.dev/v3/php-bin/common/php-8.4.27-fpm-macos-x86_64.tar.gz.sha256",
-    "provider": "StaticPHP v3 common; third-party candidate"
+    "provider": "StaticPHP v3 common; third-party candidate",
+    "superseded_by": "php-8.4.27-staticphp20261113-fpm-macos-x64"
   },
   {
     "id": "php-8.5.12-cli-macos-x64",
@@ -270,6 +274,54 @@
     "url": "https://dl.static-php.dev/v3/php-bin/common/php-8.5.12-fpm-macos-aarch64.tar.gz",
     "sha256": "7f40383764102dbad2db3f7d99f93d42f7a2c2e5906a6ab248ae85eb04d90183",
     "checksum_source": "https://dl.static-php.dev/v3/php-bin/common/php-8.5.12-fpm-macos-aarch64.tar.gz.sha256",
+    "provider": "StaticPHP v3 common; third-party candidate",
+    "build_revision": "reviewed20261113"
+  },
+  {
+    "id": "php-8.4.27-staticphp20261113-cli-macos-arm64",
+    "package": "php",
+    "sapi": "cli",
+    "version": "8.4.27",
+    "target": "macos-arm64",
+    "url": "https://dl.static-php.dev/v3/php-bin/common/php-8.4.27-cli-macos-aarch64.tar.gz",
+    "sha256": "b1692a87ca293f198020a97be0132b5ffff1c828d7e35c9ca17b19f2fd70bf5f",
+    "checksum_source": "https://dl.static-php.dev/v3/php-bin/common/php-8.4.27-cli-macos-aarch64.tar.gz.sha256",
+    "provider": "StaticPHP v3 common; third-party candidate",
+    "build_revision": "reviewed20261113"
+  },
+  {
+    "id": "php-8.4.27-staticphp20261113-fpm-macos-arm64",
+    "package": "php",
+    "sapi": "fpm",
+    "version": "8.4.27",
+    "target": "macos-arm64",
+    "url": "https://dl.static-php.dev/v3/php-bin/common/php-8.4.27-fpm-macos-aarch64.tar.gz",
+    "sha256": "1140c87db27734c52bd72c687e71b4097536c7c6ce3fd1a2e7ab3e4068aec261",
+    "checksum_source": "https://dl.static-php.dev/v3/php-bin/common/php-8.4.27-fpm-macos-aarch64.tar.gz.sha256",
+    "provider": "StaticPHP v3 common; third-party candidate",
+    "build_revision": "reviewed20261113"
+  },
+  {
+    "id": "php-8.4.27-staticphp20261113-cli-macos-x64",
+    "package": "php",
+    "sapi": "cli",
+    "version": "8.4.27",
+    "target": "macos-x64",
+    "url": "https://dl.static-php.dev/v3/php-bin/common/php-8.4.27-cli-macos-x86_64.tar.gz",
+    "sha256": "a5675d17fe5d55cace683a2515d574a3e0cddeb74d3b9b247433000129263c56",
+    "checksum_source": "https://dl.static-php.dev/v3/php-bin/common/php-8.4.27-cli-macos-x86_64.tar.gz.sha256",
+    "provider": "StaticPHP v3 common; third-party candidate",
+    "build_revision": "reviewed20261113"
+  },
+  {
+    "id": "php-8.4.27-staticphp20261113-fpm-macos-x64",
+    "package": "php",
+    "sapi": "fpm",
+    "version": "8.4.27",
+    "target": "macos-x64",
+    "url": "https://dl.static-php.dev/v3/php-bin/common/php-8.4.27-fpm-macos-x86_64.tar.gz",
+    "sha256": "22c7bb81af2f482c43c44b9919fd8ca047fb0062433bfa0d5c95c876f4b4aba0",
+    "checksum_source": "https://dl.static-php.dev/v3/php-bin/common/php-8.4.27-fpm-macos-x86_64.tar.gz.sha256",
     "provider": "StaticPHP v3 common; third-party candidate",
     "build_revision": "reviewed20261113"
   }

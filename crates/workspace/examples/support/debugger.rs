@@ -396,8 +396,9 @@ pub fn run(root: &Path, archives: &Path) -> Result<()> {
         .catalog
         .packages
         .iter()
-        .find(|(_, p)| {
-            p.kind == "php"
+        .find(|(id, p)| {
+            !w.catalog.superseded.contains_key(*id)
+                && p.kind == "php"
                 && p.version.starts_with("8.4.27")
                 && p.target == Target::current().unwrap()
                 && p.executables.contains_key("php")

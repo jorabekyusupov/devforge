@@ -278,6 +278,27 @@ fn main() -> Result<()> {
         .find(|p| p.name == "Studio")
         .unwrap()
         .clone();
+    for project in [&a, &b] {
+        let expected = w
+            .catalog
+            .get(&project.php)?
+            .version
+            .split('-')
+            .next()
+            .unwrap();
+        let actual = exec(
+            &w,
+            secrets.as_ref(),
+            &project.id,
+            Tool::Php,
+            vec!["-r".into(), "echo PHP_VERSION;".into()],
+        )?;
+        assert_eq!(
+            actual.trim(),
+            expected,
+            "normal CLI version differs from reviewed family"
+        );
+    }
     let db = w.execute(
         Command::CreateDatabase { package: pg },
         &Cancellation::default(),
@@ -382,6 +403,14 @@ fn main() -> Result<()> {
         .clone();
     let av = get(&au)?;
     let bv = get(&bu)?;
+    assert_eq!(
+        av["php"],
+        w.catalog.get(&a.php)?.version.split('-').next().unwrap()
+    );
+    assert_eq!(
+        bv["php"],
+        w.catalog.get(&b.php)?.version.split('-').next().unwrap()
+    );
     let b_processes = w
         .snapshot()?
         .projects

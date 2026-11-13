@@ -187,3 +187,18 @@ locale keys tekshirildi; yakuniy native matrix yangi source bilan kutilmoqda.
 [^ui]: Existing DevForge master va generated target; genuine native WebView screenshots.
 [^workflow]: Native matrix uchun test-only credential adapter; release qualification emas.
 [^previous]: Original M7.1 acceptance o'z source/job chegarasida saqlanadi.
+
+# Keyingi provider review
+
+43407221155 Intel retry normalPHP8.4 CLI IntegrityMismatch berdi: provider shu
+vaqtda8.4 ARM64/Intel arxivlarini ham almashtirgan. Barcha8 macOS original
+sidecar qayta tekshirildi. Eski descriptorlar saqlanib, o'zgargan PHP8.4 CLI/FPM
+juftlari uchun ham alohida staticphp20261113 family qo'shildi. Source-built
+Xdebug SDK script/recipe o'zgarmadi. Fresh fixture faqat active family'ni oladi,
+normal CLI va web PHP patch version'ini alohida assert qiladi. Native CI endi
+faqat checksum-pinned runtimes katalogini cache qiladi; project/DB/SecretStore
+ma'lumotlari cache qilinmaydi. Shu cache key katalog hash'iga bog'langan.
+
+Windows43405940038 sourceeefac76 native backend/CLI/GUI12 axe/0 o'tdi. Intel
+uchun oldingi DOM li paydo bo'lishidan oldin select qilish xatosi shu test-only
+fix bilan qayta tekshiriladi; product diff23fedbe→eefac76 yo'q.

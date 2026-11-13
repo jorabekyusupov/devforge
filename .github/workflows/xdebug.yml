@@ -53,8 +53,20 @@ jobs:
         with:
           path: xdebug-sdks/*.zip
           key: ${{ steps.sdk-cache.outputs.cache-primary-key }}
+      - name: Restore checksum-pinned runtime packages only
+        id: runtime-cache
+        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: m7-xdebug-fixture/data/runtimes
+          key: m7-runtime-${{ matrix.target }}-${{ hashFiles('runtime/catalog.json') }}
       - name: Real Laravel PHP Node PostgreSQL fixture
         run: cargo run --release -p devforge-workspace --example native_workspace --features test-support -- m7-xdebug-fixture empty-cache
+      - name: Retain verified public runtime files without project data or secrets
+        if: steps.runtime-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: m7-xdebug-fixture/data/runtimes
+          key: ${{ steps.runtime-cache.outputs.cache-primary-key }}
       - name: Native runtime HTTP CLI breakpoints steps profiles privacy and recovery
         run: target/release/examples/native_workspace debugger-native m7-xdebug-fixture xdebug-sdks
       - name: Native shared-core debugger CLI

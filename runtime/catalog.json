@@ -718,6 +718,62 @@
       "executables": {
         "php-fpm": "php-fpm"
       }
+    },
+    "php-8.4.27-staticphp20261113-cli-macos-arm64": {
+      "kind": "php",
+      "version": "8.4.27-staticphp20261113",
+      "variant": "cli",
+      "target": "macos-arm64",
+      "url": "https://dl.static-php.dev/v3/php-bin/common/php-8.4.27-cli-macos-aarch64.tar.gz",
+      "sha256": "b1692a87ca293f198020a97be0132b5ffff1c828d7e35c9ca17b19f2fd70bf5f",
+      "archive": {
+        "kind": "tar_gz"
+      },
+      "executables": {
+        "php": "php"
+      }
+    },
+    "php-8.4.27-staticphp20261113-fpm-macos-arm64": {
+      "kind": "php",
+      "version": "8.4.27-staticphp20261113",
+      "variant": "fpm",
+      "target": "macos-arm64",
+      "url": "https://dl.static-php.dev/v3/php-bin/common/php-8.4.27-fpm-macos-aarch64.tar.gz",
+      "sha256": "1140c87db27734c52bd72c687e71b4097536c7c6ce3fd1a2e7ab3e4068aec261",
+      "archive": {
+        "kind": "tar_gz"
+      },
+      "executables": {
+        "php-fpm": "php-fpm"
+      }
+    },
+    "php-8.4.27-staticphp20261113-cli-macos-x64": {
+      "kind": "php",
+      "version": "8.4.27-staticphp20261113",
+      "variant": "cli",
+      "target": "macos-x64",
+      "url": "https://dl.static-php.dev/v3/php-bin/common/php-8.4.27-cli-macos-x86_64.tar.gz",
+      "sha256": "a5675d17fe5d55cace683a2515d574a3e0cddeb74d3b9b247433000129263c56",
+      "archive": {
+        "kind": "tar_gz"
+      },
+      "executables": {
+        "php": "php"
+      }
+    },
+    "php-8.4.27-staticphp20261113-fpm-macos-x64": {
+      "kind": "php",
+      "version": "8.4.27-staticphp20261113",
+      "variant": "fpm",
+      "target": "macos-x64",
+      "url": "https://dl.static-php.dev/v3/php-bin/common/php-8.4.27-fpm-macos-x86_64.tar.gz",
+      "sha256": "22c7bb81af2f482c43c44b9919fd8ca047fb0062433bfa0d5c95c876f4b4aba0",
+      "archive": {
+        "kind": "tar_gz"
+      },
+      "executables": {
+        "php-fpm": "php-fpm"
+      }
     }
   },
   "defaults": {
@@ -727,6 +783,10 @@
   },
   "superseded": {
     "php-8.5.12-cli-macos-arm64": "php-8.5.12-staticphp20261113-cli-macos-arm64",
-    "php-8.5.12-fpm-macos-arm64": "php-8.5.12-staticphp20261113-fpm-macos-arm64"
+    "php-8.5.12-fpm-macos-arm64": "php-8.5.12-staticphp20261113-fpm-macos-arm64",
+    "php-8.4.27-cli-macos-arm64": "php-8.4.27-staticphp20261113-cli-macos-arm64",
+    "php-8.4.27-fpm-macos-arm64": "php-8.4.27-staticphp20261113-fpm-macos-arm64",
+    "php-8.4.27-cli-macos-x64": "php-8.4.27-staticphp20261113-cli-macos-x64",
+    "php-8.4.27-fpm-macos-x64": "php-8.4.27-staticphp20261113-fpm-macos-x64"
   }
 }
