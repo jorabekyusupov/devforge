@@ -170,6 +170,7 @@ try:
                 assert len(native_result['selected_urls'])==1,native_result
                 chosen=native_result['selected_urls'][0]
             wait(lambda:script("return document.querySelector('.discovery-settings').getAttribute('aria-busy')==='false'"))
+            print('DISCOVERY_UI_PHASE: native picker '+action+' '+json.dumps(script("return {value:document.querySelector('#project-folder').value,focus:document.activeElement?.id,busy:document.querySelector('.discovery-settings').getAttribute('aria-busy')}")),flush=True)
             assert pathlib.Path(script("return document.querySelector('#project-folder').value")).resolve()==pathlib.Path(chosen).resolve()
             wait(lambda:script("return document.activeElement?.id==='project-folder'" if action=='select' else "return document.activeElement?.textContent.trim()==='Choose folder'"))
         fill('#project-folder',native['ui_root'])

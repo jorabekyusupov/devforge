@@ -54,6 +54,12 @@ export function ProjectDiscoverySettings({
     };
   }, [dirty]);
   const working = busy || pending;
+  useEffect(() => {
+    if (working || !returnFocus.current) return;
+    const target = returnFocus.current;
+    returnFocus.current = null;
+    if (target.isConnected) target.focus();
+  }, [working]);
   const report = api.snapshot?.discovery;
   async function perform(action: () => Promise<void>) {
     if (working) return;
@@ -71,12 +77,6 @@ export function ProjectDiscoverySettings({
       );
     } finally {
       setPending(false);
-      const target = returnFocus.current;
-      returnFocus.current = null;
-      if (target)
-        setTimeout(() => {
-          if (target.isConnected) target.focus();
-        }, 0);
     }
   }
   return (

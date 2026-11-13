@@ -443,7 +443,7 @@ pub fn prepare(root: &Path, cache: &Path) -> Result<()> {
         vec![
             "create-project".into(),
             "laravel/laravel".into(),
-            studio.as_os_str().into(),
+            dunce::simplified(&studio).as_os_str().into(),
             "v13.11.0".into(),
             "--no-dev".into(),
             "--no-scripts".into(),
