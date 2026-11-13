@@ -1,5 +1,8 @@
 name: M7 M12 remaining native acceptance
 on:
+  push:
+    branches: [codex/m7-m12-remaining]
+    paths: ["crates/**", "apps/**", "runtime/**", "shared/**", "scripts/**", ".github/workflows/completion.yml", "Cargo.*"]
   workflow_dispatch:
     inputs:
       target:
