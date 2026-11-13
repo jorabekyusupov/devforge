@@ -30,7 +30,7 @@ impl Source {
             })
             || !crate::manifest::alias(&self.password_ref)
         {
-            return Err(E::InvalidBackup);
+            return Err(E::InvalidRemoteSource);
         }
         if !self
             .database
@@ -39,7 +39,7 @@ impl Source {
             || self.database.len() > 63
             || (self.host.contains(':') && self.host.parse::<std::net::IpAddr>().is_err())
         {
-            return Err(E::InvalidBackup);
+            return Err(E::InvalidRemoteSource);
         }
         if self.loopback_unencrypted {
             // Names may resolve elsewhere; insecure mode accepts literal loopback addresses only.
@@ -49,14 +49,14 @@ impl Source {
                 .is_ok_and(|ip| ip.is_loopback())
                 || self.tls_ca.is_some()
             {
-                return Err(E::InvalidBackup);
+                return Err(E::InvalidRemoteSource);
             }
         } else {
-            let ca = self.tls_ca.as_deref().ok_or(E::InvalidBackup)?;
+            let ca = self.tls_ca.as_deref().ok_or(E::InvalidRemoteSource)?;
             if !ca.is_absolute() {
-                return Err(E::InvalidBackup);
+                return Err(E::InvalidRemoteSource);
             }
-            crate::manifest::read_file(ca, 1024 * 1024)?;
+            crate::manifest::read_file(ca, 1024 * 1024).map_err(|_| E::InvalidRemoteSource)?;
         }
         Ok(())
     }
@@ -77,7 +77,7 @@ fn pg_escape(s: &str) -> String {
 pub(super) fn options(s: &Source, c: &Credentials, dir: &Path) -> Result<tempfile::NamedTempFile> {
     s.validate()?;
     if c.password.contains(['\0', '\n', '\r']) {
-        return Err(E::InvalidBackup);
+        return Err(E::InvalidRemoteSource);
     }
     let mut f = tempfile::NamedTempFile::new_in(dir)?;
     let text = Zeroizing::new(if c.engine == Engine::Postgresql {
@@ -91,7 +91,7 @@ pub(super) fn options(s: &Source, c: &Credentials, dir: &Path) -> Result<tempfil
         )
     } else {
         format!(
-            "[client]\nhost={}\nport={}\nuser={}\npassword={}\nprotocol=TCP\nconnect-timeout=5\nssl-mode={}\n{}",
+            "[client]\nhost={}\nport={}\nuser={}\npassword={}\nprotocol=TCP\nssl-mode={}\n{}",
             mysql_quote(&s.host),
             s.port,
             mysql_quote(&s.user),

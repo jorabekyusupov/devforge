@@ -251,10 +251,14 @@ pub fn run(root: &Path, archives: &Path) -> Result<()> {
         ("float", "1.25"),
         ("string", "M7_EDITED_LOCAL"),
     ] {
+        let revision = w.debug_view(&a.id)?["session"]["revision"]
+            .as_u64()
+            .unwrap();
         control(
             &mut w,
             &a.id,
             Control::Set {
+                revision,
                 value: debug::Assignment {
                     name: "$label".into(),
                     kind: kind.into(),
@@ -265,7 +269,9 @@ pub fn run(root: &Path, archives: &Path) -> Result<()> {
         wait(&w, &a.id, |v| {
             v["session"]["variables"].as_array().is_some_and(|vs| {
                 vs.iter().any(|v| {
-                    v["name"] == "label"
+                    v["name"]
+                        .as_str()
+                        .is_some_and(|n| n.trim_start_matches('$') == "label")
                         && v["kind"]
                             .as_str()
                             .is_some_and(|k| k.eq_ignore_ascii_case(kind))
@@ -274,10 +280,14 @@ pub fn run(root: &Path, archives: &Path) -> Result<()> {
             })
         })?;
     }
+    let revision = w.debug_view(&a.id)?["session"]["revision"]
+        .as_u64()
+        .unwrap();
     control(
         &mut w,
         &a.id,
         Control::Set {
+            revision,
             value: debug::Assignment {
                 name: "$base".into(),
                 kind: "int".into(),
@@ -286,9 +296,14 @@ pub fn run(root: &Path, archives: &Path) -> Result<()> {
         },
     )?;
     wait(&w, &a.id, |v| {
-        v["session"]["variables"]
-            .as_array()
-            .is_some_and(|vs| vs.iter().any(|v| v["name"] == "base" && v["value"] == "11"))
+        v["session"]["variables"].as_array().is_some_and(|vs| {
+            vs.iter().any(|v| {
+                v["name"]
+                    .as_str()
+                    .is_some_and(|n| n.trim_start_matches('$') == "base")
+                    && v["value"] == "11"
+            })
+        })
     })?;
     control(&mut w, &a.id, Control::StepInto)?;
     wait(&w, &a.id, |v| {
@@ -306,7 +321,10 @@ pub fn run(root: &Path, archives: &Path) -> Result<()> {
             .as_array()
             .unwrap()
             .iter()
-            .any(|v| v["name"] == "result" && v["value"] == "33")
+            .any(|v| v["name"]
+                .as_str()
+                .is_some_and(|n| n.trim_start_matches('$') == "result")
+                && v["value"] == "33")
     );
     control(&mut w, &a.id, Control::StepOut)?;
     wait(&w, &a.id, |v| {

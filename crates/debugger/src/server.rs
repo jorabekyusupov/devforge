@@ -34,6 +34,7 @@ pub struct Variable {
 }
 #[derive(Debug, Clone, Serialize)]
 pub struct Snapshot {
+    pub revision: u64,
     pub state: String,
     pub port: u16,
     pub frames: Vec<Frame>,
@@ -51,7 +52,7 @@ pub enum Control {
     Detach,
     Frame(u32),
     Breakpoints(Vec<Breakpoint>),
-    Set(crate::Assignment),
+    Set(crate::Assignment, u64),
 }
 pub struct Server {
     state: Arc<Mutex<Snapshot>>,
@@ -270,6 +271,7 @@ fn refresh(
         variables(&context, secrets, 0)
     };
     let mut s = state.lock().unwrap();
+    s.revision = s.revision.checked_add(1).ok_or(Error::Protocol)?;
     s.frames = frames;
     s.variables = values;
     s.depth = selected;
@@ -347,7 +349,11 @@ fn conversation(
                     let _ = conn.call("detach", stop);
                     return Ok(());
                 }
-                Control::Set(value) => {
+                Control::Set(value, revision) => {
+                    if state.lock().unwrap().revision != revision {
+                        state.lock().unwrap().error = Some(Error::InvalidVariable);
+                        continue;
+                    }
                     value.validate()?;
                     let depth = state.lock().unwrap().depth;
                     let encoded = STANDARD.encode(value.value.as_bytes());
@@ -414,6 +420,7 @@ impl Server {
         listener.set_nonblocking(true)?;
         let port = listener.local_addr()?.port();
         let state = Arc::new(Mutex::new(Snapshot {
+            revision: 0,
             state: "listening".into(),
             port,
             frames: vec![],
@@ -482,7 +489,10 @@ impl Server {
     }
     pub fn control(&self, command: Control) -> Result<()> {
         let mut state = self.state.lock().unwrap();
-        if let Control::Set(value) = &command {
+        if let Control::Set(value, revision) = &command {
+            if state.revision != *revision {
+                return Err(Error::InvalidVariable);
+            }
             value.validate()?;
             if !state
                 .variables
@@ -545,6 +555,34 @@ mod tests {
         next.control(Control::StepInto).unwrap();
         assert_eq!(next.snapshot().state, "running");
         assert_eq!(next.control(Control::StepOver).err(), Some(Error::Busy));
+    }
+    #[test]
+    fn stale_frame_revision_cannot_mutate_a_new_pause() {
+        let root = tempfile::tempdir().unwrap();
+        let server = Server::start(root.path(), "a".repeat(64), vec![], vec![]).unwrap();
+        {
+            let mut state = server.state.lock().unwrap();
+            state.state = "paused".into();
+            state.revision = 3;
+            state.variables = vec![Variable {
+                assign: Some("$n".into()),
+                name: "$n".into(),
+                kind: "int".into(),
+                value: "1".into(),
+                children: vec![],
+            }];
+        }
+        let assignment = crate::Assignment {
+            name: "$n".into(),
+            kind: "int".into(),
+            value: "4".into(),
+        };
+        assert_eq!(
+            server.control(Control::Set(assignment.clone(), 2)).err(),
+            Some(Error::InvalidVariable)
+        );
+        server.control(Control::Set(assignment, 3)).unwrap();
+        assert_eq!(server.snapshot().variables[0].value, "1");
     }
     #[test]
     fn unknown_clients_are_refused_and_values_redacted() {

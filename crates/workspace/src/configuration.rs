@@ -108,7 +108,7 @@ impl Workspace {
         self.require_stopped(id)?;
         let p = self.projects.get(id)?;
         Ok(
-            serde_json::to_value(self.manifest_setup(&p.path, review, trusted, write_env, cancel)?)
+            serde_json::to_value(self.manifest_setup(&p.path, review, write_env, trusted, cancel)?)
                 .unwrap(),
         )
     }

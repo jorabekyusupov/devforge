@@ -321,9 +321,15 @@ only when no exact pin was provided.
 
 Choose **Configure Xdebug**, select Debug or Profile mode and a matching installed
 runtime, then start the project. In Debug mode, add a project-relative PHP file and
-line, enter a local GET path and choose **Run request**. **Continue** reaches a
-breakpoint; Step into/over/out, the call stack and masked read-only locals/source
-are available. **Stop request** ends a paused request while keeping the web runtime.
+line, enter a local path and choose **Run request**. Expand HTTP options for GET,
+HEAD, POST, PUT, PATCH, DELETE or OPTIONS, bounded headers and a UTF-8 body.
+Transport and Xdebug headers remain owned; request headers/body stay in memory.
+Only the response status is retained. **Continue** reaches a breakpoint; step
+into/over/out, stack selection and masked locals/source remain available. Editable
+primitive locals expose **Edit** while paused. Assignment accepts a local name and
+string/int/finite-float/bool/null value, never an expression. Sensitive, nested or
+truncated values are read only. Changes affect that request. **Stop request** ends
+a paused request while keeping the web runtime.
 
 In Profile mode, run a request and open **Function profiles**. Select a retained
 profile, search functions, inspect self/inclusive time, memory and call counts, or
@@ -340,7 +346,7 @@ new schema. Current source, native target evidence and release boundaries are in
 
 The public CLI reads retained results and configures the desired mode. Close the
 desktop app for install/mode mutations; starting the desktop project activates the
-configured session. Built-in request triggering is GET-only; IDE integrations are
+configured session. The desktop provides the local request builder; IDE integrations remain
 part of the later roadmap.
 
 ```sh
@@ -407,9 +413,16 @@ package SHA256 pins, site/PHP settings, fixed dependency actions and logical sec
 names. It contains no credential values, machine paths, ports, instance IDs or
 arbitrary hooks. See [the example](docs/examples/devforge.yaml).
 
-The M10 workflow uses the existing CLI; the desktop configuration editor is not
-part of this phase. Quit DevForge through its Quit action (closing the window keeps
-services alive) before `config setup` or `config secret`. A process lease rejects
+Open **Configuration** for the desktop YAML editor. Stop the selected project,
+edit and explicitly save: schema validation and the read file hash protect against
+invalid or externally changed files. Previous file versions remain in local
+configuration history. Saving does not run setup. Review the saved plan, resolve
+local secret references and confirm trust before applying. Environment-file writes
+are a separate opt-in; setup stages are shown and interrupted setup can be reviewed
+and resumed. Secret values are stored locally and cleared from the input.
+
+The existing CLI remains available. Quit DevForge through its Quit action (closing
+the window keeps services alive) before `config setup` or `config secret`. A process lease rejects
 concurrent GUI/CLI activity. Run an installed CLI, or build from source with
 `./scripts/with_rust.sh cargo build -p devforge-cli`.
 
@@ -512,10 +525,31 @@ staged restore path. Stop the source before copying its database.
 **Review cleanup** stops only the selected workspace, archives all its local files,
 unregisters its Git worktree and retires its project/site. The branch, databases,
 credentials and backups remain. Dirty, detached, locked, foreign and nested-project
-worktrees are refused. Git submodule branches/metadata are outside this M12 flow.
-Close external tools using the workspace before cleanup. Disk purge and automatic
-archive reactivation are not implemented. An archived folder is a file recovery
-copy; create a new worktree on its retained branch to resume Git work.
+worktrees are refused. Close external tools using the workspace before cleanup.
+Archive review can reactivate the same project ID, settings, files and retained
+local database. Linked branches must still match their archived commit and be
+unused. Interrupted restoration has a durable retry state. **Delete archived
+files** is a separate, content-hashed review: it removes only the owned archive,
+including its ignored `.env`/SQLite files. Managed databases, credentials and source
+branches remain. Purged files cannot be reactivated.
+
+Submodule-bearing commits use a separate self-contained clone with recursive
+submodules. Review `.gitmodules` and trust its nested sources before creating it.
+HTTPS, SSH and explicitly trusted local file sources are supported; arbitrary Git
+transport helpers are disabled. Dirty submodules block cleanup. Their complete
+Git metadata survives archive/restore; purge first retains root/submodule history
+bundles outside the deleted payload. This clone's local branch is independent of
+the source worktree's branch.
+
+A stopped workspace with a managed PostgreSQL/MySQL binding can **Copy external
+database**. Store the source password as a local reference for that exact project,
+enter source host/database/read-only user, and review before copying. External
+hosts require a regular CA certificate file and verified TLS. Explicit unencrypted
+mode accepts literal loopback IPs only. A verified publisher dump client reads the
+source into a private, bounded backup; restoration uses a new local generation and
+preserves the previous binding on failure. PostgreSQL uses custom logical backups;
+MySQL scope is tables/data without triggers, routines or events. Cross-engine or
+arbitrary-version conversion is not provided.
 
 The CLI uses reviewed JSON and the same core. Close the desktop app for mutations;
 list/plan are read-only. A request file contains:
@@ -539,6 +573,12 @@ devforge workspace plan workspace-input.json
 devforge workspace create workspace-input.json --review <result.digest> --trust
 devforge workspace cleanup-plan <workspace-id>
 devforge workspace cleanup <workspace-id> --review <result.digest> --confirm
+devforge workspace restore-plan <workspace-id>
+devforge workspace restore <workspace-id> --review <result.digest> --confirm
+devforge workspace purge-plan <workspace-id>
+devforge workspace purge <workspace-id> --review <result.digest> --confirm
+devforge workspace remote-plan <workspace-id> remote-source.json
+devforge workspace remote-copy <workspace-id> remote-source.json --review <digest> --confirm
 ```
 
 Output uses `schema: 1` and `result`. Plans contain metadata and secret names,
@@ -547,3 +587,7 @@ uses the existing process-group/Windows Job adapter and does not need installed
 PHP/Node packages for cleanup. M12 introduced schema5; M7.2 adds schema6. Older builds refuse newer metadata.
 [M12 results](docs/knowledge/m12-workspaces-results.md) track native coverage,
 archive semantics and the open distribution/recovery gates.
+
+Remaining M7–M12 capabilities and their current source/platform evidence are tracked
+in [the completion record](docs/knowledge/m7-m12-completion.md). Public distribution
+and minimum/clean-OS acceptance remain M15 gates.

@@ -378,6 +378,7 @@ try:
     wait(lambda:script("return !document.querySelector('dialog')"));settled()
     button('Review saved configuration','.configuration-content');settled()
     wait(lambda:script("return [...document.querySelectorAll('.configuration-review button')].some(b=>b.textContent==='Apply reviewed plan')"))
+    script("document.querySelector('[name=configuration-yaml]').scrollTop=0")
     screenshot('configuration-en-light.png');audit('configuration-editor-review')
     checks['native_yaml_edit_review_save_and_plan']=True
     # Store a real local secret using the GUI; the value is absent from snapshots/reports.
@@ -391,6 +392,10 @@ try:
         click('a[href="#settings"]');click('input[value='+locale+']');wait(lambda:script('return document.documentElement.lang')==locale)
         click('a[href="#configuration"]');settled();content_viewport(820,620);audit('configuration-'+locale+'-minimum');screenshot('configuration-'+locale+'-minimum.png')
     click('a[href="#settings"]');click('input[value=dark]');click('a[href="#configuration"]');content_viewport(1536,1024);settled();audit('configuration-dark');screenshot('configuration-dark.png')
+    # Saving portable YAML is an intentional repository edit. Commit fixture edits before archive.
+    path=row(target)['project']['path']
+    subprocess.run(['git','-C',path,'add','devforge.yaml'],check=True)
+    subprocess.run(['git','-C',path,'-c','user.name=Fixture','-c','user.email=fixture@example.test','commit','-m','Native configuration editor fixture'],check=True)
     # Return to the exact managed workspace and inspect archive and remote-copy controls.
     click('a[href="#workspaces"]');settled();click('[data-workspace="'+workspace+'"]')
     button('Copy external database','.fork-detail');audit('external-copy-form');screenshot('external-copy-form.png');button('Cancel','dialog') if script("return [...document.querySelectorAll('dialog button')].some(b=>b.textContent==='Cancel')") else click('dialog .modal-title button')

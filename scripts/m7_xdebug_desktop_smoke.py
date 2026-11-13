@@ -398,7 +398,7 @@ try:
     screenshot("debugger-en-light.png")
     audit("paused-breakpoint-source-locals")
     checks["real_breakpoint_source_and_redacted_locals"] = True
-    target=script("const li=[...document.querySelectorAll('.debug-variables li')].find(e=>e.querySelector('span')?.textContent==='label');li.querySelector('button').dataset.smoke='edit-local';return '[data-smoke=edit-local]'")
+    target=script("const li=[...document.querySelectorAll('.debug-variables li')].find(e=>e.querySelector('span')?.textContent.replace(/^[$]/,'')==='label');li.querySelector('button').dataset.smoke='edit-local';return '[data-smoke=edit-local]'")
     click(target)
     fill('[name=debug-value]','M7_UI_EDITED_LOCAL')
     audit('primitive-local-edit-dialog')

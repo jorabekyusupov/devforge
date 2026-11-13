@@ -475,6 +475,80 @@ mod tests {
 mod http_builder_tests {
     use super::*;
     #[test]
+    fn methods_headers_utf8_body_and_trigger_cookie_reach_only_local_transport() {
+        use std::net::TcpListener;
+        let temp = tempfile::tempdir().unwrap();
+        let source = temp.path().join("source");
+        fs::create_dir(&source).unwrap();
+        let mut activation = Activation::start(
+            &temp.path().join("activation"),
+            &"a".repeat(32),
+            "runtime".into(),
+            Mode::Profile,
+            &source,
+            vec![],
+            vec![],
+        )
+        .unwrap();
+        for method in ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"] {
+            let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+            let port = listener.local_addr().unwrap().port();
+            let expected = method.to_string();
+            let server = thread::spawn(move || {
+                let (mut stream, _) = listener.accept().unwrap();
+                stream
+                    .set_read_timeout(Some(Duration::from_secs(5)))
+                    .unwrap();
+                let mut wire = vec![];
+                loop {
+                    let mut buffer = [0u8; 4096];
+                    let n = stream.read(&mut buffer).unwrap();
+                    assert!(n > 0);
+                    wire.extend_from_slice(&buffer[..n]);
+                    if let Some(at) = wire.windows(4).position(|v| v == b"\r\n\r\n") {
+                        let header = std::str::from_utf8(&wire[..at]).unwrap();
+                        let length = header
+                            .lines()
+                            .find_map(|l| l.strip_prefix("Content-Length: "))
+                            .unwrap()
+                            .parse::<usize>()
+                            .unwrap();
+                        if wire.len() >= at + 4 + length {
+                            break;
+                        }
+                    }
+                }
+                let text = String::from_utf8(wire).unwrap();
+                assert!(text.starts_with(&format!("{expected} /path?q=one HTTP/1.1\r\n")));
+                assert!(text.contains("X-Test: local\r\n"));
+                assert!(text.ends_with("Ўзбек payload"));
+                assert_eq!(text.matches("Cookie:").count(), 1);
+                assert!(text.contains("app=1; XDEBUG_TRIGGER="));
+                stream.write_all(b"HTTP/1.1 204 No Content\r\nContent-Length: 0\r\nConnection: close\r\n\r\n").unwrap();
+            });
+            let request = HttpRequest {
+                method: method.into(),
+                path: "/path?q=one".into(),
+                headers: std::collections::BTreeMap::from([
+                    ("X-Test".into(), "local".into()),
+                    ("Cookie".into(), "app=1".into()),
+                ]),
+                body: "Ўзбек payload".into(),
+            };
+            assert!(!format!("{request:?}").contains("payload"));
+            activation
+                .send(&format!("http://127.0.0.1:{port}"), request)
+                .unwrap();
+            let until = Instant::now() + Duration::from_secs(5);
+            while activation.request().state == "running" {
+                assert!(Instant::now() < until);
+                thread::sleep(Duration::from_millis(10));
+            }
+            assert_eq!(activation.request().status, Some(204));
+            server.join().unwrap();
+        }
+    }
+    #[test]
     fn rejects_transport_injection_and_duplicate_headers() {
         let mut r = HttpRequest {
             method: "POST".into(),

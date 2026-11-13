@@ -12,7 +12,11 @@ import { WorkspaceModal } from "../components/WorkspaceModal";
 export function ConfigurationPage({ backend }: { backend?: WorkspaceBackend }) {
   const { t } = useTranslation();
   const api = useWorkspace(backend);
-  const [chosen, setChosen] = useState("");
+  const [chosen, setChosen] = useState(
+    () =>
+      new URLSearchParams(window.location.hash.split("?")[1]).get("project") ??
+      "",
+  );
   const rows = api.snapshot?.projects ?? [];
   const row = rows.find((r) => r.project.id === chosen) ?? rows[0];
   const id = row?.project.id ?? "";
@@ -114,7 +118,7 @@ export function ConfigurationPage({ backend }: { backend?: WorkspaceBackend }) {
       className="workspace-content configuration-content"
       aria-label={t("configuration.title")}
     >
-      <div className="workspace-toolbar">
+      <div className="workspace-toolbar configuration-toolbar">
         <label>
           {t("configuration.project")}
           <select
@@ -208,7 +212,7 @@ export function ConfigurationPage({ backend }: { backend?: WorkspaceBackend }) {
               {!stopped && (
                 <p className="notice">{t("configuration.stopFirst")}</p>
               )}
-              <label className="checkbox-row">
+              <label className="check-label">
                 <input
                   type="checkbox"
                   checked={writeEnv}
@@ -229,6 +233,9 @@ export function ConfigurationPage({ backend }: { backend?: WorkspaceBackend }) {
               {plan && (
                 <>
                   <h3>{t("configuration.downloads")}</h3>
+                  {!plan.downloads.length && (
+                    <p className="muted">{t("forks.none")}</p>
+                  )}
                   <ul>
                     {plan.downloads.map((p) => (
                       <li key={p} translate="no">
@@ -238,7 +245,11 @@ export function ConfigurationPage({ backend }: { backend?: WorkspaceBackend }) {
                   </ul>
                   <p>
                     <strong>{t("configuration.database")}: </strong>
-                    <code>{plan.database_action}</code>
+                    <span>
+                      {t(
+                        `configuration.databaseActions.${plan.database_action}`,
+                      )}
+                    </span>
                   </p>
                   {plan.secrets.map((s) => (
                     <p key={s.environment}>
@@ -264,7 +275,7 @@ export function ConfigurationPage({ backend }: { backend?: WorkspaceBackend }) {
                       </ul>
                     </div>
                   )}
-                  <label className="checkbox-row">
+                  <label className="check-label">
                     <input
                       type="checkbox"
                       checked={consent}
@@ -284,18 +295,36 @@ export function ConfigurationPage({ backend }: { backend?: WorkspaceBackend }) {
                           trusted: true,
                           write_env: writeEnv,
                         })
-                        .then((ok) => {
+                        .then(async (ok) => {
                           if (ok) {
+                            if (backend?.configuration) {
+                              const fresh = (await backend.configuration(
+                                id,
+                                false,
+                                false,
+                              )) as ConfigurationDocument;
+                              setDocument(fresh);
+                              setDraft(fresh.text);
+                            }
                             setPlan(null);
                             setConsent(false);
                             setFailure(null);
                           }
                         })
+                        .catch(() => setFailure(t("configuration.readError")))
                     }
                   >
                     {t("configuration.apply")}
                   </button>
                 </>
+              )}
+              {api.busy && (
+                <div className="operation-progress">
+                  <p role="status">{t("forks.working")}</p>
+                  <button onClick={() => void api.cancel()}>
+                    {t("forks.cancelOperation")}
+                  </button>
+                </div>
               )}
               <details>
                 <summary>{t("configuration.localSecret")}</summary>
@@ -358,7 +387,12 @@ export function ConfigurationPage({ backend }: { backend?: WorkspaceBackend }) {
               </details>
               {doc.journal && (
                 <p role="status">
-                  {t("configuration.journal")}: <code>{doc.journal.stage}</code>
+                  {t("configuration.journal")}:{" "}
+                  <span>
+                    {t(`configuration.stages.${doc.journal.stage}`, {
+                      defaultValue: t("configuration.loading"),
+                    })}
+                  </span>
                 </p>
               )}
             </article>
@@ -379,7 +413,7 @@ export function ConfigurationPage({ backend }: { backend?: WorkspaceBackend }) {
             </p>
           )}
           <p>{t("configuration.saveHelp")}</p>
-          <label className="checkbox-row">
+          <label className="check-label">
             <input
               type="checkbox"
               checked={consent}

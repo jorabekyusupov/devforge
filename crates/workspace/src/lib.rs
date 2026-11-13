@@ -594,9 +594,10 @@ impl Workspace {
             Command::DebugProfileExport { id, profile, path } => {
                 self.debug_profile_export(&id, &profile, &path)
             }
-            Command::WorktreeArchivePlan { id, operation } => {
-                Ok(serde_json::to_value(self.worktree_archive_plan(&id, &operation)?).unwrap())
-            }
+            Command::WorktreeArchivePlan { id, operation } => Ok(serde_json::to_value(
+                self.worktree_archive_review(&id, &operation, cancel)?,
+            )
+            .unwrap()),
             Command::WorktreeArchive {
                 id,
                 operation,

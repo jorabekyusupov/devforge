@@ -18,9 +18,15 @@ impl Workspace {
                 .as_deref()
                 .ok_or_else(|| error("worktree_ownership"))?,
         )?;
+        if project.worktree.as_deref() != Some(id)
+            || project.path != self.worktree_dir(id)?.join("tree")
+        {
+            return Err(error("worktree_ownership"));
+        }
         self.worktree_identity(&record, &project.path)?;
         self.require_stopped(&project.id)?;
-        let password = self.remote_password(&project, source)?;
+        let _password = self.remote_password(&project, source)?;
+        let revision = self.manifest_secret_revision(&project.path, &source.password_ref)?;
         let binding = self
             .projects
             .binding(&project.id)?
@@ -31,15 +37,7 @@ impl Workspace {
             .as_ref()
             .map(|p| devforge_projects::manifest::read_file(p, 1024 * 1024))
             .transpose()?;
-        let digest = digest(&(
-            &record,
-            &project,
-            &binding,
-            &instance,
-            source,
-            digest(&password.as_str()),
-            ca,
-        ));
+        let digest = digest(&(&record, &project, &binding, &instance, source, revision, ca));
         Ok(
             serde_json::json!({"digest":digest,"project":project.id,"engine":instance.engine,"source":source,"retained_database":binding.database,"tables_only":instance.engine==devforge_projects::database::Engine::Mysql}),
         )

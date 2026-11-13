@@ -162,7 +162,8 @@ impl Workspace {
         let record: Record =
             serde_json::from_slice(&devforge_projects::manifest::read_file(&path, 262144)?)
                 .map_err(|_| error("worktree_ownership"))?;
-        if record.schema != 1 || record.id != id || !git::branch(&record.input.branch) {
+        if ![1, 2].contains(&record.schema) || record.id != id || !git::branch(&record.input.branch)
+        {
             return Err(error("worktree_ownership"));
         }
         Ok(record)
@@ -448,7 +449,7 @@ impl Workspace {
         });
         let mut record = Record {
             isolated: plan.isolated,
-            schema: 1,
+            schema: 2,
             id,
             input,
             source_path: source.path.clone(),
@@ -879,6 +880,12 @@ impl Workspace {
             Some(Err(devforge_projects::ProjectError::NotFound)) | None => None,
             Some(Err(e)) => return Err(e.into()),
         };
+        if let Some(p) = &project
+            && self.sites.sites()?.iter().any(|s| s.project_id == p.id)
+        {
+            record.configuration = self.manifest_definition(&p.id)?;
+            record.domain = record.configuration.project.domain.clone();
+        }
         if project.as_ref().is_some_and(|p| {
             p.path != path || p.worktree.as_deref().is_some_and(|w| w != record.id)
         }) {

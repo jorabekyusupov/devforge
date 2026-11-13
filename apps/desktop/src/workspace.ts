@@ -347,6 +347,7 @@ export interface DebugVariable {
   children: DebugVariable[];
 }
 export interface DebugSession {
+  revision: number;
   state: string;
   port: number;
   frames: DebugFrame[];
@@ -542,6 +543,7 @@ export type Command =
         | { command: "frame"; depth: number }
         | {
             command: "set";
+            revision: number;
             value: { name: string; kind: string; value: string };
           };
     }

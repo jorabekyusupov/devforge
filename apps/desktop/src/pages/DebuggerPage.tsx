@@ -70,6 +70,7 @@ export function DebuggerPage({ backend }: { backend?: WorkspaceBackend }) {
     [method, setMethod] = useState("GET"),
     [headers, setHeaders] = useState(""),
     [body, setBody] = useState(""),
+    [assignmentRevision, setAssignmentRevision] = useState(0),
     [assignment, setAssignment] = useState<DebugVariable | null>(null),
     [newValue, setNewValue] = useState(""),
     [valueKind, setValueKind] = useState("string"),
@@ -328,6 +329,7 @@ export function DebuggerPage({ backend }: { backend?: WorkspaceBackend }) {
                   id,
                   control: {
                     command: "set",
+                    revision: assignmentRevision,
                     value: {
                       name: assignment.assign!,
                       kind: valueKind,
@@ -688,6 +690,7 @@ export function DebuggerPage({ backend }: { backend?: WorkspaceBackend }) {
                       paused && !busy
                         ? (v) => {
                             setAssignment(v);
+                            setAssignmentRevision(view.session!.revision);
                             setValueKind(
                               v.kind === "integer"
                                 ? "int"

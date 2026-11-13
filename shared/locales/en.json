@@ -139,7 +139,8 @@
       "backup_destination_exists": "A file already exists there. Export with a different name.",
       "mail_unavailable": "Mail capture is unavailable. Stop the project, retry capture and check the local port.",
       "workspace_managed": "Use Workspaces → Review cleanup for this project. Generic Forget is disabled.",
-      "debug_runtime_change": "Disable Xdebug mode before changing the PHP runtime, then select a matching debug runtime."
+      "debug_runtime_change": "Disable Xdebug mode before changing the PHP runtime, then select a matching debug runtime.",
+      "invalid_remote_source": "Check the source host, port, database name, password reference and CA file. External hosts require verified TLS; unencrypted mode accepts literal loopback IPs only."
     }
   },
   "serving": {
@@ -871,12 +872,6 @@
     "body": "Request body",
     "requestPrivacy": "Sent only to this managed local project. Headers and body stay in memory; only response status is shown."
   },
-  "pages": {
-    "configuration": {
-      "title": "Project configuration",
-      "description": "Review portable settings before applying them locally."
-    }
-  },
   "configuration": {
     "title": "Project configuration",
     "project": "Project",
@@ -911,6 +906,23 @@
     "secretValue": "Secret value",
     "storeSecret": "Store locally",
     "secretError": "Cannot store this secret. Check the reference and credential store.",
-    "description": "Review portable settings before applying them locally."
+    "description": "Review portable settings before applying them locally.",
+    "databaseActions": {
+      "project_default": "Keep project default",
+      "unbind_preserve_data": "Detach managed database; retain its data",
+      "reuse": "Reuse current managed database",
+      "create_or_reuse_retained_database": "Create or reuse a retained database"
+    },
+    "stages": {
+      "download": "Downloading packages",
+      "register": "Registering project",
+      "environment": "Linking local secrets",
+      "database": "Preparing database",
+      "dependencies": "Preparing dependencies",
+      "services": "Configuring services",
+      "env_write": "Writing reviewed environment",
+      "complete": "Setup complete",
+      "not_started": "Not started"
+    }
   }
 }

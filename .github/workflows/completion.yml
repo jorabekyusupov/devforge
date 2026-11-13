@@ -73,6 +73,8 @@ jobs:
         run: |
           cargo build --release -p devforge-cli --features test-support
           target/release/examples/native_workspace debugger-cli m7-xdebug-fixture target/release/devforge${{ runner.os == 'Windows' && '.exe' || '' }}
+      - name: Native archive restore purge and remote-review CLI
+        run: target/release/examples/native_workspace completion-cli m7-xdebug-fixture target/release/devforge${{ runner.os == 'Windows' && '.exe' || '' }}
       - name: Build native desktop with debug-only WebDriver
         run: npm run tauri -- build --debug --no-bundle --features e2e
       - name: Actual native debugger controls languages and accessibility
@@ -90,6 +92,7 @@ jobs:
           name: completion-${{ matrix.target }}
           retention-days: 7
           path: |
+            m7-xdebug-fixture/completion-cli-result.json
             m7-xdebug-fixture/completion-native-result.json
             m7-xdebug-fixture/completion-desktop-result.json
             output/playwright/completion/*.png

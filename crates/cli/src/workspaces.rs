@@ -60,7 +60,7 @@ pub fn run() -> Result<(), Error> {
                 .unwrap()
         }
         "restore-plan" | "purge-plan" if args.len() == 2 => serde_json::to_value(
-            w.worktree_archive_plan(arg(1)?, action.strip_suffix("-plan").unwrap())?,
+            w.worktree_archive_review(arg(1)?, action.strip_suffix("-plan").unwrap(), &cancel)?,
         )
         .unwrap(),
         "restore" | "purge"

@@ -139,7 +139,8 @@
       "backup_destination_exists": "Bu nomdagi fayl mavjud. Boshqa nom bilan eksport qiling.",
       "mail_unavailable": "Mail capture ochilmadi. Loyihani to‘xtatib qayta yoqing va lokal portni tekshiring.",
       "workspace_managed": "Bu loyiha uchun Workspaces → Tozalashni ko‘rib chiqish amalidan foydalaning. Oddiy Forget o‘chirilgan.",
-      "debug_runtime_change": "PHP runtime’ni o‘zgartirishdan oldin Xdebug rejimini o‘chiring, keyin mos debug runtime tanlang."
+      "debug_runtime_change": "PHP runtime’ni o‘zgartirishdan oldin Xdebug rejimini o‘chiring, keyin mos debug runtime tanlang.",
+      "invalid_remote_source": "Manba hosti, porti, baza nomi, parol havolasi va CA faylini tekshiring. Tashqi hostga tekshirilgan TLS kerak; shifrlanmagan ulanish faqat loopback IP uchun."
     }
   },
   "serving": {
@@ -871,12 +872,6 @@
     "body": "So‘rov tanasi",
     "requestPrivacy": "Faqat shu boshqariladigan mahalliy loyihaga yuboriladi. Sarlavhalar va tana xotirada qoladi; javob holati ko‘rsatiladi."
   },
-  "pages": {
-    "configuration": {
-      "title": "Loyiha konfiguratsiyasi",
-      "description": "Ko‘chiriladigan sozlamalarni mahalliy qo‘llashdan oldin tekshiring."
-    }
-  },
   "configuration": {
     "title": "Loyiha konfiguratsiyasi",
     "project": "Loyiha",
@@ -911,6 +906,23 @@
     "secretValue": "Maxfiy qiymat",
     "storeSecret": "Mahalliy saqlash",
     "secretError": "Maxfiy qiymat saqlanmadi. Havola va saqlash joyini tekshiring.",
-    "description": "Ko‘chiriladigan sozlamalarni mahalliy qo‘llashdan oldin tekshiring."
+    "description": "Ko‘chiriladigan sozlamalarni mahalliy qo‘llashdan oldin tekshiring.",
+    "databaseActions": {
+      "project_default": "Loyiha standartini saqlash",
+      "unbind_preserve_data": "Boshqariladigan bazani ajratish, ma’lumotni saqlash",
+      "reuse": "Joriy boshqariladigan bazadan foydalanish",
+      "create_or_reuse_retained_database": "Baza yaratish yoki saqlangan bazadan foydalanish"
+    },
+    "stages": {
+      "download": "Paketlar yuklanmoqda",
+      "register": "Loyiha ro‘yxatdan o‘tkazilmoqda",
+      "environment": "Mahalliy maxfiy qiymatlar bog‘lanmoqda",
+      "database": "Baza tayyorlanmoqda",
+      "dependencies": "Bog‘liqliklar tayyorlanmoqda",
+      "services": "Xizmatlar sozlanmoqda",
+      "env_write": "Tekshirilgan muhit yozilmoqda",
+      "complete": "Sozlash yakunlandi",
+      "not_started": "Boshlanmagan"
+    }
   }
 }

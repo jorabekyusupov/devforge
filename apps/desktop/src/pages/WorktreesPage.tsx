@@ -780,7 +780,11 @@ export function WorktreesPage({ backend }: { backend?: WorkspaceBackend }) {
                 />
                 {t("forks.loopbackOnly")}
               </label>
-              <a href="#configuration">{t("forks.addRemoteSecret")}</a>
+              <a
+                href={`#configuration?project=${encodeURIComponent(row?.project.id ?? "")}`}
+              >
+                {t("forks.addRemoteSecret")}
+              </a>
               <div className="modal-actions">
                 <button className="primary" disabled={api.busy} type="submit">
                   {t("forks.review")}

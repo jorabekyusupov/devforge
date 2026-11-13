@@ -1,0 +1,9 @@
+{
+  "host": "db.example.test",
+  "port": 5432,
+  "database": "application",
+  "user": "readonly_reader",
+  "password_ref": "remote-password",
+  "tls_ca": "/absolute/path/to/source-ca.pem",
+  "loopback_unencrypted": false
+}

@@ -174,6 +174,15 @@ impl Workspace {
             &serde_json::to_vec_pretty(j).unwrap(),
         )
     }
+    pub(crate) fn manifest_secret_revision(&self, path: &Path, reference: &str) -> Result<String> {
+        if !manifest::alias(reference) {
+            return Err(code("manifest_secret_invalid"));
+        }
+        self.secrets
+            .get(&format!("{}/revision", secret_key(path, reference)))
+            .map_err(|_| code("manifest_secret_unavailable"))?
+            .ok_or_else(|| code("manifest_secret_missing"))
+    }
     pub(crate) fn manifest_secret_value(
         &self,
         path: &Path,

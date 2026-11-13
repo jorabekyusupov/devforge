@@ -9,8 +9,13 @@ pub enum Control {
     StepOut,
     Stop,
     Detach,
-    Frame { depth: u32 },
-    Set { value: debug::Assignment },
+    Frame {
+        depth: u32,
+    },
+    Set {
+        value: debug::Assignment,
+        revision: u64,
+    },
 }
 fn convert(e: debug::Error) -> Error {
     Error {
@@ -192,7 +197,7 @@ impl Workspace {
             Control::Stop => server::Control::Stop,
             Control::Detach => server::Control::Detach,
             Control::Frame { depth } => server::Control::Frame(depth),
-            Control::Set { value } => server::Control::Set(value),
+            Control::Set { value, revision } => server::Control::Set(value, revision),
         };
         self.debugging
             .get(id)

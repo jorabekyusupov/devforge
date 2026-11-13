@@ -376,6 +376,21 @@ fn archive_restore_and_purge_preserve_identity_ignored_data_and_source_history()
             serde_json::to_vec(&record).unwrap(),
         )
         .unwrap();
+        w.execute(
+            devforge_workspace::Command::Configure {
+                id: p.id.clone(),
+                revision: w.projects.get(&p.id).unwrap().revision,
+                name: p.name.clone(),
+                php: p.php.clone(),
+                node: p.node.clone(),
+                domain: format!("edited-{}.devforge.test", &wid[..8]),
+                https: false,
+                vite: false,
+                queue: true,
+            },
+            &Default::default(),
+        )
+        .unwrap();
         fs::write(path.join(".env"), "PRIVATE=keep").unwrap();
         fs::write(path.join("database/local.sqlite"), "owned-local-data").unwrap();
         let cleanup = w.worktree_cleanup_plan(&wid).unwrap();
@@ -393,10 +408,40 @@ fn archive_restore_and_purge_preserve_identity_ignored_data_and_source_history()
                 .code,
             "worktree_review_changed"
         );
+        let cancelled = devforge_runtime::Cancellation::default();
+        cancelled.cancel();
+        assert_eq!(
+            w.worktree_archive_review(&wid, "restore", &cancelled)
+                .err()
+                .unwrap()
+                .code,
+            "setup_cancelled"
+        );
+        // Resume a journal interrupted before the Git checkout, using the same archive.
+        let mut interrupted: Record =
+            serde_json::from_slice(&fs::read(dir.join("receipt.json")).unwrap()).unwrap();
+        interrupted.stage = "restoring".into();
+        fs::write(
+            dir.join("receipt.json"),
+            serde_json::to_vec(&interrupted).unwrap(),
+        )
+        .unwrap();
         let restore = w.worktree_archive_plan(&wid, "restore").unwrap();
         w.worktree_archive(&wid, "restore", &restore.digest, true, &Default::default())
             .unwrap();
         assert_eq!(w.projects.get(&p.id).unwrap().id, p.id);
+        let restored = w
+            .snapshot()
+            .unwrap()
+            .projects
+            .into_iter()
+            .find(|r| r.project.id == p.id)
+            .unwrap();
+        assert!(restored.development.queue);
+        assert_eq!(
+            restored.site.unwrap().domain,
+            format!("edited-{}.devforge.test", &wid[..8])
+        );
         assert_eq!(
             fs::read_to_string(path.join(".env")).unwrap(),
             "PRIVATE=changed-after-review"

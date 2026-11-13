@@ -17,7 +17,11 @@ fn inventory(
     files: &mut u64,
     bytes: &mut u64,
     depth: usize,
+    cancel: &Cancellation,
 ) -> Result<()> {
+    if cancel.is_cancelled() {
+        return Err(error("setup_cancelled"));
+    }
     if depth > 100 || *files > 100000 || *bytes > 64 * 1024 * 1024 * 1024 {
         return Err(error("worktree_archive_limit"));
     }
@@ -45,18 +49,29 @@ fn inventory(
         for entry in entries {
             h.update(entry.file_name().to_string_lossy().as_bytes());
             h.update(b"\0");
-            inventory(&entry.path(), h, files, bytes, depth + 1)?;
+            inventory(&entry.path(), h, files, bytes, depth + 1, cancel)?;
         }
     } else if m.is_file() {
         *files += 1;
         *bytes += m.len();
+        if *files > 100000 || *bytes > 64 * 1024 * 1024 * 1024 {
+            return Err(error("worktree_archive_limit"));
+        }
         h.update(m.len().to_le_bytes());
         let mut f = fs::File::open(path)?;
         let mut buf = [0u8; 65536];
+        let mut read = 0u64;
         loop {
+            if cancel.is_cancelled() {
+                return Err(error("setup_cancelled"));
+            }
             let n = f.read(&mut buf)?;
             if n == 0 {
                 break;
+            }
+            read += n as u64;
+            if read > m.len() {
+                return Err(error("worktree_review_changed"));
             }
             h.update(&buf[..n]);
         }
@@ -114,6 +129,14 @@ fn copy_payload(
 }
 impl Workspace {
     pub fn worktree_archive_plan(&self, id: &str, operation: &str) -> Result<ArchivePlan> {
+        self.worktree_archive_review(id, operation, &Cancellation::default())
+    }
+    pub fn worktree_archive_review(
+        &self,
+        id: &str,
+        operation: &str,
+        cancel: &Cancellation,
+    ) -> Result<ArchivePlan> {
         if !["restore", "purge"].contains(&operation) {
             return Err(error("worktree_ownership"));
         }
@@ -144,10 +167,10 @@ impl Workspace {
         let mut bytes = 0;
         let mut h = Sha256::new();
         if blockers.is_empty() && payload.exists() {
-            inventory(&payload, &mut h, &mut files, &mut bytes, 0)?;
+            inventory(&payload, &mut h, &mut files, &mut bytes, 0, cancel)?;
         }
         if restoring && retained.exists() && dir.join("tree").exists() {
-            inventory(&dir.join("tree"), &mut h, &mut files, &mut bytes, 0)?;
+            inventory(&dir.join("tree"), &mut h, &mut files, &mut bytes, 0, cancel)?;
         }
         let project = record
             .project_id
@@ -158,6 +181,12 @@ impl Workspace {
                     .or_else(|_| self.projects.get(p))
             })
             .transpose()?;
+        if project
+            .as_ref()
+            .is_some_and(|p| p.worktree.as_deref() != Some(id) || p.path != dir.join("tree"))
+        {
+            return Err(error("worktree_ownership"));
+        }
         if operation == "restore" {
             if project.is_none() {
                 blockers.push("worktree_archive_unavailable".into());
@@ -215,7 +244,7 @@ impl Workspace {
         if !consent {
             return Err(error("service_consent_required"));
         }
-        let plan = self.worktree_archive_plan(id, operation)?;
+        let plan = self.worktree_archive_review(id, operation, cancel)?;
         if plan.digest != review {
             return Err(error("worktree_review_changed"));
         }
@@ -241,7 +270,7 @@ impl Workspace {
                     vec![
                         "bundle".into(),
                         "create".into(),
-                        recovery.into_os_string(),
+                        dunce::simplified(&recovery).as_os_str().to_owned(),
                         "--all".into(),
                     ],
                     true,
@@ -272,7 +301,7 @@ impl Workspace {
                                     vec![
                                         "bundle".into(),
                                         "create".into(),
-                                        bundle.into_os_string(),
+                                        dunce::simplified(&bundle).as_os_str().to_owned(),
                                         "--all".into(),
                                         "HEAD".into(),
                                     ],
@@ -284,6 +313,11 @@ impl Workspace {
                         }
                     }
                 }
+            }
+            if record.stage != "purging"
+                && self.worktree_archive_review(id, operation, cancel)?.digest != review
+            {
+                return Err(error("worktree_review_changed"));
             }
             // Cancellation stops before destruction; once deletion begins it is completed synchronously.
             if cancel.is_cancelled() {
@@ -302,6 +336,7 @@ impl Workspace {
             .project_id
             .clone()
             .ok_or_else(|| error("worktree_archive_unavailable"))?;
+        let _project_guard = self.sites.project_mutation_guard(&project)?;
         let old = self
             .projects
             .archived_worktree(&project, id)
@@ -320,7 +355,7 @@ impl Workspace {
                         "worktree".into(),
                         "add".into(),
                         "--".into(),
-                        path.clone().into_os_string(),
+                        dunce::simplified(&path).as_os_str().to_owned(),
                         record.input.branch.clone().into(),
                     ],
                     cancel,
@@ -333,7 +368,18 @@ impl Workspace {
                 self.save_worktree(&record)?;
             }
             self.worktree_identity(&record, &path)?;
-            copy_payload(&retained, &path, cancel, true)?;
+            if retained.exists() {
+                let (mut before, mut files, mut bytes) = (Sha256::new(), 0, 0);
+                inventory(&retained, &mut before, &mut files, &mut bytes, 0, cancel)?;
+                copy_payload(&retained, &path, cancel, true)?;
+                let (mut after, mut files, mut bytes) = (Sha256::new(), 0, 0);
+                inventory(&retained, &mut after, &mut files, &mut bytes, 0, cancel)?;
+                if before.finalize() != after.finalize() {
+                    return Err(error("worktree_review_changed"));
+                }
+            } else if !old.active {
+                return Err(error("worktree_ownership"));
+            }
         }
         record.git_dir = Some(fs::canonicalize(git::text(
             &self.root,
@@ -364,7 +410,7 @@ impl Workspace {
             },
         );
         self.save()?;
-        // Keep linked-worktree archive as a recovery copy; next cleanup creates a fresh archive.
+        // The archive remains intact until activation succeeds; remove only this duplicate afterwards.
         if retained.exists() {
             fs::remove_dir_all(retained)?;
         }
