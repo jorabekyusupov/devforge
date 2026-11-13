@@ -4,6 +4,8 @@
 
 ## 2026-11-13
 
+- **E03 exact Composer:** [Schema8 natijasi](composer-binding-results.md), historical2.11.2 backfill, exact invocation/terminal/manifest/worktree va registered credential-free Redis tooling. Projects12/manifest5/repro4 va focused invocation/worktree fixtures, final scoped clippy o'tdi; independent QA source review. Full product suite rerun yo'q, actual PHP/UI/Intel/Windows native gap ochiq.
+
 - **M13.0.1 contract foundation:** devforge-control,16oila/153operation non-live inventory, versioned envelope/project/grant/review/idempotency/state/freshness guards va control-plane ADR.13focused contract test (QA policy correctionsdan keyin), scoped fmt/clippy o'tdi; dependency upgrade yo'q. Toliq M13.0 payload/dispatch/TS sync hamda manager/IPC/MCP native/client qabuli qoladi. [Execution](execution-status.md).
 
 - **E04.1 developer docs:** README desktop/MySQL/current-state, yangi CONTRIBUTING (scoped test/reuse/fixtures/ownership/UI/native evidence), validator qo'llanmasidagi drift tuzatildi.36 local link va diff review; strict OKF. E04 glossary/user pilot qoladi, product suite takrorlanmadi. [Holat](execution-status.md).

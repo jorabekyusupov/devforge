@@ -301,7 +301,7 @@ fn staged_generations_preserve_active_binding_and_use_engine_specific_role_limit
 }
 
 #[test]
-fn schema_four_records_keep_environment_and_runtime_selections_in_schema_seven() {
+fn schema_four_records_keep_environment_and_runtime_selections_in_schema_eight() {
     let root = tempfile::tempdir().unwrap();
     let catalog = Catalog::bundled();
     let php = selection(&catalog, "php", "8.4");
@@ -338,7 +338,7 @@ fn schema_four_records_keep_environment_and_runtime_selections_in_schema_seven()
         connection
             .pragma_query_value(None, "user_version", |r| r.get::<_, u32>(0))
             .unwrap(),
-        7
+        8
     );
 }
 
@@ -467,4 +467,109 @@ fn every_reviewed_php_family_pairs_web_and_cli_without_replacing_locked_ids() {
     }
     assert!(catalog.superseded.contains_key("php-8.5.12-cli-macos-x64"));
     assert!(catalog.superseded.contains_key("php-8.5.12-fpm-macos-x64"));
+}
+
+#[test]
+fn composer_binding_survives_catalog_default_changes_and_requires_explicit_revision() {
+    let root = tempfile::tempdir().unwrap();
+    let path = root.path().join("Composer project");
+    project(&path, "^8.3", "*");
+    let mut catalog = Catalog::bundled();
+    let store = ProjectStore::open(root.path().join("meta")).unwrap();
+    let p = store
+        .import(
+            &path,
+            "Composer",
+            &selection(&catalog, "php", "8.4"),
+            &selection(&catalog, "node", "v22"),
+            &catalog,
+        )
+        .unwrap();
+    let original = p.composer.clone();
+    let mut second = catalog.composer(&original).unwrap().clone();
+    second.version = "2.99.0".into();
+    let second_id = "composer-test-second";
+    catalog.packages.insert(second_id.into(), second);
+    catalog.defaults.insert("composer".into(), "2.99.0".into());
+    let p = store
+        .configure(&p.id, p.revision, "Renamed", &p.php, &p.node, &catalog)
+        .unwrap();
+    assert_eq!(p.composer, original);
+    assert_eq!(store.get(&p.id).unwrap().composer, original);
+    assert_eq!(
+        store
+            .configure_composer(&p.id, p.revision - 1, second_id, &catalog)
+            .err(),
+        Some(ProjectError::StaleRevision)
+    );
+    assert_eq!(
+        store
+            .configure_composer(&p.id, p.revision, &p.php, &catalog)
+            .err(),
+        Some(ProjectError::RuntimeUnavailable)
+    );
+    let p = store
+        .configure_composer(&p.id, p.revision, second_id, &catalog)
+        .unwrap();
+    assert_eq!(p.composer, second_id);
+    drop(store);
+    assert_eq!(
+        ProjectStore::open(root.path().join("meta"))
+            .unwrap()
+            .get(&p.id)
+            .unwrap()
+            .composer,
+        second_id
+    );
+}
+
+#[test]
+fn schema_seven_backfills_historical_composer_without_resetting_record_or_revision() {
+    let root = tempfile::tempdir().unwrap();
+    let path = root.path().join("Legacy");
+    project(&path, "^8.3", "*");
+    let catalog = Catalog::bundled();
+    let metadata = root.path().join("meta");
+    let store = ProjectStore::open(&metadata).unwrap();
+    let p = store
+        .import(
+            &path,
+            "Legacy",
+            &selection(&catalog, "php", "8.4"),
+            &selection(&catalog, "node", "v22"),
+            &catalog,
+        )
+        .unwrap();
+    drop(store);
+    let db = rusqlite::Connection::open(metadata.join("projects.sqlite3")).unwrap();
+    let mut value = serde_json::to_value(&p).unwrap();
+    value.as_object_mut().unwrap().remove("composer");
+    value["future_preserved"] = "keep".into();
+    db.execute(
+        "UPDATE projects SET record=?1 WHERE id=?2",
+        rusqlite::params![value.to_string(), p.id],
+    )
+    .unwrap();
+    db.pragma_update(None, "user_version", 7).unwrap();
+    drop(db);
+    let store = ProjectStore::open(&metadata).unwrap();
+    let migrated = store.get(&p.id).unwrap();
+    assert_eq!(migrated.composer, p.composer);
+    assert_eq!(migrated.revision, p.revision);
+    assert_eq!(migrated.php, p.php);
+    assert_eq!(migrated.node, p.node);
+    let db = rusqlite::Connection::open(metadata.join("projects.sqlite3")).unwrap();
+    let raw: String = db
+        .query_row("SELECT record FROM projects WHERE id=?1", [&p.id], |r| {
+            r.get(0)
+        })
+        .unwrap();
+    let preserved: serde_json::Value = serde_json::from_str(&raw).unwrap();
+    assert_eq!(preserved["composer"], p.composer);
+    assert_eq!(preserved["future_preserved"], "keep");
+    assert_eq!(
+        db.pragma_query_value(None, "user_version", |r| r.get::<_, u32>(0))
+            .unwrap(),
+        8
+    );
 }

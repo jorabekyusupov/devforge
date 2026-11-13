@@ -147,7 +147,7 @@ Parallel agent boshlangan yoki tugagan itemni integrator evidence bilan yangilay
 | M13.9 | planned | M13 slice evidence reconciliation va applicable client/OS matrix. |
 | E01 | ready | E00/M8 source, human first-success checklist va UI routing; M13ni kutmaydi. |
 | E02 | ready | Existing M10 plan/health facts ustida expected/actual scope; live facade availability alohida. |
-| E03 | in_progress | Exact Composer project binding/migration/execution/export; catalog refreshdan oldin. |
+| E03 | validated | [Exact Composer source/focused qabul](composer-binding-results.md); native target followup ochiq. |
 | E04 | in_progress | Current-state/tooling/README drift va contributor runbook, product tests talab qilmaydi. |
 | E05 | planned | Ownership/resource kontrakti; read-only storage inventari, keyin cleanup preview. |
 | E06 | planned | E05 va staged DB ownership; activation'siz drill, keyin retention/scheduling. |
@@ -268,3 +268,11 @@ grantini ham talab qiladi; Inspector companion install Xdebug SDK installidan aj
 Read-plan va apply effect/reviewlari, mail delete effekti va family/operation union
 consistency regressiyalari qo'shildi.13test final inventoryga tegishli; old10test
 natijasiga emas. Bu live authorization/IPC acceptance degani emas.
+
+# E03 handoff
+
+[Composer natijasi](composer-binding-results.md) schema8 va barcha aniqlangan
+consumerlarni, initial fixture failure va reviewda topilgan Redis caller fixni qayd
+etadi. Local focused projects12/manifest5/repro4, invocation1/worktree1 va scoped
+clippy; late fixlarda faqat invalid scope rerun. Real PHP/UI/Windows/Intel native
+qabul yangidan da'vo qilinmaydi. Source push alohida E03 commitda.

@@ -26,6 +26,29 @@ impl Catalog {
     pub fn get(&self, id: &str) -> Result<&Package> {
         self.packages.get(id).ok_or(E::RuntimeUnavailable)
     }
+    pub fn composer(&self, id: &str) -> Result<&Package> {
+        let package = self.get(id)?;
+        if package.kind != "composer"
+            || package.target != Target::current()?
+            || !package.resources.contains_key("composer")
+        {
+            return Err(E::RuntimeUnavailable);
+        }
+        Ok(package)
+    }
+    pub fn default_composer(&self) -> Result<String> {
+        let version = self.defaults.get("composer").ok_or(E::RuntimeUnavailable)?;
+        self.packages
+            .iter()
+            .find(|(_, package)| {
+                package.kind == "composer"
+                    && package.version == *version
+                    && Some(package.target) == Target::current().ok()
+                    && package.resources.contains_key("composer")
+            })
+            .map(|(id, _)| id.clone())
+            .ok_or(E::RuntimeUnavailable)
+    }
     pub fn php_server(&self, cli: &Package) -> Result<&Package> {
         self.packages
             .values()
@@ -51,6 +74,10 @@ pub struct Project {
     pub path: PathBuf,
     pub php: String,
     pub node: String,
+    /// Legacy releases used only Composer 2.11.2. Do not resolve a moving default
+    /// when opening an old record or updating the runtime catalog.
+    #[serde(default = "legacy_composer")]
+    pub composer: String,
     pub php_constraint: String,
     pub node_constraint: String,
     pub environment_names: Vec<String>,
@@ -68,6 +95,17 @@ pub struct Project {
     pub php_settings: crate::php_settings::PhpSettings,
     #[serde(default)]
     pub services: crate::cache::ServiceSelection,
+}
+fn legacy_composer() -> String {
+    let suffix = match Target::current() {
+        Ok(Target::MacosArm64) => "macos-arm64",
+        Ok(Target::MacosX64) => "macos-x64",
+        Ok(Target::WindowsX64) => "windows-x64",
+        // Deserializing old metadata must not panic on an unsupported host.
+        // Actual invocation still rejects the unsupported target through Catalog.
+        Err(_) => "unsupported",
+    };
+    format!("composer-2.11.2-{suffix}")
 }
 #[derive(Debug, Clone, Serialize)]
 pub struct Inspection {
@@ -175,7 +213,7 @@ impl ProjectStore {
         connection.busy_timeout(Duration::from_secs(3))?;
         connection.pragma_update(None, "foreign_keys", true)?;
         let version: u32 = connection.pragma_query_value(None, "user_version", |r| r.get(0))?;
-        if version > 7 {
+        if version > 8 {
             return Err(E::StorageUnavailable);
         }
         if version == 0 {
@@ -201,6 +239,30 @@ impl ProjectStore {
         if version <= 6 {
             connection.execute_batch("BEGIN IMMEDIATE; CREATE TABLE IF NOT EXISTS discovery_entries(identity TEXT PRIMARY KEY,record TEXT NOT NULL); PRAGMA user_version=7; COMMIT;")?;
         }
+        if version <= 7 {
+            Target::current()?;
+            let transaction = connection.unchecked_transaction()?;
+            let records = {
+                let mut query = transaction.prepare("SELECT id,record FROM projects")?;
+                query
+                    .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))?
+                    .collect::<std::result::Result<Vec<_>, _>>()?
+            };
+            for (id, record) in records {
+                let mut value: serde_json::Value =
+                    serde_json::from_str(&record).map_err(|_| E::StorageUnavailable)?;
+                let object = value.as_object_mut().ok_or(E::StorageUnavailable)?;
+                if !object.contains_key("composer") {
+                    object.insert("composer".into(), legacy_composer().into());
+                    transaction.execute(
+                        "UPDATE projects SET record=?1 WHERE id=?2",
+                        params![value.to_string(), id],
+                    )?;
+                }
+            }
+            transaction.pragma_update(None, "user_version", 8)?;
+            transaction.commit()?;
+        }
         Ok(Self { connection, root })
     }
     pub fn root(&self) -> &Path {
@@ -224,6 +286,20 @@ impl ProjectStore {
         node: &str,
         catalog: &Catalog,
     ) -> Result<Project> {
+        let composer = catalog.default_composer()?;
+        self.import_with_composer(path, name, php, node, &composer, catalog)
+    }
+    /// Import with the exact reviewed Composer selection, independent of catalog defaults.
+    pub fn import_with_composer(
+        &self,
+        path: &Path,
+        name: &str,
+        php: &str,
+        node: &str,
+        composer: &str,
+        catalog: &Catalog,
+    ) -> Result<Project> {
+        catalog.composer(composer)?;
         let checked = inspect(path)?;
         compatible(&checked, catalog.get(php)?, catalog.get(node)?)?;
         validate_name(name)?;
@@ -247,6 +323,7 @@ impl ProjectStore {
             path: checked.path,
             php: php.into(),
             node: node.into(),
+            composer: composer.into(),
             php_constraint: checked.php_constraint,
             node_constraint: checked.node_constraint,
             environment_names: Vec::new(),
@@ -335,6 +412,19 @@ impl ProjectStore {
         p.node_constraint = checked.node_constraint;
         self.save(&mut p, revision)?;
         Ok(p)
+    }
+    pub fn configure_composer(
+        &self,
+        id: &str,
+        revision: u64,
+        composer: &str,
+        catalog: &Catalog,
+    ) -> Result<Project> {
+        catalog.composer(composer)?;
+        let mut project = self.get(id)?;
+        project.composer = composer.into();
+        self.save(&mut project, revision)?;
+        Ok(project)
     }
     pub fn forget(&self, id: &str, revision: u64) -> Result<()> {
         let mut p = self.get(id)?;

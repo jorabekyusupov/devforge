@@ -164,3 +164,69 @@ fn old_project_json_without_secret_links_remains_readable() {
     assert_eq!(decoded.php, p.php);
     assert_eq!(decoded.path, p.path);
 }
+
+#[test]
+fn manifest_export_uses_project_composer_instead_of_first_package_or_new_default() {
+    let temp = tempfile::tempdir().unwrap();
+    let path = temp.path().join("Pinned composer");
+    fs::create_dir_all(path.join("public")).unwrap();
+    fs::write(path.join("public/index.php"), "<?php").unwrap();
+    fs::write(
+        path.join("composer.json"),
+        r#"{"require":{"php":"^8.3","laravel/framework":"^13"}}"#,
+    )
+    .unwrap();
+    let mut w = Workspace::open(temp.path().join("data"), Arc::new(Secrets::default())).unwrap();
+    w.manifest_init(&path, "8.5.12", "24.22.2", "2.11.2")
+        .unwrap();
+    let plan = w.manifest_plan(&path, false).unwrap();
+    let p = w
+        .projects
+        .import(
+            &path,
+            "Pinned",
+            &plan.packages["php"],
+            &plan.packages["node"],
+            &w.catalog,
+        )
+        .unwrap();
+    w.sites
+        .configure(
+            &w.projects,
+            devforge_serving::site::Site {
+                project_id: p.id.clone(),
+                domain: "pinned.devforge.test".into(),
+                https: false,
+                vite: false,
+            },
+        )
+        .unwrap();
+    let mut second = w.catalog.composer(&p.composer).unwrap().clone();
+    second.version = "2.99.0".into();
+    w.catalog
+        .packages
+        .insert("aaa-second-composer".into(), second);
+    w.catalog
+        .defaults
+        .insert("composer".into(), "2.99.0".into());
+    assert_eq!(
+        w.manifest_definition(&p.id).unwrap().runtimes.composer,
+        "2.11.2"
+    );
+    w.projects
+        .configure_composer(&p.id, p.revision, "aaa-second-composer", &w.catalog)
+        .unwrap();
+    let manifest = w.manifest_definition(&p.id).unwrap();
+    assert_eq!(manifest.runtimes.composer, "2.99.0");
+    let loaded =
+        devforge_projects::manifest::Manifest::parse(manifest.yaml().unwrap().as_bytes()).unwrap();
+    assert_eq!(
+        loaded
+            .verify_pins(
+                &w.catalog,
+                devforge_runtime::package::Target::current().unwrap()
+            )
+            .unwrap()["composer"],
+        "aaa-second-composer"
+    );
+}

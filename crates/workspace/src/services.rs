@@ -46,14 +46,13 @@ impl Workspace {
             return Err(error("service_consent_required"));
         }
         let p = self.projects.get(id)?;
-        let composer = self.dependency("composer")?;
-        self.install_dependency(&composer, cancel)?;
-        // Bootstrap deliberately omits service credentials and managed service overrides.
-        let context = Context::bootstrap(
+        self.catalog.composer(&p.composer)?;
+        self.install_dependency(&p.composer, cancel)?;
+        // Preserve the selected tool while deliberately omitting service credentials
+        // and registered environment references from the tooling context.
+        let context = Context::bootstrap_for_project(
             &self.projects,
-            &p.path,
-            &p.php,
-            &p.node,
+            &p,
             &self.catalog,
             &self.packages,
             self.secrets.as_ref(),

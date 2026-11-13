@@ -20,19 +20,7 @@ pub fn prepare(
 ) -> Result<PathBuf> {
     let bin = context.config.join("bin");
     crate::private_dir(&bin)?;
-    let version = catalog
-        .defaults
-        .get("composer")
-        .ok_or(E::RuntimeUnavailable)?;
-    let composer = catalog
-        .packages
-        .values()
-        .find(|p| {
-            p.kind == "composer"
-                && p.version == *version
-                && p.target == devforge_runtime::package::Target::current().unwrap()
-        })
-        .ok_or(E::RuntimeUnavailable)?;
+    let composer = catalog.composer(&context.project.composer)?;
     let resource = packages.resource(composer, "composer")?;
     for (name, extra) in [
         ("php", Vec::new()),
@@ -97,19 +85,7 @@ pub fn shell(
     let mut context = Context::resolve(store, id, catalog, packages, secrets)?;
     prepare(&mut context, catalog, packages)?;
     // Keep both interpreter and Composer leases until the interactive shell exits.
-    let version = catalog
-        .defaults
-        .get("composer")
-        .ok_or(E::RuntimeUnavailable)?;
-    let composer = catalog
-        .packages
-        .values()
-        .find(|p| {
-            p.kind == "composer"
-                && p.version == *version
-                && p.target == devforge_runtime::package::Target::current().unwrap()
-        })
-        .ok_or(E::RuntimeUnavailable)?;
+    let composer = catalog.composer(&context.project.composer)?;
     let _composer = packages.resource(composer, "composer")?;
     let mut command = if cfg!(windows) {
         let root = std::env::var_os("SystemRoot").ok_or(E::TerminalUnavailable)?;

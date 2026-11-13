@@ -5,7 +5,7 @@ use crate::{
 use devforge_core::SecretStore;
 use devforge_runtime::{
     Cancellation,
-    package::{PackageStore, Target, VerifiedExecutable, VerifiedResource},
+    package::{PackageStore, VerifiedExecutable, VerifiedResource},
     process::{LogChunk, LogPolicy, Observed, ProcessSpec, Readiness, RestartPolicy, Supervisor},
 };
 use serde::Serialize;
@@ -158,6 +158,44 @@ impl Context {
         packages: &PackageStore,
         secrets: &dyn SecretStore,
     ) -> Result<Self> {
+        let composer = catalog.default_composer()?;
+        Self::bootstrap_selection(
+            store,
+            path,
+            (php, node, &composer),
+            catalog,
+            packages,
+            secrets,
+        )
+    }
+    /// Credential-free tooling for a registered project. Preserve its runtime pins,
+    /// but do not reuse its identity, environment references or service bindings.
+    pub fn bootstrap_for_project(
+        store: &ProjectStore,
+        project: &Project,
+        catalog: &Catalog,
+        packages: &PackageStore,
+        secrets: &dyn SecretStore,
+    ) -> Result<Self> {
+        Self::bootstrap_selection(
+            store,
+            &project.path,
+            (&project.php, &project.node, &project.composer),
+            catalog,
+            packages,
+            secrets,
+        )
+    }
+    fn bootstrap_selection(
+        store: &ProjectStore,
+        path: &std::path::Path,
+        runtimes: (&str, &str, &str),
+        catalog: &Catalog,
+        packages: &PackageStore,
+        secrets: &dyn SecretStore,
+    ) -> Result<Self> {
+        let (php, node, composer) = runtimes;
+        catalog.composer(composer)?;
         let path = std::fs::canonicalize(path).map_err(|_| E::InvalidProject)?;
         if !path.is_dir() {
             return Err(E::InvalidProject);
@@ -169,6 +207,7 @@ impl Context {
             path: path.clone(),
             php: php.into(),
             node: node.into(),
+            composer: composer.into(),
             php_constraint: "*".into(),
             node_constraint: "*".into(),
             environment_names: vec![],
@@ -510,19 +549,7 @@ impl Context {
                 ]);
                 match tool {
                     Tool::Composer => {
-                        let version = catalog
-                            .defaults
-                            .get("composer")
-                            .ok_or(E::RuntimeUnavailable)?;
-                        let package = catalog
-                            .packages
-                            .values()
-                            .find(|p| {
-                                p.kind == "composer"
-                                    && p.version == *version
-                                    && p.target == Target::current().unwrap()
-                            })
-                            .ok_or(E::RuntimeUnavailable)?;
+                        let package = catalog.composer(&self.project.composer)?;
                         let resource = packages.resource(package, "composer")?;
                         resource.check()?;
                         prefix.push(resource.path().as_os_str().to_owned());
@@ -671,4 +698,173 @@ fn ini_path(path: &std::path::Path) -> Result<String> {
         return Err(E::InvalidEnvironment);
     }
     Ok(format!("\"{text}\""))
+}
+
+#[cfg(test)]
+mod composer_binding_tests {
+    use super::*;
+    use devforge_core::ErrorCode;
+    use devforge_runtime::package::{Archive, Limits, Package, Target, hash_file};
+    use std::{fs, path::Path};
+    struct Secrets;
+    impl SecretStore for Secrets {
+        fn get(&self, _: &str) -> std::result::Result<Option<String>, ErrorCode> {
+            Ok(None)
+        }
+        fn set(&self, _: &str, _: &str) -> std::result::Result<(), ErrorCode> {
+            Ok(())
+        }
+        fn delete(&self, _: &str) -> std::result::Result<(), ErrorCode> {
+            Ok(())
+        }
+    }
+    fn install(root: &Path, packages: &PackageStore, kind: &str, version: &str) -> Package {
+        let archive = root.join(format!("{kind}-{version}.fixture"));
+        if kind == "composer" {
+            fs::write(&archive, format!("inert {kind} {version} fixture")).unwrap();
+        } else {
+            fs::copy(std::env::current_exe().unwrap(), &archive).unwrap();
+        }
+        let name = if kind == "composer" {
+            "composer.phar"
+        } else {
+            kind
+        };
+        let p = Package {
+            kind: kind.into(),
+            version: version.into(),
+            variant: "fixture".into(),
+            target: Target::current().unwrap(),
+            url: "https://example.invalid/fixture".into(),
+            sha256: hash_file(&archive).unwrap(),
+            archive: Archive::File { path: name.into() },
+            executables: if kind == "composer" {
+                BTreeMap::new()
+            } else {
+                BTreeMap::from([(kind.into(), name.into())])
+            },
+            resources: if kind == "composer" {
+                BTreeMap::from([("composer".into(), name.into())])
+            } else {
+                BTreeMap::new()
+            },
+        };
+        packages
+            .install_cached(&p, &archive, &Cancellation::default(), |_| {})
+            .unwrap();
+        p
+    }
+    #[test]
+    fn invocation_and_terminal_select_persisted_composer_after_default_changes() {
+        let temp = tempfile::tempdir().unwrap();
+        let packages = PackageStore::open(temp.path().join("packages"), Limits::default()).unwrap();
+        let php = install(temp.path(), &packages, "php", "8.5.12");
+        let node = install(temp.path(), &packages, "node", "24.22.2");
+        let first = install(temp.path(), &packages, "composer", "2.11.2");
+        let second = install(temp.path(), &packages, "composer", "2.99.0");
+        let mut catalog = Catalog {
+            packages: BTreeMap::from([
+                ("php".into(), php),
+                ("node".into(), node),
+                ("first".into(), first.clone()),
+                ("second".into(), second),
+            ]),
+            superseded: BTreeMap::new(),
+            defaults: BTreeMap::from([("composer".into(), "2.11.2".into())]),
+        };
+        let root = temp.path().join("repo");
+        fs::create_dir_all(root.join("public")).unwrap();
+        fs::write(root.join("public/index.php"), "<?php").unwrap();
+        fs::write(
+            root.join("composer.json"),
+            r#"{"require":{"php":"^8.3","laravel/framework":"^13"}}"#,
+        )
+        .unwrap();
+        let store = ProjectStore::open(temp.path().join("meta")).unwrap();
+        let project = store
+            .import(&root, "Pinned", "php", "node", &catalog)
+            .unwrap();
+        catalog.defaults.insert("composer".into(), "2.99.0".into());
+        let resource = packages.resource(&first, "composer").unwrap();
+        let invocation = Context::resolve(&store, &project.id, &catalog, &packages, &Secrets)
+            .unwrap()
+            .invocation(
+                Tool::Composer,
+                vec!["--version".into()],
+                &catalog,
+                &packages,
+            )
+            .unwrap();
+        assert!(
+            invocation
+                .spec
+                .args
+                .contains(&resource.path().as_os_str().to_owned())
+        );
+        assert!(
+            packages.remove(&first).is_err(),
+            "selected resource remains leased"
+        );
+        struct DenySecrets;
+        impl SecretStore for DenySecrets {
+            fn get(&self, _: &str) -> std::result::Result<Option<String>, ErrorCode> {
+                panic!("bootstrap must not read registered secrets")
+            }
+            fn set(&self, _: &str, _: &str) -> std::result::Result<(), ErrorCode> {
+                panic!("bootstrap must not write registered secrets")
+            }
+            fn delete(&self, _: &str) -> std::result::Result<(), ErrorCode> {
+                panic!("bootstrap must not delete registered secrets")
+            }
+        }
+        let mut credentialed_project = project.clone();
+        credentialed_project.environment_names = vec!["SHARED_TOKEN".into()];
+        credentialed_project
+            .environment_references
+            .insert("SHARED_TOKEN".into(), "private-ref".into());
+        credentialed_project.mail = true;
+        // Prove the explicit bootstrap does not need a catalog default at all.
+        catalog.defaults.remove("composer");
+        let tooling = Context::bootstrap_for_project(
+            &store,
+            &credentialed_project,
+            &catalog,
+            &packages,
+            &DenySecrets,
+        )
+        .unwrap();
+        assert_ne!(tooling.project.id, project.id);
+        assert!(tooling.project.environment_names.is_empty());
+        assert!(
+            !tooling
+                .environment
+                .contains_key(std::ffi::OsStr::new("SHARED_TOKEN"))
+        );
+        assert!(!tooling.project.mail);
+        let tooling = tooling
+            .invocation(Tool::Composer, vec!["require".into()], &catalog, &packages)
+            .unwrap();
+        assert!(
+            tooling
+                .spec
+                .args
+                .contains(&resource.path().as_os_str().to_owned())
+        );
+        let mut context =
+            Context::resolve(&store, &project.id, &catalog, &packages, &Secrets).unwrap();
+        let bin = crate::terminal::prepare(&mut context, &catalog, &packages).unwrap();
+        let shim = fs::read_to_string(bin.join(if cfg!(windows) {
+            "composer.cmd"
+        } else {
+            "composer"
+        }))
+        .unwrap();
+        assert!(
+            shim.contains(
+                &dunce::simplified(resource.path())
+                    .to_string_lossy()
+                    .to_string()
+            )
+        );
+    }
 }

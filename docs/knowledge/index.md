@@ -29,6 +29,8 @@ mavzuni tanlang, so'ng faqat tegishli hujjatlar va ularning manbalarini o'qing.
 
 ## Manba va yuritish
 
+- [E03 exact Composer](composer-binding-results.md) - schema8, persisted selection, terminal/YAML/worktree va credential-free tooling; focused test/native chegara.
+
 - [Execution holati va E00 inventari](execution-status.md) - source/platform evidence, barcha work ID holati, scoped test va qoldiq tashqi gate.
 
 - [Windows 10/11 mosligi](windows-compatibility.md) - 22H2 x64 minimum, installer/preflight va actual Windows10 qabul chegarasi.

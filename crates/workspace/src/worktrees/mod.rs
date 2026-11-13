@@ -601,13 +601,7 @@ impl Workspace {
             if path.join(".env").exists() {
                 return Err(error("worktree_committed_env"));
             }
-            let child = self.projects.import(
-                &path,
-                &record.input.name,
-                &source.php,
-                &source.node,
-                &self.catalog,
-            )?;
+            let child = self.import_worktree_project(&path, &record.input.name, source)?;
             record.project_id = Some(child.id.clone());
             self.save_worktree(record)?;
             self.projects
@@ -1060,5 +1054,91 @@ impl Workspace {
             *p = None;
         }
         result
+    }
+}
+
+impl Workspace {
+    fn import_worktree_project(
+        &self,
+        path: &Path,
+        name: &str,
+        source: &devforge_projects::project::Project,
+    ) -> Result<devforge_projects::project::Project> {
+        Ok(self.projects.import_with_composer(
+            path,
+            name,
+            &source.php,
+            &source.node,
+            &source.composer,
+            &self.catalog,
+        )?)
+    }
+}
+
+#[cfg(test)]
+mod composer_inheritance_tests {
+    use super::*;
+    struct Secrets;
+    impl devforge_core::SecretStore for Secrets {
+        fn get(&self, _: &str) -> std::result::Result<Option<String>, devforge_core::ErrorCode> {
+            Ok(None)
+        }
+        fn set(&self, _: &str, _: &str) -> std::result::Result<(), devforge_core::ErrorCode> {
+            Ok(())
+        }
+        fn delete(&self, _: &str) -> std::result::Result<(), devforge_core::ErrorCode> {
+            Ok(())
+        }
+    }
+    #[test]
+    fn child_registration_preserves_source_composer_despite_new_default() {
+        let temp = tempfile::tempdir().unwrap();
+        let wroot = temp.path().join("data");
+        let mut w = Workspace::open(&wroot, std::sync::Arc::new(Secrets)).unwrap();
+        let source_path = temp.path().join("source");
+        let child_path = temp.path().join("child");
+        for path in [&source_path, &child_path] {
+            fs::create_dir_all(path.join("public")).unwrap();
+            fs::write(path.join("public/index.php"), "<?php").unwrap();
+            fs::write(
+                path.join("composer.json"),
+                r#"{"require":{"php":"^8.3","laravel/framework":"^13"}}"#,
+            )
+            .unwrap();
+        }
+        let choose = |kind: &str| {
+            w.catalog
+                .packages
+                .iter()
+                .find(|(_, p)| {
+                    p.kind == kind
+                        && Some(p.target) == Target::current().ok()
+                        && (kind != "php" || p.executables.contains_key("php"))
+                })
+                .unwrap()
+                .0
+                .clone()
+        };
+        let source = w
+            .projects
+            .import(
+                &source_path,
+                "Source",
+                &choose("php"),
+                &choose("node"),
+                &w.catalog,
+            )
+            .unwrap();
+        let mut second = w.catalog.composer(&source.composer).unwrap().clone();
+        second.version = "2.99.0".into();
+        w.catalog.packages.insert("second-composer".into(), second);
+        w.catalog
+            .defaults
+            .insert("composer".into(), "2.99.0".into());
+        let child = w
+            .import_worktree_project(&child_path, "Child", &source)
+            .unwrap();
+        assert_eq!(child.composer, source.composer);
+        assert_ne!(child.composer, w.catalog.default_composer().unwrap());
     }
 }

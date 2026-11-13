@@ -243,12 +243,7 @@ impl Workspace {
             .into_iter()
             .find(|s| s.project_id == id)
             .ok_or_else(|| code("setup_site_missing"))?;
-        let composer = self
-            .catalog
-            .packages
-            .values()
-            .find(|p| p.kind == "composer" && Some(p.target) == Target::current().ok())
-            .ok_or_else(|| code("manifest_runtime_unavailable"))?;
+        let composer = self.catalog.composer(&p.composer)?;
         let database = self
             .projects
             .binding(id)?
@@ -694,11 +689,12 @@ impl Workspace {
                 p.id
             } else {
                 self.projects
-                    .import(
+                    .import_with_composer(
                         &path,
                         &m.project.name,
                         &plan.packages["php"],
                         &plan.packages["node"],
+                        &plan.packages["composer"],
                         &self.catalog,
                     )?
                     .id
@@ -715,6 +711,13 @@ impl Workspace {
                 &m.project.name,
                 &plan.packages["php"],
                 &plan.packages["node"],
+                &self.catalog,
+            )?;
+            let p = self.projects.get(&id)?;
+            self.projects.configure_composer(
+                &id,
+                p.revision,
+                &plan.packages["composer"],
                 &self.catalog,
             )?;
             let p = self.projects.get(&id)?;
