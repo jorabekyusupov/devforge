@@ -1,0 +1,13 @@
+{
+  "status": "in_progress",
+  "rust_tests": {
+    "passed": 104,
+    "ignored": 1
+  },
+  "frontend_tests": 36,
+  "locales": 3,
+  "macos_arm64_backend": "passed",
+  "macos_arm64_ui": "remote-panel-fixture refinement pending",
+  "macos_intel": "not_run",
+  "windows_x64": "not_run"
+}

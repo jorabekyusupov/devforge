@@ -1,0 +1,8 @@
+✓ .supergoal/devforge-configurable-project-folder-aut-fKSwZE/phases/phase-1.md: structure ok (48 lines, 22 bullets)
+✓ .supergoal/devforge-configurable-project-folder-aut-fKSwZE/phases/phase-2.md: structure ok (47 lines, 21 bullets)
+✓ .supergoal/devforge-configurable-project-folder-aut-fKSwZE/phases/phase-3.md: structure ok (51 lines, 25 bullets)
+✓ .supergoal/devforge-configurable-project-folder-aut-fKSwZE/phases/phase-4.md: structure ok (50 lines, 24 bullets)
+✓ .supergoal/devforge-configurable-project-folder-aut-fKSwZE/phases/phase-5.md: structure ok (58 lines, 32 bullets)
+✓ .supergoal/devforge-configurable-project-folder-aut-fKSwZE/phases/phase-6.md: structure ok (59 lines, 28 bullets)
+✓ .supergoal/devforge-configurable-project-folder-aut-fKSwZE/phases/phase-7.md: structure ok (59 lines, 33 bullets)
+criteria: 60 unique, ROADMAP matched

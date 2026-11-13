@@ -57,6 +57,8 @@ export function WorkspacePage({
     ),
     [adding, setAdding] = useState(false),
     [creating, setCreating] = useState(false),
+    [discoveryPath, setDiscoveryPath] = useState(""),
+    [discoveryLimit, setDiscoveryLimit] = useState(50),
     [tool, setTool] = useState<{
       kind: "prepare" | "php" | "https";
       id: string;
@@ -212,6 +214,87 @@ export function WorkspacePage({
               {t("work.addProject")}
             </button>
           </div>
+          {api.snapshot?.discovery && (
+            <section
+              className="discovery-projects"
+              aria-labelledby="discovered-heading"
+            >
+              <div className="discovery-list-heading">
+                <h2 id="discovered-heading">{t("discovery.discovered")}</h2>
+                <a href="#settings">{t("discovery.manageFolder")}</a>
+              </div>
+              <p className="muted" translate="no">
+                {api.snapshot.discovery.root}
+              </p>
+              <ul>
+                {api.snapshot.discovery.entries
+                  .filter(
+                    (entry) =>
+                      entry.state !== "ready" &&
+                      `${entry.name} ${entry.path}`
+                        .toLocaleLowerCase()
+                        .includes(query.toLocaleLowerCase()),
+                  )
+                  .slice(0, discoveryLimit)
+                  .map((entry) => (
+                    <li
+                      key={entry.identity}
+                      data-discovery-identity={entry.identity}
+                    >
+                      <div>
+                        <strong translate="no">{entry.name}</strong>
+                        <span>{t(`discovery.states.${entry.state}`)}</span>
+                        <small translate="no">{entry.path}</small>
+                        {entry.problem && (
+                          <small>
+                            {t(`discovery.problems.${entry.problem}`, {
+                              defaultValue: t("discovery.failed"),
+                            })}
+                          </small>
+                        )}
+                      </div>
+                      {entry.ignored ? (
+                        <button
+                          disabled={api.busy}
+                          onClick={() =>
+                            void api.run({
+                              action: "discovery_restore",
+                              identity: entry.identity,
+                            })
+                          }
+                        >
+                          {t("discovery.restore")}
+                        </button>
+                      ) : (
+                        !entry.project_id &&
+                        entry.state !== "missing" &&
+                        entry.state !== "detached" && (
+                          <button
+                            disabled={api.busy}
+                            onClick={() => {
+                              setDiscoveryPath(entry.path);
+                              api.clearError();
+                              setAdding(true);
+                            }}
+                          >
+                            {t("discovery.configure")}
+                          </button>
+                        )
+                      )}
+                    </li>
+                  ))}
+              </ul>
+              {api.snapshot.discovery.entries.filter((e) => e.state !== "ready")
+                .length > discoveryLimit && (
+                <button onClick={() => setDiscoveryLimit((n) => n + 50)}>
+                  {t("discovery.showMore")}
+                </button>
+              )}
+              {api.snapshot.discovery.entries.some(
+                (e) => e.state === "needs_runtime",
+              ) && <a href="#runtimes">{t("discovery.installRuntimes")}</a>}
+            </section>
+          )}
           <div
             className="project-filters"
             role="group"
@@ -492,6 +575,7 @@ export function WorkspacePage({
       )}
       {adding && (
         <ProjectDialog
+          initialPath={discoveryPath}
           runtimes={runtimes}
           errorText={errorMessage}
           busy={api.busy}
@@ -505,6 +589,7 @@ export function WorkspacePage({
       {creating && (
         <CreateProjectDialog
           runtimes={runtimes}
+          defaultParent={api.snapshot?.discovery?.root ?? ""}
           starter={api.snapshot?.starter_constraint ?? ""}
           busy={api.busy}
           error={api.error}
@@ -694,6 +779,11 @@ function ProjectDetail({
         <Folder aria-hidden="true" />
         <h2 translate="no">{p.name}</h2>
         <StateBadge value={row.state} />
+        {row.discovery_state && row.discovery_state !== "ready" && (
+          <span className="state">
+            {t(`discovery.states.${row.discovery_state}`)}
+          </span>
+        )}
       </div>
       <div className="project-url">
         <code translate="no">
@@ -709,7 +799,12 @@ function ProjectDetail({
       </div>
       <div className="action-bar">
         <button
-          disabled={busy || active}
+          disabled={
+            busy ||
+            active ||
+            (!!row.discovery_state &&
+              !["ready", "detached"].includes(row.discovery_state))
+          }
           onClick={() => void run({ action: "start", id: p.id })}
         >
           <Play aria-hidden="true" />
@@ -1041,6 +1136,7 @@ function LogViewer({ logs }: { logs: Snapshot["logs"] }) {
   );
 }
 function ProjectDialog({
+  initialPath = "",
   runtimes,
   errorText,
   busy,
@@ -1053,10 +1149,11 @@ function ProjectDialog({
   busy: boolean;
   browse: () => Promise<string | null>;
   onClose: () => void;
+  initialPath?: string;
   onSubmit: (v: Extract<Command, { action: "import" }>) => Promise<void>;
 }) {
   const { t } = useTranslation();
-  const [path, setPath] = useState("");
+  const [path, setPath] = useState(initialPath);
   const [form, setForm] = useState<ProjectInput>({
     name: "",
     php: runtimeOptions(runtimes, "php")[0]?.id ?? "",

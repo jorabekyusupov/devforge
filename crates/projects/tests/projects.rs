@@ -301,7 +301,7 @@ fn staged_generations_preserve_active_binding_and_use_engine_specific_role_limit
 }
 
 #[test]
-fn schema_four_records_keep_environment_and_runtime_selections_in_schema_five() {
+fn schema_four_records_keep_environment_and_runtime_selections_in_schema_six() {
     let root = tempfile::tempdir().unwrap();
     let catalog = Catalog::bundled();
     let php = selection(&catalog, "php", "8.4");
@@ -317,6 +317,7 @@ fn schema_four_records_keep_environment_and_runtime_selections_in_schema_five() 
     let connection = rusqlite::Connection::open(metadata.join("projects.sqlite3")).unwrap();
     let mut json = serde_json::to_value(&p).unwrap();
     json.as_object_mut().unwrap().remove("worktree");
+    json.as_object_mut().unwrap().remove("filesystem_identity");
     connection
         .execute(
             "UPDATE projects SET record=?1 WHERE id=?2",
@@ -337,6 +338,6 @@ fn schema_four_records_keep_environment_and_runtime_selections_in_schema_five() 
         connection
             .pragma_query_value(None, "user_version", |r| r.get::<_, u32>(0))
             .unwrap(),
-        5
+        6
     );
 }

@@ -14,6 +14,8 @@ use std::{
 };
 #[path = "support/activity.rs"]
 mod activity;
+#[path = "support/discovery.rs"]
+mod discovery;
 #[path = "support/inspector.rs"]
 mod inspector;
 #[path = "support/onboarding.rs"]
@@ -32,6 +34,9 @@ fn main() -> Result<()> {
         std::process::exit(code);
     }
     let args: Vec<_> = std::env::args().skip(1).collect();
+    if args.first().map(String::as_str) == Some("discovery-native") {
+        return discovery::run(Path::new(args.get(1).ok_or("fixture required")?));
+    }
     if args.first().map(String::as_str) == Some("worktrees-existing-branch") {
         return worktrees::existing_branch_run(Path::new(args.get(1).ok_or("fixture required")?));
     }

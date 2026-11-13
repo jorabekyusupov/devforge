@@ -159,6 +159,7 @@ impl Context {
         }
         let project = Project {
             id: crate::id(),
+            filesystem_identity: None,
             name: "Setup tooling".into(),
             path: path.clone(),
             php: php.into(),

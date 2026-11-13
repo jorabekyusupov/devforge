@@ -2,6 +2,10 @@
 
 ## 2026-11-13
 
+- **Discovery implementatsiyasi davom etmoqda:** [Loyiha papkasi](project-discovery.md) Settings, scanner/registry/watcher va uch tilli UI yozildi. Mahalliy 104 Rust/36 frontend, release ARM64 Laravel HTTP/identity/recovery dalili bor. Native dialog fixture, Windows/Intel matritsasi va final audit hali ochiq; to‘liq qabul deb ko‘rsatilmagan.
+
+- **Avtomatik loyiha aniqlash rejalandi:** [Loyiha papkasi](project-discovery.md), user-confirmed default `~/Devforge`, o‘zgartiriladigan root va macOS/Windows talabi qayd etildi. Yetti bosqich/60 mezonli proposal: shallow scanner, runtime candidates, suppression/identity, watcher recovery, Settings UI va uch native target. Phase-spec structure7/7 va strict OKF28/0/0 o‘tdi. Product code, runtime acceptance yoki CI dispatch bajarilmadi; mavjud M7/M13 holati o‘zgarmadi.
+
 - **M12 functional qabul:** [Workspaces](m12-workspaces-results.md), new/existing Git branch, independent project/profile/domain/DB, PG/MySQL/SQLite copy, Redis/mail va reviewed archive yaratildi. Uch target backend/CLI/GUI,15 axe/0 per target; uch artifact hash mos. Core har OS96 Rust/31 frontend/3 locale/6 packaging, strict27/0/0. Initial localhost resolver fixture failure va test-only loopback fix saqlandi. Schema5, host Git owned tree, dirty/detached/nested/submodule guards va source reconciliation qayd etildi. Purge/reactivation, Intel MySQL va M15 gate'lari ochiq. User tartibi bo'yicha keyingi ish M7 qolgan qismi; M7.1 saqlanadi, M13 boshlanmaydi.
 
 - **M11 functional qabul:** [Mail va loglar](m11-mail-logs-results.md), authenticated per-project SMTP, retained MIME inbox, image/text preview va rich log/exception/context viewer yaratildi. ARM64/Intel/Windows backend11 va UI8 assertions, har target15 axe/0, remote trap0; uch artifact SHA256 mos. Final core har OS89 Rust/29 frontend/3 locale/6 packaging, strict26/0/0. Windows CRLF legacy-upgrade failure va scoped fix, schema4/companion0.2 hamda source reconciliation saqlandi. Default-feature debug builds o'tdi; OS Save dialog, M7.2 va M15 gate'lari ochiq. M12 boshlanmadi; final docs push uchun product suite takrorlanmadi.

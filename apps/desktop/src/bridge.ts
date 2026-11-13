@@ -6,6 +6,7 @@ export type Theme = "system" | "light" | "dark";
 export interface Preferences {
   language: string;
   theme: Theme;
+  project_folder?: string;
 }
 export interface Bootstrap {
   settings: Preferences;
@@ -24,6 +25,8 @@ export interface Bootstrap {
 }
 export interface Backend {
   workspace?: WorkspaceBackend;
+  createFolder?(path: string): Promise<string>;
+  scan?(): Promise<void>;
   quit?(): Promise<void>;
   onFailure?(callback: (code: string) => void): Promise<() => void>;
   bootstrap(): Promise<Bootstrap>;
@@ -34,6 +37,14 @@ const ensureDesktop = () => {
   if (!isTauri()) throw "desktop_unavailable";
 };
 export const desktopBackend: Backend = {
+  async createFolder(path) {
+    ensureDesktop();
+    return invoke("create_project_folder", { path });
+  },
+  async scan() {
+    ensureDesktop();
+    return invoke("discovery_scan");
+  },
   async quit() {
     ensureDesktop();
     return invoke("quit_application");

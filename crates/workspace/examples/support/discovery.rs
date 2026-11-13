@@ -1,0 +1,308 @@
+use super::*;
+use devforge_core::{SettingsRepository, Theme};
+use devforge_projects::discovery::scan;
+use devforge_workspace::discovery::Service;
+use std::time::{Duration, Instant};
+
+fn wait_scan(
+    service: &Service,
+    root: &Path,
+    count: usize,
+    expected_name: Option<&str>,
+) -> Result<devforge_projects::discovery::Scan> {
+    let started = Instant::now();
+    loop {
+        if let Some(report) = service.take() {
+            if report.root == root
+                && report.candidates.len() == count
+                && expected_name.is_none_or(|name| report.candidates.iter().any(|c| c.name == name))
+            {
+                return Ok(report);
+            }
+        }
+        if started.elapsed() > Duration::from_secs(8) {
+            return Err(format!(
+                "discovery timeout expected {count} event_count {}",
+                service.event_count()
+            )
+            .into());
+        }
+        std::thread::sleep(Duration::from_millis(30));
+    }
+}
+fn tiny(path: &Path) -> Result<()> {
+    fs::create_dir_all(path.join("public"))?;
+    fs::write(path.join("artisan"), "<?php")?;
+    fs::write(path.join("public/index.php"), "<?php")?;
+    fs::write(
+        path.join("composer.json"),
+        r#"{"require":{"laravel/framework":"^13","php":"^8.4"}}"#,
+    )?;
+    Ok(())
+}
+pub fn run(root: &Path) -> Result<()> {
+    let root = fs::canonicalize(root)?;
+    let data = root.join("data");
+    let secrets = Arc::new(devforge_workspace::testing::FixtureSecrets::open(
+        data.join("e2e-secrets.json"),
+    ));
+    let mut w = Workspace::open(&data, secrets.clone())?;
+    let manual = w
+        .projects
+        .list()?
+        .into_iter()
+        .filter(|p| ["Atlas", "Studio"].contains(&p.name.as_str()))
+        .collect::<Vec<_>>();
+    let before = serde_json::to_value(&manual)?;
+    let folder = root.join("discovery projects Ўзбек");
+    if folder.exists() {
+        let baseline: serde_json::Value =
+            serde_json::from_slice(&fs::read(root.join("m5-native-result.json"))?)?;
+        if baseline["passed"] != true {
+            return Err("not a disposable native fixture".into());
+        }
+        for project in w
+            .projects
+            .list()?
+            .into_iter()
+            .filter(|p| p.path.starts_with(&folder))
+        {
+            w.execute(
+                Command::Forget {
+                    id: project.id,
+                    revision: project.revision,
+                },
+                &Cancellation::default(),
+            )?;
+        }
+        fs::remove_dir_all(&folder)?;
+    }
+    fs::create_dir_all(&folder)?;
+    let folder = fs::canonicalize(folder)?;
+    let no_runtime = root.join("no-runtime-root");
+    fs::create_dir_all(&no_runtime)?;
+    tiny(&no_runtime.join("Needs runtime"))?;
+    {
+        let mut empty = Workspace::open(root.join("no-runtime-data"), secrets.clone())?;
+        empty.reconcile_discovery(scan(&no_runtime, &Cancellation::default()))?;
+        assert!(empty.projects.list()?.is_empty());
+        assert_eq!(
+            empty.snapshot()?.discovery.entries[0].state,
+            "needs_runtime"
+        );
+    }
+    let service = Service::new();
+    service.set_root(folder.clone());
+    w.reconcile_discovery(wait_scan(&service, &folder, 0, None)?)?;
+    // Add after the watcher is live. This catches incomplete-copy observation gaps.
+    let added = folder.join("Auto Laravel");
+    fs::create_dir(&added)?;
+    std::thread::sleep(Duration::from_millis(700));
+    let source = manual
+        .iter()
+        .find(|p| p.name == "Studio")
+        .ok_or("Studio fixture missing")?;
+    let copy_started = Instant::now();
+    super::copy(&source.path, &added)?;
+    fs::write(
+        added.join(".env"),
+        "APP_NAME=Discovery\nAPP_ENV=local\nAPP_KEY=base64:MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=\nAPP_DEBUG=false\nSESSION_DRIVER=file\nCACHE_STORE=file\nQUEUE_CONNECTION=sync\nLOG_CHANNEL=single\n",
+    )?;
+    fs::write(
+        added.join("routes/web.php"),
+        "<?php use Illuminate\\Support\\Facades\\Route; Route::get('/', fn()=>response()->json(['framework'=>app()->version(),'php'=>PHP_VERSION,'discovered'=>true]));",
+    )?;
+    w.reconcile_discovery(wait_scan(&service, &folder, 1, Some("Auto Laravel"))?)?;
+    let copy_ms = copy_started.elapsed().as_millis();
+    let p = w
+        .projects
+        .list()?
+        .into_iter()
+        .find(|p| p.path == added)
+        .ok_or("automatic registration missing")?;
+    let domain = w
+        .sites
+        .sites()?
+        .into_iter()
+        .find(|s| s.project_id == p.id)
+        .unwrap()
+        .domain;
+    assert!(domain.ends_with(".devforge.test"));
+    w.start(&p.id)?;
+    let url = w
+        .snapshot()?
+        .projects
+        .into_iter()
+        .find(|r| r.project.id == p.id)
+        .unwrap()
+        .serving
+        .unwrap()
+        .http_url;
+    let response = super::get(&url)?;
+    assert_eq!(response["discovered"], true);
+    assert!(
+        response["framework"]
+            .as_str()
+            .is_some_and(|v| v.starts_with("13."))
+    );
+    w.stop(&p.id)?;
+    let renamed = folder.join("Renamed Ўзбек");
+    fs::rename(&added, &renamed)?;
+    w.reconcile_discovery(wait_scan(&service, &folder, 1, Some("Renamed Ўзбек"))?)?;
+    assert_eq!(w.projects.get(&p.id)?.path, renamed);
+    assert_eq!(
+        w.sites
+            .sites()?
+            .into_iter()
+            .find(|s| s.project_id == p.id)
+            .unwrap()
+            .domain,
+        domain
+    );
+    // Manual project/runtime/DB identities remain byte-equivalent.
+    assert_eq!(
+        serde_json::to_value(
+            w.projects
+                .list()?
+                .into_iter()
+                .filter(|p| manual.iter().any(|old| old.id == p.id))
+                .collect::<Vec<_>>()
+        )?,
+        before
+    );
+    let p = w.projects.get(&p.id)?;
+    w.execute(
+        Command::Forget {
+            id: p.id.clone(),
+            revision: p.revision,
+        },
+        &Cancellation::default(),
+    )?;
+    w.reconcile_discovery(scan(&folder, &Cancellation::default()))?;
+    assert!(w.projects.get(&p.id).is_err());
+    let entry = w
+        .projects
+        .discovery_entries()?
+        .into_iter()
+        .find(|e| e.ignored && e.project_id.as_deref() == Some(&p.id))
+        .unwrap();
+    w.execute(
+        Command::DiscoveryRestore {
+            identity: entry.identity,
+        },
+        &Cancellation::default(),
+    )?;
+    w.reconcile_discovery(scan(&folder, &Cancellation::default()))?;
+    let restored = w
+        .projects
+        .list()?
+        .into_iter()
+        .find(|p| p.path == renamed)
+        .unwrap();
+    // Leave a stable real Laravel project available for native UI Start checks.
+    let mut settings = devforge_platform::SqliteSettings::open(&data)?;
+    let mut chosen = settings.load()?;
+    chosen.language = "en".into();
+    chosen.theme = Theme::Light;
+    chosen.project_folder = Some(folder.to_string_lossy().into_owned());
+    settings.save(&chosen)?;
+    // Root unavailable does not manufacture missing projects.
+    let bad = scan(&root.join("absent"), &Cancellation::default());
+    assert!(!bad.complete);
+    let mut hundred = ScanBudget::new(&root)?;
+    let cold = hundred.measure()?;
+    for n in 0..50 {
+        service.set_root(if n % 2 == 0 {
+            no_runtime.clone()
+        } else {
+            folder.clone()
+        });
+    }
+    w.reconcile_discovery(wait_scan(&service, &folder, 1, Some("Renamed Ўзбек"))?)?;
+    assert_eq!(w.projects.get(&restored.id)?.path, renamed);
+    // Case-only rename and long Unicode parent paths exercise Windows identity
+    // and verbatim-path handling on an actual Windows kernel in the CI lane.
+    let case_path = folder.join("renamed Ўзбек");
+    fs::rename(&renamed, &case_path)?;
+    w.reconcile_discovery(scan(&folder, &Cancellation::default()))?;
+    assert_eq!(w.projects.get(&restored.id)?.path, case_path);
+    fs::rename(&case_path, &renamed)?;
+    w.reconcile_discovery(scan(&folder, &Cancellation::default()))?;
+    let long_parent = root
+        .join("long-path-case")
+        .join("parent-Русский-Ўзбек".repeat(4))
+        .join("long-component".repeat(8))
+        .join("nested-long-component".repeat(3));
+    fs::create_dir_all(&long_parent)?;
+    tiny(&long_parent.join("app"))?;
+    assert_eq!(
+        scan(&long_parent, &Cancellation::default())
+            .candidates
+            .len(),
+        1
+    );
+    // Force the production fallback branch, then rely on its real 30-second
+    // timer and filesystem reads. No manufactured scan result or fake clock.
+    let fallback_root = root.join("fallback-case");
+    fs::create_dir_all(&fallback_root)?;
+    let fallback = Service::polling_fixture();
+    let fallback_root = fs::canonicalize(fallback_root)?;
+    fallback.set_root(fallback_root.clone());
+    wait_scan(&fallback, &fallback_root, 0, None)?;
+    let fallback_started = Instant::now();
+    tiny(&fallback_root.join("late"))?;
+    loop {
+        if let Some(report) = fallback.take() {
+            if report.candidates.len() == 1 {
+                break;
+            }
+        }
+        if fallback_started.elapsed() > Duration::from_secs(35) {
+            return Err("periodic fallback did not converge".into());
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    assert!(fallback.status().degraded);
+    let fallback_ms = fallback_started.elapsed().as_millis();
+    drop(fallback);
+    let stress_started = Instant::now();
+    for n in 0..10_000 {
+        fs::write(folder.join(format!("event-{n}")), "fixture")?;
+    }
+    w.reconcile_discovery(wait_scan(&service, &folder, 1, Some("Renamed Ўзбек"))?)?;
+    for n in 0..10_000 {
+        fs::remove_file(folder.join(format!("event-{n}")))?;
+    }
+    let storm_ms = stress_started.elapsed().as_millis();
+    let count = service.event_count();
+    drop(service);
+    w.shutdown()?;
+    let report = json!({"target":Target::current()?,"no_runtime_candidate":true,"automatic_registration":true,"native_watch_incomplete_copy":true,"watch_copy_to_registration_ms":copy_ms,"native_event_count":count,"rename_preserves_id_domain":true,"forget_restore":true,"manual_metadata_preserved":true,"fifty_root_switches":true,"case_only_rename":true,"long_unicode_path":true,"periodic_fallback_ms":fallback_ms,"event_storm_10000_ms":storm_ms,"real_laravel_http":response,"cold_100_scan_ms":cold,"system_hosts_trust_unchanged":true,"ui_project_id":restored.id,"ui_root":folder,"passed":true});
+    fs::write(
+        root.join("discovery-native-result.json"),
+        serde_json::to_vec_pretty(&report)?,
+    )?;
+    println!("DISCOVERY_NATIVE_REPORT:{report}");
+    Ok(())
+}
+struct ScanBudget {
+    path: PathBuf,
+}
+impl ScanBudget {
+    fn new(root: &Path) -> Result<Self> {
+        let path = root.join("hundred-fixture");
+        fs::create_dir_all(&path)?;
+        for n in 0..100 {
+            tiny(&path.join(format!("app-{n}")))?;
+        }
+        Ok(Self { path })
+    }
+    fn measure(&mut self) -> Result<u128> {
+        let start = Instant::now();
+        let result = scan(&self.path, &Cancellation::default());
+        assert_eq!(result.candidates.len(), 100);
+        let ms = start.elapsed().as_millis();
+        assert!(ms < 3000);
+        Ok(ms)
+    }
+}

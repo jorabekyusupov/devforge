@@ -809,9 +809,10 @@ code {
   font-size: 1.1rem;
   margin: 0 0 0.4rem;
 }
-.workspace-content button,
+:is(.workspace-content, .discovery-settings) button,
 .workspace-content select,
-.workspace-content input:not([type="checkbox"]) {
+.workspace-content input:not([type="checkbox"]),
+.discovery-settings input {
   font: inherit;
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -821,7 +822,7 @@ code {
   padding: 0.45rem 0.65rem;
   max-width: 100%;
 }
-.workspace-content button {
+:is(.workspace-content, .discovery-settings) button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -829,25 +830,25 @@ code {
   line-height: 1.3;
   flex-shrink: 0;
 }
-.workspace-content button svg {
+:is(.workspace-content, .discovery-settings) button svg {
   width: 1rem;
   height: 1rem;
 }
-.workspace-content button:hover:not(:disabled) {
+:is(.workspace-content, .discovery-settings) button:hover:not(:disabled) {
   border-color: var(--accent);
   background: var(--selected);
 }
-.workspace-content button.primary {
+:is(.workspace-content, .discovery-settings) button.primary {
   background: var(--accent);
   border-color: var(--accent);
   color: var(--on-accent);
   font-weight: 600;
 }
-.workspace-content button:disabled {
+:is(.workspace-content, .discovery-settings) button:disabled {
   cursor: not-allowed;
   opacity: 0.5;
 }
-.workspace-content button.danger {
+:is(.workspace-content, .discovery-settings) button.danger {
   color: var(--danger);
 }
 select:focus-visible,
@@ -1337,7 +1338,7 @@ dialog::backdrop {
   .action-bar {
     gap: 0.4rem;
   }
-  .workspace-content button {
+  :is(.workspace-content, .discovery-settings) button {
     min-height: 2.4rem;
   }
 }
@@ -1795,3 +1796,19 @@ dialog {
 .worktrees-page .workspace-actions {display:flex;flex-wrap:wrap;align-items:center;gap:12px;}
 .worktrees-page .check-label,.fork-dialog .check-label {flex-direction:row;}
 .worktrees-page .fork-row:focus-visible {outline-offset:-4px;}
+
+/* Project discovery extends the existing settings and operational list surfaces. */
+.discovery-settings form > label { display: block; margin-bottom: 8px; font-weight: 600; }
+.discovery-path { display: flex; gap: 10px; align-items: center; }
+.discovery-path input { min-width: 0; flex: 1; width: 100%; }
+.discovery-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0; }
+.discovery-status { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 16px; }
+.discovery-list-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; }
+.discovery-projects { margin: 16px 0; }
+.discovery-projects h2 { font-size: 16px; margin: 0; }
+.discovery-projects ul { list-style: none; padding: 0; margin: 8px 0; }
+.discovery-projects li { display: flex; align-items: center; gap: 16px; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.discovery-projects li > div { min-width: 0; display: grid; gap: 5px; }
+.discovery-projects small, .discovery-projects p { overflow-wrap: anywhere; }
+.discovery-projects li > button { flex-shrink: 0; }
+@media (max-width: 950px) { .discovery-path { flex-wrap: wrap; } .discovery-path input { flex-basis: 100%; } }

@@ -16,6 +16,7 @@ dunce = "1.0.5"
 url = "2.5.8"
 sha2 = "0.11.1"
 zeroize = "1.9.0"
+notify = "8.2.2"
 [dev-dependencies]
 reqwest = {version="0.13.5", default-features=false,features=["blocking","rustls","json"]}
 devforge-platform.workspace = true

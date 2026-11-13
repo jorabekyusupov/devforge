@@ -296,3 +296,22 @@ va cheklovlar [M12 hisobotida](../m12-workspaces-results.md) yuritiladi.
 Keyingi aniqlashtirish: foydalanuvchi avval M12’ni kelgan joyidan to‘liq tugatish,
 undan keyin M7’dagi qolgan barcha ishlarni yakunlashni topshirdi. M7’da bajarilgan
 qismlarga tegmaslik cheklovi saqlanadi. Bu M13 ni avtomatik boshlash topshirig‘i emas.
+
+## Avtomatik loyiha aniqlash rejasi — 2026-11-13
+
+Herd parked paths tadqiqoti va maslahatdan keyin foydalanuvchi so‘radi:
+
+> Shu maslahatlaring asosida funksiyani to‘liq reja qilib ber. Settings’da default
+> \~/Devforge bo‘lsin, foydalanuvchi o‘zgartira olsin, loyihalarni avtomatik topsin.
+> macOS va Windows’da ishlashini tekshirilsin, birinchi navbatda reja qil
+
+Talab: home ichidagi `Devforge`, o‘zgartiriladigan Settings root, avtomatik aniqlash
+va ikkala OS acceptance. Hozir faqat rejalash; product code yoki publish boshlash
+ruxsati emas. [Reja konsepti](../project-discovery.md) va uning phase specs’ida
+texnik tafsilotlar taklif sifatida, amaldagi source va hali bajarilmagan platforma
+tekshiruvlari alohida qayd etiladi.
+
+Keyingi topshiriq: “Reja asosida boshlagin, barcha bosqichlarni to‘liq tugat. macOS
+va Windows’da tekshirib, xatolarini tuzat, yakunda natijani ber.” Implementatsiya
+va native verifikatsiya endi ruxsatli scope. Tekshiruv uchun ajratilgan branch/CI
+manbasi qayd etiladi; production merge yoki deploy shu topshiriqdan kelib chiqmaydi.

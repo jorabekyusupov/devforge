@@ -18,6 +18,8 @@ mavzuni tanlang, so'ng faqat tegishli hujjatlar va ularning manbalarini o'qing.
 
 ## Taklif va ochiq masalalar
 
+- [Avtomatik loyiha aniqlash](project-discovery.md) - Settings’da default `~/Devforge`, o‘zgartiriladigan root, watcher/recovery implementatsiyasi va mahalliy macOS dalili; Windows/Intel native qabul va final audit davom etmoqda.
+
 - [M6 dan keyingi roadmap](post-mvp-roadmap.md) - yangi M7 debugging/profiling bilan boshlanadi; yakuniy beta/tarqatish M15'ga ko'chirilgan, eski-yangi raqamlar mosligi berilgan.
 
 - [MVP birinchi bosqich rejasi](mvp-phase-1-plan.md) - macOS va Windows hamda rus, o'zbek va ingliz tillari uchun bosqichlar, natijalar va qabul mezonlari.
