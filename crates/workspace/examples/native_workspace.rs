@@ -14,6 +14,8 @@ use std::{
 };
 #[path = "support/activity.rs"]
 mod activity;
+#[path = "support/completion.rs"]
+mod completion;
 #[path = "support/debugger.rs"]
 mod debugger;
 #[path = "support/inspector.rs"]
@@ -34,6 +36,9 @@ fn main() -> Result<()> {
         std::process::exit(code);
     }
     let args: Vec<_> = std::env::args().skip(1).collect();
+    if args.first().map(String::as_str) == Some("completion-native") {
+        return completion::run(Path::new(args.get(1).ok_or("fixture required")?));
+    }
     if args.first().map(String::as_str) == Some("debugger-cli") {
         return debugger::cli(
             Path::new(args.get(1).ok_or("fixture required")?),

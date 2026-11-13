@@ -15,6 +15,8 @@ import {
   type WorktreeInput,
   type WorktreePlan,
   type WorktreeCleanup,
+  type ArchivePlan,
+  type RemoteSource,
 } from "../workspace";
 export function WorktreesPage({ backend }: { backend?: WorkspaceBackend }) {
   const { t, i18n } = useTranslation();
@@ -28,6 +30,22 @@ export function WorktreesPage({ backend }: { backend?: WorkspaceBackend }) {
     [trusted, setTrusted] = useState(false),
     [consent, setConsent] = useState(false),
     [done, setDone] = useState("");
+  const [archivePlan, setArchivePlan] = useState<ArchivePlan | null>(null);
+  const [remote, setRemote] = useState(false);
+  const [remoteSource, setRemoteSource] = useState<RemoteSource>({
+    host: "",
+    port: 5432,
+    database: "",
+    user: "",
+    password_ref: "remote-password",
+    tls_ca: null,
+    loopback_unencrypted: false,
+  });
+  const [remotePlan, setRemotePlan] = useState<{
+    digest: string;
+    tables_only: boolean;
+    retained_database: string;
+  } | null>(null);
   const [input, setInput] = useState<WorktreeInput>({
     source_id: "",
     name: "",
@@ -46,7 +64,7 @@ export function WorktreesPage({ backend }: { backend?: WorkspaceBackend }) {
   );
   const views = all.filter(
     (v) =>
-      (archived || v.record.stage !== "removed") &&
+      (archived || !["removed", "purged"].includes(v.record.stage)) &&
       (!source || v.record.input.source_id === source),
   );
   const view = views.find((v) => v.record.id === selected) ?? views[0];
@@ -56,6 +74,9 @@ export function WorktreesPage({ backend }: { backend?: WorkspaceBackend }) {
   }, [plan]);
   function close() {
     setCreating(false);
+    setArchivePlan(null);
+    setRemote(false);
+    setRemotePlan(null);
     setCleanup(null);
     setPlan(null);
     setTrusted(false);
@@ -178,7 +199,7 @@ export function WorktreesPage({ backend }: { backend?: WorkspaceBackend }) {
         />
         {t("forks.showArchived")}
       </label>
-      {!creating && !cleanup && failureNotice}
+      {!creating && !cleanup && !archivePlan && !remote && failureNotice}
       {api.busy && !creating && !cleanup && (
         <p role="status">{t("forks.working")}</p>
       )}
@@ -312,7 +333,74 @@ export function WorktreesPage({ backend }: { backend?: WorkspaceBackend }) {
                   <FolderOpen aria-hidden="true" />
                   {t("forks.openFolder")}
                 </button>
-                {view.record.stage !== "removed" && (
+                {["removed", "restoring", "purging"].includes(
+                  view.record.stage,
+                ) && (
+                  <>
+                    {view.record.stage !== "purging" && (
+                      <button
+                        disabled={api.busy}
+                        onClick={() => {
+                          setConsent(false);
+                          void api.run(
+                            {
+                              action: "worktree_archive_plan",
+                              id: view.record.id,
+                              operation: "restore",
+                            },
+                            (v) => setArchivePlan(v as unknown as ArchivePlan),
+                          );
+                        }}
+                      >
+                        {t("forks.restore")}
+                      </button>
+                    )}
+                    {view.record.stage !== "restoring" && (
+                      <button
+                        className="danger"
+                        disabled={api.busy}
+                        onClick={() => {
+                          setConsent(false);
+                          void api.run(
+                            {
+                              action: "worktree_archive_plan",
+                              id: view.record.id,
+                              operation: "purge",
+                            },
+                            (v) => setArchivePlan(v as unknown as ArchivePlan),
+                          );
+                        }}
+                      >
+                        {t("forks.purge")}
+                      </button>
+                    )}
+                  </>
+                )}
+                {view.record.stage === "ready" && row?.database && (
+                  <button
+                    disabled={api.busy || row.state !== "stopped"}
+                    onClick={() => {
+                      setRemote(true);
+                      setRemotePlan(null);
+                      setConsent(false);
+                      setRemoteSource((s) => ({
+                        ...s,
+                        port:
+                          row.database &&
+                          api.snapshot?.databases.find(
+                            (d) => d.instance.id === row.database!.instance_id,
+                          )?.instance.engine === "mysql"
+                            ? 3306
+                            : 5432,
+                      }));
+                    }}
+                  >
+                    {t("forks.remoteCopy")}
+                  </button>
+                )}
+                {!["removed", "purged", "restoring", "purging"].includes(
+                  view.record.stage,
+                ) && (
                   <button
                     className="danger"
                     disabled={api.busy}
@@ -481,6 +569,12 @@ export function WorktreesPage({ backend }: { backend?: WorkspaceBackend }) {
                     : t("forks.environmentNotCopied")}
                 </dd>
               </dl>
+              {plan.isolated && (
+                <div className="notice">
+                  <p>{t("forks.submoduleClone")}</p>
+                  <pre className="mono">{plan.submodule_sources}</pre>
+                </div>
+              )}
               {plan.source_dirty && (
                 <p className="notice">{t("forks.dirtySource")}</p>
               )}
@@ -520,6 +614,230 @@ export function WorktreesPage({ backend }: { backend?: WorkspaceBackend }) {
                 {t("forks.cancelOperation")}
               </button>
             </div>
+          )}
+        </WorkspaceModal>
+      )}
+      {archivePlan && (
+        <WorkspaceModal
+          title={t(`forks.${archivePlan.operation}`)}
+          busy={api.busy}
+          onClose={close}
+          className="fork-dialog"
+        >
+          {failureNotice}
+          <h3>{archivePlan.workspace.record.input.name}</h3>
+          <p>
+            {t(
+              archivePlan.operation === "purge"
+                ? "forks.purgeHelp"
+                : "forks.restoreHelp",
+            )}
+          </p>
+          <p className="mono" translate="no">
+            {archivePlan.workspace.retained_path}
+          </p>
+          <p>
+            {t("forks.archiveSize", {
+              files: new Intl.NumberFormat(i18n.language).format(
+                archivePlan.files,
+              ),
+              bytes: new Intl.NumberFormat(i18n.language).format(
+                archivePlan.bytes,
+              ),
+            })}
+          </p>
+          {archivePlan.blockers.map((c) => (
+            <p className="notice error" role="alert" key={c}>
+              {error(c)}
+            </p>
+          ))}
+          <label className="check-label">
+            <input
+              type="checkbox"
+              name="archive-consent"
+              checked={consent}
+              onChange={(e) => setConsent(e.target.checked)}
+            />
+            {t("forks.archiveConsent")}
+          </label>
+          <div className="modal-actions">
+            <button onClick={close} disabled={api.busy}>
+              {t("work.cancel")}
+            </button>
+            <button
+              className={
+                archivePlan.operation === "purge" ? "danger" : "primary"
+              }
+              disabled={api.busy || !consent || !!archivePlan.blockers.length}
+              onClick={() =>
+                void api
+                  .run({
+                    action: "worktree_archive",
+                    id: archivePlan.workspace.record.id,
+                    operation: archivePlan.operation,
+                    review: archivePlan.digest,
+                    consent,
+                  })
+                  .then((ok) => {
+                    if (ok) close();
+                  })
+              }
+            >
+              {t(`forks.${archivePlan.operation}`)}
+            </button>
+          </div>
+        </WorkspaceModal>
+      )}
+      {remote && view && (
+        <WorkspaceModal
+          title={t("forks.remoteCopy")}
+          busy={api.busy}
+          onClose={close}
+          className="fork-dialog"
+        >
+          {failureNotice}
+          <p>{t("forks.remoteHelp")}</p>
+          {!remotePlan ? (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                setConsent(false);
+                void api.run(
+                  {
+                    action: "worktree_remote_plan",
+                    id: view.record.id,
+                    source: remoteSource,
+                  },
+                  (v) => setRemotePlan(v as unknown as typeof remotePlan),
+                );
+              }}
+            >
+              <div className="form-grid">
+                {(["host", "database", "user", "password_ref"] as const).map(
+                  (key) => (
+                    <label key={key}>
+                      {t(`forks.remoteFields.${key}`)}
+                      <input
+                        required
+                        name={`remote-${key}`}
+                        autoComplete="off"
+                        maxLength={253}
+                        value={remoteSource[key]}
+                        onChange={(e) =>
+                          setRemoteSource((s) => ({
+                            ...s,
+                            [key]: e.target.value,
+                          }))
+                        }
+                      />
+                    </label>
+                  ),
+                )}
+                <label>
+                  {t("forks.remoteFields.port")}
+                  <input
+                    name="remote-port"
+                    type="number"
+                    required
+                    min={1}
+                    max={65535}
+                    value={remoteSource.port}
+                    onChange={(e) =>
+                      setRemoteSource((s) => ({
+                        ...s,
+                        port: e.target.valueAsNumber,
+                      }))
+                    }
+                  />
+                </label>
+                <label>
+                  {t("forks.remoteFields.tls_ca")}
+                  <input
+                    name="remote-ca"
+                    required={!remoteSource.loopback_unencrypted}
+                    value={remoteSource.tls_ca ?? ""}
+                    onChange={(e) =>
+                      setRemoteSource((s) => ({
+                        ...s,
+                        tls_ca: e.target.value || null,
+                      }))
+                    }
+                    autoComplete="off"
+                  />
+                </label>
+              </div>
+              <label className="check-label">
+                <input
+                  type="checkbox"
+                  checked={remoteSource.loopback_unencrypted}
+                  onChange={(e) =>
+                    setRemoteSource((s) => ({
+                      ...s,
+                      loopback_unencrypted: e.target.checked,
+                      tls_ca: null,
+                    }))
+                  }
+                />
+                {t("forks.loopbackOnly")}
+              </label>
+              <a href="#configuration">{t("forks.addRemoteSecret")}</a>
+              <div className="modal-actions">
+                <button className="primary" disabled={api.busy} type="submit">
+                  {t("forks.review")}
+                </button>
+              </div>
+            </form>
+          ) : (
+            <>
+              <p className="mono">
+                {remoteSource.host}:{remoteSource.port}/{remoteSource.database}
+              </p>
+              <p>
+                {t("forks.retainedDatabases")}:{" "}
+                <code>{remotePlan.retained_database}</code>
+              </p>
+              {remotePlan.tables_only && (
+                <p className="notice">{t("forks.mysqlRemoteTables")}</p>
+              )}
+              <label className="check-label">
+                <input
+                  name="remote-consent"
+                  type="checkbox"
+                  checked={consent}
+                  onChange={(e) => setConsent(e.target.checked)}
+                />
+                {t("forks.remoteConsent")}
+              </label>
+              <div className="modal-actions">
+                <button disabled={api.busy} onClick={() => setRemotePlan(null)}>
+                  {t("forks.back")}
+                </button>
+                <button
+                  className="primary"
+                  disabled={api.busy || !consent}
+                  onClick={() =>
+                    void api
+                      .run({
+                        action: "worktree_remote_copy",
+                        id: view.record.id,
+                        source: remoteSource,
+                        review: remotePlan.digest,
+                        consent,
+                      })
+                      .then((ok) => {
+                        if (ok) close();
+                      })
+                  }
+                >
+                  {t("forks.remoteCopy")}
+                </button>
+              </div>
+            </>
+          )}
+          {api.busy && (
+            <button onClick={() => void api.cancel()}>
+              {t("forks.cancelOperation")}
+            </button>
           )}
         </WorkspaceModal>
       )}

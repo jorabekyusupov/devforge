@@ -26,6 +26,7 @@ pub struct Frame {
 }
 #[derive(Debug, Clone, Serialize)]
 pub struct Variable {
+    pub assign: Option<String>,
     pub name: String,
     pub kind: String,
     pub value: String,
@@ -50,6 +51,7 @@ pub enum Control {
     Detach,
     Frame(u32),
     Breakpoints(Vec<Breakpoint>),
+    Set(crate::Assignment),
 }
 pub struct Server {
     state: Arc<Mutex<Snapshot>>,
@@ -111,7 +113,29 @@ fn variables(e: &Element, secrets: &[String], depth: usize) -> Vec<Variable> {
             } else {
                 p.text.clone()
             };
+            let expression = format!("${}", name.trim_start_matches('$'));
+            let assign = crate::Assignment {
+                name: expression.clone(),
+                kind: p.attr("type").into(),
+                value: match p.attr("type") {
+                    "int" => "0",
+                    "float" => "0",
+                    "bool" => "0",
+                    _ => "",
+                }
+                .into(),
+            };
             Variable {
+                assign: if depth == 0
+                    && !masked
+                    && text.chars().count() <= 512
+                    && !secrets.iter().any(|s| !s.is_empty() && text.contains(s))
+                    && assign.validate().is_ok()
+                {
+                    Some(expression)
+                } else {
+                    None
+                },
                 name,
                 kind: p.attr("type").chars().take(40).collect(),
                 value: if masked {
@@ -145,8 +169,12 @@ impl Connection {
     fn send(&mut self, command: &str) -> Result<u32> {
         self.transaction = self.transaction.checked_add(1).ok_or(Error::Protocol)?;
         let i = self.transaction;
-        self.stream
-            .write_all(format!("{command} -i {i}\0").as_bytes())?;
+        let wire = if let Some((prefix, data)) = command.split_once(" -- ") {
+            format!("{prefix} -i {i} -- {data}\0")
+        } else {
+            format!("{command} -i {i}\0")
+        };
+        self.stream.write_all(wire.as_bytes())?;
         Ok(i)
     }
     fn receive(&mut self, stop: &AtomicBool, timeout: Duration) -> Result<Element> {
@@ -319,6 +347,24 @@ fn conversation(
                     let _ = conn.call("detach", stop);
                     return Ok(());
                 }
+                Control::Set(value) => {
+                    value.validate()?;
+                    let depth = state.lock().unwrap().depth;
+                    let encoded = STANDARD.encode(value.value.as_bytes());
+                    let response = conn.call(
+                        &format!(
+                            "property_set -n {} -d {depth} -c 0 -t {} -l {} -- {encoded}",
+                            value.name,
+                            value.kind,
+                            value.value.len()
+                        ),
+                        stop,
+                    )?;
+                    if response.attr("success") != "1" {
+                        return Err(Error::InvalidVariable);
+                    }
+                    refresh(&mut conn, root, secrets, state, depth, stop)?;
+                }
                 Control::Frame(depth) => refresh(&mut conn, root, secrets, state, depth, stop)?,
                 Control::Breakpoints(values) => {
                     breakpoints(&mut conn, root, &values, &mut ids, stop)?;
@@ -436,6 +482,16 @@ impl Server {
     }
     pub fn control(&self, command: Control) -> Result<()> {
         let mut state = self.state.lock().unwrap();
+        if let Control::Set(value) = &command {
+            value.validate()?;
+            if !state
+                .variables
+                .iter()
+                .any(|v| v.assign.as_deref() == Some(value.name.as_str()))
+            {
+                return Err(Error::InvalidVariable);
+            }
+        }
         let detach = matches!(command, Control::Detach);
         if state.state != "paused" && !(detach && state.state == "running") {
             return Err(Error::Busy);

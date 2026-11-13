@@ -151,10 +151,8 @@ fn plan_freezes_committed_history_and_refuses_stale_trust_or_invalid_branch() {
     );
     git(&p.path, &["commit", "-qm", "submodule fixture"]);
     assert!(
-        w.worktree_plan(&input)
-            .unwrap()
-            .blockers
-            .contains(&"worktree_submodules_unsupported".into())
+        w.worktree_plan(&input).is_err(),
+        "a gitlink without .gitmodules cannot be reviewed"
     );
 }
 #[test]
@@ -187,6 +185,7 @@ fn cleanup_refuses_dirty_foreign_and_cancelled_worktrees_and_preserves_source() 
     let common = fs::canonicalize(source.path.join(".git")).unwrap();
     let admin = fs::canonicalize(git(&path, &["rev-parse", "--absolute-git-dir"])).unwrap();
     let mut record = Record {
+        isolated: false,
         schema: 1,
         id: wid.clone(),
         input,
@@ -313,4 +312,169 @@ fn project_layer_blocks_generic_forget_and_claim_replacement() {
     );
     w.projects.retire_worktree(&id, p.revision, &wid).unwrap();
     assert!(p.path.exists());
+}
+
+#[test]
+fn archive_restore_and_purge_preserve_identity_ignored_data_and_source_history() {
+    for isolated in [false, true] {
+        let temp = tempfile::tempdir().unwrap();
+        let (mut w, id, input) = fixture(temp.path());
+        let source = w.projects.get(&id).unwrap();
+        let plan = w.worktree_plan(&input).unwrap();
+        let wid = devforge_serving::id();
+        let dir = temp.path().join("data/worktrees").join(&wid);
+        fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("tree");
+        if isolated {
+            git(
+                &source.path,
+                &[
+                    "clone",
+                    "--no-hardlinks",
+                    source.path.to_str().unwrap(),
+                    path.to_str().unwrap(),
+                ],
+            );
+            git(&path, &["checkout", "-qb", &input.branch]);
+        } else {
+            git(
+                &source.path,
+                &[
+                    "worktree",
+                    "add",
+                    "-qb",
+                    &input.branch,
+                    path.to_str().unwrap(),
+                ],
+            );
+        }
+        let p = w
+            .projects
+            .import(&path, &input.name, &source.php, &source.node, &w.catalog)
+            .unwrap();
+        w.projects.claim_worktree(&p.id, p.revision, &wid).unwrap();
+        let record = Record {
+            isolated,
+            schema: 1,
+            id: wid.clone(),
+            input,
+            source_path: source.path.clone(),
+            common_dir: fs::canonicalize(source.path.join(".git")).unwrap(),
+            git_dir: Some(
+                fs::canonicalize(git(&path, &["rev-parse", "--absolute-git-dir"])).unwrap(),
+            ),
+            commit: plan.commit.clone(),
+            domain: plan.domain,
+            review_digest: plan.digest,
+            project_id: Some(p.id.clone()),
+            stage: "ready".into(),
+            last_error: None,
+            configuration: plan.configuration,
+        };
+        fs::write(
+            dir.join("receipt.json"),
+            serde_json::to_vec(&record).unwrap(),
+        )
+        .unwrap();
+        fs::write(path.join(".env"), "PRIVATE=keep").unwrap();
+        fs::write(path.join("database/local.sqlite"), "owned-local-data").unwrap();
+        let cleanup = w.worktree_cleanup_plan(&wid).unwrap();
+        assert!(cleanup.blockers.is_empty(), "{:?}", cleanup.blockers);
+        w.worktree_cleanup(&wid, &cleanup.digest, true, &Default::default())
+            .unwrap();
+        assert!(w.projects.get(&p.id).is_err());
+        let restore = w.worktree_archive_plan(&wid, "restore").unwrap();
+        assert!(restore.blockers.is_empty(), "{:?}", restore.blockers);
+        fs::write(dir.join("retained/.env"), "PRIVATE=changed-after-review").unwrap();
+        assert_eq!(
+            w.worktree_archive(&wid, "restore", &restore.digest, true, &Default::default())
+                .err()
+                .unwrap()
+                .code,
+            "worktree_review_changed"
+        );
+        let restore = w.worktree_archive_plan(&wid, "restore").unwrap();
+        w.worktree_archive(&wid, "restore", &restore.digest, true, &Default::default())
+            .unwrap();
+        assert_eq!(w.projects.get(&p.id).unwrap().id, p.id);
+        assert_eq!(
+            fs::read_to_string(path.join(".env")).unwrap(),
+            "PRIVATE=changed-after-review"
+        );
+        assert_eq!(
+            fs::read_to_string(path.join("database/local.sqlite")).unwrap(),
+            "owned-local-data"
+        );
+        let cleanup = w.worktree_cleanup_plan(&wid).unwrap();
+        w.worktree_cleanup(&wid, &cleanup.digest, true, &Default::default())
+            .unwrap();
+        let purge = w.worktree_archive_plan(&wid, "purge").unwrap();
+        assert!(
+            w.worktree_archive(&wid, "purge", &purge.digest, false, &Default::default())
+                .is_err()
+        );
+        w.worktree_archive(&wid, "purge", &purge.digest, true, &Default::default())
+            .unwrap();
+        assert!(!dir.join("retained").exists());
+        assert_eq!(w.worktrees().unwrap()[0].record.stage, "purged");
+        assert_eq!(git(&source.path, &["rev-parse", "HEAD"]), plan.commit);
+        assert!(source.path.join("public/index.php").exists());
+        if isolated {
+            assert!(dir.join("history.bundle").is_file());
+            git(
+                &source.path,
+                &[
+                    "bundle",
+                    "verify",
+                    dir.join("history.bundle").to_str().unwrap(),
+                ],
+            );
+        }
+    }
+}
+
+#[test]
+fn configuration_save_validates_schema_and_detects_external_changes() {
+    let temp = tempfile::tempdir().unwrap();
+    let (mut w, id, _) = fixture(temp.path());
+    let p = w.projects.get(&id).unwrap();
+    let original = w.configuration_document(&id).unwrap();
+    let expected = original["expected"].as_str();
+    let text = original["text"].as_str().unwrap();
+    assert!(
+        w.configuration_save(&id, expected, "schema: invalid", true)
+            .is_err()
+    );
+    assert_eq!(
+        fs::read_to_string(p.path.join("devforge.yaml")).unwrap(),
+        text
+    );
+    let updated = format!("{text}\n# local editor\n");
+    assert!(
+        w.configuration_save(&id, expected, &updated, false)
+            .is_err()
+    );
+    let saved = w.configuration_save(&id, expected, &updated, true).unwrap();
+    assert_ne!(saved["expected"], original["expected"]);
+    assert_eq!(
+        w.configuration_save(&id, expected, text, true)
+            .err()
+            .unwrap()
+            .code,
+        "manifest_review_changed"
+    );
+    fs::write(
+        p.path.join("devforge.yaml"),
+        format!("{updated}# external\n"),
+    )
+    .unwrap();
+    assert!(
+        w.configuration_save(&id, saved["expected"].as_str(), text, true)
+            .is_err()
+    );
+    assert!(
+        fs::read_to_string(p.path.join("devforge.yaml"))
+            .unwrap()
+            .ends_with("# external\n")
+    );
 }

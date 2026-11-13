@@ -28,6 +28,79 @@ pub struct Launch {
     pub port: Option<u16>,
     pub output: PathBuf,
 }
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HttpRequest {
+    pub method: String,
+    pub path: String,
+    #[serde(default)]
+    pub headers: std::collections::BTreeMap<String, String>,
+    #[serde(default)]
+    pub body: String,
+}
+impl std::fmt::Debug for HttpRequest {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("HttpRequest")
+            .field("method", &self.method)
+            .field("path", &"[local path]")
+            .field("headers", &self.headers.len())
+            .field("body_bytes", &self.body.len())
+            .finish()
+    }
+}
+impl HttpRequest {
+    pub fn validate(&self) -> Result<()> {
+        if !["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
+            .contains(&self.method.as_str())
+            || self.body.len() > 1024 * 1024
+            || self.headers.len() > 32
+            || self
+                .headers
+                .iter()
+                .map(|(k, v)| k.len() + v.len())
+                .sum::<usize>()
+                > 16384
+        {
+            return Err(Error::InvalidRequest);
+        }
+        let mut names = std::collections::BTreeSet::new();
+        for (k, v) in &self.headers {
+            let lower = k.to_ascii_lowercase();
+            if !names.insert(lower.clone())
+                || k.is_empty()
+                || k.len() > 80
+                || !k
+                    .bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || b"!#$%&'*+-.^_`|~".contains(&b))
+                || [
+                    "host",
+                    "connection",
+                    "content-length",
+                    "transfer-encoding",
+                    "expect",
+                    "upgrade",
+                    "trailer",
+                    "te",
+                ]
+                .contains(&lower.as_str())
+                || lower.starts_with("proxy-")
+                || lower.starts_with("xdebug")
+                || v.contains(['\r', '\n', '\0'])
+                || (lower == "cookie"
+                    && v.split(';').any(|c| {
+                        c.trim()
+                            .split('=')
+                            .next()
+                            .unwrap_or("")
+                            .eq_ignore_ascii_case("XDEBUG_TRIGGER")
+                    }))
+            {
+                return Err(Error::InvalidRequest);
+            }
+        }
+        Ok(())
+    }
+}
 #[derive(Debug, Clone, Serialize)]
 pub struct Request {
     pub state: String,
@@ -201,6 +274,19 @@ impl Activation {
             .control(command)
     }
     pub fn get(&mut self, base: &str, path: &str) -> Result<()> {
+        self.send(
+            base,
+            HttpRequest {
+                method: "GET".into(),
+                path: path.into(),
+                headers: Default::default(),
+                body: String::new(),
+            },
+        )
+    }
+    pub fn send(&mut self, base: &str, input: HttpRequest) -> Result<()> {
+        input.validate()?;
+        let path = input.path.as_str();
         if self.request.lock().unwrap().state == "running" {
             return Err(Error::Busy);
         }
@@ -247,7 +333,24 @@ impl Activation {
                 )?;
                 stream.set_read_timeout(Some(Duration::from_millis(100)))?;
                 stream.set_write_timeout(Some(Duration::from_secs(2)))?;
-                stream.write_all(format!("GET {target} HTTP/1.1\r\nHost: {hostname}:{port}\r\nCookie: XDEBUG_TRIGGER={}\r\nConnection: close\r\n\r\n",key.as_str()).as_bytes())?;
+                let mut headers = String::new();
+                let mut cookie = String::new();
+                for (k, v) in &input.headers {
+                    if k.eq_ignore_ascii_case("cookie") {
+                        cookie.push_str(v);
+                        cookie.push_str("; ");
+                    } else {
+                        headers.push_str(&format!("{k}: {v}\r\n"));
+                    }
+                }
+                let request = zeroize::Zeroizing::new(format!(
+                    "{} {target} HTTP/1.1\r\nHost: {hostname}:{port}\r\n{headers}Cookie: {cookie}XDEBUG_TRIGGER={}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                    input.method,
+                    key.as_str(),
+                    input.body.len(),
+                    input.body
+                ));
+                stream.write_all(request.as_bytes())?;
                 let until = Instant::now() + Duration::from_secs(1800);
                 let mut bytes = Vec::new();
                 let mut buffer = [0u8; 1024];
@@ -365,5 +468,41 @@ mod tests {
         );
         drop(live);
         assert!(read(&p, &id).unwrap().is_none());
+    }
+}
+
+#[cfg(test)]
+mod http_builder_tests {
+    use super::*;
+    #[test]
+    fn rejects_transport_injection_and_duplicate_headers() {
+        let mut r = HttpRequest {
+            method: "POST".into(),
+            path: "/".into(),
+            headers: Default::default(),
+            body: "{}".into(),
+        };
+        assert!(r.validate().is_ok());
+        for (k, v) in [
+            ("Host", "elsewhere"),
+            ("Content-Length", "7"),
+            ("X-Test", "a\r\nb"),
+            ("Cookie", "x=1; XDEBUG_TRIGGER=foreign"),
+            ("Proxy-Authorization", "x"),
+        ] {
+            r.headers.clear();
+            r.headers.insert(k.into(), v.into());
+            assert_eq!(r.validate(), Err(Error::InvalidRequest));
+        }
+        r.headers.clear();
+        r.headers.insert("X-Test".into(), "one".into());
+        r.headers.insert("x-test".into(), "two".into());
+        assert!(r.validate().is_err());
+        r.headers.clear();
+        r.method = "POST\r\nGET".into();
+        assert!(r.validate().is_err());
+        r.method = "POST".into();
+        r.body = "x".repeat(1024 * 1024 + 1);
+        assert!(r.validate().is_err());
     }
 }

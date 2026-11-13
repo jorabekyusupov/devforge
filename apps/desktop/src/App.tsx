@@ -23,6 +23,7 @@ import {
   type Theme,
 } from "./bridge";
 import { SettingsPage } from "./pages/SettingsPage";
+import { ConfigurationPage } from "./pages/ConfigurationPage";
 import { DebuggerPage } from "./pages/DebuggerPage";
 import { WorktreesPage } from "./pages/WorktreesPage";
 import { WorkspacePage } from "./pages/WorkspacePage";
@@ -31,6 +32,7 @@ import { InspectorPage } from "./pages/InspectorPage";
 import { DiagnosticsPage } from "./pages/DiagnosticsPage";
 
 type Page =
+  | "configuration"
   | "debugger"
   | "workspaces"
   | "activity"
@@ -43,6 +45,7 @@ type Page =
 const validPage = (value: string): Page => {
   const route = value.split("?")[0];
   return [
+    "configuration",
     "debugger",
     "workspaces",
     "projects",
@@ -176,6 +179,7 @@ export function App({ backend = desktopBackend }: { backend?: Backend }) {
   const navigateItems = [
     { id: "projects", icon: Folder, group: "workspace" },
     { id: "workspaces", icon: GitBranch, group: "workspace" },
+    { id: "configuration", icon: Settings2, group: "workspace" },
     { id: "runtimes", icon: Layers, group: "workspace" },
     { id: "services", icon: Server, group: "workspace" },
     { id: "inspector", icon: ScanSearch, group: "workspace" },
@@ -243,6 +247,7 @@ export function App({ backend = desktopBackend }: { backend?: Backend }) {
             <span>
               {t(
                 [
+                  "configuration",
                   "debugger",
                   "workspaces",
                   "projects",
@@ -315,6 +320,9 @@ export function App({ backend = desktopBackend }: { backend?: Backend }) {
           />
         )}
 
+        {page === "configuration" && (
+          <ConfigurationPage backend={backend.workspace} />
+        )}
         {page === "debugger" && <DebuggerPage backend={backend.workspace} />}
         {page === "workspaces" && <WorktreesPage backend={backend.workspace} />}
         {page === "activity" && <ActivityPage backend={backend.workspace} />}

@@ -294,6 +294,8 @@ export interface WorktreeView {
   retained_path: string;
 }
 export interface WorktreePlan {
+  isolated?: boolean;
+  submodule_sources?: string;
   input: WorktreeInput;
   commit: string;
   domain: string;
@@ -338,6 +340,7 @@ export interface DebugFrame {
   line: number;
 }
 export interface DebugVariable {
+  assign?: string | null;
   name: string;
   kind: string;
   value: string;
@@ -381,7 +384,52 @@ export interface DebugView {
   } | null;
   profiles: DebugProfileItem[];
 }
+export interface ConfigurationDocument {
+  text: string;
+  expected: string | null;
+  exists: boolean;
+  journal: {
+    stage: string;
+    last_error: string | null;
+    completed: boolean;
+  } | null;
+}
+export interface ConfigurationPlan {
+  digest: string;
+  downloads: string[];
+  blockers: string[];
+  database_action: string;
+  secrets: { environment: string; reference: string; available: boolean }[];
+  env: [string, string][];
+}
+export interface ArchivePlan {
+  workspace: WorktreeView;
+  operation: "restore" | "purge";
+  files: number;
+  bytes: number;
+  blockers: string[];
+  digest: string;
+}
+export interface RemoteSource {
+  host: string;
+  port: number;
+  database: string;
+  user: string;
+  password_ref: string;
+  tls_ca: string | null;
+  loopback_unencrypted: boolean;
+}
 export interface WorkspaceBackend {
+  configurationSecret?(
+    id: string,
+    reference: string,
+    value: string,
+  ): Promise<void>;
+  configuration?(
+    id: string,
+    plan: boolean,
+    writeEnv: boolean,
+  ): Promise<ConfigurationDocument | ConfigurationPlan>;
   debugView?(id: string): Promise<DebugView>;
   debugProfile?(id: string, profile: string): Promise<FunctionProfile>;
   debugSource?(
@@ -420,6 +468,50 @@ export type ProjectInput = {
   queue: boolean;
 };
 export type Command =
+  | {
+      action: "worktree_archive_plan";
+      id: string;
+      operation: "restore" | "purge";
+    }
+  | {
+      action: "worktree_archive";
+      id: string;
+      operation: "restore" | "purge";
+      review: string;
+      consent: boolean;
+    }
+  | { action: "worktree_remote_plan"; id: string; source: RemoteSource }
+  | {
+      action: "worktree_remote_copy";
+      id: string;
+      source: RemoteSource;
+      review: string;
+      consent: boolean;
+    }
+  | {
+      action: "configuration_save";
+      id: string;
+      expected: string | null;
+      text: string;
+      consent: boolean;
+    }
+  | {
+      action: "configuration_apply";
+      id: string;
+      review: string;
+      trusted: boolean;
+      write_env: boolean;
+    }
+  | {
+      action: "debug_http";
+      id: string;
+      request: {
+        method: string;
+        path: string;
+        headers: Record<string, string>;
+        body: string;
+      };
+    }
   | { action: "debug_install"; id: string; trusted: boolean }
   | {
       action: "debug_configure";
@@ -447,7 +539,11 @@ export type Command =
               | "stop"
               | "detach";
           }
-        | { command: "frame"; depth: number };
+        | { command: "frame"; depth: number }
+        | {
+            command: "set";
+            value: { name: string; kind: string; value: string };
+          };
     }
   | { action: "debug_request"; id: string; path: string }
   | {

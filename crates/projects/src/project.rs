@@ -332,6 +332,39 @@ impl ProjectStore {
         p.worktree = Some(worktree.into());
         self.save(&mut p, revision)
     }
+    /// Reactivates only a retired, owned workspace; never imports a replacement ID.
+    pub fn archived_worktree(&self, id: &str, worktree: &str) -> Result<Project> {
+        let value: String = self
+            .connection
+            .query_row(
+                "SELECT record FROM projects WHERE id=?1 AND active=0",
+                [id],
+                |r| r.get(0),
+            )
+            .optional()?
+            .ok_or(E::NotFound)?;
+        let p: Project = serde_json::from_str(&value).map_err(|_| E::StorageUnavailable)?;
+        if p.active || p.worktree.as_deref() != Some(worktree) {
+            return Err(E::WorkspaceManaged);
+        }
+        Ok(p)
+    }
+    pub fn reactivate_worktree(
+        &self,
+        id: &str,
+        worktree: &str,
+        path: &Path,
+        revision: u64,
+    ) -> Result<Project> {
+        let mut p = self.archived_worktree(id, worktree)?;
+        if p.path != fs::canonicalize(path)? {
+            return Err(E::WorkspaceManaged);
+        }
+        inspect(path)?;
+        p.active = true;
+        self.save(&mut p, revision)?;
+        Ok(p)
+    }
     pub fn retire_worktree(&self, id: &str, revision: u64, worktree: &str) -> Result<()> {
         let mut p = self.get(id)?;
         if p.worktree.as_deref() != Some(worktree) {

@@ -121,7 +121,7 @@ impl Workspace {
         self.projects.activate_binding(id, Some(&binding))?;
         Ok(serde_json::json!({"switched":true}))
     }
-    fn dependency(&self, kind: &str) -> Result<String> {
+    pub(crate) fn dependency(&self, kind: &str) -> Result<String> {
         self.catalog
             .packages
             .iter()
@@ -129,7 +129,7 @@ impl Workspace {
             .map(|(id, _)| id.clone())
             .ok_or_else(|| error("service_unavailable"))
     }
-    fn install_dependency(&self, id: &str, cancel: &Cancellation) -> Result<()> {
+    pub(crate) fn install_dependency(&self, id: &str, cancel: &Cancellation) -> Result<()> {
         let p = self.catalog.get(id)?;
         let installed = if let Some(name) = p.executables.keys().next() {
             self.packages.executable(p, name).is_ok()

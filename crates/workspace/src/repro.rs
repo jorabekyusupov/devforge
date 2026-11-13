@@ -106,19 +106,32 @@ pub struct Plan {
     pub digest: String,
 }
 impl Workspace {
-    fn repro_dir(&self, path: &Path) -> Result<PathBuf> {
-        let d = self.root.join("manifests").join(scope(path));
-        fs::create_dir_all(&d)?;
-        Ok(d)
+    pub(crate) fn repro_dir(&self, path: &Path) -> Result<PathBuf> {
+        let parent = self.root.join("manifests");
+        for dir in [&parent, &parent.join(scope(path))] {
+            if !dir.exists() {
+                fs::create_dir(dir)?;
+            }
+            if !fs::symlink_metadata(dir)?.is_dir()
+                || fs::symlink_metadata(dir)?.file_type().is_symlink()
+                || fs::canonicalize(dir)? != *dir
+            {
+                return Err(code("manifest_invalid"));
+            }
+        }
+        Ok(parent.join(scope(path)))
     }
-    fn repro_lock(&self, path: &Path) -> Result<File> {
-        let dir = self.repro_dir(path)?;
+    pub(crate) fn repro_lock(&self, path: &Path) -> Result<File> {
+        let path = self.repro_dir(path)?.join("setup.lock");
+        if fs::symlink_metadata(&path).is_ok_and(|m| !m.is_file() || m.file_type().is_symlink()) {
+            return Err(code("manifest_invalid"));
+        }
         let f = fs::OpenOptions::new()
             .read(true)
             .write(true)
             .create(true)
             .truncate(false)
-            .open(dir.join("setup.lock"))?;
+            .open(path)?;
         f.try_lock().map_err(|_| code("manifest_busy"))?;
         Ok(f)
     }
@@ -160,6 +173,20 @@ impl Workspace {
             &self.repro_dir(path)?.join("journal.json"),
             &serde_json::to_vec_pretty(j).unwrap(),
         )
+    }
+    pub(crate) fn manifest_secret_value(
+        &self,
+        path: &Path,
+        reference: &str,
+    ) -> Result<Zeroizing<String>> {
+        if !manifest::alias(reference) {
+            return Err(code("manifest_secret_invalid"));
+        }
+        self.secrets
+            .get(&secret_key(path, reference))
+            .map_err(|_| code("manifest_secret_unavailable"))?
+            .map(Zeroizing::new)
+            .ok_or_else(|| code("manifest_secret_missing"))
     }
     pub fn manifest_secret(&self, path: &Path, reference: &str, value: &str) -> Result<()> {
         let path = root(path)?;

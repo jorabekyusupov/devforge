@@ -93,7 +93,14 @@ pub fn run(root: &Path) -> Result<()> {
     };
     let garnet = choose("garnet", "2.2.11").unwrap();
     let older = choose("garnet", "2.2.10").unwrap();
-    let mysql = choose("mysql", "8.4.13");
+    let mysql = choose(
+        "mysql",
+        if target == Target::MacosX64 {
+            "8.4.11"
+        } else {
+            "8.4.13"
+        },
+    );
     // Real PostgreSQL custom dump and staged restore using a separate managed client package.
     eprintln!("M9_PHASE: PostgreSQL backup");
     let backup = w.execute(Command::CreateBackup { id: a.id.clone() }, &cancel)?;
@@ -357,7 +364,7 @@ pub fn run(root: &Path) -> Result<()> {
     w.stop(&b.id)?;
     assert_eq!(fs::read(a.path.join(".env")).ok(), old_env);
     verify_retention(&mut w, &a.id, &cancel)?;
-    let report = json!({"retained_connection_reactivation":true,"project_default_preserves_history":true,"target":target,"postgresql_staged_restore":true,"mysql":mysql_instance.is_some(),"intel_mysql":"no_current_official_binary; not selected","predis":"^3.7.1","laravel_cache_lock_flush_isolation":true,"laravel_queue_lua":true,"cache_restart_persistence":true,"parallel_garnet_versions":["2.2.11","2.2.10"],"parallel_php_database_services":true,"cross_project_cache_rejected":true,"environment_unchanged":true});
+    let report = json!({"retained_connection_reactivation":true,"project_default_preserves_history":true,"target":target,"postgresql_staged_restore":true,"mysql":mysql_instance.is_some(),"intel_mysql":if target==Target::MacosX64 {"8.4.11 official pinned provider"}else{"not applicable"},"predis":"^3.7.1","laravel_cache_lock_flush_isolation":true,"laravel_queue_lua":true,"cache_restart_persistence":true,"parallel_garnet_versions":["2.2.11","2.2.10"],"parallel_php_database_services":true,"cross_project_cache_rejected":true,"environment_unchanged":true});
     w.shutdown()?;
     fs::write(
         root.join("m9-native-result.json"),

@@ -1,0 +1,98 @@
+name: M7 M12 remaining native acceptance
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        type: choice
+        default: all
+        options: [all, macos-arm64, macos-x64, windows-x64]
+permissions:
+  contents: read
+jobs:
+  xdebug:
+    timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(inputs.target == 'windows-x64' && '[{"os":"windows-latest","target":"windows-x64"}]' || inputs.target == 'macos-arm64' && '[{"os":"macos-15","target":"macos-arm64"}]' || inputs.target == 'macos-x64' && '[{"os":"macos-15-intel","target":"macos-x64"}]' || '[{"os":"macos-15","target":"macos-arm64"},{"os":"macos-15-intel","target":"macos-x64"},{"os":"windows-latest","target":"windows-x64"}]') }}
+    runs-on: ${{ matrix.os }}
+    env:
+      PYTHONUTF8: '1'
+      PYTHONIOENCODING: utf-8
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24.22.2'
+          cache: npm
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.13'
+      - run: rustup show
+      - run: npm ci
+      - name: Retain immutable private-prefix SDK builds by recipe and target
+        if: runner.os == 'macOS'
+        id: sdk-cache
+        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: xdebug-sdks/*.zip
+          key: xdebug-${{ matrix.target }}-${{ hashFiles('crates/debugger/src/provider/build_runtime.py','crates/debugger/src/provider/recipe.json') }}
+      - name: Build paired CLI FPM Xdebug in private prefixes
+        if: runner.os == 'macOS'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python scripts/build_debug_sdks.py ${{ matrix.target }} xdebug-sdks
+      - name: Save successfully probed SDKs before native acceptance
+        if: runner.os == 'macOS' && steps.sdk-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: xdebug-sdks/*.zip
+          key: ${{ steps.sdk-cache.outputs.cache-primary-key }}
+      - name: Restore checksum-pinned runtime packages only
+        id: runtime-cache
+        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: m7-xdebug-fixture/data/runtimes
+          key: m7-runtime-${{ matrix.target }}-${{ hashFiles('runtime/catalog.json') }}
+      - name: Real Laravel PHP Node PostgreSQL fixture
+        run: cargo run --release -p devforge-workspace --example native_workspace --features test-support -- m7-xdebug-fixture empty-cache
+      - name: Retain verified public runtime files without project data or secrets
+        if: steps.runtime-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: m7-xdebug-fixture/data/runtimes
+          key: ${{ steps.runtime-cache.outputs.cache-primary-key }}
+      - name: Native runtime HTTP CLI breakpoints steps profiles privacy and recovery
+        run: target/release/examples/native_workspace debugger-native m7-xdebug-fixture xdebug-sdks
+      - name: Configuration archive submodules external PostgreSQL MySQL copies and Intel provider
+        run: target/release/examples/native_workspace completion-native m7-xdebug-fixture
+      - name: Native shared-core debugger CLI
+        run: |
+          cargo build --release -p devforge-cli --features test-support
+          target/release/examples/native_workspace debugger-cli m7-xdebug-fixture target/release/devforge${{ runner.os == 'Windows' && '.exe' || '' }}
+      - name: Build native desktop with debug-only WebDriver
+        run: npm run tauri -- build --debug --no-bundle --features e2e
+      - name: Actual native debugger controls languages and accessibility
+        env:
+          WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: --disable-gpu
+        run: python scripts/m7_xdebug_desktop_smoke.py m7-xdebug-fixture target/debug/devforge-desktop target/release/examples/native_workspace
+      - name: New native editor secret archive and external-copy UI
+        env:
+          WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: --disable-gpu
+        run: python scripts/completion_desktop_smoke.py m7-xdebug-fixture target/debug/devforge-desktop target/release/examples/native_workspace
+      - name: Public acceptance reports screenshots and source-build provenance
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: completion-${{ matrix.target }}
+          retention-days: 7
+          path: |
+            m7-xdebug-fixture/completion-native-result.json
+            m7-xdebug-fixture/completion-desktop-result.json
+            output/playwright/completion/*.png
+            m7-xdebug-fixture/m7-xdebug-native-result.json
+            m7-xdebug-fixture/m7-xdebug-desktop-result.json
+            m7-xdebug-fixture/m7-xdebug-cli-result.json
+            xdebug-sdks/*-provenance.json
+            output/playwright/m7-xdebug/*.png
+          if-no-files-found: warn

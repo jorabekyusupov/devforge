@@ -2043,3 +2043,12 @@ dialog {
   grid-column: 1/-1;
   justify-self: start;
 }
+
+.configuration-grid {display:grid;grid-template-columns:minmax(0,1.7fr) minmax(230px,1fr);gap:20px;align-items:start}
+.configuration-file {display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.configuration-file span {color:var(--muted)}
+.configuration-editor {width:100%;min-height:420px;resize:vertical;white-space:pre;overflow:auto;tab-size:2;font-size:13px;line-height:1.65}
+.configuration-review {position:sticky;top:16px}
+.debug-panel textarea {width:100%;min-height:80px;resize:vertical}
+.debug-panel .configuration-editor {min-height:420px}
+@media (max-width:1050px){.configuration-grid{grid-template-columns:minmax(0,1fr)}.configuration-review{position:static}}

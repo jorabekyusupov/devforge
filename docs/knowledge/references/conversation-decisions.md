@@ -303,3 +303,9 @@ Foydalanuvchi M12 kelgan joydan toliq tugatilishini, keyin M7 qolgan ishlarining
 yakunlanishini topshirdi. Oldingi «bajarilganlariga tegma» chegarasi saqlanadi;
 shu sabab M7.1 Inspector qayta yozilmaydi, M7.2 native Xdebug alohida slice sifatida
 qo‘shiladi. M13 avtomatik boshlanmaydi.
+
+## Qolgan M7–M12 ishlarini yakunlash
+
+User asosiy bosqichlar qabulidan keyin qolgan imkoniyatlarni ham toliq bajarish,
+testlardan o'tkazish, OKF'ga yozish va yakunda pushni topshirdi. Tayyor funksiyalar
+saqlanadi. M15 public release gate'lari alohida scope bo'lib qoladi.

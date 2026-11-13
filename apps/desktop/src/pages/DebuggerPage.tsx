@@ -21,7 +21,14 @@ import {
   type DebugVariable,
   type FunctionProfile,
 } from "../workspace";
-function Variables({ values }: { values: DebugVariable[] }) {
+function Variables({
+  values,
+  edit,
+}: {
+  values: DebugVariable[];
+  edit?: (v: DebugVariable) => void;
+}) {
+  const { t } = useTranslation();
   return (
     <ul className="debug-variables">
       {values.map((v, i) => (
@@ -33,6 +40,14 @@ function Variables({ values }: { values: DebugVariable[] }) {
             {v.kind}
           </span>
           <code translate="no">{v.value || "—"}</code>
+          {edit && v.assign && (
+            <button
+              onClick={() => edit(v)}
+              aria-label={t("debugger.editVariable", { name: v.name })}
+            >
+              {t("debugger.edit")}
+            </button>
+          )}
           {!!v.children.length && (
             <details>
               <summary>{v.children.length}</summary>
@@ -52,6 +67,12 @@ export function DebuggerPage({ backend }: { backend?: WorkspaceBackend }) {
     [readError, setReadError] = useState<string | null>(null),
     [tab, setTab] = useState<"debug" | "profiles">("debug"),
     [request, setRequest] = useState("/"),
+    [method, setMethod] = useState("GET"),
+    [headers, setHeaders] = useState(""),
+    [body, setBody] = useState(""),
+    [assignment, setAssignment] = useState<DebugVariable | null>(null),
+    [newValue, setNewValue] = useState(""),
+    [valueKind, setValueKind] = useState("string"),
     [file, setFile] = useState(""),
     [line, setLine] = useState(1),
     [code, setCode] = useState<{ file: string; code: string } | null>(null),
@@ -97,6 +118,9 @@ export function DebuggerPage({ backend }: { backend?: WorkspaceBackend }) {
   }
   useEffect(() => {
     setView(null);
+    setAssignment(null);
+    setHeaders("");
+    setBody("");
     setCode(null);
     setProfile(null);
     setSelectedProfile("");
@@ -265,7 +289,62 @@ export function DebuggerPage({ backend }: { backend?: WorkspaceBackend }) {
           {t("debugger.configure")}
         </button>
       </div>
-      {!configure && !installing && !remove && errorNotice}
+      {assignment && (
+        <WorkspaceModal
+          busy={busy}
+          title={t("debugger.editVariable", { name: assignment.name })}
+          onClose={() => setAssignment(null)}
+        >
+          {errorNotice}
+          <p>{t("debugger.assignmentHelp")}</p>
+          <label>
+            {t("debugger.valueType")}
+            <select
+              value={valueKind}
+              onChange={(e) => setValueKind(e.target.value)}
+            >
+              {["string", "int", "float", "bool", "null"].map((k) => (
+                <option key={k}>{k}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            {t("debugger.value")}
+            <textarea
+              name="debug-value"
+              value={newValue}
+              maxLength={4096}
+              onChange={(e) => setNewValue(e.target.value)}
+              spellCheck={false}
+              autoComplete="off"
+            />
+          </label>
+          <div className="modal-actions">
+            <button
+              disabled={busy || !paused}
+              onClick={() =>
+                void execute({
+                  action: "debug_control",
+                  id,
+                  control: {
+                    command: "set",
+                    value: {
+                      name: assignment.assign!,
+                      kind: valueKind,
+                      value: newValue,
+                    },
+                  },
+                }).then((ok) => {
+                  if (ok) setAssignment(null);
+                })
+              }
+            >
+              {t("debugger.applyValue")}
+            </button>
+          </div>
+        </WorkspaceModal>
+      )}
+      {!configure && !installing && !remove && !assignment && errorNotice}
       {!rows.length ? (
         <div className="empty-state">
           <h2>{t("debugger.empty")}</h2>
@@ -355,6 +434,52 @@ export function DebuggerPage({ backend }: { backend?: WorkspaceBackend }) {
               {t("debugger.stopRequest")}
             </button>
           </div>
+          <details className="debug-panel">
+            <summary>{t("debugger.requestOptions")}</summary>
+            <label>
+              {t("debugger.method")}
+              <select
+                name="debug-method"
+                value={method}
+                onChange={(e) => setMethod(e.target.value)}
+              >
+                {[
+                  "GET",
+                  "HEAD",
+                  "POST",
+                  "PUT",
+                  "PATCH",
+                  "DELETE",
+                  "OPTIONS",
+                ].map((m) => (
+                  <option key={m}>{m}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              {t("debugger.headers")}
+              <textarea
+                name="debug-headers"
+                value={headers}
+                maxLength={16384}
+                onChange={(e) => setHeaders(e.target.value)}
+                spellCheck={false}
+                autoComplete="off"
+              />
+            </label>
+            <label>
+              {t("debugger.body")}
+              <textarea
+                name="debug-body"
+                value={body}
+                maxLength={1048576}
+                onChange={(e) => setBody(e.target.value)}
+                spellCheck={false}
+                autoComplete="off"
+              />
+            </label>
+            <p className="muted">{t("debugger.requestPrivacy")}</p>
+          </details>
           <div className="debug-request">
             <label>
               {t("debugger.requestPath")}
@@ -374,7 +499,30 @@ export function DebuggerPage({ backend }: { backend?: WorkspaceBackend }) {
                 view.request?.state === "running"
               }
               onClick={() =>
-                void execute({ action: "debug_request", id, path: request })
+                void (async () => {
+                  const parsed: Record<string, string> = {};
+                  for (const line of headers
+                    .split(/\r?\n/)
+                    .filter((v) => v.trim())) {
+                    const at = line.indexOf(":");
+                    const name = line.slice(0, at).trim();
+                    if (
+                      at < 1 ||
+                      Object.keys(parsed).some(
+                        (k) => k.toLowerCase() === name.toLowerCase(),
+                      )
+                    ) {
+                      setReadError(t("debugger.errors.invalid_request"));
+                      return;
+                    }
+                    parsed[name] = line.slice(at + 1).trim();
+                  }
+                  await execute({
+                    action: "debug_http",
+                    id,
+                    request: { method, path: request, headers: parsed, body },
+                  });
+                })()
               }
             >
               {t("debugger.runRequest")}
@@ -534,7 +682,26 @@ export function DebuggerPage({ backend }: { backend?: WorkspaceBackend }) {
                 </article>
                 <article className="debug-panel">
                   <h2>{t("debugger.variables")}</h2>
-                  <Variables values={view.session?.variables ?? []} />
+                  <Variables
+                    values={view.session?.variables ?? []}
+                    edit={
+                      paused && !busy
+                        ? (v) => {
+                            setAssignment(v);
+                            setValueKind(
+                              v.kind === "integer"
+                                ? "int"
+                                : v.kind === "double"
+                                  ? "float"
+                                  : v.kind === "boolean"
+                                    ? "bool"
+                                    : v.kind.toLowerCase(),
+                            );
+                            setNewValue(v.value);
+                          }
+                        : undefined
+                    }
+                  />
                   {!view.session?.variables.length && (
                     <p className="muted">{t("debugger.variablesEmpty")}</p>
                   )}

@@ -4,6 +4,8 @@ use devforge_projects::{env_file::EnvPlan, manifest::Manifest};
 use sha2::{Digest, Sha256};
 use std::{ffi::OsString, io::Write};
 mod git;
+mod lifecycle;
+mod remote;
 fn digest(value: &impl Serialize) -> String {
     Sha256::digest(serde_json::to_vec(value).unwrap())
         .iter()
@@ -45,6 +47,8 @@ pub struct Input {
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Record {
+    #[serde(default)]
+    pub isolated: bool,
     pub schema: u32,
     pub id: String,
     pub input: Input,
@@ -68,6 +72,8 @@ pub struct View {
 }
 #[derive(Serialize)]
 pub struct Plan {
+    pub isolated: bool,
+    pub submodule_sources: String,
     pub input: Input,
     pub commit: String,
     pub domain: String,
@@ -263,9 +269,19 @@ impl Workspace {
             exists.unwrap_or_else(|| "HEAD".into())
         };
         let commit = git::oid(&self.root, &source.path, &reference)?;
-        if git::submodules(&self.root, &source.path, Some(&commit))? {
-            blockers.push("worktree_submodules_unsupported".into());
+        let isolated = git::submodules(&self.root, &source.path, Some(&commit))?;
+        if isolated {
+            blockers.retain(|code| code != "worktree_branch_in_use");
         }
+        let submodule_sources = if isolated {
+            git::text(
+                &self.root,
+                &source.path,
+                &["show", &format!("{commit}:.gitmodules")],
+            )?
+        } else {
+            String::new()
+        };
         let slug = input
             .branch
             .chars()
@@ -325,6 +341,8 @@ impl Workspace {
             .cloned()
             .collect();
         let mut plan = Plan {
+            isolated,
+            submodule_sources,
             input: input.clone(),
             commit,
             domain,
@@ -352,6 +370,16 @@ impl Workspace {
         Ok(())
     }
     fn worktree_identity(&self, record: &Record, path: &Path) -> Result<()> {
+        if record.isolated {
+            if !ordinary(path)
+                || fs::canonicalize(path)? != path
+                || !ordinary(&path.join(".git"))
+                || git::common(&self.root, path)? != path.join(".git")
+            {
+                return Err(error("worktree_ownership"));
+            }
+            return Ok(());
+        }
         if !ordinary(path)
             || fs::canonicalize(path)? != path
             || !fs::symlink_metadata(path.join(".git"))
@@ -419,6 +447,7 @@ impl Workspace {
                 && !name.starts_with("REDIS_")
         });
         let mut record = Record {
+            isolated: plan.isolated,
             schema: 1,
             id,
             input,
@@ -495,7 +524,57 @@ impl Workspace {
                 .into(),
             ]);
             self.worktree_stage(record, "checkout")?;
-            self.worktree_git(&record.common_dir, args, cancel)?;
+            if record.isolated {
+                git::run(
+                    &self.root,
+                    &self.root,
+                    vec![
+                        "clone".into(),
+                        "--no-hardlinks".into(),
+                        "--no-checkout".into(),
+                        "--".into(),
+                        dunce::simplified(&source.path).as_os_str().into(),
+                        dunce::simplified(&path).as_os_str().into(),
+                    ],
+                    true,
+                    cancel,
+                )?;
+                git::run(
+                    &self.root,
+                    &path,
+                    vec![
+                        "checkout".into(),
+                        "-B".into(),
+                        record.input.branch.clone().into(),
+                        record.commit.clone().into(),
+                        "--".into(),
+                    ],
+                    true,
+                    cancel,
+                )?;
+                git::run(
+                    &self.root,
+                    &path,
+                    vec![
+                        "-c".into(),
+                        "protocol.allow=never".into(),
+                        "-c".into(),
+                        "protocol.https.allow=always".into(),
+                        "-c".into(),
+                        "protocol.ssh.allow=always".into(),
+                        "-c".into(),
+                        "protocol.file.allow=always".into(),
+                        "submodule".into(),
+                        "update".into(),
+                        "--init".into(),
+                        "--recursive".into(),
+                    ],
+                    true,
+                    cancel,
+                )?;
+            } else {
+                self.worktree_git(&record.common_dir, args, cancel)?;
+            }
             self.worktree_identity(record, &path)?;
             record.git_dir = Some(fs::canonicalize(git::text(
                 &self.root,
@@ -745,7 +824,9 @@ impl Workspace {
         let retained = dir.join("retained");
         let inspection = if path.exists() {
             Some(path.clone())
-        } else if record.git_dir.as_ref().is_some_and(|p| p.exists()) && ordinary(&retained) {
+        } else if (record.isolated || record.git_dir.as_ref().is_some_and(|p| p.exists()))
+            && ordinary(&retained)
+        {
             Some(retained.clone())
         } else {
             None
@@ -757,11 +838,12 @@ impl Workspace {
                 &inspection,
                 &["rev-parse", "--absolute-git-dir"],
             )?)?);
-            if git::submodules(&self.root, &inspection, None)?
-                || record
-                    .git_dir
-                    .as_ref()
-                    .is_some_and(|p| p.join("modules").exists())
+            if !record.isolated
+                && (git::submodules(&self.root, &inspection, None)?
+                    || record
+                        .git_dir
+                        .as_ref()
+                        .is_some_and(|p| p.join("modules").exists()))
             {
                 blockers.push("worktree_submodules_unsupported".into());
             }
@@ -889,11 +971,12 @@ impl Workspace {
         let result: Result<Record> = (|| {
             if path.exists() {
                 self.worktree_identity(&record, &path)?;
-                if git::submodules(&self.root, &path, None)?
-                    || record
-                        .git_dir
-                        .as_ref()
-                        .is_some_and(|p| p.join("modules").exists())
+                if !record.isolated
+                    && (git::submodules(&self.root, &path, None)?
+                        || record
+                            .git_dir
+                            .as_ref()
+                            .is_some_and(|p| p.join("modules").exists()))
                 {
                     return Err(error("worktree_submodules_unsupported"));
                 }
@@ -907,7 +990,9 @@ impl Workspace {
             } else if record.git_dir.is_none() && !retained.exists() {
                 fs::create_dir(&retained)?;
             }
-            if let Some(admin) = &record.git_dir {
+            if !record.isolated
+                && let Some(admin) = &record.git_dir
+            {
                 // The original path is absent. Git removes only its exact registry entry;
                 // all tracked and ignored files remain in retained. No force or global prune.
                 if admin.exists() {

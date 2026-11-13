@@ -1290,6 +1290,7 @@ dependencies = [
  "devforge-runtime",
  "devforge-serving",
  "dunce",
+ "mysql",
  "reqwest",
  "serde",
  "serde_json",

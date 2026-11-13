@@ -243,6 +243,53 @@ pub fn run(root: &Path, archives: &Path) -> Result<()> {
     assert!(at.to_string().contains("M7_VISIBLE_LOCAL"));
     assert!(at.to_string().contains("REDACTED"));
     assert!(!at.to_string().contains("M7_PRIVATE_SENTINEL"));
+    eprintln!("M7_COMPLETION: primitive property_set in the actual paused PHP frame");
+    for (kind, value) in [
+        ("bool", "1"),
+        ("null", ""),
+        ("int", "12"),
+        ("float", "1.25"),
+        ("string", "M7_EDITED_LOCAL"),
+    ] {
+        control(
+            &mut w,
+            &a.id,
+            Control::Set {
+                value: debug::Assignment {
+                    name: "$label".into(),
+                    kind: kind.into(),
+                    value: value.into(),
+                },
+            },
+        )?;
+        wait(&w, &a.id, |v| {
+            v["session"]["variables"].as_array().is_some_and(|vs| {
+                vs.iter().any(|v| {
+                    v["name"] == "label"
+                        && v["kind"]
+                            .as_str()
+                            .is_some_and(|k| k.eq_ignore_ascii_case(kind))
+                        && (kind == "null" || v["value"] == value)
+                })
+            })
+        })?;
+    }
+    control(
+        &mut w,
+        &a.id,
+        Control::Set {
+            value: debug::Assignment {
+                name: "$base".into(),
+                kind: "int".into(),
+                value: "11".into(),
+            },
+        },
+    )?;
+    wait(&w, &a.id, |v| {
+        v["session"]["variables"]
+            .as_array()
+            .is_some_and(|vs| vs.iter().any(|v| v["name"] == "base" && v["value"] == "11"))
+    })?;
     control(&mut w, &a.id, Control::StepInto)?;
     wait(&w, &a.id, |v| {
         v["session"]["state"] == "paused"
@@ -254,6 +301,13 @@ pub fn run(root: &Path, archives: &Path) -> Result<()> {
     wait(&w, &a.id, |v| {
         v["session"]["state"] == "paused" && v["session"]["frames"][0]["line"] == 13
     })?;
+    assert!(
+        w.debug_view(&a.id)?["session"]["variables"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|v| v["name"] == "result" && v["value"] == "33")
+    );
     control(&mut w, &a.id, Control::StepOut)?;
     wait(&w, &a.id, |v| {
         v["session"]["state"] == "paused" && v["session"]["frames"][0]["line"] == 9
@@ -445,6 +499,30 @@ pub fn run(root: &Path, archives: &Path) -> Result<()> {
     let v = wait(&w, &a.id, |v| v["request"]["state"] == "completed")?;
     assert_eq!(v["request"]["status"], 200);
     assert_eq!(pids(&w, &b.id)?, other_pids);
+    fs::write(
+        a.path.join("public/m7-request.php"),
+        "<?php $ok=in_array($_SERVER['REQUEST_METHOD'],['GET','HEAD','POST','PUT','PATCH','DELETE','OPTIONS'],true)&&($_SERVER['HTTP_X_COMPLETION']??'')==='builder'&&file_get_contents('php://input')==='request-body';http_response_code($ok?200:422);echo 'done';",
+    )?;
+    for method in ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"] {
+        w.execute(
+            Command::DebugHttp {
+                id: a.id.clone(),
+                request: debug::session::HttpRequest {
+                    method: method.into(),
+                    path: "/m7-request.php".into(),
+                    headers: std::collections::BTreeMap::from([
+                        ("X-Completion".into(), "builder".into()),
+                        ("Content-Type".into(), "text/plain".into()),
+                    ]),
+                    body: "request-body".into(),
+                },
+            },
+            &cancel,
+        )?;
+        let response = wait(&w, &a.id, |v| v["request"]["state"] == "completed")?;
+        assert_eq!(response["request"]["status"], 200, "{method}: {response}");
+    }
+
     w.stop(&a.id)?;
     mode(&mut w, &a.id, None, Mode::Off)?;
     configure_php(&mut w, selected.clone())?;
@@ -468,7 +546,7 @@ pub fn run(root: &Path, archives: &Path) -> Result<()> {
     mode(&mut w, &a.id, None, Mode::Off)?;
     fs::rename(&moved, &source)?;
     w.shutdown()?;
-    let report = json!({"passed":true,"host":{"os":std::env::consts::OS,"arch":std::env::consts::ARCH},"project_id":a.id,"other_project_id":b.id,"runtime_id":runtime,"php_probes":runtimes.iter().map(|(_,p)|p).collect::<Vec<_>>(),"checks":{"verified_provider_install":true,"real_laravel_http_breakpoint":true,"step_into_over_out":true,"stop_paused_request_preserves_web_runtime":true,"locals_and_source_redacted":true,"request_http_200":true,"profile_http_and_cli":true,"php84_native_web":true,"profile_parse_export_delete":true,"cross_project_denial":true,"other_process_pids_unchanged":true,"off_restores_normal_php":true,"off_after_source_deleted":true,"project_php_pin_and_env_unchanged":true,"shutdown_cleans_own_sessions":true}});
+    let report = json!({"passed":true,"host":{"os":std::env::consts::OS,"arch":std::env::consts::ARCH},"project_id":a.id,"other_project_id":b.id,"runtime_id":runtime,"php_probes":runtimes.iter().map(|(_,p)|p).collect::<Vec<_>>(),"checks":{"typed_primitive_locals_mutated_and_executed":true,"http_builder_seven_methods_headers_body":true,"verified_provider_install":true,"real_laravel_http_breakpoint":true,"step_into_over_out":true,"stop_paused_request_preserves_web_runtime":true,"locals_and_source_redacted":true,"request_http_200":true,"profile_http_and_cli":true,"php84_native_web":true,"profile_parse_export_delete":true,"cross_project_denial":true,"other_process_pids_unchanged":true,"off_restores_normal_php":true,"off_after_source_deleted":true,"project_php_pin_and_env_unchanged":true,"shutdown_cleans_own_sessions":true}});
     fs::write(
         root.join("m7-xdebug-native-result.json"),
         serde_json::to_vec_pretty(&report)?,

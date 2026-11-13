@@ -11,7 +11,8 @@
     "inspector": "Inspektor",
     "activity": "Mail va loglar",
     "workspaces": "Ishchi muhitlar",
-    "debugger": "Debugger"
+    "debugger": "Debugger",
+    "configuration": "Konfiguratsiya"
   },
   "common": {
     "saved": "Avtomatik saqlandi",
@@ -363,7 +364,7 @@
       "manifest_secret_invalid": "To‘g‘ri secret nomi va 4096 baytgacha qiymatni stdin orqali kiriting.",
       "manifest_secret_unavailable": "Lokal credential store ochilmadi. Kirishni tiklab qayta urinib ko‘ring.",
       "manifest_busy": "Repository muhitini o‘zgartirishdan oldin DevForge va boshqa CLI sessiyalarini yoping.",
-      "manifest_review_changed": "Tasdiqlangan reja eskirgan. config plan orqali yangi digestni ko‘rib chiqing.",
+      "manifest_review_changed": "Fayl o‘zgargan. Saqlashdan oldin qayta yuklang.",
       "manifest_file_exists": "Konfiguratsiya fayli mavjud. Uni tekshirib yangi faylga eksport qiling.",
       "manifest_env_multiline": "Ko‘p qatorli secretni .env ga yozib bo‘lmaydi. Boshqariladigan jarayon muhitidan foydalaning.",
       "manifest_redis_client_missing": "Redis drayverlarini tanlashdan oldin Predis o‘rnating yoki setup parametrini yoqing.",
@@ -392,7 +393,10 @@
       "worktree_dependencies_required": "Redis profili uchun paket o‘rnatishni yoqing: kerakli PHP client shu orqali tayyorlanadi.",
       "worktree_nested_project": "Bu workspace ichida boshqa loyiha ro‘yxatga olingan. Tozalashdan oldin ichki loyihani ko‘chiring yoki ro‘yxatdan chiqaring.",
       "worktree_submodules_unsupported": "Branch’da Git submodule yoki undan qolgan metadata bor. M12 ularni tozalashni boshqarmaydi; submodule’siz loyiha tanlang.",
-      "worktree_detached": "Worktree detached HEAD holatida. Commit’lar saqlanishi uchun tozalashdan oldin lokal branch yarating yoki unga o‘ting."
+      "worktree_detached": "Worktree detached HEAD holatida. Commit’lar saqlanishi uchun tozalashdan oldin lokal branch yarating yoki unga o‘ting.",
+      "manifest_review_required": "Avval konfiguratsiyani ko‘rib chiqib tasdiqlang.",
+      "worktree_archive_unavailable": "Arxiv ushbu amal uchun mavjud emas. Fayllar va qayd etilgan holatni tekshiring.",
+      "worktree_archive_limit": "Arxiv fayllar soni, hajmi yoki chuqurligi chegarasidan oshgan."
     }
   },
   "runtimes": {
@@ -731,9 +735,33 @@
       "ready": "Tayyor",
       "failed": "E’tibor talab etiladi",
       "archiving": "Arxivlanmoqda",
-      "removed": "Arxivlangan"
+      "removed": "Arxivlangan",
+      "purged": "Arxiv fayllari o‘chirildi",
+      "purging": "Arxiv fayllari o‘chirilmoqda",
+      "restoring": "Arxiv qayta faollashtirilmoqda"
     },
-    "externalTools": "Arxivlashdan oldin bu workspace’dan foydalanayotgan tashqi vositalarni yoping."
+    "externalTools": "Arxivlashdan oldin bu workspace’dan foydalanayotgan tashqi vositalarni yoping.",
+    "restore": "Arxivni qayta faollashtirish",
+    "purge": "Arxiv fayllarini o‘chirish",
+    "restoreHelp": "Fayllar, shu loyiha identifikatori va saqlangan mahalliy baza tiklanadi. Tekshirilgan branch mos bo‘lishi kerak.",
+    "purgeHelp": "Arxiv fayllari, jumladan e’tibordan chetdagi .env va SQLite butunlay o‘chiriladi. Boshqariladigan bazalar, maxfiy qiymatlar va branchlar qoladi. Alohida Git tarixi tiklash bundle’larida saqlanadi.",
+    "archiveConsent": "Arxiv va ushbu amalni tekshirdim.",
+    "archiveSize": "{{files}} fayl · {{bytes}} bayt",
+    "submoduleClone": "Repozitoriy submodule ishlatadi. DevForge ichki submodule’lari va o‘z Git tarixi bilan alohida nusxa yaratadi. Manbalar va ichki modullarga ishonchni tekshiring.",
+    "remoteCopy": "Tashqi bazadan nusxa olish",
+    "remoteHelp": "To‘xtatilgan workspace boshqariladigan bazasiga nusxa olinadi. Manba faqat o‘qiladi; o‘qish huquqli hisob ishlating. Shu loyiha paroli havolasini Konfiguratsiyada saqlang. Tashqi host uchun CA fayli va tekshirilgan TLS talab qilinadi.",
+    "remoteFields": {
+      "host": "Manba hosti",
+      "port": "Manba porti",
+      "database": "Manba bazasi",
+      "user": "O‘qish huquqli foydalanuvchi",
+      "password_ref": "Mahalliy parol havolasi",
+      "tls_ca": "CA sertifikatining to‘liq yo‘li"
+    },
+    "loopbackOnly": "Shifrlanmagan ulanishga faqat loopback manzilda ruxsat (127.0.0.1 yoki ::1)",
+    "addRemoteSecret": "Loyiha maxfiy sozlamalarini ochish",
+    "mysqlRemoteTables": "MySQL jadvallar va ma’lumotlarni ko‘chiradi. Trigger, protsedura va hodisalar kiritilmaydi. Davom etishdan oldin hajmni tekshiring.",
+    "remoteConsent": "Manbani tekshirdim, dump’ga ishonaman va nusxani mahalliy faollashtirmoqchiman. Oldingi mahalliy baza saqlansin."
   },
   "debugger": {
     "title": "Debugger va profiler",
@@ -827,7 +855,62 @@
       "runtime_missing": "Avval mos debug runtime’ni o‘rnating va tanlang.",
       "runtime_incompatible": "Runtime PHP versiyasi, arxitektura yoki ABI’ga mos emas. PHP’ni o‘zgartirishdan oldin Xdebug’ni o‘chiring.",
       "build_failed": "Native build bajarilmadi. Apple Command Line Tools va private build log’ini tekshirib qayta urining.",
-      "cancelled": "Native build bekor qilindi. Mavjud PHP va loyiha ma’lumotlari saqlandi."
+      "cancelled": "Native build bekor qilindi. Mavjud PHP va loyiha ma’lumotlari saqlandi.",
+      "invalid_request": "Usul, yo‘l, sarlavhalar va tana chegaralarini tekshiring. Transport va Xdebug sarlavhalari band qilingan.",
+      "invalid_variable": "Tahrirlanadigan oddiy mahalliy o‘zgaruvchi va turiga mos qiymat kiriting."
+    },
+    "edit": "Tahrirlash",
+    "editVariable": "{{name}} ni tahrirlash",
+    "valueType": "Qiymat turi",
+    "value": "Yangi qiymat",
+    "applyValue": "To‘xtatilgan kadrga qo‘llash",
+    "assignmentHelp": "O‘zgarishlar shu so‘rovga ta’sir qiladi. Oddiy mahalliy o‘zgaruvchilar tahrirlanadi. Bool uchun 0 yoki 1, null uchun bo‘sh qiymat kiriting.",
+    "requestOptions": "HTTP usuli, sarlavhalar va tana",
+    "method": "HTTP usuli",
+    "headers": "Sarlavhalar (har qatorda Nom: qiymat)",
+    "body": "So‘rov tanasi",
+    "requestPrivacy": "Faqat shu boshqariladigan mahalliy loyihaga yuboriladi. Sarlavhalar va tana xotirada qoladi; javob holati ko‘rsatiladi."
+  },
+  "pages": {
+    "configuration": {
+      "title": "Loyiha konfiguratsiyasi",
+      "description": "Ko‘chiriladigan sozlamalarni mahalliy qo‘llashdan oldin tekshiring."
     }
+  },
+  "configuration": {
+    "title": "Loyiha konfiguratsiyasi",
+    "project": "Loyiha",
+    "empty": "Konfiguratsiyani boshqarish uchun loyiha qo‘shing.",
+    "loading": "Konfiguratsiya o‘qilmoqda…",
+    "fileLabel": "Ko‘chiriladigan YAML konfiguratsiya",
+    "help": "Aniq paket versiyalari va mahalliy maxfiy havolalardan foydalaning. Parollarni maxfiy saqlash joyida tuting. Ko‘pi bilan 64 KiB.",
+    "modified": "Saqlanmagan o‘zgarishlar",
+    "saved": "Saqlangan nusxa",
+    "save": "Konfiguratsiyani saqlash",
+    "discard": "Tahrirlarni bekor qilish",
+    "unsaved": "Loyihani almashtirishdan oldin tahrirlarni saqlang yoki bekor qiling.",
+    "review": "Mahalliy o‘zgarishlarni ko‘rib chiqish",
+    "reviewHelp": "Avval saqlang, so‘ng yuklamalar, maxfiy havolalar va baza amallarini tekshiring. Qo‘llash loyiha skriptlarini bajarishi mumkin.",
+    "stopFirst": "Saqlash yoki qo‘llashdan oldin loyihani to‘xtating.",
+    "writeEnv": ".env o‘zgarishlarini rejaga qo‘shish",
+    "reviewAction": "Saqlangan konfiguratsiyani tekshirish",
+    "downloads": "Yuklanadigan paketlar",
+    "database": "Baza amali",
+    "secretReady": "Mahalliy maxfiy qiymat mavjud",
+    "secretMissing": "Qo‘llashdan oldin mahalliy maxfiy qiymatni qo‘shing",
+    "blockers": "Qo‘llashdan oldin hal qiling",
+    "trust": "Manbaga ishonaman va o‘zgarishlarni tekshirdim.",
+    "apply": "Tekshirilgan rejani qo‘llash",
+    "journal": "Oxirgi sozlash bosqichi",
+    "saveHelp": "Saqlashdan oldin YAML tekshiriladi. Oldingi nusxa mahalliy saqlanadi. Saqlash sozlash jarayonini ishga tushirmaydi.",
+    "saveConsent": "Fayldagi ushbu o‘zgarishlarni saqlash.",
+    "readError": "Konfiguratsiya o‘qilmadi. Loyiha va faylni tekshirib qayta urining.",
+    "reviewError": "Reja tayyorlanmadi. Saqlangan YAML va mahalliy maxfiy havolalarni tekshiring.",
+    "localSecret": "Mahalliy maxfiy saqlash joyi",
+    "secretReference": "Maxfiy qiymat havolasi",
+    "secretValue": "Maxfiy qiymat",
+    "storeSecret": "Mahalliy saqlash",
+    "secretError": "Maxfiy qiymat saqlanmadi. Havola va saqlash joyini tekshiring.",
+    "description": "Ko‘chiriladigan sozlamalarni mahalliy qo‘llashdan oldin tekshiring."
   }
 }

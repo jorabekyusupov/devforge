@@ -15,6 +15,8 @@ pub enum Error {
     SourceOutside,
     Busy,
     InvalidBreakpoint,
+    InvalidVariable,
+    InvalidRequest,
     ProfileInvalid,
     ProfileLimit,
     RuntimeMissing,
@@ -58,6 +60,49 @@ pub struct Settings {
     pub runtime: Option<String>,
     pub mode: Mode,
     pub breakpoints: Vec<Breakpoint>,
+}
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Assignment {
+    pub name: String,
+    pub kind: String,
+    pub value: String,
+}
+impl std::fmt::Debug for Assignment {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Assignment")
+            .field("kind", &self.kind)
+            .field("value", &"[developer value]")
+            .finish()
+    }
+}
+impl Assignment {
+    pub fn validate(&self) -> Result<()> {
+        let name = self.name.strip_prefix('$').ok_or(Error::InvalidVariable)?;
+        if name.is_empty()
+            || name.len() > 80
+            || !name
+                .bytes()
+                .enumerate()
+                .all(|(i, c)| c.is_ascii_alphabetic() || c == b'_' || (i > 0 && c.is_ascii_digit()))
+            || self.value.len() > 4096
+        {
+            return Err(Error::InvalidVariable);
+        }
+        let valid = match self.kind.as_str() {
+            "string" => true,
+            "int" => self.value.parse::<i64>().is_ok(),
+            "float" => self.value.parse::<f64>().is_ok_and(|x| x.is_finite()),
+            "bool" => ["0", "1"].contains(&self.value.as_str()),
+            "null" => self.value.is_empty(),
+            _ => false,
+        };
+        if valid {
+            Ok(())
+        } else {
+            Err(Error::InvalidVariable)
+        }
+    }
 }
 pub fn source(root: &std::path::Path, file: &str) -> Result<std::path::PathBuf> {
     let rel = std::path::Path::new(file);
@@ -124,5 +169,48 @@ mod settings_tests {
         settings.validate(root.path()).unwrap();
         settings.mode = Mode::Profile;
         settings.validate(root.path()).unwrap();
+    }
+}
+
+#[cfg(test)]
+mod assignment_tests {
+    use super::*;
+    #[test]
+    fn assignments_are_typed_locals_never_expressions() {
+        for (kind, value) in [
+            ("int", "12"),
+            ("float", "1.25"),
+            ("bool", "0"),
+            ("null", ""),
+            ("string", "a\"b\n"),
+        ] {
+            assert!(
+                Assignment {
+                    name: "$label".into(),
+                    kind: kind.into(),
+                    value: value.into()
+                }
+                .validate()
+                .is_ok()
+            );
+        }
+        for (name, kind, value) in [
+            ("$object->secret", "string", "x"),
+            ("$a[0]", "int", "2"),
+            ("$a", "float", "NaN"),
+            ("$a", "bool", "true"),
+            ("$a", "null", "NULL"),
+            ("$a", "int", "1;exit()"),
+        ] {
+            assert!(
+                Assignment {
+                    name: name.into(),
+                    kind: kind.into(),
+                    value: value.into()
+                }
+                .validate()
+                .is_err()
+            );
+        }
     }
 }

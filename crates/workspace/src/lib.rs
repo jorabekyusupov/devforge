@@ -1,4 +1,5 @@
 //! Shared daily-workspace orchestration. No Tauri or UI types, no credentials in DTOs.
+mod configuration;
 pub mod debugging;
 mod mail;
 pub mod repro;
@@ -148,6 +149,18 @@ pub struct Snapshot {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "action", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Command {
+    ConfigurationSave {
+        id: String,
+        expected: Option<String>,
+        text: String,
+        consent: bool,
+    },
+    ConfigurationApply {
+        id: String,
+        review: String,
+        trusted: bool,
+        write_env: bool,
+    },
     DebugInstall {
         id: String,
         trusted: bool,
@@ -171,6 +184,10 @@ pub enum Command {
         id: String,
         path: String,
     },
+    DebugHttp {
+        id: String,
+        request: devforge_debugger::session::HttpRequest,
+    },
     DebugProfileDelete {
         id: String,
         profile: String,
@@ -180,6 +197,26 @@ pub enum Command {
         id: String,
         profile: String,
         path: PathBuf,
+    },
+    WorktreeArchivePlan {
+        id: String,
+        operation: String,
+    },
+    WorktreeArchive {
+        id: String,
+        operation: String,
+        review: String,
+        consent: bool,
+    },
+    WorktreeRemotePlan {
+        id: String,
+        source: devforge_projects::backup::remote::Source,
+    },
+    WorktreeRemoteCopy {
+        id: String,
+        source: devforge_projects::backup::remote::Source,
+        review: String,
+        consent: bool,
     },
     WorktreeOpen {
         id: String,
@@ -522,6 +559,18 @@ impl Workspace {
         cancel: &Cancellation,
     ) -> Result<serde_json::Value> {
         match command {
+            Command::ConfigurationSave {
+                id,
+                expected,
+                text,
+                consent,
+            } => self.configuration_save(&id, expected.as_deref(), &text, consent),
+            Command::ConfigurationApply {
+                id,
+                review,
+                trusted,
+                write_env,
+            } => self.configuration_apply(&id, &review, trusted, write_env, cancel),
             Command::DebugInstall { id, trusted } => self.debug_install(&id, trusted, cancel),
             Command::DebugConfigure {
                 id,
@@ -536,6 +585,7 @@ impl Workspace {
             } => self.debug_breakpoints(&id, revision, breakpoints),
             Command::DebugControl { id, control } => self.debug_control(&id, control),
             Command::DebugRequest { id, path } => self.debug_request(&id, &path),
+            Command::DebugHttp { id, request } => self.debug_http(&id, request),
             Command::DebugProfileDelete {
                 id,
                 profile,
@@ -544,6 +594,25 @@ impl Workspace {
             Command::DebugProfileExport { id, profile, path } => {
                 self.debug_profile_export(&id, &profile, &path)
             }
+            Command::WorktreeArchivePlan { id, operation } => {
+                Ok(serde_json::to_value(self.worktree_archive_plan(&id, &operation)?).unwrap())
+            }
+            Command::WorktreeArchive {
+                id,
+                operation,
+                review,
+                consent,
+            } => Ok(serde_json::to_value(
+                self.worktree_archive(&id, &operation, &review, consent, cancel)?,
+            )
+            .unwrap()),
+            Command::WorktreeRemotePlan { id, source } => self.worktree_remote_plan(&id, &source),
+            Command::WorktreeRemoteCopy {
+                id,
+                source,
+                review,
+                consent,
+            } => self.worktree_remote_copy(&id, &source, &review, consent, cancel),
             Command::WorktreeOpen { id } => self.worktree_open(&id),
             Command::WorktreePlan { input } => {
                 Ok(serde_json::to_value(self.worktree_plan(&input)?).unwrap())

@@ -11,7 +11,8 @@
     "inspector": "Inspector",
     "activity": "Mail & logs",
     "workspaces": "Workspaces",
-    "debugger": "Debugger"
+    "debugger": "Debugger",
+    "configuration": "Configuration"
   },
   "common": {
     "saved": "Saved automatically",
@@ -363,7 +364,7 @@
       "manifest_secret_invalid": "Use a valid local secret reference and a value up to 4096 bytes via stdin.",
       "manifest_secret_unavailable": "The local credential store is unavailable. Retry after restoring access.",
       "manifest_busy": "Close DevForge and other CLI sessions before changing the repository environment.",
-      "manifest_review_changed": "The approved plan is stale. Run config plan again and review the new digest.",
+      "manifest_review_changed": "The file changed. Reload before saving.",
       "manifest_file_exists": "The configuration file already exists. Review it before exporting to a new file.",
       "manifest_env_multiline": "A multiline secret cannot be written to .env. Use managed process environment instead.",
       "manifest_redis_client_missing": "Install Predis or enable its explicit setup option before selecting Redis drivers.",
@@ -392,7 +393,10 @@
       "worktree_dependencies_required": "Enable dependency installation for a Redis profile so its required PHP client can be installed.",
       "worktree_nested_project": "Another registered project is inside this workspace. Move or unregister that nested project before cleanup.",
       "worktree_submodules_unsupported": "This branch contains Git submodules or retained submodule metadata. M12 does not manage their cleanup; choose a project without submodules.",
-      "worktree_detached": "This worktree has a detached HEAD. Create or switch to a local branch before cleanup so its commits remain reachable."
+      "worktree_detached": "This worktree has a detached HEAD. Create or switch to a local branch before cleanup so its commits remain reachable.",
+      "manifest_review_required": "Review and confirm configuration first.",
+      "worktree_archive_unavailable": "This archive is unavailable for this action. Check its files and recorded lifecycle state.",
+      "worktree_archive_limit": "This archive exceeds the supported file, size or depth limit."
     }
   },
   "runtimes": {
@@ -731,9 +735,33 @@
       "ready": "Ready",
       "failed": "Needs attention",
       "archiving": "Archiving",
-      "removed": "Archived"
+      "removed": "Archived",
+      "purged": "Archive files deleted",
+      "purging": "Deleting archive files",
+      "restoring": "Reactivating archive"
     },
-    "externalTools": "Close external tools using this workspace before archiving."
+    "externalTools": "Close external tools using this workspace before archiving.",
+    "restore": "Reactivate archive",
+    "purge": "Delete archived files",
+    "restoreHelp": "Restore files, the same project identity and retained local database. The reviewed branch must still match.",
+    "purgeHelp": "Permanently deletes this archive’s files, including ignored .env and SQLite files. Managed databases, credentials and branches remain. Isolated Git history is retained in recovery bundles.",
+    "archiveConsent": "I reviewed the archive and this action.",
+    "archiveSize": "{{files}} files · {{bytes}} bytes",
+    "submoduleClone": "This repository uses submodules. DevForge creates a separate clone with recursive submodules, preserving Git metadata for archive and restore. Trust the listed sources and their nested modules.",
+    "remoteCopy": "Copy external database",
+    "remoteHelp": "Copy into this stopped workspace’s managed database. The source is read only; use a read-only account. Store its password reference for this project in Configuration. Remote hosts require a CA file and verified TLS.",
+    "remoteFields": {
+      "host": "Source host",
+      "port": "Source port",
+      "database": "Source database",
+      "user": "Read-only user",
+      "password_ref": "Local password reference",
+      "tls_ca": "Absolute CA certificate path"
+    },
+    "loopbackOnly": "Allow unencrypted literal loopback only (127.0.0.1 or ::1)",
+    "addRemoteSecret": "Open project secret settings",
+    "mysqlRemoteTables": "MySQL copies tables and data. Triggers, routines and events are excluded. Review this scope before continuing.",
+    "remoteConsent": "I reviewed the source, trust its dump and want to activate its copy locally. Keep the previous local database."
   },
   "debugger": {
     "title": "Debugger & profiler",
@@ -827,7 +855,62 @@
       "runtime_missing": "Install and select a compatible debug runtime first.",
       "runtime_incompatible": "The runtime does not match this PHP version, architecture or ABI. Disable Xdebug before changing PHP.",
       "build_failed": "The native build failed. Check Apple Command Line Tools and the private build log, then retry.",
-      "cancelled": "The native build was cancelled. Existing PHP and project data were preserved."
+      "cancelled": "The native build was cancelled. Existing PHP and project data were preserved.",
+      "invalid_request": "Check the method, path, headers and body limits. Transport and Xdebug headers are reserved.",
+      "invalid_variable": "Choose an editable primitive local and a valid value for its type."
+    },
+    "edit": "Edit",
+    "editVariable": "Edit {{name}}",
+    "valueType": "Value type",
+    "value": "New value",
+    "applyValue": "Apply to paused frame",
+    "assignmentHelp": "Changes affect this request. Only primitive locals are editable. Use 0 or 1 for bool, empty for null.",
+    "requestOptions": "HTTP method, headers and body",
+    "method": "HTTP method",
+    "headers": "Headers (one Name: value per line)",
+    "body": "Request body",
+    "requestPrivacy": "Sent only to this managed local project. Headers and body stay in memory; only response status is shown."
+  },
+  "pages": {
+    "configuration": {
+      "title": "Project configuration",
+      "description": "Review portable settings before applying them locally."
     }
+  },
+  "configuration": {
+    "title": "Project configuration",
+    "project": "Project",
+    "empty": "Add a project to manage its configuration.",
+    "loading": "Reading configuration…",
+    "fileLabel": "Portable YAML configuration",
+    "help": "Use exact package pins and local secret references. Keep passwords in the secret store. Maximum 64 KiB.",
+    "modified": "Unsaved changes",
+    "saved": "Saved version",
+    "save": "Save configuration",
+    "discard": "Discard edits",
+    "unsaved": "Save or discard edits before switching projects.",
+    "review": "Review local changes",
+    "reviewHelp": "Save first, then review downloads, secrets and database actions. Applying may run trusted project scripts.",
+    "stopFirst": "Stop this project before saving or applying configuration.",
+    "writeEnv": "Include reviewed .env changes",
+    "reviewAction": "Review saved configuration",
+    "downloads": "Packages to download",
+    "database": "Database action",
+    "secretReady": "Local secret available",
+    "secretMissing": "Add this local secret before applying",
+    "blockers": "Resolve before applying",
+    "trust": "I trust this source and reviewed the changes.",
+    "apply": "Apply reviewed plan",
+    "journal": "Last setup stage",
+    "saveHelp": "YAML is validated before saving. The previous version is retained locally. Saving does not run setup.",
+    "saveConsent": "Save these file changes.",
+    "readError": "Cannot read configuration. Check the project and file, then retry.",
+    "reviewError": "Cannot prepare this plan. Check the saved YAML and local secret references.",
+    "localSecret": "Local secret store",
+    "secretReference": "Secret reference",
+    "secretValue": "Secret value",
+    "storeSecret": "Store locally",
+    "secretError": "Cannot store this secret. Check the reference and credential store.",
+    "description": "Review portable settings before applying them locally."
   }
 }

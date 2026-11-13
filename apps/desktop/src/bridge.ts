@@ -43,6 +43,14 @@ export const desktopBackend: Backend = {
     return listen<string>("workspace-exit-error", (e) => callback(e.payload));
   },
   workspace: {
+    async configurationSecret(id, reference, value) {
+      ensureDesktop();
+      return invoke("configuration_secret", { id, reference, value });
+    },
+    async configuration(id, plan, writeEnv) {
+      ensureDesktop();
+      return invoke("configuration_read", { id, plan, writeEnv });
+    },
     async debugView(id) {
       ensureDesktop();
       return invoke("debug_read", {

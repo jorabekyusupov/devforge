@@ -53,6 +53,7 @@ pub(super) fn run(
             .iter()
             .filter_map(|name| std::env::var_os(name).map(|v| (*name, v))),
         )
+        .env("GIT_SSH_COMMAND", "ssh -oBatchMode=yes")
         .env("GIT_TERMINAL_PROMPT", "0")
         .env("GIT_NO_LAZY_FETCH", "1")
         .env("GCM_INTERACTIVE", "never");
@@ -136,7 +137,7 @@ pub(super) fn status(root: &Path, path: &Path) -> Result<Vec<u8>> {
             "--porcelain=v1",
             "-z",
             "--untracked-files=all",
-            "--ignore-submodules=all",
+            "--ignore-submodules=none",
         ],
     )
 }

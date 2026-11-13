@@ -313,6 +313,8 @@ pub fn run() {
             workspace::workspace_snapshot,
             workspace::inspector_snapshot,
             workspace::debug_read,
+            workspace::configuration_read,
+            workspace::configuration_secret,
             workspace::choose_debug_profile,
             workspace::activity_read,
             workspace::choose_mail_file,

@@ -21,6 +21,7 @@ use std::{
     time::{Duration, Instant},
 };
 use zeroize::Zeroizing;
+pub mod remote;
 const LIMIT: u64 = 1024 * 1024 * 1024;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -86,12 +87,32 @@ fn run(
     c: &Credentials,
     package: &str,
     tool: &str,
+    args: Vec<std::ffi::OsString>,
+    input: Option<PathBuf>,
+    catalog: &Catalog,
+    packages: &PackageStore,
+    dir: &Path,
+    cancel: &Cancellation,
+) -> Result<()> {
+    run_connection(
+        c, package, tool, args, input, catalog, packages, dir, cancel, None,
+    )
+}
+#[allow(
+    clippy::too_many_arguments,
+    reason = "Existing backup process boundary with an optional reviewed external source"
+)]
+fn run_connection(
+    c: &Credentials,
+    package: &str,
+    tool: &str,
     mut args: Vec<std::ffi::OsString>,
     input: Option<PathBuf>,
     catalog: &Catalog,
     packages: &PackageStore,
     dir: &Path,
     cancel: &Cancellation,
+    source: Option<&remote::Source>,
 ) -> Result<()> {
     let descriptor = if c.engine == Engine::Postgresql {
         catalog
@@ -106,7 +127,11 @@ fn run(
         catalog.get(package)?
     };
     let executable = packages.executable(descriptor, tool)?;
-    let config = options(c, dir)?;
+    let config = if let Some(source) = source {
+        remote::options(source, c, dir)?
+    } else {
+        options(c, dir)?
+    };
     let mut env = crate::mysql_service::environment(&executable);
     if c.engine == Engine::Postgresql {
         env.insert(
@@ -115,7 +140,11 @@ fn run(
         );
         env.insert("PGCONNECT_TIMEOUT".into(), "5".into());
         args.extend([
-            "--host=127.0.0.1".into(),
+            format!(
+                "--host={}",
+                source.map(|s| s.host.as_str()).unwrap_or("127.0.0.1")
+            )
+            .into(),
             format!("--port={}", c.port).into(),
             format!("--username={}", c.binding.role).into(),
             "--no-password".into(),
@@ -130,6 +159,26 @@ fn run(
             .into(),
         );
         args.insert(1, "--no-login-paths".into());
+    }
+    if let Some(source) = source {
+        env.insert(
+            "PGSSLMODE".into(),
+            if source.loopback_unencrypted {
+                "disable"
+            } else {
+                "verify-full"
+            }
+            .into(),
+        );
+        if let Some(ca) = &source.tls_ca {
+            env.insert("PGSSLROOTCERT".into(), ca.as_os_str().into());
+        }
+        if c.engine == Engine::Postgresql {
+            env.insert(
+                "PGOPTIONS".into(),
+                "-c default_transaction_read_only=on".into(),
+            );
+        }
     }
     let mut supervisor = Supervisor::open(dir.join("logs"))?;
     supervisor.start_redacted(
@@ -264,7 +313,16 @@ impl ProjectStore {
                 cancel,
             )?;
         }
-        let bytes = fs::metadata(&payload)?.len();
+        self.publish_payload(project, &payload, c.engine, &package.version)
+    }
+    fn publish_payload(
+        &self,
+        project: &str,
+        payload: &Path,
+        engine: Engine,
+        version: &str,
+    ) -> Result<Manifest> {
+        let bytes = fs::metadata(payload)?.len();
         if bytes > LIMIT {
             return Err(E::InvalidBackup);
         }
@@ -272,16 +330,16 @@ impl ProjectStore {
             schema: 1,
             id: crate::id(),
             project: project.into(),
-            engine: c.engine,
-            version: package.version.clone(),
+            engine,
+            version: version.into(),
             created: std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap_or_default()
                 .as_secs(),
-            sha256: hash(&payload)?,
+            sha256: hash(payload)?,
             bytes,
         };
-        let mut archive = tempfile::NamedTempFile::new_in(&root)?;
+        let mut archive = tempfile::NamedTempFile::new_in(self.backup_root(project)?)?;
         {
             let mut zip = zip::ZipWriter::new(archive.as_file_mut());
             let options = zip::write::SimpleFileOptions::default()

@@ -25,6 +25,8 @@ mavzuni tanlang, so'ng faqat tegishli hujjatlar va ularning manbalarini o'qing.
 
 ## Manba va yuritish
 
+- [M7–M12 completion](m7-m12-completion.md) - qolgan functional imkoniyatlar, saqlanadigan source va davom etayotgan verification.
+
 - [M7.2 Xdebug](m7-xdebug-results.md) - optional native runtime, interactive debugger va function profiles; uch native target qabuli, artifact/source mapping va M15 chegaralari.
 
 - [M12 workspaces](m12-workspaces-results.md) - reviewed Git worktree projectlari, alohida muhit/DB va arxivlovchi cleanup; ARM64/Intel/Windows native backend/CLI/UI qabuli va source chegarasi bilan.

@@ -10,6 +10,7 @@ pub enum Control {
     Stop,
     Detach,
     Frame { depth: u32 },
+    Set { value: debug::Assignment },
 }
 fn convert(e: debug::Error) -> Error {
     Error {
@@ -191,6 +192,7 @@ impl Workspace {
             Control::Stop => server::Control::Stop,
             Control::Detach => server::Control::Detach,
             Control::Frame { depth } => server::Control::Frame(depth),
+            Control::Set { value } => server::Control::Set(value),
         };
         self.debugging
             .get(id)
@@ -233,6 +235,22 @@ impl Workspace {
         Ok(serde_json::json!({"saved":true}))
     }
     pub(crate) fn debug_request(&mut self, id: &str, path: &str) -> Result<serde_json::Value> {
+        self.debug_http(
+            id,
+            debug::session::HttpRequest {
+                method: "GET".into(),
+                path: path.into(),
+                headers: Default::default(),
+                body: String::new(),
+            },
+        )
+    }
+    pub(crate) fn debug_http(
+        &mut self,
+        id: &str,
+        request: debug::session::HttpRequest,
+    ) -> Result<serde_json::Value> {
+        request.validate().map_err(convert)?;
         let origin = self
             .sessions
             .get(id)
@@ -240,12 +258,19 @@ impl Workspace {
             .ok_or_else(|| error("not_running"))?
             .fallback_url;
         self.ensure_debugging(id)?;
+        if self
+            .debugging
+            .get(id)
+            .is_some_and(|a| a.request().state == "running")
+        {
+            return Err(convert(debug::Error::Busy));
+        }
         let directory = self.debug_directory(id)?.join("profiles");
         debug::store::trim(&directory).map_err(convert)?;
         self.debugging
             .get_mut(id)
             .ok_or_else(|| convert(debug::Error::Unavailable))?
-            .get(&origin, path)
+            .send(&origin, request)
             .map_err(convert)?;
         Ok(serde_json::json!({"queued":true}))
     }

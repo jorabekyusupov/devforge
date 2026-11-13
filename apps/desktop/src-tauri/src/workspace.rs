@@ -423,3 +423,42 @@ pub async fn choose_debug_profile(app: tauri::AppHandle) -> Result<Option<PathBu
     .await
     .map_err(|_| State::failure("storage_unavailable"))?
 }
+
+#[tauri::command]
+pub async fn configuration_read(
+    state: tauri::State<'_, State>,
+    id: String,
+    plan: bool,
+    write_env: bool,
+) -> Result<serde_json::Value, Error> {
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        state.with(|w| {
+            if plan {
+                w.configuration_plan(&id, write_env)
+            } else {
+                w.configuration_document(&id)
+            }
+        })
+    })
+    .await
+    .map_err(|_| State::failure("manifest_invalid"))?
+}
+
+#[tauri::command]
+pub async fn configuration_secret(
+    state: tauri::State<'_, State>,
+    id: String,
+    reference: String,
+    value: String,
+) -> Result<(), Error> {
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        state.with(|w| {
+            let p = w.projects.get(&id)?;
+            w.manifest_secret(&p.path, &reference, &value)
+        })
+    })
+    .await
+    .map_err(|_| State::failure("manifest_secret_unavailable"))?
+}
