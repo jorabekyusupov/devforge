@@ -4,6 +4,8 @@
 
 ## 2026-11-13
 
+- **TP01 CI test scope:** docs-only push/PR uchun conservative allowlist, 8 selector regression (actual Git diff/GITHUB_OUTPUT bilan); manual/code/unknown/mixed/history error old core checksni saqlaydi. Matrix nomlari va strict OKF saqlandi. [Execution evidence](execution-status.md). Remote policy natijasi pending; lokal product suite rerun qilinmadi.
+
 - **E00 bajarish boshlandi:** [Execution inventory](execution-status.md) source/platform/artifact, 16 oila va work-ID queue/decision/test map bilan integratsiya qilindi. Joriy user har accepted bosqich uchun implementation/test/commit/pushni vakolatladi; old planning tarixi saqlandi. Mustaqil M13.0 contracts, E03 Composer va E04 docs sub-agentlari boshlandi. E00 docs-only: product testlari qayta bajarilmadi; strict OKF/diff bilan qabul, actual minimum-OS/signing/client gate'lari ochiq.
 
 - **Birlashtirilgan bajarish rejasi:** [Yetti rol + tashqi agentlar](integrated-execution-plan.md): E00, M13.0–M13.9, E01–E10, M14/M15 va D01–D07 decision backlog; 16 tool oilasi va 7 rol traceability. User requested impact-based tests, mustaqil ishlarda sub-agent delegation va Mac mini UI skill routing explicit qayd etildi. Product code/test/build/CI ishlatilmadi; faqat planning hujjatlari.

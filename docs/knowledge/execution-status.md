@@ -134,7 +134,7 @@ Parallel agent boshlangan yoki tugagan itemni integrator evidence bilan yangilay
 
 | Work ID | Inventory holati | Old shart / navbatdagi qabul |
 | --- | --- | --- |
-| E00 | validated | Inventory/decision register/test map review tugadi; strict OKF va diff scope bilan source push. |
+| E00 | integrated | Inventory/decision/test map: strict34/0/0, source push99d6a9e; remote main tasdiqlandi. |
 | M13.0 | in_progress | E00 integratsiyasi; 16 oilaning contract mappingi, schema fixtures va lifecycle ADR. |
 | M13.1 | planned | M13.0; native single-owner/auth/ID/retry/cancel/Quit/headless acceptance. |
 | M13.2 | planned | M13.0 schema parallel, live CLI M13.1dan keyin. |
@@ -218,3 +218,14 @@ E00 agenti boshqa fayllarni o'zgartirmadi, Git mutation qilmaydi.
 [^workspace]: [Shared workspace core](../../crates/workspace/src/lib.rs).
 [^shell]: [Desktop serialization va native adapters](../../apps/desktop/src-tauri/src/workspace.rs).
 [^ci]: [Amaldagi CI](../../.github/workflows/check.yml).
+
+# TP01 — Docs-only CI qamrovi
+
+Amaldagi check matrix job nomlari saqlandi. Docs-only allowlist uchun faqat scoped
+CI selector regression va strict OKF ishlaydi; code/tooling/unknown/mixed/manual
+ozgarishda oldingi barcha product checks qoladi. Push before va PR base farqi,
+rename/deletion/new branch/missing history fail-open full tanlanadi.
+`scripts/ci_scope.py` uchun 8 focused unittest, actual temporary Git diff va
+GITHUB_OUTPUT integration agent tomonidan o'tdi. Workflow YAML/gating va diff review
+o'tdi. Remote Actions yangi policy qabuli hali pending; product tests lokal
+qayta bajarilmadi, chunki bu ozgarish app behavior'iga tegmaydi.
