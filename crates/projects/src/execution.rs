@@ -220,7 +220,14 @@ impl Context {
             None
         };
         let debug_launch = if debug_runtime.is_some() {
-            devforge_debugger::session::read(&store.root.join("debugging").join(id), id)
+            let directory = store.root.join("debugging");
+            if std::fs::symlink_metadata(&directory)
+                .is_ok_and(|m| !m.is_dir() || m.file_type().is_symlink())
+                || (directory.exists() && std::fs::canonicalize(&directory)? != directory)
+            {
+                return Err(E::StorageUnavailable);
+            }
+            devforge_debugger::session::read(&directory.join(id), id)
                 .map_err(|_| E::StorageUnavailable)?
         } else {
             None

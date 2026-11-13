@@ -11,6 +11,7 @@ root = pathlib.Path(__file__).resolve().parent.parent
 for version in ["8.4.27", "8.5.12"]:
     archive = a.output / f"debug-{version}.zip"
     if not archive.exists():
+        build_archive = a.output / "build outputs" / archive.name
         try:
             subprocess.run(
                 [
@@ -19,15 +20,16 @@ for version in ["8.4.27", "8.5.12"]:
                     str(root / "crates/debugger/src/provider/recipe.json"),
                     version,
                     a.target,
-                    str(archive),
+                    str(build_archive),
                 ],
                 check=True,
             )
         except subprocess.CalledProcessError:
-            log = archive.with_suffix(".build.log")
+            log = build_archive.with_suffix(".build.log")
             if log.exists():
                 print(log.read_text(errors="replace")[-12000:], flush=True)
             raise
+        build_archive.replace(archive)
     with zipfile.ZipFile(archive) as z:
         provenance = json.loads(z.read("provenance.json"))
     assert provenance["version"] == version and provenance["target"] == a.target

@@ -437,8 +437,15 @@ pub fn run(root: &Path, archives: &Path) -> Result<()> {
         21
     );
     assert_eq!(pids(&w, &b.id)?, other_pids);
+    w.stop(&a.id)?;
+    mode(&mut w, &a.id, Some(runtime.clone()), Mode::Debug)?;
+    let source = a.path.join("app/M7DebugFixture.php");
+    let moved = a.path.join("app/M7DebugFixture.php.disabled");
+    fs::rename(&source, &moved)?;
+    mode(&mut w, &a.id, None, Mode::Off)?;
+    fs::rename(&moved, &source)?;
     w.shutdown()?;
-    let report = json!({"passed":true,"host":{"os":std::env::consts::OS,"arch":std::env::consts::ARCH},"project_id":a.id,"other_project_id":b.id,"runtime_id":runtime,"php_probes":runtimes.iter().map(|(_,p)|p).collect::<Vec<_>>(),"checks":{"verified_provider_install":true,"real_laravel_http_breakpoint":true,"step_into_over_out":true,"locals_and_source_redacted":true,"request_http_200":true,"profile_http_and_cli":true,"php84_native_web":true,"profile_parse_export_delete":true,"cross_project_denial":true,"other_process_pids_unchanged":true,"off_restores_normal_php":true,"project_php_pin_and_env_unchanged":true,"shutdown_cleans_own_sessions":true}});
+    let report = json!({"passed":true,"host":{"os":std::env::consts::OS,"arch":std::env::consts::ARCH},"project_id":a.id,"other_project_id":b.id,"runtime_id":runtime,"php_probes":runtimes.iter().map(|(_,p)|p).collect::<Vec<_>>(),"checks":{"verified_provider_install":true,"real_laravel_http_breakpoint":true,"step_into_over_out":true,"locals_and_source_redacted":true,"request_http_200":true,"profile_http_and_cli":true,"php84_native_web":true,"profile_parse_export_delete":true,"cross_project_denial":true,"other_process_pids_unchanged":true,"off_restores_normal_php":true,"off_after_source_deleted":true,"project_php_pin_and_env_unchanged":true,"shutdown_cleans_own_sessions":true}});
     fs::write(
         root.join("m7-xdebug-native-result.json"),
         serde_json::to_vec_pretty(&report)?,

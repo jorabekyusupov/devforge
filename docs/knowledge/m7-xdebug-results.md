@@ -74,6 +74,10 @@ mode commands shu Rust boundary'dan foydalanadi.[^core][^workspace]
 Per-project generated INI mode/trigger/output'ni boshqaradi; project .env va
 normal PHP pin yozilmaydi. Frontend Node process'dan Xdebug environment ajratiladi.
 Stop/quit owned receipt/socket/request'ni yopadi; stale unlocked receipt faollashmaydi.
+Missing/moved breakpoint source Off'ga o'tishni bloklamaydi; yangi breakpoint
+project path bilan tekshiriladi. Receipt/history/cache linked path'lari refuse
+qilinadi. Compiler prefix app data'dagi spaces'dan ajratilgan short private
+temporary directory'da; Rust ownership cancellation'da ham uni tozalaydi.
 Schema6 debugger settings'ni default Off bilan qo'shadi; old records saqlanadi,
 old build yangi schema'ni qabul qilmaydi. Worktree/import/portable setup yangi
 project uchun local debug session'ni meros olmaydi.[^workspace][^core]
@@ -107,7 +111,7 @@ ham11 axe/0 bilan o'tdi. Oldingi retry aynan window resize'dagi ikki animatsiya
 kadrini kutishda timeout berdi; debugger breakpoint/locals assertions ungacha
 o'tgan edi. Harness paint wait endi bounded animation-frame-or-timer ACK bilan;
 functional/accessibility assertions saqlanadi. Yakuniy CI hali kutilmoqda.
-Local full workspace104 Rust passed/1 credential fixture ignored,34 frontend,
+Local full workspace107 Rust passed/1 credential fixture ignored,34 frontend,
 clippy va strict OKF28/0/0 o'tdi; target matritsa o'rniga o'tmaydi.[^ui][^workflow]
 
 Windows x64 va Intel macOS native Xdebug acceptance hali tugamadi. M15 signing,

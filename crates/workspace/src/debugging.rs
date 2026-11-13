@@ -157,6 +157,7 @@ impl Workspace {
         }
         let _guard = self.sites.project_mutation_guard(id)?;
         let p = self.projects.get(id)?;
+        settings.validate(&p.path).map_err(convert)?;
         if settings.mode != Mode::Off {
             let version = self.catalog.get(&p.php)?.version.split('-').next().unwrap();
             debug::provider::resolve(
@@ -210,6 +211,12 @@ impl Workspace {
         }
         let mut next = p.debugger.clone();
         next.breakpoints = breakpoints.clone();
+        for b in breakpoints
+            .iter()
+            .filter(|b| !p.debugger.breakpoints.contains(b))
+        {
+            debug::source(&p.path, &b.file).map_err(convert)?;
+        }
         next.validate(&p.path).map_err(convert)?;
         if let Some(a) = self.debugging.get(id)
             && let Some(s) = a.snapshot()

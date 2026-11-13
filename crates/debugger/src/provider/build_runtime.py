@@ -8,17 +8,35 @@ p.add_argument("version")
 p.add_argument("target")
 p.add_argument("output", type=pathlib.Path)
 p.add_argument("--cache", type=pathlib.Path)
+p.add_argument("--work-dir", type=pathlib.Path)
 args = p.parse_args()
 args.output = args.output.resolve()
 args.output.parent.mkdir(parents=True, exist_ok=True)
 recipe = json.loads(args.recipe.read_text())
 assert args.version in recipe["php"]
 assert args.target in recipe["spc"]
-cache = (args.cache or args.output.parent / "debug-build-inputs").resolve()
+cache_path = args.cache or args.output.parent / "debug-build-inputs"
+if cache_path.is_symlink():
+    raise RuntimeError("cache directory must not be linked")
+cache = cache_path.resolve()
 cache.mkdir(parents=True, exist_ok=True)
-work = pathlib.Path(
-    tempfile.mkdtemp(prefix="devforge-xdebug-", dir=args.output.parent)
-).resolve()
+# Compiler/autotools prefixes must stay short and free of spaces even when app data
+# is in "Library/Application Support". The application owns this TempDir in Rust,
+# so cancellation still cleans it after the managed process tree has stopped.
+if args.work_dir:
+    if (
+        args.work_dir.is_symlink()
+        or not args.work_dir.is_dir()
+        or any(args.work_dir.iterdir())
+    ):
+        raise RuntimeError("work directory must be an empty owned directory")
+    work = args.work_dir.resolve()
+else:
+    work = pathlib.Path(
+        tempfile.mkdtemp(prefix="devforge-xdebug-", dir="/private/tmp")
+    ).resolve()
+if " " in str(work):
+    raise RuntimeError("compiler prefix must not contain spaces")
 os.chmod(work, 0o700)
 prefix = work / "tools"
 sources = work / "sources"
@@ -66,9 +84,13 @@ def hash(path):
 
 def download(meta):
     path = cache / meta["sha256"]
+    if path.is_symlink():
+        raise RuntimeError("cache input must not be linked")
     if path.exists() and hash(path) == meta["sha256"]:
         return path
     temporary = path.with_suffix(".part")
+    if temporary.is_symlink():
+        raise RuntimeError("download staging must not be linked")
     # Apple CLT Python may use an older TLS library; the native curl uses system trust.
     # --disable is first so user curl configuration cannot alter this pinned transfer.
     run(

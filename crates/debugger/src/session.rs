@@ -50,6 +50,9 @@ fn root(path: &Path, id: &str) -> Result<PathBuf> {
     if id.len() != 32 || !id.bytes().all(|b| b.is_ascii_hexdigit()) {
         return Err(Error::Unauthorized);
     }
+    if fs::symlink_metadata(path).is_ok_and(|m| !m.is_dir() || m.file_type().is_symlink()) {
+        return Err(Error::Unauthorized);
+    }
     fs::create_dir_all(path)?;
     let path = fs::canonicalize(path)?;
     let marker = path.join(".devforge-debug");
@@ -315,6 +318,17 @@ impl Drop for Activation {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(unix)]
+    #[test]
+    fn launch_receipt_refuses_a_link_before_writing_ownership_files() {
+        let temp = tempfile::tempdir().unwrap();
+        let target = temp.path().join("outside");
+        fs::create_dir(&target).unwrap();
+        let linked = temp.path().join("linked");
+        std::os::unix::fs::symlink(&target, &linked).unwrap();
+        assert!(read(&linked, &"a".repeat(32)).is_err());
+        assert!(!target.join(".devforge-debug").exists());
+    }
     #[test]
     fn launch_is_owned_stale_and_http_trigger_is_project_local() {
         let temp = tempfile::tempdir().unwrap();

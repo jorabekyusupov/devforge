@@ -281,6 +281,11 @@ pub fn install(
     if !Path::new("/Library/Developer/CommandLineTools/usr/bin/clang").is_file() && !Path::new("/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang").is_file(){return Err(Error::BuildFailed);}
     let directory = root(store)?;
     let _lock = {
+        if fs::symlink_metadata(directory.join("build.lock"))
+            .is_ok_and(|m| !m.is_file() || m.file_type().is_symlink())
+        {
+            return Err(Error::Unauthorized);
+        }
         let f = fs::OpenOptions::new()
             .read(true)
             .write(true)
@@ -291,6 +296,10 @@ pub fn install(
         f
     };
     let stage = tempfile::tempdir_in(&directory)?;
+    // Own the separate short compiler prefix too; Rust removes it on cancellation.
+    let work = tempfile::Builder::new()
+        .prefix("devforge-xdebug-build-")
+        .tempdir_in("/private/tmp")?;
     let source = stage.path().join("builder.py");
     let metadata = stage.path().join("recipe.json");
     let archive = stage.path().join("runtime.zip");
@@ -312,6 +321,8 @@ pub fn install(
         ])
         .arg("--cache")
         .arg(directory.join("build-inputs"))
+        .arg("--work-dir")
+        .arg(work.path())
         .env_clear();
     for name in ["HOME", "TMPDIR", "HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY"] {
         if let Some(v) = std::env::var_os(name) {

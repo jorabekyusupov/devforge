@@ -93,8 +93,36 @@ impl Settings {
             if b.line == 0 || b.line > 1_000_000 || !unique.insert((&b.file, b.line)) {
                 return Err(Error::InvalidBreakpoint);
             }
-            source(root, &b.file)?;
+            if self.mode == Mode::Debug {
+                source(root, &b.file)?;
+            }
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod settings_tests {
+    use super::*;
+    #[test]
+    fn missing_breakpoint_source_cannot_prevent_disabling_debugging() {
+        let root = tempfile::tempdir().unwrap();
+        let file = root.path().join("work.php");
+        std::fs::write(&file, "<?php echo 1;").unwrap();
+        let mut settings = Settings {
+            mode: Mode::Debug,
+            runtime: Some("a".repeat(32)),
+            breakpoints: vec![Breakpoint {
+                file: "work.php".into(),
+                line: 1,
+            }],
+        };
+        settings.validate(root.path()).unwrap();
+        std::fs::remove_file(file).unwrap();
+        assert!(settings.validate(root.path()).is_err());
+        settings.mode = Mode::Off;
+        settings.validate(root.path()).unwrap();
+        settings.mode = Mode::Profile;
+        settings.validate(root.path()).unwrap();
     }
 }

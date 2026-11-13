@@ -71,6 +71,10 @@ pub fn list(root: &Path) -> Result<Vec<Item>> {
     Ok(out)
 }
 fn path(root: &Path, key: &str) -> Result<PathBuf> {
+    let directory = fs::symlink_metadata(root)?;
+    if !directory.is_dir() || directory.file_type().is_symlink() {
+        return Err(Error::Unauthorized);
+    }
     if key.len() != 32 || !key.bytes().all(|b| b.is_ascii_hexdigit()) {
         return Err(Error::ProfileInvalid);
     }
@@ -176,6 +180,27 @@ pub fn export(root: &Path, key: &str, destination: &Path) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(unix)]
+    #[test]
+    fn profile_operations_refuse_a_linked_history_directory() {
+        let temp = tempfile::tempdir().unwrap();
+        let outside = temp.path().join("outside");
+        fs::create_dir(&outside).unwrap();
+        let file = outside.join("cachegrind.fixture.out");
+        fs::write(&file, "other data").unwrap();
+        let linked = temp.path().join("profiles");
+        std::os::unix::fs::symlink(&outside, &linked).unwrap();
+        assert!(delete(&linked, &id("cachegrind.fixture.out")).is_err());
+        assert!(
+            export(
+                &linked,
+                &id("cachegrind.fixture.out"),
+                &temp.path().join("export")
+            )
+            .is_err()
+        );
+        assert_eq!(fs::read_to_string(file).unwrap(), "other data");
+    }
     #[test]
     fn scoped_profiles_refuse_links_and_exports_never_overwrite() {
         let dir = tempfile::tempdir().unwrap();
