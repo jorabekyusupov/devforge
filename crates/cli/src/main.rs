@@ -6,6 +6,7 @@ mod inspector;
 mod project;
 mod runtime;
 mod site;
+mod workspaces;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     if std::env::args().nth(1).as_deref() == Some("distribution") {
@@ -17,6 +18,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     if std::env::args().nth(1).as_deref() == Some("config") {
         if let Err(error) = config::run() {
+            eprintln!("{}", serde_json::json!({"error":error}));
+            std::process::exit(1);
+        }
+        return Ok(());
+    }
+    if std::env::args().nth(1).as_deref() == Some("workspace") {
+        if let Err(error) = workspaces::run() {
             eprintln!("{}", serde_json::json!({"error":error}));
             std::process::exit(1);
         }
@@ -52,7 +60,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     if std::env::args().nth(1).as_deref() != Some("doctor") {
         eprintln!(
-            "Usage: devforge config init|export|plan|setup|secret|status | doctor | inspect <project-id> | site list|configure|remove|authority|system-plan|serve | runtime catalog|install|probe|remove <id> [archive|executable]"
+            "Usage: devforge workspace list|plan|create|cleanup-plan|cleanup | config init|export|plan|setup|secret|status | doctor | inspect <project-id> | site list|configure|remove|authority|system-plan|serve | runtime catalog|install|probe|remove <id> [archive|executable]"
         );
         std::process::exit(2);
     }

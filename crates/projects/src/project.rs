@@ -54,6 +54,8 @@ pub struct Project {
     pub environment_references: BTreeMap<String, String>,
     #[serde(default)]
     pub mail: bool,
+    #[serde(default)]
+    pub worktree: Option<String>,
     pub revision: u64,
     pub active: bool,
     #[serde(default)]
@@ -167,7 +169,7 @@ impl ProjectStore {
         connection.busy_timeout(Duration::from_secs(3))?;
         connection.pragma_update(None, "foreign_keys", true)?;
         let version: u32 = connection.pragma_query_value(None, "user_version", |r| r.get(0))?;
-        if version > 4 {
+        if version > 5 {
             return Err(E::StorageUnavailable);
         }
         if version == 0 {
@@ -181,6 +183,9 @@ impl ProjectStore {
         }
         if version <= 3 {
             connection.pragma_update(None, "user_version", 4)?;
+        }
+        if version <= 4 {
+            connection.pragma_update(None, "user_version", 5)?;
         }
         Ok(Self { connection, root })
     }
@@ -232,6 +237,7 @@ impl ProjectStore {
             environment_names: Vec::new(),
             environment_references: Default::default(),
             mail: false,
+            worktree: None,
             revision: 1,
             active: true,
             php_settings: Default::default(),
@@ -284,6 +290,28 @@ impl ProjectStore {
     }
     pub fn forget(&self, id: &str, revision: u64) -> Result<()> {
         let mut p = self.get(id)?;
+        if p.worktree.is_some() {
+            return Err(E::WorkspaceManaged);
+        }
+        p.active = false;
+        self.save(&mut p, revision)
+    }
+    pub fn claim_worktree(&self, id: &str, revision: u64, worktree: &str) -> Result<()> {
+        if worktree.len() != 32 || !worktree.bytes().all(|b| b.is_ascii_hexdigit()) {
+            return Err(E::InvalidProject);
+        }
+        let mut p = self.get(id)?;
+        if p.worktree.is_some() {
+            return Err(E::WorkspaceManaged);
+        }
+        p.worktree = Some(worktree.into());
+        self.save(&mut p, revision)
+    }
+    pub fn retire_worktree(&self, id: &str, revision: u64, worktree: &str) -> Result<()> {
+        let mut p = self.get(id)?;
+        if p.worktree.as_deref() != Some(worktree) {
+            return Err(E::WorkspaceManaged);
+        }
         p.active = false;
         self.save(&mut p, revision)
     }

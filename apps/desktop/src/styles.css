@@ -1600,3 +1600,198 @@ dialog {
 .activity-content .mail-addresses{display:grid;grid-template-columns:64px minmax(0,1fr);gap:6px 14px;margin:12px 0 16px}
 .activity-content .mail-addresses dd{text-align:left;max-width:none;width:auto}
 .activity-content .activity-detail-title button{flex:none}
+
+/* Worktree rows remain readable at the desktop window floor. */
+.worktrees-page .workspace-toolbar {
+  justify-content: space-between;
+}
+.worktrees-page .workspace-toolbar label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.fork-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 24px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.fork-list-heading,
+.fork-row {
+  display: grid;
+  grid-template-columns:
+    minmax(140px, 1.2fr) minmax(130px, 1fr) minmax(80px, 0.65fr)
+    minmax(175px, 1.2fr) minmax(90px, 0.7fr);
+  gap: 16px;
+  align-items: center;
+  text-align: start;
+}
+.fork-list-heading {
+  padding: 12px 16px;
+  color: var(--muted);
+  font-weight: 600;
+}
+.fork-row {
+  width: 100%;
+  min-height: 72px;
+  padding: 16px;
+  border: 0;
+  border-radius: 0;
+  background: var(--surface);
+}
+.fork-list li + li {
+  border-top: 1px solid var(--border);
+}
+.fork-row.selected {
+  background: var(--selected);
+  box-shadow: inset 3px 0 var(--accent);
+}
+.fork-row > span,
+.fork-row > strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.fork-row svg {
+  width: 16px;
+  height: 16px;
+  margin-inline-end: 8px;
+  vertical-align: middle;
+}
+.fork-detail {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 24px;
+}
+.fork-detail h2 {
+  margin-top: 0;
+}
+.fork-detail dl,
+.fork-review {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.3fr) minmax(0, 1fr);
+  gap: 12px 20px;
+  margin-block: 24px;
+}
+.fork-detail dt,
+.fork-review dt {
+  color: var(--muted);
+}
+.fork-detail dd,
+.fork-review dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.fork-detail .workspace-actions {
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+.fork-dialog {
+  width: min(760px, calc(100vw - 40px));
+}
+.worktrees-page .check-label,
+.fork-dialog .check-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-block: 16px;
+}
+.worktrees-page .check-label input,
+.fork-dialog .check-label input {
+  flex: none;
+  margin-top: 5px;
+}
+.fork-dialog .form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.fork-dialog .form-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+}
+.fork-dialog .form-grid input,
+.fork-dialog .form-grid select {
+  min-width: 0;
+  width: 100%;
+}
+@media (max-width: 1180px) {
+  .fork-list-heading {
+    display: none;
+  }
+  .fork-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  }
+  .fork-row > span:nth-child(3) {
+    grid-row: 2;
+  }
+  .fork-domain {
+    grid-column: 2 / 4;
+  }
+  .fork-row .status-pill {
+    grid-column: 3;
+    grid-row: 1;
+  }
+}
+@media (max-width: 900px) {
+  .fork-dialog .form-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .fork-detail {
+    padding: 16px;
+  }
+  .fork-detail dl,
+  .fork-review {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+  }
+  .fork-detail dd,
+  .fork-review dd {
+    margin-bottom: 10px;
+  }
+}
+
+.worktrees-page .fork-row {
+  display: grid;
+  border: 0;
+  border-radius: 0;
+}
+.worktrees-page .mono,
+.fork-dialog .mono {
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.85rem;
+}
+.worktrees-page a.primary {
+  background: var(--accent);
+  color: var(--on-accent);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.worktrees-page a.primary svg {
+  width: 1rem;
+  height: 1rem;
+}
+.worktrees-page .status-pill {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 0.8rem;
+  width: fit-content;
+}
+
+.fork-list li {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 80px;
+}
+.fork-dialog {
+  overscroll-behavior: contain;
+}
+.worktrees-page .fork-detail dd { text-align:start; }
+.worktrees-page .workspace-actions {display:flex;flex-wrap:wrap;align-items:center;gap:12px;}
+.worktrees-page .check-label,.fork-dialog .check-label {flex-direction:row;}
+.worktrees-page .fork-row:focus-visible {outline-offset:-4px;}

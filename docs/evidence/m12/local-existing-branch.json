@@ -1,0 +1,8 @@
+{
+  "branch_preserved_after_cleanup": true,
+  "checked_out_branch_refused": true,
+  "copied_custom_secret_in_store_not_env": true,
+  "existing_local_branch_attached": true,
+  "independent_project_and_database": true,
+  "target": "macos-arm64"
+}

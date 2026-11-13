@@ -299,3 +299,44 @@ fn staged_generations_preserve_active_binding_and_use_engine_specific_role_limit
         mysql.database
     );
 }
+
+#[test]
+fn schema_four_records_keep_environment_and_runtime_selections_in_schema_five() {
+    let root = tempfile::tempdir().unwrap();
+    let catalog = Catalog::bundled();
+    let php = selection(&catalog, "php", "8.4");
+    let node = selection(&catalog, "node", "v22");
+    let path = root.path().join("existing");
+    project(&path, "^8.3", "*");
+    let metadata = root.path().join("metadata");
+    let store = ProjectStore::open(&metadata).unwrap();
+    let p = store
+        .import(&path, "Existing M11 project", &php, &node, &catalog)
+        .unwrap();
+    drop(store);
+    let connection = rusqlite::Connection::open(metadata.join("projects.sqlite3")).unwrap();
+    let mut json = serde_json::to_value(&p).unwrap();
+    json.as_object_mut().unwrap().remove("worktree");
+    connection
+        .execute(
+            "UPDATE projects SET record=?1 WHERE id=?2",
+            rusqlite::params![json.to_string(), p.id],
+        )
+        .unwrap();
+    connection.pragma_update(None, "user_version", 4).unwrap();
+    drop(connection);
+    let store = ProjectStore::open(&metadata).unwrap();
+    let loaded = store.get(&p.id).unwrap();
+    assert_eq!(loaded.php, p.php);
+    assert_eq!(loaded.node, p.node);
+    assert_eq!(loaded.revision, p.revision);
+    assert_eq!(loaded.path, p.path);
+    assert!(loaded.worktree.is_none());
+    let connection = rusqlite::Connection::open(metadata.join("projects.sqlite3")).unwrap();
+    assert_eq!(
+        connection
+            .pragma_query_value(None, "user_version", |r| r.get::<_, u32>(0))
+            .unwrap(),
+        5
+    );
+}

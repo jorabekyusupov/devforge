@@ -25,7 +25,7 @@ Ushbu tartib ko'rsatmasi tasdiqlangan; quyidagi funksional tafsilotlar hali reja
 va implementatsiya dalili emas. Hujjatning `decision_status: proposed` qiymati shu
 feature tafsilotlariga tegishli. Qayta tartiblash topshirig'i kodni boshlamagan;
 keyingi «m7dan boshla» ko'rsatmasi M7 implementatsiyasini vakolatladi. Joriy
-holat [M7 natijalarida](m7-inspector-results.md); M8 keyingi user topshirig'i bilan boshlandi; M9 user topshirigi bilan boshlandi; M10 keyingi user topshirigi bilan boshlandi; M11 keyingi user topshirigi bilan boshlandi; M12-M15 tafsilotlari taklif bo'lib qoladi.
+holat [M7 natijalarida](m7-inspector-results.md); M8 keyingi user topshirig'i bilan boshlandi; M9 user topshirigi bilan boshlandi; M10 keyingi user topshirigi bilan boshlandi; M11 keyingi user topshirigi bilan boshlandi; M12 user topshirig‘i bilan boshlandi; M13-M15 tafsilotlari taklif bo‘lib qoladi.
 
 M7.1 uchun Laravel companion, opt-in Inspector va request/query profiling kodi
 yaratildi. Native platforma dalillari va cheklovlari o'sha hisobotda yuritiladi.
@@ -36,7 +36,7 @@ M8 Laravel/Git wizard, preparation, PHP settings/diagnostics, recent/favorites
 va HTTPS review bilan functional native qabuldan o'tdi; actual source/job
 matritsasi [M8 natijalarida](m8-project-setup-results.md). System authorization
 dialoglari va release/minimum-OS/profile gate'lari M15'da qoladi. Keyingi reja
-M9 foydalanuvchi topshirigi bilan boshlandi; functional native qabul hamda Intel MySQL capability gap [M9 natijalarida](m9-services-results.md). M9 topshirigi M10 ni avtomatik boshlamagan; keyingi user so‘rovi M10 ni vakolatladi. M10 CLI funksional qabul holati va cheklovlari [M10 natijalarida](m10-reproducible-results.md). M11 SMTP/mail va kengaytirilgan loglar funksional qabuli macOS ARM64/Intel hamda Windows x64’da o‘tdi; source/job/artifact dalillari va ochiq dialog/release gate‘lari [M11 natijalarida](m11-mail-logs-results.md). M12 user topshirig‘isiz boshlanmaydi.
+M9 foydalanuvchi topshirigi bilan boshlandi; functional native qabul hamda Intel MySQL capability gap [M9 natijalarida](m9-services-results.md). M9 topshirigi M10 ni avtomatik boshlamagan; keyingi user so‘rovi M10 ni vakolatladi. M10 CLI funksional qabul holati va cheklovlari [M10 natijalarida](m10-reproducible-results.md). M11 SMTP/mail va kengaytirilgan loglar funksional qabuli macOS ARM64/Intel hamda Windows x64’da o‘tdi; source/job/artifact dalillari va ochiq dialog/release gate‘lari [M11 natijalarida](m11-mail-logs-results.md). M12 keyingi user topshirig‘i bilan boshlandi; [workspaces natijalari](m12-workspaces-results.md) alohida yuritiladi. M13 avtomatik boshlanmaydi.
 
 M0-M6 tarixiy raqamlari saqlanadi. Keyingi ishlar bajarish ketma-ketligi bo'yicha
 qayta raqamlandi: oldingi M12 endi M7, oldingi M7 endi M15. Eski raqamlar faqat

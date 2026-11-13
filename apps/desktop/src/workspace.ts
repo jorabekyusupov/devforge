@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 export interface Project {
   mail?: boolean;
+  worktree?: string | null;
   services?: ServiceSelection;
   php_settings?: PhpSettings;
   id: string;
@@ -100,6 +101,7 @@ export interface Database {
   users: number;
 }
 export interface Snapshot {
+  worktrees?: WorktreeView[];
   starter_constraint?: string;
   projects: Row[];
   runtimes: Runtime[];
@@ -256,6 +258,59 @@ export interface LogPage {
   total: number;
   page: number;
 }
+export interface WorktreeInput {
+  source_id: string;
+  name: string;
+  branch: string;
+  base: string;
+  new_branch: boolean;
+  database: "empty" | "clone";
+  dependencies: boolean;
+  copy_environment: boolean;
+}
+export interface WorktreeRecord {
+  schema: number;
+  id: string;
+  input: WorktreeInput;
+  source_path: string;
+  common_dir: string;
+  git_dir: string | null;
+  commit: string;
+  domain: string;
+  project_id: string | null;
+  stage: string;
+  last_error: string | null;
+  configuration: {
+    runtimes: { php: string; node: string; composer: string };
+    database: { engine: string; version: string } | null;
+  };
+}
+export interface WorktreeView {
+  files_archived?: boolean;
+  record: WorktreeRecord;
+  path: string;
+  retained_path: string;
+}
+export interface WorktreePlan {
+  input: WorktreeInput;
+  commit: string;
+  domain: string;
+  source_dirty: boolean;
+  environment_names: string[];
+  blockers: string[];
+  digest: string;
+  sqlite: boolean;
+  packages: Record<string, string>;
+}
+export interface WorktreeCleanup {
+  workspace: WorktreeView;
+  dirty: boolean;
+  branch: string;
+  head: string;
+  databases: Binding[];
+  blockers: string[];
+  digest: string;
+}
 export interface WorkspaceBackend {
   inbox?(id: string, query: string, page: number): Promise<MailView>;
   message?(id: string, message: string): Promise<MailDetail>;
@@ -288,6 +343,15 @@ export type ProjectInput = {
   queue: boolean;
 };
 export type Command =
+  | { action: "worktree_plan"; input: WorktreeInput }
+  | {
+      action: "worktree_create";
+      input: WorktreeInput;
+      review: string;
+      trusted: boolean;
+    }
+  | { action: "worktree_cleanup_plan" | "worktree_open"; id: string }
+  | { action: "worktree_cleanup"; id: string; review: string; consent: boolean }
   | { action: "mail_configure"; id: string; enabled: boolean }
   | {
       action: "mail_delete";

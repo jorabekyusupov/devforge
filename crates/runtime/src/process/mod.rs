@@ -1,3 +1,4 @@
+pub mod host;
 mod log;
 mod redact;
 mod tree;

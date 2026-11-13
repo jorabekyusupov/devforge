@@ -191,9 +191,8 @@ impl Workspace {
         }
         Ok(())
     }
-    pub fn manifest_export(&self, id: &str, destination: Option<&Path>) -> Result<Manifest> {
+    pub fn manifest_definition(&self, id: &str) -> Result<Manifest> {
         let p = self.projects.get(id)?;
-        self.require_stopped(id)?;
         let site = self
             .sites
             .sites()?
@@ -296,6 +295,12 @@ impl Workspace {
             pins: Default::default(),
         };
         m.pin_all(&self.catalog)?;
+        Ok(m)
+    }
+    pub fn manifest_export(&self, id: &str, destination: Option<&Path>) -> Result<Manifest> {
+        self.require_stopped(id)?;
+        let p = self.projects.get(id)?;
+        let m = self.manifest_definition(id)?;
         let destination = destination
             .map(Path::to_path_buf)
             .unwrap_or_else(|| p.path.join("devforge.yaml"));

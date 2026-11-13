@@ -281,3 +281,18 @@ Roadmap M11 lokal SMTP/mail catcher va boy Laravel log/exception viewer scope'in
 bajarish, tests/OKF/source reconciliation va final push cadence saqlanadi. M12
 auto-start emas. [M11 hisobotida](../m11-mail-logs-results.md) implementation
 choices, actual verification va cheklovlar alohida yuritiladi.
+
+## M12 topshirigi
+
+Foydalanuvchi keyingi bosqichni boshlashni so'radi:
+
+> M12 boshla barcha ishlar tugagandan song
+
+M12 roadmap'dagi branch/worktree, alohida project/domain/port/empty yoki clone DB
+va ownership-aware cleanup scope'ini bajaradi. Oldingi test/OKF/source reconciliation
+va final push cadence saqlanadi. M13 auto-start emas. Implementatsiya, native dalil
+va cheklovlar [M12 hisobotida](../m12-workspaces-results.md) yuritiladi.
+
+Keyingi aniqlashtirish: foydalanuvchi avval M12’ni kelgan joyidan to‘liq tugatish,
+undan keyin M7’dagi qolgan barcha ishlarni yakunlashni topshirdi. M7’da bajarilgan
+qismlarga tegmaslik cheklovi saqlanadi. Bu M13 ni avtomatik boshlash topshirig‘i emas.

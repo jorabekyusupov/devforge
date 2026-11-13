@@ -1,0 +1,7 @@
+{
+  "archived_local_files": true,
+  "fixture_secret_store": "test-support only",
+  "real_cli_json_plan_create_cleanup": true,
+  "review_and_explicit_trust": true,
+  "target": "macos-arm64"
+}

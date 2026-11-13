@@ -442,3 +442,60 @@ review/backup contract. Standard Laravel MAIL_URL uses the null sentinel when ca
 is selected. Custom hardcoded transports are not intercepted by a network firewall.
 Metadata is now schema4; previous builds refuse it. See [M11 results](docs/knowledge/m11-mail-logs-results.md)
 for current native evidence and release/rollback limitations.
+
+## M12 branch workspaces
+
+Open **Workspaces** and choose a registered Git project. Review a new or unused
+existing local branch, the resolved commit, generated domain, and empty/copied
+database before creation. Workspaces use committed history; source `.env`, ignored
+uploads, `vendor` and `node_modules` are not copied. Each gets a new project ID,
+application key, database credentials and selected Redis/mail services. M10 runtime
+pins and PHP settings are reused; repository `devforge.yaml` is preserved.
+
+Dependency setup disables Composer plugins/scripts and npm scripts. Redis profiles
+require dependency installation for their PHP client. Custom secret copies are
+opt-in, use independent local SecretStore entries and are not written to `.env`.
+Managed connection settings are written only to the newly owned private `.env`.
+An empty database is not automatically migrated; use Prepare/Artisan as appropriate.
+SQLite copies require the conventional DevForge-owned `database/database.sqlite`
+and matching SQLite profile; PostgreSQL/MySQL use the existing logical backup and
+staged restore path. Stop the source before copying its database.
+
+**Review cleanup** stops only the selected workspace, archives all its local files,
+unregisters its Git worktree and retires its project/site. The branch, databases,
+credentials and backups remain. Dirty, detached, locked, foreign and nested-project
+worktrees are refused. Git submodule branches/metadata are outside this M12 flow.
+Close external tools using the workspace before cleanup. Disk purge and automatic
+archive reactivation are not implemented. An archived folder is a file recovery
+copy; create a new worktree on its retained branch to resume Git work.
+
+The CLI uses reviewed JSON and the same core. Close the desktop app for mutations;
+list/plan are read-only. A request file contains:
+
+```json
+{
+  "source_id": "<registered-project-id>",
+  "name": "Search improvements",
+  "branch": "feature/search",
+  "base": "HEAD",
+  "new_branch": true,
+  "database": "empty",
+  "dependencies": true,
+  "copy_environment": false
+}
+```
+
+```sh
+devforge workspace list
+devforge workspace plan workspace-input.json
+devforge workspace create workspace-input.json --review <result.digest> --trust
+devforge workspace cleanup-plan <workspace-id>
+devforge workspace cleanup <workspace-id> --review <result.digest> --confirm
+```
+
+Output uses `schema: 1` and `result`. Plans contain metadata and secret names,
+never secret values. Checkout does not implicitly fetch promisor objects. Host Git
+uses the existing process-group/Windows Job adapter and does not need installed
+PHP/Node packages for cleanup. Metadata is schema5; older builds refuse it.
+[M12 results](docs/knowledge/m12-workspaces-results.md) track native coverage,
+archive semantics and the open distribution/recovery gates.

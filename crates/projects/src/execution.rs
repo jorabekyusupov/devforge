@@ -168,6 +168,7 @@ impl Context {
             environment_names: vec![],
             environment_references: Default::default(),
             mail: false,
+            worktree: None,
             revision: 0,
             active: true,
             php_settings: Default::default(),

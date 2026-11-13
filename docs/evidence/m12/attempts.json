@@ -1,0 +1,16 @@
+{
+  "local_attempts": [
+    {
+      "outcome": "Fixture expected .env but baseline projects may use only managed contexts.",
+      "correction": "Compare optional file presence and bytes; preserve absent .env."
+    },
+    {
+      "outcome": "MySQL workspace cleanup correctly refused generated untracked package-lock.json.",
+      "correction": "Commit that exact generated lock in the fixture branch; assert the unmerged branch commit remains after cleanup. Dirty guard unchanged."
+    },
+    {
+      "outcome": "Initial GUI screenshots used system appearance, which was dark locally.",
+      "correction": "Choose explicit light in the harness, fix checkbox row direction/detail alignment and reinspect real light/dark captures. No pixel-perfect claim."
+    }
+  ]
+}

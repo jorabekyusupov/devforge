@@ -1,0 +1,11 @@
+{
+  "rust_passed": 96,
+  "rust_ignored": 1,
+  "frontend_passed": 31,
+  "locale_catalogs": 3,
+  "packaging_tests": 6,
+  "clippy_all_targets_test_support": true,
+  "native_axe_cases": 15,
+  "native_axe_violations": 0,
+  "source_scope": "Local working-tree development checks and focused followups. Backend main preceded final host-Git and archival-retry guards; existing-branch, SQLite, CLI and final desktop followups provide separate evidence. Immutable-source CI records final platform acceptance."
+}

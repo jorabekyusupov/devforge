@@ -1,0 +1,246 @@
+{
+  "native": "real WKWebView/WebView2 via debug-only W3C endpoint",
+  "checks": {
+    "real_ui_creation_and_independent_project": true,
+    "cleanup_review_cancel_preserves_worktree": true,
+    "dirty_worktree_cleanup_refused": true,
+    "real_archive_and_project_retirement": true,
+    "languages_appearance_and_relaunch": true,
+    "source_environment_preserved": true
+  },
+  "accessibility": [
+    {
+      "case": "workspace-list",
+      "violations": []
+    },
+    {
+      "case": "create-form",
+      "violations": []
+    },
+    {
+      "case": "create-review",
+      "violations": []
+    },
+    {
+      "case": "created-workspace",
+      "violations": []
+    },
+    {
+      "case": "cleanup-review",
+      "violations": []
+    },
+    {
+      "case": "dirty-cleanup-refusal",
+      "violations": []
+    },
+    {
+      "case": "archived-workspace",
+      "violations": []
+    },
+    {
+      "case": "workspaces-ru",
+      "violations": []
+    },
+    {
+      "case": "workspaces-ru-minimum",
+      "violations": []
+    },
+    {
+      "case": "workspaces-uz-Latn",
+      "violations": []
+    },
+    {
+      "case": "workspaces-uz-Latn-minimum",
+      "violations": []
+    },
+    {
+      "case": "workspaces-en",
+      "violations": []
+    },
+    {
+      "case": "workspaces-en-minimum",
+      "violations": []
+    },
+    {
+      "case": "workspaces-dark",
+      "violations": []
+    },
+    {
+      "case": "preferences-relaunch",
+      "violations": []
+    }
+  ],
+  "captures": [
+    {
+      "file": "workspaces-en-light.png",
+      "viewport": {
+        "height": 1024,
+        "language": "en",
+        "scale": 2,
+        "theme": "light",
+        "width": 1536
+      }
+    },
+    {
+      "file": "workspace-create.png",
+      "viewport": {
+        "height": 1024,
+        "language": "en",
+        "scale": 2,
+        "theme": "light",
+        "width": 1536
+      }
+    },
+    {
+      "file": "workspace-cleanup-review.png",
+      "viewport": {
+        "height": 1024,
+        "language": "en",
+        "scale": 2,
+        "theme": "light",
+        "width": 1536
+      }
+    },
+    {
+      "file": "workspace-archived.png",
+      "viewport": {
+        "height": 1024,
+        "language": "en",
+        "scale": 2,
+        "theme": "light",
+        "width": 1536
+      }
+    },
+    {
+      "file": "workspaces-ru.png",
+      "viewport": {
+        "height": 1024,
+        "language": "ru",
+        "scale": 2,
+        "theme": "light",
+        "width": 1536
+      }
+    },
+    {
+      "file": "workspaces-uz-Latn.png",
+      "viewport": {
+        "height": 1024,
+        "language": "uz-Latn",
+        "scale": 2,
+        "theme": "light",
+        "width": 1536
+      }
+    },
+    {
+      "file": "workspaces-en.png",
+      "viewport": {
+        "height": 1024,
+        "language": "en",
+        "scale": 2,
+        "theme": "light",
+        "width": 1536
+      }
+    },
+    {
+      "file": "workspaces-dark.png",
+      "viewport": {
+        "height": 1024,
+        "language": "en",
+        "scale": 2,
+        "theme": "dark",
+        "width": 1536
+      }
+    }
+  ],
+  "viewport_attempts": [
+    {
+      "requested": {
+        "width": 1536,
+        "height": 1024
+      },
+      "actual": {
+        "height": 1024,
+        "width": 1536
+      },
+      "matched": true
+    },
+    {
+      "requested": {
+        "width": 1536,
+        "height": 1024
+      },
+      "actual": {
+        "height": 1024,
+        "width": 1536
+      },
+      "matched": true
+    },
+    {
+      "requested": {
+        "width": 820,
+        "height": 620
+      },
+      "actual": {
+        "height": 620,
+        "width": 820
+      },
+      "matched": true
+    },
+    {
+      "requested": {
+        "width": 1536,
+        "height": 1024
+      },
+      "actual": {
+        "height": 1024,
+        "width": 1536
+      },
+      "matched": true
+    },
+    {
+      "requested": {
+        "width": 820,
+        "height": 620
+      },
+      "actual": {
+        "height": 620,
+        "width": 820
+      },
+      "matched": true
+    },
+    {
+      "requested": {
+        "width": 1536,
+        "height": 1024
+      },
+      "actual": {
+        "height": 1024,
+        "width": 1536
+      },
+      "matched": true
+    },
+    {
+      "requested": {
+        "width": 820,
+        "height": 620
+      },
+      "actual": {
+        "height": 620,
+        "width": 820
+      },
+      "matched": true
+    },
+    {
+      "requested": {
+        "width": 1536,
+        "height": 1024
+      },
+      "actual": {
+        "height": 1024,
+        "width": 1536
+      },
+      "matched": true
+    }
+  ],
+  "external_folder_launch": "not automated; ownership URL boundary inspected"
+}

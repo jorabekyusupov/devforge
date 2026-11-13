@@ -24,6 +24,7 @@ pub enum ProjectError {
     DuplicateProject,
     NotFound,
     StaleRevision,
+    WorkspaceManaged,
     StorageUnavailable,
     SecretUnavailable,
     InvalidEnvironment,
@@ -103,6 +104,7 @@ mod localization_tests {
                 super::ProjectError::DuplicateProject,
                 super::ProjectError::NotFound,
                 super::ProjectError::StaleRevision,
+                super::ProjectError::WorkspaceManaged,
                 super::ProjectError::StorageUnavailable,
                 super::ProjectError::SecretUnavailable,
                 super::ProjectError::InvalidEnvironment,
@@ -130,3 +132,5 @@ mod localization_tests {
         }
     }
 }
+
+pub mod workspace_sqlite;

@@ -11,6 +11,7 @@ import {
   Power,
   ScanSearch,
   Mail,
+  GitBranch,
 } from "lucide-react";
 import {
   desktopBackend,
@@ -21,12 +22,14 @@ import {
   type Theme,
 } from "./bridge";
 import { SettingsPage } from "./pages/SettingsPage";
+import { WorktreesPage } from "./pages/WorktreesPage";
 import { WorkspacePage } from "./pages/WorkspacePage";
 import { ActivityPage } from "./pages/ActivityPage";
 import { InspectorPage } from "./pages/InspectorPage";
 import { DiagnosticsPage } from "./pages/DiagnosticsPage";
 
 type Page =
+  | "workspaces"
   | "activity"
   | "inspector"
   | "projects"
@@ -37,6 +40,7 @@ type Page =
 const validPage = (value: string): Page => {
   const route = value.split("?")[0];
   return [
+    "workspaces",
     "projects",
     "runtimes",
     "services",
@@ -167,6 +171,7 @@ export function App({ backend = desktopBackend }: { backend?: Backend }) {
 
   const navigateItems = [
     { id: "projects", icon: Folder, group: "workspace" },
+    { id: "workspaces", icon: GitBranch, group: "workspace" },
     { id: "runtimes", icon: Layers, group: "workspace" },
     { id: "services", icon: Server, group: "workspace" },
     { id: "inspector", icon: ScanSearch, group: "workspace" },
@@ -233,6 +238,7 @@ export function App({ backend = desktopBackend }: { backend?: Backend }) {
             <span>
               {t(
                 [
+                  "workspaces",
                   "projects",
                   "runtimes",
                   "services",
@@ -303,6 +309,7 @@ export function App({ backend = desktopBackend }: { backend?: Backend }) {
           />
         )}
 
+        {page === "workspaces" && <WorktreesPage backend={backend.workspace} />}
         {page === "activity" && <ActivityPage backend={backend.workspace} />}
         {page === "inspector" && <InspectorPage backend={backend.workspace} />}
 

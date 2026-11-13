@@ -1,6 +1,7 @@
 //! Shared daily-workspace orchestration. No Tauri or UI types, no credentials in DTOs.
 mod mail;
 pub mod repro;
+pub mod worktrees;
 pub use devforge_inspector::logs::Filter as LogFilter;
 mod services;
 pub mod setup;
@@ -134,6 +135,7 @@ pub struct Log {
 }
 #[derive(Clone, Serialize, Default)]
 pub struct Snapshot {
+    pub worktrees: Vec<worktrees::View>,
     pub starter_constraint: String,
     pub projects: Vec<Row>,
     pub runtimes: Vec<Runtime>,
@@ -144,6 +146,25 @@ pub struct Snapshot {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "action", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Command {
+    WorktreeOpen {
+        id: String,
+    },
+    WorktreePlan {
+        input: worktrees::Input,
+    },
+    WorktreeCreate {
+        input: worktrees::Input,
+        review: String,
+        trusted: bool,
+    },
+    WorktreeCleanupPlan {
+        id: String,
+    },
+    WorktreeCleanup {
+        id: String,
+        review: String,
+        consent: bool,
+    },
     CreateProject {
         input: setup::CreateInput,
     },
@@ -463,6 +484,29 @@ impl Workspace {
         cancel: &Cancellation,
     ) -> Result<serde_json::Value> {
         match command {
+            Command::WorktreeOpen { id } => self.worktree_open(&id),
+            Command::WorktreePlan { input } => {
+                Ok(serde_json::to_value(self.worktree_plan(&input)?).unwrap())
+            }
+            Command::WorktreeCreate {
+                input,
+                review,
+                trusted,
+            } => Ok(
+                serde_json::to_value(self.worktree_create(input, &review, trusted, cancel)?)
+                    .unwrap(),
+            ),
+            Command::WorktreeCleanupPlan { id } => {
+                Ok(serde_json::to_value(self.worktree_cleanup_plan(&id)?).unwrap())
+            }
+            Command::WorktreeCleanup {
+                id,
+                review,
+                consent,
+            } => Ok(
+                serde_json::to_value(self.worktree_cleanup(&id, &review, consent, cancel)?)
+                    .unwrap(),
+            ),
             Command::MailConfigure { id, enabled } => self.configure_mail(&id, enabled),
             Command::MailDelete {
                 id,
@@ -772,6 +816,9 @@ impl Workspace {
                 Ok(serde_json::json!({"saved":true}))
             }
             Command::Forget { id, revision } => {
+                if self.managed_worktree(&id)? {
+                    return Err(error("worktree_cleanup_required"));
+                }
                 self.stop(&id)?;
                 self.mail.remove(&id);
                 self.projects.forget(&id, revision)?;
@@ -1172,6 +1219,7 @@ impl Workspace {
         logs.truncate(500);
         logs.reverse();
         Ok(Snapshot {
+            worktrees: self.worktrees()?,
             starter_constraint: self
                 .catalog
                 .defaults

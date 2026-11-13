@@ -23,6 +23,8 @@ mod services;
 #[cfg(windows)]
 #[path = "../../projects/examples/support/windows_unprivileged.rs"]
 mod windows_unprivileged;
+#[path = "support/worktrees.rs"]
+mod worktrees;
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 fn main() -> Result<()> {
     #[cfg(windows)]
@@ -30,6 +32,21 @@ fn main() -> Result<()> {
         std::process::exit(code);
     }
     let args: Vec<_> = std::env::args().skip(1).collect();
+    if args.first().map(String::as_str) == Some("worktrees-existing-branch") {
+        return worktrees::existing_branch_run(Path::new(args.get(1).ok_or("fixture required")?));
+    }
+    if args.first().map(String::as_str) == Some("worktrees-sqlite-empty") {
+        return worktrees::sqlite_empty(Path::new(args.get(1).ok_or("fixture required")?));
+    }
+    if args.first().map(String::as_str) == Some("worktrees-cli") {
+        return worktrees::cli(
+            Path::new(args.get(1).ok_or("fixture required")?),
+            Path::new(args.get(2).ok_or("CLI executable required")?),
+        );
+    }
+    if args.first().map(String::as_str) == Some("worktrees-native") {
+        return worktrees::run(Path::new(args.get(1).ok_or("fixture required")?));
+    }
     if args.first().map(String::as_str) == Some("activity-send") {
         return activity::send_ui(
             Path::new(args.get(1).ok_or("fixture required")?),

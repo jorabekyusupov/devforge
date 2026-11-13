@@ -1,0 +1,20 @@
+{
+  "archive_preserves_ignored_env_and_branch": true,
+  "copied_environment_secret_entries_independent": true,
+  "database_credentials_and_permissions_isolated": true,
+  "dirty_cleanup_refused": true,
+  "mail_listener_and_inbox_isolated": true,
+  "mysql_capability": "verified",
+  "mysql_clone": true,
+  "parallel_laravel_php_node_queue_http": true,
+  "parent_process_survives_child_cleanup": true,
+  "postgresql_empty_and_clone": true,
+  "redis_cache_queue_isolated": true,
+  "retained_database_data_accessible": true,
+  "source_environment_and_head_preserved": true,
+  "source_id": "524d61d19990492988317dcaec085947",
+  "sqlite_wizard_snapshot_and_archive": true,
+  "target": "macos-arm64",
+  "ui_create_source_id": "f1f6dd21f41044149ae3461a697ad5d9",
+  "ui_seed_workspace": "790db97952d842a58b8a225b3e9a9f98"
+}

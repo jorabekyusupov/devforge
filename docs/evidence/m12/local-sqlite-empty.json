@@ -1,0 +1,7 @@
+{
+  "explicit_prepare_runs_migrations": true,
+  "source_sqlite_data_preserved": true,
+  "sqlite_empty_starts_without_source_tables": true,
+  "sqlite_file_archived": true,
+  "target": "macos-arm64"
+}

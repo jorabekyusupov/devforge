@@ -9,7 +9,8 @@
     "runtimes": "Runtimes",
     "services": "Services & logs",
     "inspector": "Inspector",
-    "activity": "Mail & logs"
+    "activity": "Mail & logs",
+    "workspaces": "Workspaces"
   },
   "common": {
     "saved": "Saved automatically",
@@ -132,7 +133,8 @@
       "invalid_backup": "The backup archive is invalid or its checksum does not match.",
       "backup_unsupported": "This backup engine, version or database objects are not supported.",
       "backup_destination_exists": "A file already exists there. Export with a different name.",
-      "mail_unavailable": "Mail capture is unavailable. Stop the project, retry capture and check the local port."
+      "mail_unavailable": "Mail capture is unavailable. Stop the project, retry capture and check the local port.",
+      "workspace_managed": "Use Workspaces → Review cleanup for this project. Generic Forget is disabled."
     }
   },
   "serving": {
@@ -362,7 +364,29 @@
       "manifest_dependency_failed": "Dependency setup failed. Check config status and the private tool logs; fix and review a fresh plan.",
       "manifest_usage": "Usage: config init|export|plan|setup|secret|status. Setup requires --review and --trust.",
       "mail_unavailable": "Mail capture is unavailable. Stop the project, retry capture and check the local port.",
-      "mail_export_failed": "Could not save the attachment. Choose a new writable filename."
+      "mail_export_failed": "Could not save the attachment. Choose a new writable filename.",
+      "worktree_git_failed": "Git could not complete the workspace operation. Check the repository, branch and Git installation. Partial files are retained.",
+      "worktree_branch_invalid": "Use a valid local Git branch or commit name without option prefixes or revision operators.",
+      "worktree_ownership": "Workspace ownership or path verification failed. Files were preserved; inspect the workspace receipt and Git worktree registration.",
+      "worktree_busy": "Another workspace operation is active. Wait for it to finish.",
+      "worktree_repository_root": "The registered project must be the root of a non-bare Git working tree.",
+      "worktree_branch_exists": "This branch already exists. Choose another name or turn off “Create a new branch”.",
+      "worktree_branch_missing": "The selected existing local branch does not exist.",
+      "worktree_branch_in_use": "This branch is already checked out in another worktree. Choose a different branch.",
+      "worktree_stop_source": "Stop the source project before copying its database.",
+      "worktree_sqlite_scope": "SQLite copies require a DevForge-initialized project-local database/database.sqlite and its unchanged SQLite connection profile. Use an empty database for other projects.",
+      "worktree_review_changed": "The reviewed workspace state changed. Review it again before continuing.",
+      "worktree_committed_env": "The branch contains a committed .env. It was not used. Remove shared credentials from version control before creating the workspace.",
+      "worktree_database_failed": "The workspace database could not be prepared. Existing databases and partial files were retained.",
+      "worktree_removed": "This workspace is already archived.",
+      "worktree_dirty": "Commit or move staged, modified and untracked files before cleanup. Ignored local files are archived.",
+      "worktree_locked": "Git has locked this worktree. Resolve the lock before cleanup; DevForge does not force removal.",
+      "worktree_cleanup_required": "Use Workspaces → Review cleanup for this project. Generic Forget is disabled.",
+      "worktree_usage": "Usage: devforge workspace list | plan <input.json> | create <input.json> --review <digest> --trust | cleanup-plan <id> | cleanup <id> --review <digest> --confirm",
+      "worktree_dependencies_required": "Enable dependency installation for a Redis profile so its required PHP client can be installed.",
+      "worktree_nested_project": "Another registered project is inside this workspace. Move or unregister that nested project before cleanup.",
+      "worktree_submodules_unsupported": "This branch contains Git submodules or retained submodule metadata. M12 does not manage their cleanup; choose a project without submodules.",
+      "worktree_detached": "This worktree has a detached HEAD. Create or switch to a local branch before cleanup so its commits remain reachable."
     }
   },
   "runtimes": {
@@ -634,5 +658,74 @@
     "hours_other": "Last {{count}} hours",
     "count_other": "{{count}} items",
     "attachmentsCount_other": "{{count}} attachments"
+  },
+  "workspaces": {
+    "title": "Workspaces",
+    "description": "Separate branches, local data and services."
+  },
+  "forks": {
+    "new": "New workspace",
+    "source": "Source project",
+    "allSources": "All projects",
+    "name": "Workspace name",
+    "branch": "Branch",
+    "base": "Base commit or branch",
+    "database": "Database",
+    "domain": "Domain",
+    "status": "Status",
+    "path": "Local path",
+    "runtimes": "PHP / Node.js",
+    "configuration": "Configuration",
+    "pinned": "Pinned runtime versions",
+    "openProject": "Open project",
+    "openFolder": "Open folder",
+    "reviewCleanup": "Review cleanup",
+    "showArchived": "Show archived workspaces",
+    "committedOnly": "Workspaces use committed Git history. Local changes stay in the source project.",
+    "cleanupPreserves": "Cleanup archives all local files and keeps the Git branch, database and credentials. Only this workspace is stopped and unregistered.",
+    "empty": "No workspaces yet",
+    "emptyHelp": "Create a workspace from a registered Git project to work on another branch independently.",
+    "unregisteredSource": "Unregistered source",
+    "newBranch": "Create a new branch",
+    "dependencies": "Install Composer and npm dependencies without scripts or plugins",
+    "copyEnvironment": "Copy selected local environment secrets into new, independent secret entries",
+    "newHelp": "The source .env, vendor, uploads and node_modules are not copied. A new .env and application key are created. Database copy requires the source project to be stopped. Unmanaged database copies are not supported.",
+    "review": "Review workspace",
+    "reviewCreate": "Review new workspace",
+    "commit": "Commit",
+    "environment": "Environment secrets",
+    "none": "None",
+    "environmentNotCopied": "Not copied; configure secrets separately when needed.",
+    "dirtySource": "The source has local changes. Only the reviewed commit will be checked out.",
+    "trust": "I trust this repository and allow Git checkout and the selected dependency setup.",
+    "back": "Back",
+    "create": "Create workspace",
+    "working": "Preparing workspace operation…",
+    "cancelOperation": "Cancel operation",
+    "created": "Workspace created. Open its project to prepare or start services.",
+    "archived": "Workspace archived. Files, branch and databases are retained.",
+    "archivePath": "Archive path",
+    "retainedDatabases": "Retained databases",
+    "localDataRetained": "Project-local data remains in the archive.",
+    "cleanupConsent": "Stop and unregister this workspace, archive its files and retain its branch and database.",
+    "archive": "Archive workspace",
+    "managedDatabase": "Managed database",
+    "loading": "Loading workspaces…",
+    "databaseModes": {
+      "empty": "New empty database",
+      "clone": "Copy of source database"
+    },
+    "stages": {
+      "reserved": "Reserved",
+      "checkout": "Checking out",
+      "register": "Registering",
+      "database": "Preparing database",
+      "prepare": "Preparing dependencies",
+      "ready": "Ready",
+      "failed": "Needs attention",
+      "archiving": "Archiving",
+      "removed": "Archived"
+    },
+    "externalTools": "Close external tools using this workspace before archiving."
   }
 }

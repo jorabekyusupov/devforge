@@ -9,7 +9,8 @@
     "runtimes": "Runtime’lar",
     "services": "Xizmatlar va loglar",
     "inspector": "Inspektor",
-    "activity": "Mail va loglar"
+    "activity": "Mail va loglar",
+    "workspaces": "Ishchi muhitlar"
   },
   "common": {
     "saved": "Avtomatik saqlandi",
@@ -132,7 +133,8 @@
       "invalid_backup": "Backup arxivi yaroqsiz yoki tekshiruv summasi mos emas.",
       "backup_unsupported": "Backup baza turi, versiyasi yoki obyektlari qo‘llanmaydi.",
       "backup_destination_exists": "Bu nomdagi fayl mavjud. Boshqa nom bilan eksport qiling.",
-      "mail_unavailable": "Mail capture ochilmadi. Loyihani to‘xtatib qayta yoqing va lokal portni tekshiring."
+      "mail_unavailable": "Mail capture ochilmadi. Loyihani to‘xtatib qayta yoqing va lokal portni tekshiring.",
+      "workspace_managed": "Bu loyiha uchun Workspaces → Tozalashni ko‘rib chiqish amalidan foydalaning. Oddiy Forget o‘chirilgan."
     }
   },
   "serving": {
@@ -362,7 +364,29 @@
       "manifest_dependency_failed": "Dependency setup bajarilmadi. config status va lokal loglarni tekshirib tuzating, so‘ng yangi reja oling.",
       "manifest_usage": "Foydalanish: config init|export|plan|setup|secret|status. Setup uchun --review va --trust kerak.",
       "mail_unavailable": "Mail capture ochilmadi. Loyihani to‘xtatib qayta yoqing va lokal portni tekshiring.",
-      "mail_export_failed": "Attachment saqlanmadi. Yozish mumkin bo‘lgan yangi fayl nomini tanlang."
+      "mail_export_failed": "Attachment saqlanmadi. Yozish mumkin bo‘lgan yangi fayl nomini tanlang.",
+      "worktree_git_failed": "Git workspace amalini bajara olmadi. Repozitoriy, branch va Git o‘rnatilganini tekshiring. Qisman yaratilgan fayllar saqlandi.",
+      "worktree_branch_invalid": "Lokal Git branch yoki commit nomini kiriting; parametr prefiksi va revision operatorlarini ishlatmang.",
+      "worktree_ownership": "Workspace egaligi yoki manzili tasdiqlanmadi. Fayllar saqlandi; receipt va Git worktree yozuvini tekshiring.",
+      "worktree_busy": "Boshqa workspace amali bajarilmoqda. Tugashini kuting.",
+      "worktree_repository_root": "Ro‘yxatdagi loyiha non-bare Git ishchi papkasining ildizi bo‘lishi kerak.",
+      "worktree_branch_exists": "Bu branch mavjud. Boshqa nom tanlang yoki “Yangi branch yaratish”ni o‘chiring.",
+      "worktree_branch_missing": "Tanlangan mavjud lokal branch topilmadi.",
+      "worktree_branch_in_use": "Bu branch boshqa worktree’da ochilgan. Boshqa branch tanlang.",
+      "worktree_stop_source": "Bazani nusxalashdan oldin ota loyihani to‘xtating.",
+      "worktree_sqlite_scope": "SQLite nusxasi uchun DevForge tayyorlagan lokal database/database.sqlite va o‘zgarmagan SQLite ulanish sozlamasi kerak. Boshqa loyiha uchun bo‘sh baza tanlang.",
+      "worktree_review_changed": "Ko‘rib chiqilgan workspace holati o‘zgardi. Davom etishdan oldin qayta ko‘rib chiqing.",
+      "worktree_committed_env": "Branch’da commit qilingan .env bor; u ishlatilmadi. Workspace yaratishdan oldin umumiy credential’larni Git’dan olib tashlang.",
+      "worktree_database_failed": "Workspace bazasi tayyorlanmadi. Mavjud bazalar va qisman fayllar saqlandi.",
+      "worktree_removed": "Bu workspace allaqachon arxivlangan.",
+      "worktree_dirty": "Tozalashdan oldin staged, o‘zgartirilgan va untracked fayllarni commit qiling yoki ko‘chiring. Ignored lokal fayllar arxivlanadi.",
+      "worktree_locked": "Git bu worktree’ni qulflagan. Tozalashdan oldin qulf sababini hal qiling; DevForge majburan o‘chirmaydi.",
+      "worktree_cleanup_required": "Bu loyiha uchun Workspaces → Tozalashni ko‘rib chiqish amalidan foydalaning. Oddiy Forget o‘chirilgan.",
+      "worktree_usage": "Buyruq: devforge workspace list | plan <input.json> | create <input.json> --review <digest> --trust | cleanup-plan <id> | cleanup <id> --review <digest> --confirm",
+      "worktree_dependencies_required": "Redis profili uchun paket o‘rnatishni yoqing: kerakli PHP client shu orqali tayyorlanadi.",
+      "worktree_nested_project": "Bu workspace ichida boshqa loyiha ro‘yxatga olingan. Tozalashdan oldin ichki loyihani ko‘chiring yoki ro‘yxatdan chiqaring.",
+      "worktree_submodules_unsupported": "Branch’da Git submodule yoki undan qolgan metadata bor. M12 ularni tozalashni boshqarmaydi; submodule’siz loyiha tanlang.",
+      "worktree_detached": "Worktree detached HEAD holatida. Commit’lar saqlanishi uchun tozalashdan oldin lokal branch yarating yoki unga o‘ting."
     }
   },
   "runtimes": {
@@ -634,5 +658,74 @@
     "hours_other": "Oxirgi {{count}} soat",
     "count_other": "{{count}} ta element",
     "attachmentsCount_other": "{{count}} ta attachment"
+  },
+  "workspaces": {
+    "title": "Ishchi muhitlar",
+    "description": "Har branch uchun alohida loyiha, ma’lumot va xizmatlar."
+  },
+  "forks": {
+    "new": "Workspace yaratish",
+    "source": "Ota loyiha",
+    "allSources": "Barcha loyihalar",
+    "name": "Workspace nomi",
+    "branch": "Branch",
+    "base": "Asosiy commit yoki branch",
+    "database": "Ma’lumotlar bazasi",
+    "domain": "Domen",
+    "status": "Holat",
+    "path": "Lokal manzil",
+    "runtimes": "PHP / Node.js",
+    "configuration": "Sozlamalar",
+    "pinned": "Runtime versiyalari aniq belgilangan",
+    "openProject": "Loyihani ochish",
+    "openFolder": "Papkani ochish",
+    "reviewCleanup": "Tozalashni ko‘rib chiqish",
+    "showArchived": "Arxivlangan workspace’larni ko‘rsatish",
+    "committedOnly": "Workspace Git’dagi commitdan yaratiladi. Lokal o‘zgarishlar ota loyihada qoladi.",
+    "cleanupPreserves": "Tozalash barcha lokal fayllarni arxivlaydi; Git branch, baza va credential’lar saqlanadi. Faqat shu workspace to‘xtatiladi va ro‘yxatdan chiqariladi.",
+    "empty": "Hali workspace yo‘q",
+    "emptyHelp": "Boshqa branch ustida mustaqil ishlash uchun ro‘yxatdagi Git loyihadan workspace yarating.",
+    "unregisteredSource": "Ro‘yxatdan chiqarilgan ota loyiha",
+    "newBranch": "Yangi branch yaratish",
+    "dependencies": "Composer va npm paketlarini script va pluginlarsiz o‘rnatish",
+    "copyEnvironment": "Tanlangan lokal maxfiy sozlamalarni yangi, mustaqil secret yozuvlariga nusxalash",
+    "newHelp": "Ota loyihaning .env, vendor, upload va node_modules fayllari ko‘chirilmaydi. Yangi .env va ilova kaliti yaratiladi. Baza nusxasi uchun ota loyihani to‘xtating. Boshqarilmaydigan bazani nusxalash qo‘llanmaydi.",
+    "review": "Workspace rejasini ko‘rish",
+    "reviewCreate": "Yangi workspace’ni ko‘rib chiqish",
+    "commit": "Commit",
+    "environment": "Maxfiy muhit sozlamalari",
+    "none": "Yo‘q",
+    "environmentNotCopied": "Nusxalanmaydi; kerakli secret’larni alohida sozlang.",
+    "dirtySource": "Ota loyihada lokal o‘zgarishlar bor. Faqat ko‘rib chiqilgan commit olinadi.",
+    "trust": "Ushbu repozitoriyga ishonaman, Git checkout va tanlangan paket tayyorlash amallariga roziman.",
+    "back": "Orqaga",
+    "create": "Workspace yaratish",
+    "working": "Workspace amali bajarilmoqda…",
+    "cancelOperation": "Amalni bekor qilish",
+    "created": "Workspace yaratildi. Tayyorlash yoki xizmatlarni ishga tushirish uchun loyihasini oching.",
+    "archived": "Workspace arxivlandi. Fayllar, branch va bazalar saqlandi.",
+    "archivePath": "Arxiv manzili",
+    "retainedDatabases": "Saqlanadigan bazalar",
+    "localDataRetained": "Lokal ma’lumotlar arxivda qoladi.",
+    "cleanupConsent": "Shu workspace’ni to‘xtatish va ro‘yxatdan chiqarish, fayllarini arxivlash, branch va bazani saqlashga roziman.",
+    "archive": "Workspace’ni arxivlash",
+    "managedDatabase": "Boshqariladigan baza",
+    "loading": "Workspace’lar yuklanmoqda…",
+    "databaseModes": {
+      "empty": "Yangi bo‘sh baza",
+      "clone": "Ota baza nusxasi"
+    },
+    "stages": {
+      "reserved": "Ajratilgan",
+      "checkout": "Branch olinmoqda",
+      "register": "Ro‘yxatga olinmoqda",
+      "database": "Baza tayyorlanmoqda",
+      "prepare": "Paketlar tayyorlanmoqda",
+      "ready": "Tayyor",
+      "failed": "E’tibor talab etiladi",
+      "archiving": "Arxivlanmoqda",
+      "removed": "Arxivlangan"
+    },
+    "externalTools": "Arxivlashdan oldin bu workspace’dan foydalanayotgan tashqi vositalarni yoping."
   }
 }
