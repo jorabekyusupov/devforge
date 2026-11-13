@@ -364,3 +364,11 @@ bog'ladi; inson tasdig'i o'ylab topilmadi. Concurrent accepted main996a11d merge
 saqlandi. Mac ARM64/Intel source08dd836 va Windows f13c106 native qabuli, latest
 core f13c106 natijalari hamda Windows-only/test-helper projection farqi ochiq qayd
 etildi. M15 release/native-credential/minimum-OS gate'lari yopilgan deb aytilmaydi.
+
+### Windows 10 mosligi — 2026-11-13
+
+User: “Windows 10 ga ham mosla dasturni”. Windows10 22H2 x64 test kompyuteri yoki
+VM borligi haqidagi savolga “Hozir mavjud emas” deb javob berdi. Agent19045 native
+x64 floor, Win11 bilan umumiy installer va alohida actual Win10 acceptance gate
+tanladi. Bu talab minimum OS actual sinovi otganini anglatmaydi. Mavjud runtime
+pinlari va tayyor funksiyalarni saqlash, test/OKF va yakuniy push jarayoni davom etadi.

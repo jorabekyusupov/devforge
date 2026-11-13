@@ -7,6 +7,10 @@ on:
         type: choice
         default: all
         options: [all, macos-arm64, macos-x64, windows-x64]
+      installer_only:
+        description: Run release installer acceptance without repeating unrelated daily-workspace UI checks
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
@@ -43,8 +47,10 @@ jobs:
           WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: --disable-gpu
         run: target/release/examples/native_workspace run python scripts/m6_package_smoke.py m6-fixture --disposable-host
       - name: Native GUI and concurrent install/log frame measurements
+        if: ${{ !inputs.installer_only }}
         run: npm run tauri -- build --debug --no-bundle --features e2e
-      - env:
+      - if: ${{ !inputs.installer_only }}
+        env:
           WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: --disable-gpu
         run: python scripts/m5_desktop_smoke.py m6-fixture target/debug/devforge-desktop target/release/examples/native_workspace
       - name: Require successful installer acceptance after independent GUI checks

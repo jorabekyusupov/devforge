@@ -3,6 +3,19 @@ from scripts.package_desktop import run
 from scripts.m6_package_smoke import nsis_command
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 class DistributionContracts(unittest.TestCase):
+    def test_installer_and_diagnostic_minimum_windows_match(self):
+        import re
+        hooks=(ROOT/'distribution/windows/hooks.nsh').read_text(encoding='utf-8')
+        rust=(ROOT/'crates/platform/src/distribution.rs').read_text(encoding='utf-8')
+        floor=int(re.search(r'const MIN_WINDOWS_BUILD: u32 = (\d+);',rust)[1])
+        installer=int(re.search(r'!define DEVFORGE_MIN_WINDOWS_BUILD (\d+)',hooks)[1])
+        self.assertEqual(floor,installer)
+        self.assertIn('${If} $0 < ${DEVFORGE_MIN_WINDOWS_BUILD}',hooks)
+        self.assertIn('${IsNativeAMD64}',hooks)
+        for language in ['ENGLISH','RUSSIAN','UZBEK']:
+            message=re.search(r'LangString dfPrerequisites \$\{LANG_'+language+r'\} "([^"]+)"',hooks)[1]
+            self.assertIn('Windows 10 22H2',message)
+            self.assertIn(str(floor),message)
     def test_nsis_paths_keep_unquoted_final_assignment(self):
         self.assertEqual(nsis_command(r'C:\Build Tools\setup.exe',r'/D=C:\Data Files\DevForge'),r'"C:\Build Tools\setup.exe" /S /D=C:\Data Files\DevForge')
         self.assertEqual(nsis_command(r'C:\App Folder\uninstall.exe',r'_?=C:\App Folder'),r'"C:\App Folder\uninstall.exe" /S _?=C:\App Folder')

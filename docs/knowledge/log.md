@@ -4,6 +4,8 @@
 
 ## 2026-11-13
 
+- **Windows10 mosligi:** [22H2 x64 floor](windows-compatibility.md), installer/preflight native architecture parity va uch tilli xabarlar; local platform10 passed/1 ignored,7 distribution contracts. Hosted build/installer tekshiruvi davom etadi; userda Win10 host yoq, actual19045 qabuli ochiq. Eski M6 handoff artifact/hash saqlandi, yangi tester HTML alohida.
+
 - **Discovery/main/M7 integration:** schema7 ikki schema6 history’ni saqlaydi; reviewed Intel PHP8.5 CLI/FPM family qo‘shildi, old48 descriptor unchanged. Current production downloads va actual auto-discovered project’da debug/profile/ForgetRestore uch targetda o‘tdi. Har target20UI/22axe0; core124Mac/120Win Rust,42frontend. [Source/job/digest va fixture-failure chegaralari](../evidence/discovery-m7-integration/README.md) saqlandi. Main promotion user tomonidan vakolatlangan; strict validator va final remoteSHA handoff’da.
 
 - **M7 functional qabul tugadi:** [Xdebug debugger/profiler](m7-xdebug-results.md), verified optional SDK/DLL, schema6 project modes, authenticated DBGp, bounded Cachegrind/history/exports va uch tilli UI yaratildi. Core108/106 Rust,36 frontend,3 locale/6 packaging, strict28/0/0; uch native target backend/CLI/GUI12 axe/0. Provider rebuild'lari separate families bilan review qilindi, eski descriptor/pinlar saqlandi. Original Busy/TLS/resize/DOM failure'lar, exact source/job/artifact va viewport chegaralari qayd etildi. M7.1 untouched; M15 gates/Intel MySQL gap ochiq, M13 boshlanmadi.

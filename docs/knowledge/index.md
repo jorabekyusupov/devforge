@@ -25,6 +25,8 @@ mavzuni tanlang, so'ng faqat tegishli hujjatlar va ularning manbalarini o'qing.
 
 ## Manba va yuritish
 
+- [Windows 10/11 mosligi](windows-compatibility.md) - 22H2 x64 minimum, installer/preflight va actual Windows10 qabul chegarasi.
+
 - [M7–M12 completion](m7-m12-completion.md) - qolgan funksional imkoniyatlar yakuni, uch native target natijalari, saqlangan source va M15 chegaralari.
 
 - [M7.2 Xdebug](m7-xdebug-results.md) - optional native runtime, interactive debugger va function profiles; uch native target qabuli, artifact/source mapping va M15 chegaralari.

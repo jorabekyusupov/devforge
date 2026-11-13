@@ -1,7 +1,8 @@
 !include LogicLib.nsh
-LangString dfPrerequisites ${LANG_ENGLISH} "DevForge needs Windows 11 x64 and Microsoft Visual C++ v14 x64 Runtime. Install it from https://aka.ms/vc14/vc_redist.x64.exe then retry."
-LangString dfPrerequisites ${LANG_RUSSIAN} "DevForge требует Windows 11 x64 и Microsoft Visual C++ v14 x64 Runtime. Установите https://aka.ms/vc14/vc_redist.x64.exe и повторите попытку."
-LangString dfPrerequisites ${LANG_UZBEK} "DevForge uchun Windows 11 x64 va Microsoft Visual C++ v14 x64 Runtime kerak. https://aka.ms/vc14/vc_redist.x64.exe ni o'rnatib, qayta urining."
+!define DEVFORGE_MIN_WINDOWS_BUILD 19045
+LangString dfPrerequisites ${LANG_ENGLISH} "DevForge needs Windows 10 22H2 (build 19045) or later, native Intel/AMD x64, and Microsoft Visual C++ v14 x64 Runtime. Install the runtime from https://aka.ms/vc14/vc_redist.x64.exe then retry."
+LangString dfPrerequisites ${LANG_RUSSIAN} "DevForge требует Windows 10 22H2 (сборка 19045) или новее, Intel/AMD x64 и Microsoft Visual C++ v14 x64 Runtime. Установите Runtime с https://aka.ms/vc14/vc_redist.x64.exe и повторите попытку."
+LangString dfPrerequisites ${LANG_UZBEK} "DevForge uchun Windows 10 22H2 (build 19045) yoki yangiroq tizim, Intel/AMD x64 va Microsoft Visual C++ v14 x64 Runtime kerak. Runtime'ni https://aka.ms/vc14/vc_redist.x64.exe dan o'rnatib, qayta urining."
 LangString dfQuit ${LANG_ENGLISH} "Quit DevForge from its tray menu and close DevForge CLI/terminal sessions before installing or uninstalling."
 LangString dfQuit ${LANG_RUSSIAN} "Завершите DevForge через меню в трее и закройте его CLI/терминалы перед установкой или удалением."
 LangString dfQuit ${LANG_UZBEK} "O'rnatish yoki o'chirishdan oldin DevForge tray menyusidan Chiqish amalini bajaring va uning CLI/terminal sessiyalarini yoping."
@@ -36,7 +37,7 @@ FunctionEnd
     SetErrorLevel 4
     Abort
   ${EndIf}
-  ${If} $0 < 22000
+  ${If} $0 < ${DEVFORGE_MIN_WINDOWS_BUILD}
   ${OrIf} $1 != 1
     IfSilent +2
     MessageBox MB_ICONSTOP|MB_OK "$(dfPrerequisites)"

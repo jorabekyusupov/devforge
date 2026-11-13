@@ -4,6 +4,9 @@ use std::{
     fs::{File, OpenOptions},
     path::Path,
 };
+// Keep in sync with the NSIS floor (scripts/test_distribution.py checks parity).
+#[cfg(any(windows, test))]
+const MIN_WINDOWS_BUILD: u32 = 19045;
 /// An OS-released lock, not a stale PID. The file is intentionally retained.
 pub struct AppLease {
     _file: File,
@@ -112,14 +115,20 @@ pub fn prerequisites() -> std::io::Result<Prerequisites> {
             "CurrentBuildNumber",
         )?;
         let build = build.split_whitespace().last().unwrap_or("").to_string();
+        // The compiled x64 binary may run under ARM emulation. Match the
+        // installer's native AMD64 requirement rather than the process target.
+        let native_arch = registry(
+            "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment",
+            "PROCESSOR_ARCHITECTURE",
+        )?;
+        let native_arch = native_arch.split_whitespace().last().unwrap_or("");
         let vc = registry(
             "HKLM\\SOFTWARE\\Microsoft\\VisualStudio\\14.0\\VC\\Runtimes\\x64",
             "Installed",
         )?;
         Ok(Prerequisites {
             target: format!("windows-{}", std::env::consts::ARCH),
-            os_supported: std::env::consts::ARCH == "x86_64"
-                && build.parse::<u32>().is_ok_and(|b| b >= 22000),
+            os_supported: windows_supported(&build, native_arch),
             os_version: build,
             webview: "installer_detects_evergreen_webview2",
             vc_runtime: Some(vc.split_whitespace().last() == Some("0x1")),
@@ -132,6 +141,10 @@ pub fn prerequisites() -> std::io::Result<Prerequisites> {
     {
         Err(std::io::Error::other("unsupported_target"))
     }
+}
+#[cfg(any(windows, test))]
+fn windows_supported(build: &str, native_arch: &str) -> bool {
+    native_arch == "AMD64" && build.parse::<u32>().is_ok_and(|b| b >= MIN_WINDOWS_BUILD)
 }
 #[cfg(windows)]
 fn registry(key: &str, value: &str) -> std::io::Result<String> {
@@ -158,6 +171,18 @@ fn mac_supported(version: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn windows_accepts_22h2_and_later_native_x64_but_fails_closed() {
+        for build in ["19045", "22000", "22631", "26100"] {
+            assert!(windows_supported(build, "AMD64"), "{build}");
+        }
+        for build in ["19044", "19041", "17763", "9600", "", "unknown", "19045.1"] {
+            assert!(!windows_supported(build, "AMD64"), "{build}");
+        }
+        for arch in ["ARM64", "x86", "", "unknown"] {
+            assert!(!windows_supported("26100", arch), "{arch}");
+        }
+    }
     #[test]
     fn installer_lock_detects_running_then_releases_without_deleting_data() {
         let root = tempfile::tempdir().unwrap();

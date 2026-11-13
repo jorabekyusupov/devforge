@@ -14,6 +14,15 @@ Microsoft Visual C++ v14 runtime; its absence blocks install with a recovery URL
 Tauri detects WebView2 and downloads its Evergreen bootstrapper when absent;
 first install then needs network access. Shared prerequisites are never removed.
 
+Windows compatibility floor: Windows 10 22H2 (build 19045), native Intel/AMD x64;
+Windows 11 remains accepted. Earlier Windows 10, Windows ARM and 32-bit are outside
+this package's scope. Installer and `distribution prerequisites` enforce the same
+floor/native architecture; contract tests prevent threshold drift. This is an
+implementation target, not proof of a Windows 10 installation: hosted Windows CI
+runs Server 2025. Actual 22H2 installation/runtime acceptance remains open until a
+test host is available. See the [Windows 10 tester guide](../docs/guides/windows-10-tester-uz.html)
+and [compatibility evidence](../docs/knowledge/windows-compatibility.md).
+
 Packages are explicitly internal/unsigned. Mac builds use ad-hoc signing only.
 OS signing, notarization, runtime integrity and any future updater signatures are
 independent. The generated manifest denies public release. No updater is enabled.

@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="uz-Latn">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
+<title>DevForge — Windows 10 sinov qo‘llanmasi</title>
+<style>
+:root{color-scheme:light dark}body{font:17px/1.65 "Segoe UI",sans-serif;max-width:850px;margin:auto;padding:28px}h1{line-height:1.2}h2{margin-top:2em}code,pre{font-family:Consolas,monospace}pre{padding:16px;border:1px solid #888;white-space:pre-wrap;overflow-wrap:anywhere}li{margin:.65em 0}a{color:light-dark(#00665e,#77d7ca)}:focus-visible{outline:3px solid #008b80;outline-offset:4px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #888;padding:10px;text-align:left}aside{border-left:4px solid #008b80;padding:4px 18px}@media print{body{padding:0;font-size:11pt}a{color:inherit}}
+</style>
+<main>
+<h1>Windows 10’da DevForge’ni sinash</h1>
+<p>Windows 10 22H2 x64 va Windows 11 x64 uchun ichki, imzolanmagan test paketi. Qo‘llanma internet bo‘lmasa ham ochiladi.</p>
+<aside><p><strong>Sinov holati:</strong> Windows 10 kompyuteri yoki VM hozir mavjud emas. Build va avtomatik Windows tekshiruvlari Windows Server 2025’da bajariladi. Haqiqiy Windows 10’da o‘rnatish va runtime qabuli hali ochiq.</p></aside>
+<h2>1. Talablar</h2>
+<ul>
+<li>Windows 10 <strong>22H2, build 19045 yoki yangiroq</strong>, Intel/AMD x64. Windows 11 ham qabul qilinadi. ARM va 32-bit bu paketga kirmaydi.</li>
+<li><a href="https://aka.ms/vc14/vc_redist.x64.exe">Microsoft Visual C++ v14 x64 Runtime</a>. Visual Studio’ning o‘zi kerak emas.</li>
+<li><a href="https://developer.microsoft.com/en-us/microsoft-edge/webview2/">WebView2 Evergreen Runtime</a>. Yetishmasa installer yuklaydi.</li>
+<li>Internet, bir necha GB bo‘sh disk joyi va alohida sinov loyihasi. Global PHP/Node o‘rnatish shart emas.</li>
+</ul>
+<p><kbd>Win</kbd> + <kbd>R</kbd> orqali <code>winver</code> ochib 22H2/19045 holatini tekshiring. Settings → System → About’da x64 tizim turini tekshiring.</p>
+<h2>2. Paketni tekshirish va o‘rnatish</h2>
+<ol><li>ZIP’ni foydalanuvchi yozishi mumkin bo‘lgan yangi papkaga chiqaring.</li><li>PowerShell’da hashni tekshirib, paketdagi <code>SHA256SUMS.txt</code> bilan solishtiring:</li></ol>
+<pre>Get-FileHash .\DevForge_0.1.0_x64-setup.exe -Algorithm SHA256</pre>
+<p><code>BUILD-INFO.json</code> source commit, installer hash va haqiqiy sinov hostini ko‘rsatadi. Eski M6 installer Windows 10’ni rad etadi: aynan ushbu yangi paketdan foydalaning.</p>
+<ol start="3"><li><code>DevForge_0.1.0_x64-setup.exe</code> faylini oddiy foydalanuvchi sifatida oching. Ingliz, rus yoki o‘zbek tilini tanlang.</li><li>Foydalanuvchingizga tegishli o‘rnatish katalogini tanlang. Ilovani administrator sifatida ishga tushirmang.</li><li>VC Runtime yetishmasa rasmiy paketni o‘rnating va qayta urining. ARM/32-bit yoki build 19045’dan eski OS’da installer davom etmaydi.</li></ol>
+<p>Build Authenticode bilan imzolanmagan. Nashriyotchi va SHA-256’ni tekshiring; tashkilot siyosati bloklasa IT mas’uliga murojaat qiling.</p>
+<h2>3. Birinchi ishga tushirish</h2>
+<ol>
+<li>Sozlamalarda rus, o‘zbek va ingliz tillarini almashtiring; qayta ochganda tanlov saqlanishini tekshiring.</li>
+<li>Runtime bo‘limidan PHP, Node.js, Composer va Caddy’ni o‘rnating. Loyiha talablariga mos versiyalarni tanlang.</li>
+<li>Sinov Laravel loyihasini qo‘shing yoki yaratish ustasidan foydalaning. Mavjud loyihalar boshlang‘ich <code>~/Devforge</code> papkasidan ham aniqlanadi; loyiha papkasi Sozlamalarda o‘zgartiriladi.</li>
+<li>Avval SQLite va oddiy HTTP bilan ishga tushiring. So‘ng PostgreSQL/MySQL, queue, Vite va HTTPS’ni alohida sinang.</li>
+<li>Loyiha terminalida <code>php -v</code>, <code>node --version</code> va <code>composer --version</code> tanlangan versiyalarni ko‘rsatishini tekshiring.</li>
+</ol>
+<p>Garnet/Redis xizmati boshqariladigan .NET runtime’dan foydalanadi. Microsoft’ning joriy Windows 10 support siyosati LTSC/Enterprise nashrlari bilan cheklangan. Home/Pro 22H2’da Garnet’ni vendor tomonidan qo‘llab-quvvatlangan deb hisoblamang; uning haqiqiy ishlashi ham alohida tekshirilishi kerak.</p>
+<h2>4. Windows 10 qabul ro‘yxati</h2>
+<table><thead><tr><th>Sinov</th><th>Kutiladigan natija</th></tr></thead><tbody>
+<tr><td>22H2 x64’da o‘rnatish</td><td>Windows 11 talabi bilan rad etmaydi; ilova ochiladi.</td></tr>
+<tr><td>Diagnostika</td><td>Quyidagi buyruq <code>os_supported: true</code>, <code>os_version: "19045"</code> va <code>vc_runtime: true</code> qaytaradi.</td></tr>
+<tr><td>Laravel va runtime</td><td>PHP/Node tanlovi, SQL migration, HTTP/HTTPS, Vite, queue va mail ishlaydi.</td></tr>
+<tr><td>Debug va worktree</td><td>Breakpoint ishlaydi; sinov worktree purge’i asosiy repo va readonly Git objectlarini saqlaydi.</td></tr>
+<tr><td>Qayta o‘rnatish/o‘chirish</td><td>Loyiha, baza va sozlamalar saqlanadi. Ilova ochiq paytda uninstall bloklanadi.</td></tr>
+</tbody></table>
+<p>O‘rnatish papkasida oddiy PowerShell orqali:</p>
+<pre>.\devforge.exe distribution prerequisites
+.\devforge.exe doctor</pre>
+<h2>5. Xatolik hisoboti va o‘chirish</h2>
+<p>OS nashri, <code>winver</code> build’i, CPU turi, <code>BUILD-INFO.json</code> source commit’i, takrorlash qadamlari va xabarni yuboring. Parollar, tokenlar, <code>.env</code>, private key va haqiqiy bazani yubormang.</p>
+<p>O‘chirishdan oldin tray menyusidan Chiqish amalini bajaring va DevForge terminal sessiyalarini yoping. HTTPS tizim yozuvlari bo‘lsa, <code>devforge.exe distribution cleanup-plan YANGI_PAPKA</code> orqali rejani yarating, ko‘rib chiqing va bundled helper bilan aniq tasdiqlangan rejani bajaring. Uninstaller loyiha va baza ma’lumotlarini saqlaydi.</p>
+<p><a href="https://learn.microsoft.com/en-us/dotnet/core/install/windows">.NET Windows talablari</a> · <a href="https://learn.microsoft.com/en-us/deployedge/microsoft-edge-supported-operating-systems">WebView2 OS support’i</a></p>
+</main></html>

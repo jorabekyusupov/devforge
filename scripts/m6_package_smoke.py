@@ -71,6 +71,8 @@ def main():
         report['checks']['permission_denied_target_then_retry']=denied_attempt.returncode!=0
         report['checks']['first_install']=True
         report['prerequisites']=json.loads(run(str(cli),'distribution','prerequisites',capture_output=True,text=True).stdout)
+        assert report['prerequisites']['os_supported'],report['prerequisites']
+        if windows: assert report['prerequisites']['vc_runtime'],report['prerequisites']
         run(str(cli),'distribution','check-uninstall')
         project=fixture/'Project outside app';project.mkdir(exist_ok=True);(project/'keep.txt').write_text('user project survives')
         db=data/'db-preservation-sentinel';db.write_bytes(os.urandom(1024));before=digest(db)

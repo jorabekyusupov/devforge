@@ -143,6 +143,9 @@ uninstall'da o'chirilmaydi. Missing WebView2 bootstrapper uchun network kerak.
 Win Server hosted test minimum Windows11 desktop testining o'rniga o'tmaydi.
 Clean-machine prerequisite-absent va minimum OS holatlari alohida unverified.[^windows][^platform]
 
+Bu M6 tarixiy baseline edi. Windows10 topshirigi bilan floor19045 ga moslandi;
+joriy talab va actual OS qabul holati [moslik yozuvida](windows-compatibility.md).
+
 | Target | Ichki artifact | Native release/UI dalili |
 | --- | --- | --- |
 | macOS ARM64 | DMG/app | Local macOS27.2.1 Apple M4 va hosted macOS15.8.2 ARM64 release/WKWebView o'tdi. |
