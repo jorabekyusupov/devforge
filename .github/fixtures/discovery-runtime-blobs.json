@@ -19,6 +19,12 @@
       "sha256": "7c166125797e536d6cda9a8267eb89fffd294b4f49878bb586dadbba713a879a",
       "bytes": 16084295,
       "original_publisher_url": "https://dl.static-php.dev/v3/php-bin/common/php-8.5.12-fpm-macos-x86_64.tar.gz"
+    },
+    "php-8.5.12-cli-macos-x64": {
+      "git_blob_sha": "e0547c76447aa27f9e1c6504ad87391a6b3c7c4f",
+      "sha256": "32c08d8d793d939c960f944d92abe16350dddf0ea79418256fa76633e110ce2b",
+      "bytes": 16061460,
+      "original_publisher_url": "https://dl.static-php.dev/v3/php-bin/common/php-8.5.12-cli-macos-x86_64.tar.gz"
     }
   }
 }
