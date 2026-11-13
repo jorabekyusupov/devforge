@@ -111,6 +111,27 @@ pub fn run(root: &Path) -> Result<()> {
     let added = folder.join("Auto Laravel");
     fs::create_dir(&added)?;
     std::thread::sleep(Duration::from_millis(700));
+    #[cfg(windows)]
+    {
+        let deadline = Instant::now() + Duration::from_secs(8);
+        loop {
+            if let Some(report) = service.take() {
+                if report.watch_paths.contains(&added) {
+                    break;
+                }
+            }
+            if Instant::now() > deadline {
+                return Err("child watcher was not armed".into());
+            }
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        let temporary = folder.join("Empty rename probe");
+        fs::rename(&added, &temporary)
+            .map_err(|e| format!("rename empty watched directory before any runtime: {e}"))?;
+        fs::rename(&temporary, &added)
+            .map_err(|e| format!("restore empty watched directory before any runtime: {e}"))?;
+        eprintln!("DISCOVERY_PHASE: empty watched directory rename passed");
+    }
     let source = manual
         .iter()
         .find(|p| p.name == "Studio")
