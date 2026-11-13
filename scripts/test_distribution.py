@@ -1,8 +1,22 @@
 import json,pathlib,unittest,sys
 from scripts.package_desktop import run
-from scripts.m6_package_smoke import nsis_command
+from scripts.m6_package_smoke import nsis_command,project_registry_snapshot,verify_registry_preserved
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 class DistributionContracts(unittest.TestCase):
+    def test_registry_preservation_allows_additive_empty_schema_but_rejects_data_loss(self):
+        import sqlite3,tempfile
+        with tempfile.TemporaryDirectory() as folder:
+            path=pathlib.Path(folder)/'registry.sqlite3'
+            with sqlite3.connect(path) as db:
+                db.execute('CREATE TABLE projects(id TEXT PRIMARY KEY,record TEXT)')
+                db.execute('INSERT INTO projects VALUES(?,?)',('project-a','retained'))
+            before=project_registry_snapshot(path)
+            with sqlite3.connect(path) as db: db.execute('CREATE TABLE feature_receipts(id TEXT PRIMARY KEY)')
+            verify_registry_preserved(before,project_registry_snapshot(path))
+            with sqlite3.connect(path) as db: db.execute('UPDATE projects SET record=?',('changed',))
+            with self.assertRaises(AssertionError):verify_registry_preserved(before,project_registry_snapshot(path))
+            with sqlite3.connect(path) as db: db.execute('DROP TABLE projects')
+            with self.assertRaises(AssertionError):verify_registry_preserved(before,project_registry_snapshot(path))
     def test_installer_and_diagnostic_minimum_windows_match(self):
         import re
         hooks=(ROOT/'distribution/windows/hooks.nsh').read_text(encoding='utf-8')

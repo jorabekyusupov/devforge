@@ -13,6 +13,16 @@ def wait(test,seconds=60):
         time.sleep(.1)
     raise TimeoutError('native package assertion timed out')
 def digest(path):return hashlib.sha256(path.read_bytes()).hexdigest()
+def project_registry_snapshot(path):
+    # A launch may add feature tables or checkpoint SQLite pages. Preserve every
+    # existing table's definition and rows, without treating page layout as data.
+    if not path.exists():return {}
+    with sqlite3.connect(path.resolve().as_uri()+'?mode=ro',uri=True) as db:
+        tables=db.execute("SELECT name,sql FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name").fetchall()
+        return {name:(schema,sorted(repr(row) for row in db.execute('SELECT * FROM "'+name.replace('"','""')+'"'))) for name,schema in tables}
+def verify_registry_preserved(before,after):
+    changed=[name for name,value in before.items() if after.get(name)!=value]
+    assert not changed,{'changed_registry_tables':changed}
 def nsis_command(executable, assignment):
     # NSIS parses the entire final assignment itself, including spaces. CRT/list
     # argument quoting would change /D= and _?= semantics. No shell is used.
@@ -80,9 +90,11 @@ def main():
         def owned_data_hashes():
             return {str(p.relative_to(data)):digest(p) for folder in ['projects','databases'] for p in (data/folder).rglob('*') if p.is_file()} if data.exists() else {}
         native_before=owned_data_hashes();report['preserved_existing_project_db_files']=len(native_before)
+        registry_before=project_registry_snapshot(data/'projects/projects.sqlite3')
         def verify_preserved():
             current=owned_data_hashes()
-            assert all(current.get(key)==value for key,value in native_before.items())
+            changed=[key for key,value in native_before.items() if current.get(key)!=value]
+            assert not changed,{'changed_project_db_files':changed[:40]}
         # The standard Windows uninstaller's data-removal paths must also survive
         # with the application's actual default roots, beyond the fixture override.
         default_sentinels=[]
@@ -131,6 +143,15 @@ def main():
         report['checks']['running_app_blocks_uninstall']=True if windows else 'CLI preflight blocks; Finder Trash cannot execute app hooks'
         report['checks']['three_locales_release_native_shell']=True
         report['checks']['second_launch_keeps_original_process']=True
+        after_launch=owned_data_hashes()
+        report['release_launch_changed_files']=[key for key,value in native_before.items() if after_launch.get(key)!=value]
+        # Release launch and installer replacement are distinct operations. The
+        # former can initialize registry schema; the latter must preserve bytes.
+        verify_registry_preserved(registry_before,project_registry_snapshot(data/'projects/projects.sqlite3'))
+        assert all(key=='projects/projects.sqlite3' for key in report['release_launch_changed_files']),report['release_launch_changed_files'][:40]
+        report['checks']['release_launch_preserves_existing_registry_rows']=True
+        report['checks']['release_launch_preserves_other_project_db_bytes']=True
+        native_before=after_launch
         install();assert digest(db)==before and (project/'keep.txt').read_text()=='user project survives';verify_preserved()
         report['checks']['same_version_reinstall_preserves_project_db']=True
         run(str(cli),'distribution','check-uninstall');uninstall()
