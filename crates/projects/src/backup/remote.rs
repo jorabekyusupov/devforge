@@ -103,7 +103,10 @@ pub(super) fn options(s: &Source, c: &Credentials, dir: &Path) -> Result<tempfil
             },
             s.tls_ca
                 .as_ref()
-                .map(|p| format!("ssl-ca={}\n", mysql_quote(&p.to_string_lossy())))
+                .map(|p| format!(
+                    "ssl-ca={}\n",
+                    mysql_quote(&dunce::simplified(p).to_string_lossy())
+                ))
                 .unwrap_or_else(|| "get-server-public-key=TRUE\n".into())
         )
     });

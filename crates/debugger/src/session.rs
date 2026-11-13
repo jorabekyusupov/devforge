@@ -52,6 +52,7 @@ impl HttpRequest {
     pub fn validate(&self) -> Result<()> {
         if !["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
             .contains(&self.method.as_str())
+            || (self.method == "HEAD" && !self.body.is_empty())
             || self.body.len() > 1024 * 1024
             || self.headers.len() > 32
             || self
@@ -521,7 +522,11 @@ mod http_builder_tests {
                 let text = String::from_utf8(wire).unwrap();
                 assert!(text.starts_with(&format!("{expected} /path?q=one HTTP/1.1\r\n")));
                 assert!(text.contains("X-Test: local\r\n"));
-                assert!(text.ends_with("Ўзбек payload"));
+                if expected == "HEAD" {
+                    assert!(text.ends_with("\r\n\r\n"));
+                } else {
+                    assert!(text.ends_with("Ўзбек payload"));
+                }
                 assert_eq!(text.matches("Cookie:").count(), 1);
                 assert!(text.contains("app=1; XDEBUG_TRIGGER="));
                 stream.write_all(b"HTTP/1.1 204 No Content\r\nContent-Length: 0\r\nConnection: close\r\n\r\n").unwrap();
@@ -533,7 +538,11 @@ mod http_builder_tests {
                     ("X-Test".into(), "local".into()),
                     ("Cookie".into(), "app=1".into()),
                 ]),
-                body: "Ўзбек payload".into(),
+                body: if method == "HEAD" {
+                    String::new()
+                } else {
+                    "Ўзбек payload".into()
+                },
             };
             assert!(!format!("{request:?}").contains("payload"));
             activation

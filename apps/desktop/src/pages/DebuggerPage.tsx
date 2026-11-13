@@ -473,6 +473,7 @@ export function DebuggerPage({ backend }: { backend?: WorkspaceBackend }) {
               {t("debugger.body")}
               <textarea
                 name="debug-body"
+                disabled={method === "HEAD"}
                 value={body}
                 maxLength={1048576}
                 onChange={(e) => setBody(e.target.value)}
@@ -480,6 +481,9 @@ export function DebuggerPage({ backend }: { backend?: WorkspaceBackend }) {
                 autoComplete="off"
               />
             </label>
+            {method === "HEAD" && (
+              <p className="muted">{t("debugger.headBodyHelp")}</p>
+            )}
             <p className="muted">{t("debugger.requestPrivacy")}</p>
           </details>
           <div className="debug-request">
@@ -522,7 +526,12 @@ export function DebuggerPage({ backend }: { backend?: WorkspaceBackend }) {
                   await execute({
                     action: "debug_http",
                     id,
-                    request: { method, path: request, headers: parsed, body },
+                    request: {
+                      method,
+                      path: request,
+                      headers: parsed,
+                      body: method === "HEAD" ? "" : body,
+                    },
                   });
                 })()
               }

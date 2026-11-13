@@ -171,7 +171,10 @@ fn run_connection(
             .into(),
         );
         if let Some(ca) = &source.tls_ca {
-            env.insert("PGSSLROOTCERT".into(), ca.as_os_str().into());
+            env.insert(
+                "PGSSLROOTCERT".into(),
+                dunce::simplified(ca).as_os_str().into(),
+            );
         }
         if c.engine == Engine::Postgresql {
             env.insert(

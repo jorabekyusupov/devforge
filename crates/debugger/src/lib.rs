@@ -77,6 +77,24 @@ impl std::fmt::Debug for Assignment {
     }
 }
 impl Assignment {
+    // Xdebug property_set evaluates its data as PHP source. Generate only owned
+    // primitive literals; never pass caller text as executable source.
+    pub(crate) fn php_literal(&self) -> Result<String> {
+        use base64::Engine;
+        self.validate()?;
+        Ok(match self.kind.as_str() {
+            "string" => format!(
+                "\\base64_decode('{}')",
+                base64::engine::general_purpose::STANDARD.encode(self.value.as_bytes())
+            ),
+            "int" => self.value.parse::<i64>().unwrap().to_string(),
+            "float" => format!("{:?}", self.value.parse::<f64>().unwrap()),
+            "bool" => if self.value == "1" { "true" } else { "false" }.into(),
+            "null" => "null".into(),
+            _ => return Err(Error::InvalidVariable),
+        })
+    }
+
     pub fn validate(&self) -> Result<()> {
         let name = self.name.strip_prefix('$').ok_or(Error::InvalidVariable)?;
         if name.is_empty()

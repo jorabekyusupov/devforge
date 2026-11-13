@@ -6,7 +6,7 @@ use devforge_workspace::worktrees::{DatabaseMode, Input};
 fn git(path: &Path, args: &[&str]) -> Result<String> {
     let out = std::process::Command::new("git")
         .arg("-C")
-        .arg(path)
+        .arg(dunce::simplified(path))
         .args(args)
         .output()?;
     if !out.status.success() {
@@ -27,6 +27,8 @@ fn cleanup(w: &mut Workspace, id: &str) -> Result<()> {
     Ok(())
 }
 pub fn run(root: &Path) -> Result<()> {
+    let canonical = fs::canonicalize(root)?;
+    let root = canonical.as_path();
     let data = root.join("data");
     let secrets = Arc::new(devforge_workspace::testing::FixtureSecrets::open(
         data.join("e2e-secrets.json"),
@@ -297,7 +299,10 @@ pub fn run(root: &Path) -> Result<()> {
         .envs(devforge_projects::mysql_service::environment(&tool))
         .env("PGPASSFILE", pass.path())
         .env("PGSSLMODE", "verify-full")
-        .env("PGSSLROOTCERT", tls.tls_ca.as_ref().unwrap())
+        .env(
+            "PGSSLROOTCERT",
+            dunce::simplified(tls.tls_ca.as_ref().unwrap()),
+        )
         .args([
             "--host=127.0.0.1".into(),
             format!("--port={}", remote.port),
@@ -377,7 +382,7 @@ pub fn run(root: &Path) -> Result<()> {
             "protocol.file.allow=always",
             "submodule",
             "add",
-            module.to_str().unwrap(),
+            dunce::simplified(&module).to_str().unwrap(),
             "modules/shared",
         ],
     )?;
@@ -411,7 +416,16 @@ pub fn run(root: &Path) -> Result<()> {
         .catalog
         .packages
         .iter()
-        .find(|(_, p)| p.kind == "mysql" && p.target == Target::current().unwrap())
+        .find(|(_, p)| {
+            p.kind == "mysql"
+                && p.target == Target::current().unwrap()
+                && p.version
+                    == if Target::current().unwrap() == Target::MacosX64 {
+                        "8.4.11"
+                    } else {
+                        "8.4.13"
+                    }
+        })
         .unwrap()
         .0
         .clone();
@@ -476,11 +490,80 @@ pub fn run(root: &Path) -> Result<()> {
         .query_first("SELECT value FROM completion_values")?;
     assert_eq!(value, Some(91));
     assert_eq!(w.projects.instance(&mid)?.engine, Engine::Mysql);
+    eprintln!("COMPLETION: common exact MySQL 8.4.11 family native backup and restore");
+    let common = w
+        .catalog
+        .packages
+        .iter()
+        .find(|(_, p)| {
+            p.kind == "mysql" && p.version == "8.4.11" && p.target == Target::current().unwrap()
+        })
+        .unwrap()
+        .0
+        .clone();
+    w.packages
+        .download(w.catalog.get(&common)?, &cancel, |_| {})?;
+    let probe_path = root.join(format!("Common MySQL probe {suffix}"));
+    fs::create_dir_all(probe_path.join("public"))?;
+    fs::write(probe_path.join("public/index.php"), "<?php")?;
+    fs::write(
+        probe_path.join("composer.json"),
+        r#"{"require":{"php":"^8.3","laravel/framework":"^13"}}"#,
+    )?;
+    let probe = w.projects.import(
+        &probe_path,
+        "Common MySQL 8.4.11",
+        &atlas.php,
+        &atlas.node,
+        &w.catalog,
+    )?;
+    let instance = w.execute(
+        Command::CreateDatabase {
+            package: common.clone(),
+        },
+        &cancel,
+    )?;
+    w.execute(
+        Command::BindDatabase {
+            id: probe.id.clone(),
+            instance: instance["id"].as_str().unwrap().into(),
+        },
+        &cancel,
+    )?;
+    w.projects
+        .credentials(&probe.id, secrets.as_ref())?
+        .mysql()?
+        .query_drop("CREATE TABLE common_probe(value INT) ENGINE=InnoDB")?;
+    w.projects
+        .credentials(&probe.id, secrets.as_ref())?
+        .mysql()?
+        .query_drop("INSERT INTO common_probe VALUES(84)")?;
+    let backup = w.execute(
+        Command::CreateBackup {
+            id: probe.id.clone(),
+        },
+        &cancel,
+    )?;
+    w.execute(
+        Command::RestoreBackup {
+            id: probe.id.clone(),
+            backup: backup["id"].as_str().unwrap().into(),
+            consent: true,
+        },
+        &cancel,
+    )?;
+    assert_eq!(
+        w.projects
+            .credentials(&probe.id, secrets.as_ref())?
+            .mysql()?
+            .query_first::<i32, _>("SELECT value FROM common_probe")?,
+        Some(84)
+    );
     w.shutdown()?;
     fs::write(
         root.join("completion-native-result.json"),
         serde_json::to_vec_pretty(
-            &json!({"passed":true,"target":Target::current()?,"mysql_package":mysql,"checks":{"configuration_atomic_save_review_apply":true,"linked_archive_restore_purge":true,"identity_and_database_retained":true,"recursive_submodule_create_archive_restore_purge":true,"dirty_submodule_blocked":true,"external_postgresql_read_dump_staged_copy":true,"external_pg_verified_tls":true,"external_pg_wrong_ca_preserves_binding":true,"external_mysql_tables_staged_copy":true,"failed_external_connection_preserves_binding":true,"source_data_unchanged":true},"ui_project":mp.id,"ui_workspace":mysql_child.id}),
+            &json!({"passed":true,"target":Target::current()?,"mysql_package":mysql,"checks":{"common_mysql_8411_native_backup_restore":true,"configuration_atomic_save_review_apply":true,"linked_archive_restore_purge":true,"identity_and_database_retained":true,"recursive_submodule_create_archive_restore_purge":true,"dirty_submodule_blocked":true,"external_postgresql_read_dump_staged_copy":true,"external_pg_verified_tls":true,"external_pg_wrong_ca_preserves_binding":true,"external_mysql_tables_staged_copy":true,"failed_external_connection_preserves_binding":true,"source_data_unchanged":true},"ui_project":mp.id,"ui_workspace":mysql_child.id}),
         )?,
     )?;
     Ok(())
@@ -542,6 +625,9 @@ pub fn cli(root: &Path, executable: &Path) -> Result<()> {
     ])?;
     let id = created["result"]["id"].as_str().unwrap();
     let project = created["result"]["project_id"].as_str().unwrap();
+    let secrets = Arc::new(devforge_workspace::testing::FixtureSecrets::open(
+        data.join("e2e-secrets.json"),
+    ));
     let w = Workspace::open(&data, secrets.clone())?;
     let p = w.projects.get(project)?;
     let b = w.projects.binding(&source)?.unwrap();

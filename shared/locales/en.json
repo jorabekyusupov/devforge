@@ -762,7 +762,8 @@
     "loopbackOnly": "Allow unencrypted literal loopback only (127.0.0.1 or ::1)",
     "addRemoteSecret": "Open project secret settings",
     "mysqlRemoteTables": "MySQL copies tables and data. Triggers, routines and events are excluded. Review this scope before continuing.",
-    "remoteConsent": "I reviewed the source, trust its dump and want to activate its copy locally. Keep the previous local database."
+    "remoteConsent": "I reviewed the source, trust its dump and want to activate its copy locally. Keep the previous local database.",
+    "purgedHelp": "Archived files were deleted. Managed databases, credentials and Git history remain."
   },
   "debugger": {
     "title": "Debugger & profiler",
@@ -870,7 +871,8 @@
     "method": "HTTP method",
     "headers": "Headers (one Name: value per line)",
     "body": "Request body",
-    "requestPrivacy": "Sent only to this managed local project. Headers and body stay in memory; only response status is shown."
+    "requestPrivacy": "Sent only to this managed local project. Headers and body stay in memory; only response status is shown.",
+    "headBodyHelp": "HEAD sends no request body. Your draft is retained for other methods."
   },
   "configuration": {
     "title": "Project configuration",

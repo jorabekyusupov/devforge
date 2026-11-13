@@ -322,7 +322,7 @@ export function WorktreesPage({ backend }: { backend?: WorkspaceBackend }) {
                   </a>
                 )}
                 <button
-                  disabled={api.busy}
+                  disabled={api.busy || view.record.stage === "purged"}
                   onClick={() =>
                     void api.run({
                       action: "worktree_open",
@@ -411,7 +411,13 @@ export function WorktreesPage({ backend }: { backend?: WorkspaceBackend }) {
                   </button>
                 )}
               </div>
-              <p className="muted">{t("forks.cleanupPreserves")}</p>
+              <p className="muted">
+                {t(
+                  view.record.stage === "purged"
+                    ? "forks.purgedHelp"
+                    : "forks.cleanupPreserves",
+                )}
+              </p>
             </article>
           )}
         </>

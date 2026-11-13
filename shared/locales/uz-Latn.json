@@ -762,7 +762,8 @@
     "loopbackOnly": "Shifrlanmagan ulanishga faqat loopback manzilda ruxsat (127.0.0.1 yoki ::1)",
     "addRemoteSecret": "Loyiha maxfiy sozlamalarini ochish",
     "mysqlRemoteTables": "MySQL jadvallar va ma’lumotlarni ko‘chiradi. Trigger, protsedura va hodisalar kiritilmaydi. Davom etishdan oldin hajmni tekshiring.",
-    "remoteConsent": "Manbani tekshirdim, dump’ga ishonaman va nusxani mahalliy faollashtirmoqchiman. Oldingi mahalliy baza saqlansin."
+    "remoteConsent": "Manbani tekshirdim, dump’ga ishonaman va nusxani mahalliy faollashtirmoqchiman. Oldingi mahalliy baza saqlansin.",
+    "purgedHelp": "Arxiv fayllari o‘chirildi. Boshqariladigan bazalar, maxfiy qiymatlar va Git tarixi saqlangan."
   },
   "debugger": {
     "title": "Debugger va profiler",
@@ -870,7 +871,8 @@
     "method": "HTTP usuli",
     "headers": "Sarlavhalar (har qatorda Nom: qiymat)",
     "body": "So‘rov tanasi",
-    "requestPrivacy": "Faqat shu boshqariladigan mahalliy loyihaga yuboriladi. Sarlavhalar va tana xotirada qoladi; javob holati ko‘rsatiladi."
+    "requestPrivacy": "Faqat shu boshqariladigan mahalliy loyihaga yuboriladi. Sarlavhalar va tana xotirada qoladi; javob holati ko‘rsatiladi.",
+    "headBodyHelp": "HEAD so‘rovi tanasiz yuboriladi. Boshqa usullar uchun qoralama saqlanadi."
   },
   "configuration": {
     "title": "Loyiha konfiguratsiyasi",

@@ -183,3 +183,55 @@ it("stops a failed owned session so that the project can recover", async () => {
   await user.click(screen.getByRole("button", { name: "Stop project" }));
   expect(backend.execute).toHaveBeenCalledWith({ action: "stop", id: "a" });
 });
+
+it("sends the chosen HTTP method, headers and body without persisting a request preset", async () => {
+  const { backend, view, user } = await fixture("running");
+  view.settings.mode = "profile";
+  await user.click(screen.getByRole("button", { name: "Function profiles" }));
+  await user.click(screen.getByText("HTTP method, headers and body"));
+  await user.selectOptions(
+    screen.getByRole("combobox", { name: "HTTP method" }),
+    "POST",
+  );
+  await user.type(
+    screen.getByRole("textbox", { name: "Headers (one Name: value per line)" }),
+    "Content-Type: text/plain\nX-Example: local",
+  );
+  await user.type(
+    screen.getByRole("textbox", { name: "Request body" }),
+    "Ўзбек request body",
+  );
+  await user.click(screen.getByRole("button", { name: "Run request" }));
+  expect(backend.execute).toHaveBeenCalledWith({
+    action: "debug_http",
+    id: "a",
+    request: {
+      method: "POST",
+      path: "/",
+      headers: { "Content-Type": "text/plain", "X-Example": "local" },
+      body: "Ўзбек request body",
+    },
+  });
+  await waitFor(() =>
+    expect(screen.getByRole("button", { name: "Run request" })).toBeEnabled(),
+  );
+  await user.selectOptions(
+    screen.getByRole("combobox", { name: "HTTP method" }),
+    "HEAD",
+  );
+  expect(screen.getByRole("textbox", { name: "Request body" })).toBeDisabled();
+  expect(screen.getByRole("textbox", { name: "Request body" })).toHaveValue(
+    "Ўзбек request body",
+  );
+  await user.click(screen.getByRole("button", { name: "Run request" }));
+  expect(backend.execute).toHaveBeenLastCalledWith({
+    action: "debug_http",
+    id: "a",
+    request: {
+      method: "HEAD",
+      path: "/",
+      headers: { "Content-Type": "text/plain", "X-Example": "local" },
+      body: "",
+    },
+  });
+});

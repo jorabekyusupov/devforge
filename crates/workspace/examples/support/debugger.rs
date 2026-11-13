@@ -74,7 +74,7 @@ pub fn run(root: &Path, archives: &Path) -> Result<()> {
     ));
     let mut w = Workspace::open(&data, secrets.clone())?;
     let cancel = Cancellation::default();
-    let a = w
+    let mut a = w
         .projects
         .list()?
         .into_iter()
@@ -86,6 +86,45 @@ pub fn run(root: &Path, archives: &Path) -> Result<()> {
         .into_iter()
         .find(|p| p.name == "Studio")
         .unwrap();
+    mode(&mut w, &a.id, None, Mode::Off)?;
+    let desired = w
+        .catalog
+        .packages
+        .iter()
+        .find(|(id, p)| {
+            !w.catalog.superseded.contains_key(*id)
+                && p.kind == "php"
+                && p.version.starts_with("8.5.12")
+                && p.target == Target::current().unwrap()
+                && p.executables.contains_key("php")
+        })
+        .unwrap()
+        .0
+        .clone();
+    if a.php != desired {
+        let row = w
+            .snapshot()?
+            .projects
+            .into_iter()
+            .find(|r| r.project.id == a.id)
+            .unwrap();
+        let site = row.site.unwrap();
+        w.execute(
+            Command::Configure {
+                id: a.id.clone(),
+                revision: w.projects.get(&a.id)?.revision,
+                name: a.name.clone(),
+                php: desired,
+                node: a.node.clone(),
+                domain: site.domain,
+                https: site.https,
+                vite: site.vite,
+                queue: row.development.queue,
+            },
+            &cancel,
+        )?;
+    }
+    a = w.projects.get(&a.id)?;
     let env_before = fs::read(a.path.join(".env")).ok();
     let selected = a.php.clone();
     let normal = Context::resolve(
@@ -249,8 +288,13 @@ pub fn run(root: &Path, archives: &Path) -> Result<()> {
         ("null", ""),
         ("int", "12"),
         ("float", "1.25"),
+        ("string", "touch('m7-injected')"),
+        ("string", "Ўзбек \"quoted\" \nvalue"),
+        ("string", "Ўзбек 'quoted'\nvalue"),
+        ("string", ""),
         ("string", "M7_EDITED_LOCAL"),
     ] {
+        assert!(!a.path.join("m7-injected").exists());
         let revision = w.debug_view(&a.id)?["session"]["revision"]
             .as_u64()
             .unwrap();
@@ -519,7 +563,7 @@ pub fn run(root: &Path, archives: &Path) -> Result<()> {
     assert_eq!(pids(&w, &b.id)?, other_pids);
     fs::write(
         a.path.join("public/m7-request.php"),
-        "<?php $ok=in_array($_SERVER['REQUEST_METHOD'],['GET','HEAD','POST','PUT','PATCH','DELETE','OPTIONS'],true)&&($_SERVER['HTTP_X_COMPLETION']??'')==='builder'&&file_get_contents('php://input')==='request-body';http_response_code($ok?200:422);echo 'done';",
+        "<?php $ok=in_array($_SERVER['REQUEST_METHOD'],['GET','HEAD','POST','PUT','PATCH','DELETE','OPTIONS'],true)&&($_SERVER['HTTP_X_COMPLETION']??'')==='builder'&&file_get_contents('php://input')===(in_array($_SERVER['REQUEST_METHOD'],['HEAD','OPTIONS'],true)?'':'request-body');http_response_code($ok?200:422);echo 'done';",
     )?;
     for method in ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"] {
         w.execute(
@@ -532,7 +576,11 @@ pub fn run(root: &Path, archives: &Path) -> Result<()> {
                         ("X-Completion".into(), "builder".into()),
                         ("Content-Type".into(), "text/plain".into()),
                     ]),
-                    body: "request-body".into(),
+                    body: if ["HEAD", "OPTIONS"].contains(&method) {
+                        String::new()
+                    } else {
+                        "request-body".into()
+                    },
                 },
             },
             &cancel,

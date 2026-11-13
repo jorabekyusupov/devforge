@@ -154,3 +154,31 @@ fn dotenv_profile_writes_only_reviewed_environment_names_and_checks_staleness() 
     fs::write(root.join(".env"), "EXTERNAL=changed\n").unwrap();
     assert!(plan.apply_if_changed(&store).is_err());
 }
+
+#[test]
+fn common_mysql_exact_version_resolves_on_every_target_without_downgrading_newer_pins() {
+    let catalog = Catalog::bundled();
+    let mut manifest = sample();
+    manifest.database = Some(Database {
+        engine: devforge_projects::database::Engine::Mysql,
+        version: "8.4.11".into(),
+    });
+    manifest.pin_all(&catalog).unwrap();
+    for target in [Target::MacosArm64, Target::MacosX64, Target::WindowsX64] {
+        let resolved = manifest.verify_pins(&catalog, target).unwrap();
+        assert_eq!(
+            catalog.get(&resolved["database"]).unwrap().version,
+            "8.4.11"
+        );
+    }
+    manifest.database.as_mut().unwrap().version = "8.4.13".into();
+    manifest.pin_all(&catalog).unwrap();
+    assert!(manifest.verify_pins(&catalog, Target::MacosX64).is_err());
+    for target in [Target::MacosArm64, Target::WindowsX64] {
+        let resolved = manifest.verify_pins(&catalog, target).unwrap();
+        assert_eq!(
+            catalog.get(&resolved["database"]).unwrap().version,
+            "8.4.13"
+        );
+    }
+}

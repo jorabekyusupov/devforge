@@ -406,6 +406,15 @@ try:
     button('Reactivate archive','.fork-detail');audit('archive-reactivation-review');click('dialog input[name=archive-consent]');button('Reactivate archive','dialog');settled()
     wait(lambda:next(v for v in snap()['snapshot']['worktrees'] if v['record']['id']==workspace)['record']['stage']=='ready')
     checks['native_archive_restore_same_project']=True
+    button('Review cleanup','.fork-detail');click('dialog input[name=consent]');button('Archive workspace','dialog');settled()
+    wait(lambda:next(v for v in snap()['snapshot']['worktrees'] if v['record']['id']==workspace)['record']['stage']=='removed')
+    button('Delete archived files','.fork-detail');audit('archive-purge-review')
+    assert script("return document.querySelector('dialog .modal-actions .danger').disabled")
+    click('dialog input[name=archive-consent]');button('Delete archived files','dialog');settled()
+    wait(lambda:next(v for v in snap()['snapshot']['worktrees'] if v['record']['id']==workspace)['record']['stage']=='purged')
+    assert script("return [...document.querySelectorAll('.fork-detail button')].find(b=>b.textContent.includes('Open folder')).disabled")
+    checks['native_purge_explicit_review_files_only']=True
+
     quit_app()
     report={'native':'real WKWebView/WebView2','checks':checks,'accessibility':accessibility,'captures':captures,'viewport_attempts':viewport_attempts}
     (args.fixture/'completion-desktop-result.json').write_text(json.dumps(report,indent=2));print('COMPLETION_UI_REPORT:'+json.dumps(report),flush=True)

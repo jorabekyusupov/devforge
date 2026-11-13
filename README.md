@@ -324,6 +324,7 @@ runtime, then start the project. In Debug mode, add a project-relative PHP file 
 line, enter a local path and choose **Run request**. Expand HTTP options for GET,
 HEAD, POST, PUT, PATCH, DELETE or OPTIONS, bounded headers and a UTF-8 body.
 Transport and Xdebug headers remain owned; request headers/body stay in memory.
+HEAD sends an empty body while preserving the draft for other methods.
 Only the response status is retained. **Continue** reaches a breakpoint; step
 into/over/out, stack selection and masked locals/source remain available. Editable
 primitive locals expose **Edit** while paused. Assignment accepts a local name and
@@ -591,3 +592,8 @@ archive semantics and the open distribution/recovery gates.
 Remaining M7–M12 capabilities and their current source/platform evidence are tracked
 in [the completion record](docs/knowledge/m7-m12-completion.md). Public distribution
 and minimum/clean-OS acceptance remain M15 gates.
+
+MySQL8.4.11 is an explicit common package family for macOS ARM64/Intel and Windows
+x64 manifests. Existing ARM64/Windows8.4.13 packages and project selections remain
+available. Exact pins never silently fall back across versions. Workspace receipts
+created by this completion use schema2; existing schema1 receipts remain readable.

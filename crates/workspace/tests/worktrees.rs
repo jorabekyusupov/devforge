@@ -331,8 +331,8 @@ fn archive_restore_and_purge_preserve_identity_ignored_data_and_source_history()
                 &[
                     "clone",
                     "--no-hardlinks",
-                    source.path.to_str().unwrap(),
-                    path.to_str().unwrap(),
+                    dunce::simplified(&source.path).to_str().unwrap(),
+                    dunce::simplified(&path).to_str().unwrap(),
                 ],
             );
             git(&path, &["checkout", "-qb", &input.branch]);

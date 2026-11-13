@@ -384,10 +384,60 @@
         "version_policy": "Explicit Intel 8.4.11 provider; 8.4.13 Intel official URLs returned 404. No project pin or database migration.",
         "license": "GPL-2.0; separate download; public redistribution review remains M15"
       }
+    },
+    {
+      "id": "mysql-8.4.11-macos-arm64",
+      "kind": "mysql",
+      "version": "8.4.11",
+      "variant": "server",
+      "target": "macos-arm64",
+      "url": "https://cdn.mysql.com/Downloads/MySQL-8.4/mysql-8.4.11-macos15-arm64.tar.gz",
+      "sha256": "b96e00493bc3499b9ffd7f08d65c5d64933af0383a8287d9873b64f94c2d6009",
+      "archive": {
+        "kind": "tar_gz"
+      },
+      "executables": {
+        "mysqld": "mysql-8.4.11-macos15-arm64/bin/mysqld",
+        "mysql": "mysql-8.4.11-macos15-arm64/bin/mysql",
+        "mysqldump": "mysql-8.4.11-macos15-arm64/bin/mysqldump"
+      },
+      "provenance": {
+        "authentication": "Oracle detached GPG signature verified for this archive",
+        "fingerprint": "BCA43417C3B485DD128EC6D4B7B3B788A8D3785C",
+        "signature": "https://cdn.mysql.com/Downloads/MySQL-8.4/mysql-8.4.11-macos15-arm64.tar.gz.asc",
+        "key": "https://repo.mysql.com/RPM-GPG-KEY-mysql-2025",
+        "version_policy": "Optional common 8.4.11 family for exact macOS ARM64/Intel and Windows manifests; existing 8.4.13 packages and selections preserved.",
+        "license": "GPL-2.0; separate download; public redistribution review remains M15"
+      }
+    },
+    {
+      "id": "mysql-8.4.11-windows-x64",
+      "kind": "mysql",
+      "version": "8.4.11",
+      "variant": "server",
+      "target": "windows-x64",
+      "url": "https://cdn.mysql.com/Downloads/MySQL-8.4/mysql-8.4.11-winx64.zip",
+      "sha256": "a492371d687d2bab088b0062581144a0044b8964baefdf4faa579292b423d25c",
+      "archive": {
+        "kind": "zip"
+      },
+      "executables": {
+        "mysqld": "mysql-8.4.11-winx64/bin/mysqld.exe",
+        "mysql": "mysql-8.4.11-winx64/bin/mysql.exe",
+        "mysqldump": "mysql-8.4.11-winx64/bin/mysqldump.exe"
+      },
+      "provenance": {
+        "authentication": "Oracle detached GPG signature verified for this archive",
+        "fingerprint": "BCA43417C3B485DD128EC6D4B7B3B788A8D3785C",
+        "signature": "https://cdn.mysql.com/Downloads/MySQL-8.4/mysql-8.4.11-winx64.zip.asc",
+        "key": "https://repo.mysql.com/RPM-GPG-KEY-mysql-2025",
+        "version_policy": "Optional common 8.4.11 family for exact macOS ARM64/Intel and Windows manifests; existing 8.4.13 packages and selections preserved.",
+        "license": "GPL-2.0; separate download; public redistribution review remains M15"
+      }
     }
   ],
   "gates": [
-    "Explicit Oracle-signed Intel 8.4.11 provider added; ARM64/Windows remain 8.4.13. No automatic cross-version migration.",
+    "Optional Oracle-signed 8.4.11 family is available for all three targets. ARM64/Windows 8.4.13 packages and existing selections remain unchanged. No automatic version migration.",
     "macOS package OS floors and public runtime redistribution remain M15 release gates.",
     "Garnet is framework-dependent: managed .NET10, FileStream storage and isolated ACL are required."
   ]

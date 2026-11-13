@@ -49,6 +49,7 @@ pub(super) fn run(
                 "APPDATA",
                 "LOCALAPPDATA",
                 "PATH",
+                "SSH_AUTH_SOCK",
             ]
             .iter()
             .filter_map(|name| std::env::var_os(name).map(|v| (*name, v))),

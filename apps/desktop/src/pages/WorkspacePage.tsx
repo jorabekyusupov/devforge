@@ -963,11 +963,20 @@ function DatabaseServices({
 }) {
   const { t } = useTranslation();
   const list =
-    snapshot?.runtimes.filter(
-      (r) =>
-        (r.kind === "postgresql" || r.kind === "mysql") &&
-        r.variant === "server",
-    ) ?? [];
+    snapshot?.runtimes
+      .filter(
+        (r) =>
+          (r.kind === "postgresql" || r.kind === "mysql") &&
+          r.variant === "server",
+      )
+      .sort(
+        (a, b) =>
+          a.kind.localeCompare(b.kind) ||
+          new Intl.Collator("en", { numeric: true }).compare(
+            b.version,
+            a.version,
+          ),
+      ) ?? [];
   const [selected, setSelected] = useState("");
   const value = selected || list[0]?.id || "";
   return (

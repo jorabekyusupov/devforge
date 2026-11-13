@@ -356,13 +356,18 @@ fn conversation(
                     }
                     value.validate()?;
                     let depth = state.lock().unwrap().depth;
-                    let encoded = STANDARD.encode(value.value.as_bytes());
+                    let literal = value.php_literal()?;
+                    let encoded = STANDARD.encode(literal.as_bytes());
+                    let cast = if value.kind == "null" {
+                        String::new()
+                    } else {
+                        format!(" -t {}", value.kind)
+                    };
                     let response = conn.call(
                         &format!(
-                            "property_set -n {} -d {depth} -c 0 -t {} -l {} -- {encoded}",
+                            "property_set -n {} -d {depth} -c 0{cast} -l {} -- {encoded}",
                             value.name,
-                            value.kind,
-                            value.value.len()
+                            literal.len()
                         ),
                         stop,
                     )?;
