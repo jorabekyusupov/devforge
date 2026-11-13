@@ -25,11 +25,23 @@ pub(super) fn payload(path: &Path) -> io::Result<()> {
             payload(&entry?.path())?;
         }
     }
-    let file = std::fs::OpenOptions::new()
+    let file = match std::fs::OpenOptions::new()
         .access_mode(DELETE)
         .share_mode(FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE)
         .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS)
-        .open(path)?;
+        .open(path)
+    {
+        Ok(file) => file,
+        Err(error) => {
+            #[cfg(feature = "test-support")]
+            eprintln!(
+                "ARCHIVE_ERASE_OPEN:{:?}:{}",
+                path.file_name(),
+                error.raw_os_error().unwrap_or(0)
+            );
+            return Err(error);
+        }
+    };
     let disposition = FILE_DISPOSITION_INFO_EX {
         Flags: FILE_DISPOSITION_FLAG_DELETE
             | FILE_DISPOSITION_FLAG_POSIX_SEMANTICS
@@ -45,7 +57,14 @@ pub(super) fn payload(path: &Path) -> io::Result<()> {
         )
     };
     if success == 0 {
-        return Err(io::Error::last_os_error());
+        let e = io::Error::last_os_error();
+        #[cfg(feature = "test-support")]
+        eprintln!(
+            "ARCHIVE_ERASE_DISPOSITION:{:?}:{}",
+            path.file_name(),
+            e.raw_os_error().unwrap_or(0)
+        );
+        return Err(e);
     }
     drop(file);
     Ok(())

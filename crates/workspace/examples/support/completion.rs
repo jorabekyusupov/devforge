@@ -716,3 +716,31 @@ pub fn cli(root: &Path, executable: &Path) -> Result<()> {
     )?;
     Ok(())
 }
+
+/// Fixture Git commit uses the same Windows restricted token as the native app.
+pub fn commit_ui(root: &Path, id: &str) -> Result<()> {
+    let data = fs::canonicalize(root)?.join("data");
+    let secrets = Arc::new(devforge_workspace::testing::FixtureSecrets::open(
+        data.join("e2e-secrets.json"),
+    ));
+    let w = Workspace::open(&data, secrets)?;
+    let project = w.projects.get(id)?;
+    if project.worktree.is_none() || !project.path.starts_with(data.join("worktrees")) {
+        return Err("owned fixture workspace required".into());
+    }
+    drop(w);
+    git(&project.path, &["add", "devforge.yaml"])?;
+    git(
+        &project.path,
+        &[
+            "-c",
+            "user.name=Fixture",
+            "-c",
+            "user.email=fixture@example.test",
+            "commit",
+            "-m",
+            "Native configuration editor fixture",
+        ],
+    )?;
+    Ok(())
+}

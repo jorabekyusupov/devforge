@@ -393,9 +393,7 @@ try:
         click('a[href="#configuration"]');settled();content_viewport(820,620);audit('configuration-'+locale+'-minimum');screenshot('configuration-'+locale+'-minimum.png')
     click('a[href="#settings"]');click('input[value=dark]');click('a[href="#configuration"]');content_viewport(1536,1024);settled();audit('configuration-dark');screenshot('configuration-dark.png')
     # Saving portable YAML is an intentional repository edit. Commit fixture edits before archive.
-    path=row(target)['project']['path']
-    subprocess.run(['git','-C',path,'add','devforge.yaml'],check=True)
-    subprocess.run(['git','-C',path,'-c','user.name=Fixture','-c','user.email=fixture@example.test','commit','-m','Native configuration editor fixture'],check=True)
+    subprocess.run([str(args.launcher.resolve()),'completion-ui-commit',str(args.fixture.resolve()),target],check=True)
     # Return to the exact managed workspace and inspect archive and remote-copy controls.
     click('a[href="#workspaces"]');settled();click('[data-workspace="'+workspace+'"]')
     button('Copy external database','.fork-detail');audit('external-copy-form');screenshot('external-copy-form.png');button('Cancel','dialog') if script("return [...document.querySelectorAll('dialog button')].some(b=>b.textContent==='Cancel')") else click('dialog .modal-title button')
@@ -411,7 +409,12 @@ try:
     button('Delete archived files','.fork-detail');audit('archive-purge-review')
     assert script("return document.querySelector('dialog .modal-actions .danger').disabled")
     click('dialog input[name=archive-consent]');button('Delete archived files','dialog');settled()
-    wait(lambda:next(v for v in snap()['snapshot']['worktrees'] if v['record']['id']==workspace)['record']['stage']=='purged')
+    def purged():
+        stage=next(v for v in snap()['snapshot']['worktrees'] if v['record']['id']==workspace)['record']['stage']
+        error=script("return document.querySelector('dialog [role=alert]')?.textContent || null")
+        if error:raise RuntimeError('Archive purge failed: '+error+'; stage='+stage)
+        return stage=='purged'
+    wait(purged)
     assert script("return [...document.querySelectorAll('.fork-detail button')].find(b=>b.textContent.includes('Open folder')).disabled")
     checks['native_purge_explicit_review_files_only']=True
 
@@ -419,6 +422,10 @@ try:
     report={'native':'real WKWebView/WebView2','checks':checks,'accessibility':accessibility,'captures':captures,'viewport_attempts':viewport_attempts}
     (args.fixture/'completion-desktop-result.json').write_text(json.dumps(report,indent=2));print('COMPLETION_UI_REPORT:'+json.dumps(report),flush=True)
 except Exception:
+    log=args.fixture/'desktop.log'
+    if log.exists():
+        for line in log.read_text(errors='replace').splitlines():
+            if 'ARCHIVE_ERASE_' in line:print(line,flush=True)
     try:screenshot('failure.png')
     except Exception:pass
     raise

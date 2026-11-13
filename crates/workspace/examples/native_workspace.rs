@@ -38,6 +38,12 @@ fn main() -> Result<()> {
         std::process::exit(code);
     }
     let args: Vec<_> = std::env::args().skip(1).collect();
+    if args.first().map(String::as_str) == Some("completion-ui-commit") {
+        return completion::commit_ui(
+            Path::new(args.get(1).ok_or("fixture required")?),
+            args.get(2).ok_or("project required")?,
+        );
+    }
     if args.first().map(String::as_str) == Some("completion-cli") {
         return completion::cli(
             Path::new(args.get(1).ok_or("fixture required")?),
