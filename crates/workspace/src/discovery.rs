@@ -274,6 +274,33 @@ fn relevant_windows_path(root: &Path, path: &Path) -> bool {
     }
 }
 
+fn event_affects_root(root: &Path, event: &notify::Event) -> bool {
+    // Overflow notifications can have no paths. They still require an
+    // authoritative inventory and a fresh native stream.
+    if event.need_rescan() {
+        return true;
+    }
+    #[cfg(windows)]
+    if !event
+        .paths
+        .iter()
+        .any(|path| relevant_windows_path(root, path))
+    {
+        return false;
+    }
+    event.paths.iter().any(|path| {
+        let path = fs::canonicalize(path).unwrap_or_else(|_| {
+            path.parent()
+                .and_then(|p| fs::canonicalize(p).ok())
+                .map(|p| p.join(path.file_name().unwrap_or_default()))
+                .unwrap_or_else(|| path.clone())
+        });
+        let observed = dunce::simplified(&path);
+        let watched = dunce::simplified(root);
+        observed.starts_with(watched) || watched.starts_with(observed)
+    })
+}
+
 use std::sync::{
     Mutex as StdMutex,
     atomic::{AtomicBool, AtomicU64, Ordering},
@@ -383,31 +410,15 @@ impl Service {
                     let errors = backend_error.clone();
                     watcher = notify::recommended_watcher(
                         move |result: notify::Result<notify::Event>| {
-                            if result.is_err() {
+                            if result.is_err()
+                                || result.as_ref().is_ok_and(notify::Event::need_rescan)
+                            {
                                 errors.store(true, Ordering::Relaxed);
                             }
-                            #[cfg(windows)]
-                            if result.as_ref().is_ok_and(|event| {
-                                !event
-                                    .paths
-                                    .iter()
-                                    .any(|path| relevant_windows_path(&event_root, path))
-                            }) {
-                                return;
-                            }
-                            if result.as_ref().is_ok_and(|e| {
-                                !e.paths.iter().any(|path| {
-                                    let path = fs::canonicalize(path).unwrap_or_else(|_| {
-                                        path.parent()
-                                            .and_then(|p| fs::canonicalize(p).ok())
-                                            .map(|p| p.join(path.file_name().unwrap_or_default()))
-                                            .unwrap_or_else(|| path.clone())
-                                    });
-                                    let observed = dunce::simplified(&path);
-                                    let watched = dunce::simplified(&event_root);
-                                    observed.starts_with(watched) || watched.starts_with(observed)
-                                })
-                            }) {
+                            if result
+                                .as_ref()
+                                .is_ok_and(|e| !event_affects_root(&event_root, e))
+                            {
                                 return;
                             }
                             count.fetch_add(1, Ordering::Relaxed);
@@ -758,6 +769,15 @@ mod tests {
         ] {
             assert!(!relevant_windows_path(root, &root.join(child)));
         }
+    }
+    #[test]
+    fn pathless_native_overflow_requests_authoritative_recovery() {
+        let root = Path::new("unused-fixture-root");
+        let ordinary = notify::Event::new(notify::EventKind::Other);
+        assert!(!event_affects_root(root, &ordinary));
+        let overflow = ordinary.set_flag(notify::event::Flag::Rescan);
+        assert!(overflow.paths.is_empty());
+        assert!(event_affects_root(root, &overflow));
     }
     #[test]
     fn native_watcher_converges_after_incomplete_copy_root_switch_and_quit() {
