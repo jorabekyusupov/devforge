@@ -276,3 +276,18 @@ consumerlarni, initial fixture failure va reviewda topilgan Redis caller fixni q
 etadi. Local focused projects12/manifest5/repro4, invocation1/worktree1 va scoped
 clippy; late fixlarda faqat invalid scope rerun. Real PHP/UI/Windows/Intel native
 qabul yangidan da'vo qilinmaydi. Source push alohida E03 commitda.
+
+# E04.2 — Task runbook va uch tilli atamalar (2026-11-14)
+
+[Birinchi loyiha](../guides/first-project.md) mavjud M8/Workspace/Configuration/Inspector
+controls asosida HTTP→yangi Inspector event, runtime/secret/port konflikt, conditional
+DB/queue/mail va cancellation retained state oqimini tushuntiradi.
+[Atamalar](../guides/terminology.md):43 katalog key/129 RU/UZ/EN label exact source
+mosligi va46local link tekshirildi, scoped diff o'tdi. READMEga kirish havolalari va
+current schema8 Composer chegarasi qo'shildi. Native user pilot yoki yangi checklist
+UI bu docs bilan implemented/verified deyilmaydi. E04 materiallar qismi integrated;
+ona tilidagi user review/pilot natijalari hali unverified. Product suite qayta bajarilmadi.
+
+Publication: E00 99d6a9e, TP01 6940822, E04.1 0089b2f, M13.0.1 5e77a2a va
+E03 ae62902 origin/main'ga push qilingani remote natija bilan tekshirildi. Code CI
+runlari alohida source'ga bog'liq; green docs-only CI native product qabuli emas.

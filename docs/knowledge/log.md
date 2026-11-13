@@ -2,6 +2,10 @@
 
 - **M7–M12 functional completion**: [yakun yozuvi](m7-m12-completion.md): shared Rust core,7-method request builder va revision-guarded primitive locals, verified common MySQL8.4.11 oilasi, reviewed YAML GUI, same-ID archive restoration/purge, recursive isolated submodules va external PG/MySQL staged copy. macOS ARM64/Intel hamda Windows native backend/CLI/UI qabul; har target22 axe case/0 violation. Concurrent main996a11d saqlandi, filesystem-identity interop regressiyalari qo'shildi. Latest core macOS134/Windows131 Rust va44 frontend/OS;1 OS-credential test M15 ignored. Failure/infrastructure history, runtime hash rollover va aniq source projection evidence'da.30-doc strict close; M13–M15'ga avtomatik o'tilmadi.
 
+## 2026-11-14
+
+- **E04.2 user materiallari:** [First-project runbook](../guides/first-project.md) va [RU/UZ/EN glossary](../guides/terminology.md);46local link,43catalog key/129label source match va scoped diff o'tdi. README havola/current schema8. Product suite/native userpilot qayta bajarilmadi; materiallar qabul, actual pilot ochiq. [Execution](execution-status.md).
+
 ## 2026-11-13
 
 - **E03 exact Composer:** [Schema8 natijasi](composer-binding-results.md), historical2.11.2 backfill, exact invocation/terminal/manifest/worktree va registered credential-free Redis tooling. Projects12/manifest5/repro4 va focused invocation/worktree fixtures, final scoped clippy o'tdi; independent QA source review. Full product suite rerun yo'q, actual PHP/UI/Intel/Windows native gap ochiq.

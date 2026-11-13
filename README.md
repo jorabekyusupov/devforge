@@ -16,6 +16,16 @@ Start with the path that matches your task:
   [completion record](docs/knowledge/m7-m12-completion.md) and
   [Windows compatibility matrix](docs/knowledge/windows-compatibility.md).
 
+For a task-based path through the existing controls, use the
+[first-project runbook](docs/guides/first-project.md) and
+[RU/UZ/EN task/error terminology](docs/guides/terminology.md). They describe the
+current source; they do not claim an observed user or native-language pilot.
+
+Current project metadata schema8 persists each project's exact Composer package ID.
+Older records receive the legacy Composer binding when migrated; changing a catalog
+default does not change an existing project's selection. This is an additive
+forward migration, not proof that an older app can open the new schema.
+
 M0–M12 headings below retain the implementation history. Current source and
 per-target evidence take precedence over a historical milestone's original limits.
 Internal unsigned/ad-hoc packages are not a signed public release. External-agent
