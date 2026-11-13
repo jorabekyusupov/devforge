@@ -291,3 +291,42 @@ ona tilidagi user review/pilot natijalari hali unverified. Product suite qayta b
 Publication: E00 99d6a9e, TP01 6940822, E04.1 0089b2f, M13.0.1 5e77a2a va
 E03 ae62902 origin/main'ga push qilingani remote natija bilan tekshirildi. Code CI
 runlari alohida source'ga bog'liq; green docs-only CI native product qabuli emas.
+
+# M13.0.2 — Typed projections va checked wire artifacts (2026-11-14)
+
+16oila uchun strict read-only projection DTO/schema va153operation uchun typed/planned/
+unsupported mapping qo'shildi.16projection typed, qolganlari explicit unavailable;
+live handler yo'q. Prepared read grant, canonical binding, safe revision, cursor va
+operation owner/original scopesni tekshiradi; output original project/resource bilan
+qayta tekshiriladi. ReadBudget capped counting writer bilan row/byte/cooperative timeout
+limitini saqlaydi. Unicode scalar text limiti standard schema maxLengthga mos; wire
+vaqt Unix ms, safe integerlar JS number aniqligi doirasida.
+
+`cargo test -p devforge-control --test tool_contracts`:11passed, final QA fixlardan
+keyin; scoped clippy o'tdi. Generated JSON/TS drift shu suite'da tekshirildi. Root
+`tsc --noEmit --strict --target ES2022 --module ESNext --moduleResolution bundler
+--skipLibCheck --lib ES2022 crates/control/contracts/control-contracts.ts` bajardi:pass.
+Checked artifacts uchun local .gitattributes text/eol=lf qo'shildi, git check-attr bilan
+ikkala faylda tasdiqlandi; boshqa repo fayllari line endings o'zgarmadi.
+
+Independent QA review operation-owner, project binding va schema Unicode masalalarini
+topdi; source tuzatildi va tegishli11test bilan yopildi. Old contract foundation
+semantikasi saqlangan qamrovda old13test natijasi reused; lokal full workspace
+testi/build/native run qayta bajarilmadi.
+
+M13.0.2 source/contracts slice validated, toliq M13.0 hali ochiq: remaining planned
+mutation payloadlari, haqiqiy adapter error/dispatch mapping va final contract freeze
+qoladi. Manager/authenticated IPC/MCP/client/native acceptance amalga oshmagan.
+Next ready: M13.0.3 planned tools uchun typed mutation kontraktlari, so'ng M13.1 owner
+spike/integratsiya; already typed read contract fixture'lari reuse qilinadi.
+
+# Remote CI reconciliation (2026-11-14)
+
+E03 sourceae62902 run43487502800 macOS va Windows matrix success: original scoped
+local checksdan tashqari repository code-CI fmt/clippy/full Rust/frontend/locales
+va embedded desktop binary build o'tdi, strict35/0/0. Native OS credential testi
+ignored qolgan; Windows runner actual Win10/11 yoki interactive app proof emas.
+M13.0.1 source5e77a2a run43487380006 va TP01 source6940822 run43486608801 ham success.
+E04.2 sourcea2b77c9 run43488625057 docs-only success, product steps skipped. Ushbu
+remote natijalar final M13.0.2 kodining CI pass'i deb ko'rsatilmaydi; yangi source
+run'i alohida. Existing broad checks code pushda saqlandi, local suites takrorlanmadi.

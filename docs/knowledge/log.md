@@ -4,6 +4,9 @@
 
 ## 2026-11-14
 
+- **M13.0.2 typed projections:**16read DTO/schema,153operation availability/policy mapping, capped serialization/time/cursor/project/resource/owner guards va checked generated JSON/TS.11focused tool test, scoped clippy, root targeted TS compile va LF attributes check o'tdi; full local suite rerun yo'q. M13.0 remaining mutation schemas/adapter dispatch, manager/MCP/native qabuli ochiq. [Execution](execution-status.md).
+- **Remote CI reconciliation:** ae62902/E03 run43487502800 va5e77a2a/M13.0.1 run43487380006 macOS/Windows core+binary checks success;6940822CI policy success; a2b77c9docs-only success. Actual minimum-OS/credential/interactive gate'lari yopilmadi. Yangi M13.0.2 uchun bu remote pass reuse qilinmaydi.
+
 - **E04.2 user materiallari:** [First-project runbook](../guides/first-project.md) va [RU/UZ/EN glossary](../guides/terminology.md);46local link,43catalog key/129label source match va scoped diff o'tdi. README havola/current schema8. Product suite/native userpilot qayta bajarilmadi; materiallar qabul, actual pilot ochiq. [Execution](execution-status.md).
 
 ## 2026-11-13

@@ -1,4 +1,4 @@
-# M13.0.1: control-plane contract foundation
+# M13.0.1–M13.0.2: control-plane contract foundation
 
 Decision date: 2026-11-13. Status: working implementation direction; the contract
 library is implemented, a manager process and external agent integration are not.
@@ -37,11 +37,13 @@ in this digest. Idempotency records are keyed by authenticated client, project
 and key, and additionally bind the request fingerprint. Atomic persistence and
 race handling belong to M13.1, not this in-memory contract guard.
 
-This is the first validated M13.0 slice, not full M13.0 completion. Per-tool typed
-payload schemas, concrete adapter dispatch/error mapping, cursor/limit enforcement
-and cross-language contract generation remain M13.0.2 work. `Request<T>` validates
-the envelope; each adapter must supply a strict typed `T`, not dispatch arbitrary
-JSON based on this generic wrapper.
+M13.0.1 establishes the guarded envelope/policy foundation. M13.0.2 adds concrete
+strict initial read projection payload/result types for one operation in each of
+the sixteen families. Every remaining inventory operation is explicitly Planned
+or Unsupported with no fabricated input/output schema and no live handler.
+Mutation payload schemas are introduced before their adapters, not represented as
+ready by a generic JSON wrapper. Manager/MCP transport and backend projections
+remain future stages.
 
 The current embedded inventory maps all sixteen plan families to existing code,
 new adapters, new operations and unsupported behavior. Each listed operation has
@@ -105,3 +107,54 @@ and complete non-live inventory. They do not prove authenticated IPC, durable
 storage, single-owner concurrency, MCP client compatibility or native lifecycle.
 M13.1 and later phases must establish those with scoped tests and actual macOS /
 Windows evidence. No platform pass is implied by compiling these contracts.
+
+## M13.0.2 projection contracts and generated artifacts
+
+`tools.rs` defines sixteen concrete input/result pairs using contract-field macros.
+These produce strict Rust serde structures, JSON Schema and TypeScript declarations
+from the same field lists. `export.rs` supplies the bounded primitives/enums/envelope
+schema. The checked JSON document includes all153 operation policies and schema
+statuses. The exported TS has precise input/output maps and discriminated success /
+failure shapes. Run `cargo run -p devforge-control --example export_contracts --
+--write` after a contract change, then `--check` verifies byte-for-byte drift. This
+exports files only inside the crate. It does not generate or replace existing
+React/Tauri DTOs; integration into those adapters follows their phase work.
+
+The public preparation boundary rejects request bytes above64KiB, wrong API version,
+unknown envelope/payload fields, unsafe JS integer revisions, invalid text, excessive
+page/byte/time limits, and foreign/stale/expired cursors. Text limits count Unicode scalar values in both Rust and JSON Schema maxLength;
+total request/serialized-output byte limits are enforced separately. Runtime serde
+validation remains authoritative. This is not a
+claim that TypeScript type checking enforces numeric or resource bounds.
+
+All observed_at/expires_at/now timestamps, including existing grant/review expiry,
+use Unix milliseconds. Revisions/offsets/timestamps on the exposed projection wire
+are safe integers at most2^53−1. `timeout_ms` is a monotonic duration, capped30s;
+page size is at most500 and output payload at most256KiB. Defaults are100 rows,
+64KiB and5s. Cursor is a typed pagination hint, not an authorization token; it binds
+project/tool/revision/expiry and the normal grant is always checked independently.
+
+ReadBudget uses a capped counting writer with serde_json::to_writer: oversized
+serialization stops without allocating a payload-sized buffer. Deadline enforcement
+is cooperative before/after serialization and at writer calls; this cannot preempt
+arbitrary CPU work inside a producer/Serialize implementation. A future adapter must
+also apply the deadline/cancellation to its own DB/network/event operations.
+
+PreparedRead keeps the authorized request and budget private, exposing immutable
+access/check methods. Returned rows are budget-checked; explicit project/resource
+IDs cannot disagree with the bound project or requested operation/artifact.
+Operation-backed reads (status, execution exit code, stored HTTP response) require
+trusted manager ownership metadata and the original operation's grants. Merely
+knowing an operation ID under another same-project client is insufficient.
+
+HTTP readiness/response projection reads stored metadata only and therefore uses
+Observer/read policy. It is distinct from managed_site_request, which actively
+executes an HTTP request and requires ExecutionTest. Unknown TLS/readiness is null,
+not false. ServiceState models stopped/starting/running/ready/backoff/stopping /
+succeeded/failed/unknown instead of reusing operation queue states. Projections
+intentionally omit env values, credential refs, raw log/mail bodies and filesystem
+paths; future collectors still own redaction before populating richer DTOs.
+
+Every tool contract remains live_available:false and prepare_read never executes a
+backend. require_live_handler returns UnsupportedCapability. Typed preparation is
+not an MCP server, authenticated IPC, a secret sandbox or a usable manager.

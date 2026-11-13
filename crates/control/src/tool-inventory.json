@@ -267,7 +267,7 @@
       {"name": "node","core_status": "existing","required_scopes": ["execution_test"],"effects": ["trusted_project_code_execution"],"policy": "project_grant","review_required": false},
       {"name": "npm","core_status": "existing","required_scopes": ["execution_test"],"effects": ["trusted_project_code_execution"],"policy": "project_grant","review_required": false},
       {"name": "git","core_status": "existing","required_scopes": ["execution_test"],"effects": ["trusted_project_code_execution"],"policy": "project_grant","review_required": false},
-      {"name": "exit_code","core_status": "existing","required_scopes": ["observer"],"effects": ["read"],"policy": "project_grant","review_required": false},
+      {"name": "exit_code","core_status": "existing","required_scopes": ["observer"],"effects": ["read"],"policy": "operation_owner_and_original_grant","review_required": false},
       {"name": "output","core_status": "existing","required_scopes": ["observer"],"effects": ["read"],"policy": "project_grant","review_required": false},
       {"name": "timeout","core_status": "existing","required_scopes": ["execution_test"],"effects": ["trusted_project_code_execution"],"policy": "project_grant","review_required": false},
       {"name": "cancel","core_status": "existing","required_scopes": ["execution_test"],"effects": ["trusted_project_code_execution"],"policy": "project_grant","review_required": false},
@@ -282,13 +282,13 @@
     "new_adapter": ["managed_site_request"],
     "new_operations": ["readiness_tls_response_projection","trace_correlation"],
     "unsupported_operations": ["arbitrary_remote_url_proxy"],
-    "scopes": ["execution_test"],
-    "effects": ["project_http_request_may_mutate_application"],
+    "scopes": ["execution_test","observer"],
+    "effects": ["project_http_request_may_mutate_application","read"],
     "stages": ["M13.6"],
     "available": false,
     "operations": [
       {"name": "managed_site_request","core_status": "existing","required_scopes": ["execution_test"],"effects": ["project_http_request_may_mutate_application"],"policy": "project_grant","review_required": false},
-      {"name": "readiness_tls_response_projection","core_status": "new","required_scopes": ["execution_test"],"effects": ["project_http_request_may_mutate_application"],"policy": "project_grant","review_required": false},
+      {"name": "readiness_tls_response_projection","core_status": "new","required_scopes": ["observer"],"effects": ["read"],"policy": "operation_owner_and_original_grant","review_required": false},
       {"name": "trace_correlation","core_status": "new","required_scopes": ["execution_test"],"effects": ["project_http_request_may_mutate_application"],"policy": "project_grant","review_required": false},
       {"name": "arbitrary_remote_url_proxy","core_status": "unsupported","required_scopes": ["execution_test"],"effects": ["project_http_request_may_mutate_application"],"policy": "project_grant","review_required": false}
     ]

@@ -15,6 +15,9 @@ pub const API_VERSION: u16 = 1;
 #[serde(rename_all = "snake_case")]
 pub enum ErrorCode {
     InvalidInput,
+    CursorExpired,
+    OutputLimitExceeded,
+    TimedOut,
     UnsupportedVersion,
     Unauthorized,
     GrantExpired,
@@ -179,6 +182,7 @@ pub enum Scope {
 
 /// Independent grant bits: project management never implies execution or sensitive access.
 /// Construction is for a trusted consent/store boundary, not a tool input handler.
+/// Grant/review expiry and `now` arguments use Unix milliseconds.
 #[derive(Debug, Clone, Serialize)]
 pub struct Grant {
     client_id: Id,
@@ -399,6 +403,7 @@ pub enum Origin {
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+/// Existing internal snapshot timestamps use Unix milliseconds.
 pub struct Freshness {
     pub origin: Origin,
     pub observed_at: u64,
@@ -451,3 +456,17 @@ impl<T> Response<T> {
 }
 
 pub mod inventory;
+
+pub mod export;
+pub mod limits;
+pub mod tools;
+
+impl ErrorCode {
+    /// Stable transport mapping; no raw path, payload or serde failure text.
+    pub fn fault(self) -> Fault {
+        Fault {
+            code: self,
+            retryable: matches!(self, Self::Busy | Self::StorageUnavailable | Self::TimedOut),
+        }
+    }
+}
