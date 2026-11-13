@@ -270,6 +270,14 @@ fn cleanup_refuses_dirty_foreign_and_cancelled_worktrees_and_preserves_source() 
         "setup_cancelled"
     );
     assert!(path.is_dir());
+    fs::write(path.join("public/index.php"), "<?php // staged only").unwrap();
+    git(&path, &["add", "public/index.php"]);
+    fs::write(path.join("public/index.php"), "<?php").unwrap();
+    assert!(
+        w.worktree_cleanup_plan(&wid).unwrap().dirty,
+        "staged changes must be retained even when working content matches HEAD"
+    );
+    git(&path, &["reset", "-q", "HEAD", "--", "public/index.php"]);
     fs::write(path.join("user-file"), "keep").unwrap();
     let dirty = w.worktree_cleanup_plan(&wid).unwrap();
     assert!(dirty.dirty);
@@ -391,6 +399,22 @@ fn archive_restore_and_purge_preserve_identity_ignored_data_and_source_history()
             &Default::default(),
         )
         .unwrap();
+        git(&path, &["config", "core.autocrlf", "true"]);
+        // Commit a freshly written LF file, then restore it over a CRLF checkout.
+        fs::write(path.join("reviewed.txt"), "first line\nsecond line\n").unwrap();
+        git(&path, &["add", "reviewed.txt"]);
+        git(
+            &path,
+            &[
+                "-c",
+                "user.name=Fixture",
+                "-c",
+                "user.email=fixture@example.test",
+                "commit",
+                "-qm",
+                "LF archive fixture",
+            ],
+        );
         fs::write(path.join(".env"), "PRIVATE=keep").unwrap();
         fs::write(path.join("database/local.sqlite"), "owned-local-data").unwrap();
         let cleanup = w.worktree_cleanup_plan(&wid).unwrap();

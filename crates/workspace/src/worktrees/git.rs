@@ -130,17 +130,43 @@ pub(super) fn oid(root: &Path, directory: &Path, reference: &str) -> Result<Stri
     Ok(id)
 }
 pub(super) fn status(root: &Path, path: &Path) -> Result<Vec<u8>> {
-    read(
+    // Compare actual normalized content, staged state and untracked files. A
+    // porcelain stat result can report an unchanged LF overlay as modified after
+    // a fresh CRLF checkout. Never stage data or rewrite a user's index to hide it.
+    let mut changed = read(
         root,
         path,
         &[
-            "status",
-            "--porcelain=v1",
+            "diff",
+            "--no-ext-diff",
+            "--no-textconv",
+            "--cached",
+            "--name-only",
             "-z",
-            "--untracked-files=all",
             "--ignore-submodules=none",
+            "HEAD",
+            "--",
         ],
-    )
+    )?;
+    changed.extend(read(
+        root,
+        path,
+        &[
+            "diff",
+            "--no-ext-diff",
+            "--no-textconv",
+            "--name-only",
+            "-z",
+            "--ignore-submodules=none",
+            "--",
+        ],
+    )?);
+    changed.extend(read(
+        root,
+        path,
+        &["ls-files", "--others", "--exclude-standard", "-z"],
+    )?);
+    Ok(changed)
 }
 
 pub(super) fn submodules(root: &Path, path: &Path, commit: Option<&str>) -> Result<bool> {

@@ -1,0 +1,27 @@
+{
+  "observed_date": "2026-11-13",
+  "old_descriptors_preserved": true,
+  "existing_project_selections_unchanged": true,
+  "artifacts": [
+    {
+      "id": "php-8.5.12-staticphp20261113-cli-macos-x64",
+      "legacy_id": "php-8.5.12-cli-macos-x64",
+      "url": "https://dl.static-php.dev/v3/php-bin/common/php-8.5.12-cli-macos-x86_64.tar.gz",
+      "legacy_sha256": "32c08d8d793d939c960f944d92abe16350dddf0ea79418256fa76633e110ce2b",
+      "sha256": "492cc40aadb7207433cd15fd6085525d6f8661ce50719c84c2456d0e70f39dd7",
+      "publisher_sidecar_sha256": "492cc40aadb7207433cd15fd6085525d6f8661ce50719c84c2456d0e70f39dd7",
+      "payload_sha256": "5dca6d244a7761a5ca74dfde66780b317f1c79c66e08cd4920617ab6788dbe57",
+      "native_probe": "local Rosetta x86_64: PHP8.5.12 NTS; actual Intel CI pending"
+    },
+    {
+      "id": "php-8.5.12-staticphp20261113-fpm-macos-x64",
+      "legacy_id": "php-8.5.12-fpm-macos-x64",
+      "url": "https://dl.static-php.dev/v3/php-bin/common/php-8.5.12-fpm-macos-x86_64.tar.gz",
+      "legacy_sha256": "7c166125797e536d6cda9a8267eb89fffd294b4f49878bb586dadbba713a879a",
+      "sha256": "d7c07c9476b128cc567549601813717aa3cf7d63fe2677f73a86665fd8219061",
+      "publisher_sidecar_sha256": "d7c07c9476b128cc567549601813717aa3cf7d63fe2677f73a86665fd8219061",
+      "payload_sha256": "5cdab5b7faaacb993b8cb572c49bdf9a3bd385942dcbb16b6c1275cd9ba5a201",
+      "native_probe": "local Rosetta x86_64: PHP8.5.12 NTS; actual Intel CI pending"
+    }
+  ]
+}

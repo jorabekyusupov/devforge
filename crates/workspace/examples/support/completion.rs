@@ -22,6 +22,19 @@ fn archive(w: &mut Workspace, id: &str, operation: &str) -> Result<()> {
 }
 fn cleanup(w: &mut Workspace, id: &str) -> Result<()> {
     let plan = w.worktree_cleanup_plan(id)?;
+    if plan.dirty {
+        eprintln!(
+            "COMPLETION_DIRTY_STATUS:{}",
+            git(
+                &plan.workspace.path,
+                &["status", "--porcelain=v1", "--untracked-files=all"]
+            )?
+        );
+        eprintln!(
+            "COMPLETION_GIT_EOL:{}",
+            git(&plan.workspace.path, &["ls-files", "--eol"])?
+        );
+    }
     assert!(plan.blockers.is_empty(), "{:?}", plan.blockers);
     w.worktree_cleanup(id, &plan.digest, true, &Default::default())?;
     Ok(())
@@ -82,6 +95,9 @@ pub fn run(root: &Path) -> Result<()> {
         &cancel,
     )?;
     git(&source_path, &["init", "-q"])?;
+    if std::env::var_os("DEVFORGE_COMPLETION_CRLF").is_some() {
+        git(&source_path, &["config", "core.autocrlf", "true"])?;
+    }
     git(&source_path, &["config", "user.name", "DevForge fixture"])?;
     git(
         &source_path,
