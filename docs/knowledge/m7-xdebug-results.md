@@ -111,10 +111,26 @@ ham11 axe/0 bilan o'tdi. Oldingi retry aynan window resize'dagi ikki animatsiya
 kadrini kutishda timeout berdi; debugger breakpoint/locals assertions ungacha
 o'tgan edi. Harness paint wait endi bounded animation-frame-or-timer ACK bilan;
 functional/accessibility assertions saqlanadi. Yakuniy CI hali kutilmoqda.
-Local full workspace107 Rust passed/1 credential fixture ignored,34 frontend,
+Local full workspace107 Rust passed/1 credential fixture ignored; keyingi UI recovery regression bilan35 frontend,
 clippy va strict OKF28/0/0 o'tdi; target matritsa o'rniga o'tmaydi.[^ui][^workflow]
 
-Windows x64 va Intel macOS native Xdebug acceptance hali tugamadi. M15 signing,
+6205198 manbada Windows x64 native backend/CLI/WebView2 va11 axe/0 o'tdi.
+Keyingi failed-session Stop boshqaruvi, live breakpoint add/remove va paused
+request stop scenario'lari local ARM64'da o'tdi; kengaygan native UI12 axe/0.
+Yakuniy uch target shu qo'shimcha holatlar bilan qayta tekshiriladi. Intel va
+ARM64 production SDK build hali davom etmoqda.
+
+6205198 macOS core job131753991810 oldingi process-ownership test'da Stop'dan
+keyingi immediate package removal'da Busy oldi.8 local parallel process suite'da
+u takrorlanmadi; baseline deb e'lon qilinmaydi. Rust1.99.1 File lock kontrakti
+boshqa duplicated/inherited handle yopilmaguncha lock saqlanishini aytadi;
+parallel child startup ehtimoliy sabab, o'lchangan root cause emas. Test cleanup
+endi1 soniyagacha nonblocking Busy'ni kutadi; live-process Busy assertion va
+production lease semantics o'zgarmaydi. Shu12 process testi va clippy local o'tdi.
+Bu run'dagi original failure saqlanadi, success deb qayta yozilmaydi.
+[File contract source](https://github.com/rust-lang/rust/blob/1.99.1/library/std/src/fs.rs).
+
+M15 gate'lari quyida saqlanadi. M15 signing,
 minimum OS, native credential/system-dialog, interrupted-install va licensing
 review gate'lari saqlanadi; public runtime/installer release qilinmaydi.[^workflow]
 

@@ -261,6 +261,28 @@ pub fn run(root: &Path, archives: &Path) -> Result<()> {
     control(&mut w, &a.id, Control::Run)?;
     let completed = wait(&w, &a.id, |v| v["request"]["state"] == "completed")?;
     assert_eq!(completed["request"]["status"], 200);
+    eprintln!("M7_XDEBUG_PHASE: stop a paused request and keep the web runtime alive");
+    request(&mut w, &a.id)?;
+    wait(&w, &a.id, |v| v["session"]["state"] == "paused")?;
+    control(&mut w, &a.id, Control::Run)?;
+    wait(&w, &a.id, |v| {
+        v["session"]["state"] == "paused" && v["session"]["frames"][0]["line"] == 8
+    })?;
+    control(&mut w, &a.id, Control::Stop)?;
+    wait(&w, &a.id, |v| {
+        v["session"]["state"] == "listening" && v["request"]["state"] != "running"
+    })?;
+    let row = w
+        .snapshot()?
+        .projects
+        .into_iter()
+        .find(|r| r.project.id == a.id)
+        .unwrap();
+    assert_eq!(
+        get(&(row.serving.unwrap().fallback_url + "/m7-debug"))?["result"],
+        21
+    );
+
     assert!(
         w.execute(
             Command::DebugControl {
@@ -445,7 +467,7 @@ pub fn run(root: &Path, archives: &Path) -> Result<()> {
     mode(&mut w, &a.id, None, Mode::Off)?;
     fs::rename(&moved, &source)?;
     w.shutdown()?;
-    let report = json!({"passed":true,"host":{"os":std::env::consts::OS,"arch":std::env::consts::ARCH},"project_id":a.id,"other_project_id":b.id,"runtime_id":runtime,"php_probes":runtimes.iter().map(|(_,p)|p).collect::<Vec<_>>(),"checks":{"verified_provider_install":true,"real_laravel_http_breakpoint":true,"step_into_over_out":true,"locals_and_source_redacted":true,"request_http_200":true,"profile_http_and_cli":true,"php84_native_web":true,"profile_parse_export_delete":true,"cross_project_denial":true,"other_process_pids_unchanged":true,"off_restores_normal_php":true,"off_after_source_deleted":true,"project_php_pin_and_env_unchanged":true,"shutdown_cleans_own_sessions":true}});
+    let report = json!({"passed":true,"host":{"os":std::env::consts::OS,"arch":std::env::consts::ARCH},"project_id":a.id,"other_project_id":b.id,"runtime_id":runtime,"php_probes":runtimes.iter().map(|(_,p)|p).collect::<Vec<_>>(),"checks":{"verified_provider_install":true,"real_laravel_http_breakpoint":true,"step_into_over_out":true,"stop_paused_request_preserves_web_runtime":true,"locals_and_source_redacted":true,"request_http_200":true,"profile_http_and_cli":true,"php84_native_web":true,"profile_parse_export_delete":true,"cross_project_denial":true,"other_process_pids_unchanged":true,"off_restores_normal_php":true,"off_after_source_deleted":true,"project_php_pin_and_env_unchanged":true,"shutdown_cleans_own_sessions":true}});
     fs::write(
         root.join("m7-xdebug-native-result.json"),
         serde_json::to_vec_pretty(&report)?,

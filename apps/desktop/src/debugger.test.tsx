@@ -5,7 +5,7 @@ import { I18nextProvider } from "react-i18next";
 import { createEngine } from "./i18n";
 import { DebuggerPage } from "./pages/DebuggerPage";
 import type { WorkspaceBackend, DebugView } from "./workspace";
-async function fixture() {
+async function fixture(state = "stopped") {
   const engine = await createEngine();
   await engine.changeLanguage("en");
   const view: DebugView = {
@@ -47,7 +47,7 @@ async function fixture() {
             },
             site: null,
             development: { queue: false },
-            state: "stopped",
+            state,
             serving: null,
             queue_state: null,
             database: null,
@@ -176,4 +176,10 @@ it("keeps the latest selected function profile when an earlier read finishes lat
     expect(screen.queryByText("EarlierFunction")).not.toBeInTheDocument(),
   );
   expect(screen.getByText("LatestFunction")).toBeInTheDocument();
+});
+
+it("stops a failed owned session so that the project can recover", async () => {
+  const { backend, user } = await fixture("failed");
+  await user.click(screen.getByRole("button", { name: "Stop project" }));
+  expect(backend.execute).toHaveBeenCalledWith({ action: "stop", id: "a" });
 });

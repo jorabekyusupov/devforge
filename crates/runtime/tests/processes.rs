@@ -43,7 +43,18 @@ fn spawn_is_not_ready_and_duplicate_owners_are_rejected() {
     ready(&s, "one");
     assert_eq!(f.store.remove(&f.package).err(), Some(RuntimeError::Busy));
     assert_eq!(s.stop("one").unwrap().observed, Observed::Stopped);
-    f.store.remove(&f.package).unwrap();
+    // Removal is nonblocking. Other parallel child startup can briefly inherit
+    // a close-on-exec lease; require its release without weakening the live guard.
+    let deadline = Instant::now() + Duration::from_secs(1);
+    loop {
+        match f.store.remove(&f.package) {
+            Ok(()) => break,
+            Err(RuntimeError::Busy) if Instant::now() < deadline => {
+                thread::sleep(Duration::from_millis(10))
+            }
+            result => panic!("post-stop package removal did not release: {result:?}"),
+        }
+    }
 }
 #[test]
 fn argv_environment_and_working_directory_are_preserved_without_shell() {

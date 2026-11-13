@@ -384,6 +384,17 @@ try:
     screenshot("debugger-en-light.png")
     audit("paused-breakpoint-source-locals")
     checks["real_breakpoint_source_and_redacted_locals"] = True
+    fill("[name=breakpoint-file]", "app/M7DebugFixture.php")
+    fill("[name=breakpoint-line]", "13")
+    debugger_button("Add")
+    wait(lambda: len(view(atlas)["settings"]["breakpoints"]) == 2)
+    target = script(
+        "const li=[...document.querySelectorAll('.debug-breakpoints li')].find(e=>e.querySelector('code').textContent.endsWith(':13'));li.querySelector('button').dataset.smoke='remove-added';return '[data-smoke=remove-added]'"
+    )
+    click(target)
+    wait(lambda: len(view(atlas)["settings"]["breakpoints"]) == 1)
+    checks["live_breakpoint_add_remove"] = True
+
     debugger_button("Step into")
     wait(lambda: at_line(12))
     debugger_button("Step over")
@@ -449,8 +460,25 @@ try:
         content_viewport(820, 620)
         audit("debugger-" + locale + "-minimum")
         assert script("return document.documentElement.scrollWidth<=innerWidth+1")
+    budget = (
+        args.fixture
+        / "data/projects/debugging"
+        / atlas
+        / "profiles/cachegrind.budget.out"
+    )
+    with budget.open("wb") as f:
+        f.truncate(33 * 1024 * 1024)
+    wait(lambda: row(atlas)["state"] == "failed")
+    wait(
+        lambda: script(
+            "return [...document.querySelectorAll('.debugger-content button')].some(b=>b.textContent.trim()==='Stop project'&&!b.disabled)"
+        )
+    )
+    audit("failed-runtime-recovery")
     debugger_button("Stop project")
     settled()
+    budget.unlink(missing_ok=True)
+    checks["failed_owned_runtime_can_be_stopped"] = True
     configure("off")
     select("[name=debug-project]", other)
     wait(lambda: view(other)["settings"]["mode"] == "off")

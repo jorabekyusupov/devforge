@@ -76,6 +76,7 @@ export function DebuggerPage({ backend }: { backend?: WorkspaceBackend }) {
   const busy = api.busy;
   const paused = view?.session?.state === "paused";
   const running = row?.state === "running";
+  const hasSession = !!row && row.state !== "stopped";
   const frame =
     view?.session?.frames.find((f) => f.depth === view.session?.depth) ??
     view?.session?.frames[0];
@@ -221,10 +222,14 @@ export function DebuggerPage({ backend }: { backend?: WorkspaceBackend }) {
         .toLocaleLowerCase(i18n.language)
         .includes(query.toLocaleLowerCase(i18n.language)),
     ) ?? [];
-  const number = (n: number) =>
-    new Intl.NumberFormat(i18n.language, { maximumFractionDigits: 2 }).format(
-      n,
-    );
+  const numberFormat = new Intl.NumberFormat(i18n.language, {
+    maximumFractionDigits: 2,
+  });
+  const dateFormat = new Intl.DateTimeFormat(i18n.language, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+  const number = (n: number) => numberFormat.format(n);
   const displayLines =
     code?.code
       .split(/\r?\n/)
@@ -377,10 +382,10 @@ export function DebuggerPage({ backend }: { backend?: WorkspaceBackend }) {
             <button
               disabled={busy}
               onClick={() =>
-                void execute({ action: running ? "stop" : "start", id })
+                void execute({ action: hasSession ? "stop" : "start", id })
               }
             >
-              {t(running ? "debugger.stopProject" : "debugger.startProject")}
+              {t(hasSession ? "debugger.stopProject" : "debugger.startProject")}
             </button>
           </div>
           {view.request && (
@@ -449,6 +454,7 @@ export function DebuggerPage({ backend }: { backend?: WorkspaceBackend }) {
                       {t("debugger.line")}
                       <input
                         name="breakpoint-line"
+                        autoComplete="off"
                         required
                         type="number"
                         min={1}
@@ -467,7 +473,9 @@ export function DebuggerPage({ backend }: { backend?: WorkspaceBackend }) {
                   </form>
                 </article>
                 <article className="debug-panel debug-source">
-                  <h2>{code?.file ?? t("debugger.source")}</h2>
+                  <h2 translate={code ? "no" : undefined}>
+                    {code?.file ?? t("debugger.source")}
+                  </h2>
                   {code ? (
                     <div
                       className="debug-code"
@@ -544,12 +552,7 @@ export function DebuggerPage({ backend }: { backend?: WorkspaceBackend }) {
                         aria-pressed={p.id === selectedProfile}
                         onClick={() => void loadProfile(p.id)}
                       >
-                        <span>
-                          {new Intl.DateTimeFormat(i18n.language, {
-                            dateStyle: "medium",
-                            timeStyle: "short",
-                          }).format(p.created_ms)}
-                        </span>
+                        <span>{dateFormat.format(p.created_ms)}</span>
                         <span>{number(p.bytes)} B</span>
                       </button>
                     </li>
