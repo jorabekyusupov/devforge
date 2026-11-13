@@ -1,0 +1,44 @@
+{
+  "attempts": [
+    {
+      "run": 43427437683,
+      "source": "4ff34116e6e6a703bd0d6c222d31d1c2180ef333",
+      "target": "windows-x64",
+      "job": 131892230526,
+      "failure": "nodejs.org DNS lookup during explicit archive audit; Rust/frontend passed",
+      "classification": "external transport; no integrity bypass"
+    },
+    {
+      "run": 43429060285,
+      "source": "ea98fad5a36683c6182eed554159b7b1543b7918",
+      "target": "windows-x64",
+      "job": 131897659825,
+      "failure": "acceptance fixture selected PHP8.5 SDK for auto-selected PHP8.4; missing explicit project DB preparation",
+      "classification": "fixture setup mismatch; corrected by explicit Configure/BindDatabase"
+    },
+    {
+      "run": 43427437683,
+      "target": "macos-arm64",
+      "job": 131892230295,
+      "failure": "same pre-fix fixture runtime mismatch after successful new-catalog production installs and SDK probes",
+      "classification": "superseded fixture; successful SDKs retained"
+    },
+    {
+      "sources": [
+        "230124c",
+        "7a77ecd"
+      ],
+      "targets": [
+        "macos-arm64",
+        "windows-x64"
+      ],
+      "failure": "New cloned source had no per-project managed APP_KEY/session environment; normal HTTP500 before debugger",
+      "classification": "Fixture preparation; corrected by explicit new-project managed env, normal HTTP probe and scoped DB migration",
+      "resolved_by": "38847ce",
+      "app_secret_inheritance_added": false
+    }
+  ],
+  "latest_fixture_source": "38847ce4eea44508e3a5c6828b9789a76a16d9bc",
+  "application_code_changed_for_fixture_fix": false,
+  "final_native_targets": "All3 passed"
+}

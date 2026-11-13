@@ -200,7 +200,7 @@ impl Workspace {
         }))
     }
     pub fn worktree_plan(&self, input: &Input) -> Result<Plan> {
-        let source = self.projects.get(&input.source_id)?;
+        let source = self.available_project(&input.source_id)?;
         devforge_projects::project::validate_name(&input.name)?;
         if input.name.chars().count() > 120
             || !git::branch(&input.branch)
@@ -428,7 +428,7 @@ impl Workspace {
         if cancel.is_cancelled() {
             return Err(error("setup_cancelled"));
         }
-        let source = self.projects.get(&input.source_id)?;
+        let source = self.available_project(&input.source_id)?;
         let _source_guard = if input.database == DatabaseMode::Clone {
             Some(self.sites.project_mutation_guard(&source.id)?)
         } else {

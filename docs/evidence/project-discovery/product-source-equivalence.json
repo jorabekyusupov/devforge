@@ -1,0 +1,20 @@
+{
+  "product_and_runner_tree_sha256": "74a7e5f84fcf45c7f7bddd5c4896c8bd1c26689bde92719ed33ca8cc5285331a",
+  "source_commits": {
+    "0fb0eca7d7bf28dfae1039d584503275cadb2b79": "74a7e5f84fcf45c7f7bddd5c4896c8bd1c26689bde92719ed33ca8cc5285331a",
+    "c33eadc4486ebf12c9ad50a95dab81dbdd5d4e7e": "74a7e5f84fcf45c7f7bddd5c4896c8bd1c26689bde92719ed33ca8cc5285331a"
+  },
+  "paths": [
+    "apps",
+    "crates",
+    "shared",
+    "runtime",
+    "scripts",
+    "Cargo.toml",
+    "Cargo.lock",
+    "package.json",
+    "package-lock.json",
+    "rust-toolchain.toml"
+  ],
+  "only_followup_changes": ".github workflow target selector and one additional reviewed cache entry; app/core/catalog/GUI-runner source identical"
+}

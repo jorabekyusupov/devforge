@@ -336,7 +336,8 @@
     "url": "https://dl.static-php.dev/v3/php-bin/common/php-8.5.12-cli-macos-x86_64.tar.gz",
     "sha256": "492cc40aadb7207433cd15fd6085525d6f8661ce50719c84c2456d0e70f39dd7",
     "checksum_source": "https://dl.static-php.dev/v3/php-bin/common/php-8.5.12-cli-macos-x86_64.tar.gz.sha256",
-    "provider": "StaticPHP v3 common publisher rebuild reviewed 2026-11-13; explicit replacement family"
+    "provider": "StaticPHP v3 common publisher rebuild reviewed 2026-11-13; explicit replacement family",
+    "build_revision": "reviewed20261113"
   },
   {
     "id": "php-8.5.12-staticphp20261113-fpm-macos-x64",
@@ -347,6 +348,7 @@
     "url": "https://dl.static-php.dev/v3/php-bin/common/php-8.5.12-fpm-macos-x86_64.tar.gz",
     "sha256": "d7c07c9476b128cc567549601813717aa3cf7d63fe2677f73a86665fd8219061",
     "checksum_source": "https://dl.static-php.dev/v3/php-bin/common/php-8.5.12-fpm-macos-x86_64.tar.gz.sha256",
-    "provider": "StaticPHP v3 common publisher rebuild reviewed 2026-11-13; explicit replacement family"
+    "provider": "StaticPHP v3 common publisher rebuild reviewed 2026-11-13; explicit replacement family",
+    "build_revision": "reviewed20261113"
   }
 ]

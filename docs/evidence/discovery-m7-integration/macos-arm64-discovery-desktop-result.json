@@ -1,0 +1,216 @@
+{
+  "native": "real WKWebView/WebView2 via debug-only W3C endpoint",
+  "checks": {
+    "invalid_path_keeps_saved_root": true,
+    "explicit_default_create_save": true,
+    "custom_unicode_path_saved": true,
+    "native_event_to_ui_under_5s": {
+      "passed": true,
+      "direct_project_count": 100,
+      "elapsed_ms": 1657
+    },
+    "native_ui_forget_restore": true,
+    "new_project_uses_configured_parent": true,
+    "saved_folder_survives_native_relaunch": true,
+    "close_to_tray_focus_recovery": true,
+    "three_locales_light_dark": true,
+    "small_window_no_horizontal_overflow": true,
+    "keyboard_tab_reaches_folder_picker": {
+      "native_keyboard_tab": true,
+      "pid_matched": true,
+      "existing_accessibility_permission": true
+    },
+    "native_system_folder_picker": {
+      "select": true,
+      "cancel": true,
+      "focus_return": true,
+      "method": "actual NSOpenPanel native button press; no mocked picker return",
+      "actions": [
+        {
+          "native_dialog": true,
+          "pid_matched": true,
+          "native_ax_press": true,
+          "action": "select",
+          "existing_accessibility_permission": true
+        },
+        {
+          "native_dialog": true,
+          "pid_matched": true,
+          "native_ax_press": true,
+          "action": "cancel",
+          "existing_accessibility_permission": true
+        }
+      ]
+    }
+  },
+  "accessibility": [
+    {
+      "case": "invalid-folder",
+      "violations": []
+    },
+    {
+      "case": "discovered-project",
+      "violations": []
+    },
+    {
+      "case": "new-project-default-folder",
+      "violations": []
+    },
+    {
+      "case": "folder-en-light",
+      "violations": []
+    },
+    {
+      "case": "folder-en-dark",
+      "violations": []
+    },
+    {
+      "case": "folder-ru-light",
+      "violations": []
+    },
+    {
+      "case": "folder-ru-dark",
+      "violations": []
+    },
+    {
+      "case": "folder-uz-Latn-light",
+      "violations": []
+    },
+    {
+      "case": "folder-uz-Latn-dark",
+      "violations": []
+    },
+    {
+      "case": "folder-small",
+      "violations": []
+    }
+  ],
+  "captures": [
+    {
+      "file": "folder-invalid.png",
+      "viewport": {
+        "height": 656,
+        "language": "en",
+        "scale": 1,
+        "theme": "light",
+        "width": 1536
+      }
+    },
+    {
+      "file": "projects-discovered.png",
+      "viewport": {
+        "height": 656,
+        "language": "en",
+        "scale": 1,
+        "theme": "light",
+        "width": 1536
+      }
+    },
+    {
+      "file": "folder-en-light.png",
+      "viewport": {
+        "height": 656,
+        "language": "en",
+        "scale": 1,
+        "theme": "light",
+        "width": 1024
+      }
+    },
+    {
+      "file": "folder-en-dark.png",
+      "viewport": {
+        "height": 656,
+        "language": "en",
+        "scale": 1,
+        "theme": "dark",
+        "width": 1024
+      }
+    },
+    {
+      "file": "folder-ru-light.png",
+      "viewport": {
+        "height": 656,
+        "language": "ru",
+        "scale": 1,
+        "theme": "light",
+        "width": 1024
+      }
+    },
+    {
+      "file": "folder-ru-dark.png",
+      "viewport": {
+        "height": 656,
+        "language": "ru",
+        "scale": 1,
+        "theme": "dark",
+        "width": 1024
+      }
+    },
+    {
+      "file": "folder-uz-Latn-light.png",
+      "viewport": {
+        "height": 656,
+        "language": "uz-Latn",
+        "scale": 1,
+        "theme": "light",
+        "width": 1024
+      }
+    },
+    {
+      "file": "folder-uz-Latn-dark.png",
+      "viewport": {
+        "height": 656,
+        "language": "uz-Latn",
+        "scale": 1,
+        "theme": "dark",
+        "width": 1024
+      }
+    },
+    {
+      "file": "folder-small.png",
+      "viewport": {
+        "height": 620,
+        "language": "en",
+        "scale": 1,
+        "theme": "light",
+        "width": 820
+      }
+    }
+  ],
+  "viewport_attempts": [
+    {
+      "requested": {
+        "width": 1536,
+        "height": 1024
+      },
+      "actual": {
+        "height": 656,
+        "width": 1536
+      },
+      "matched": false
+    },
+    {
+      "requested": {
+        "width": 820,
+        "height": 620
+      },
+      "actual": {
+        "height": 620,
+        "width": 820
+      },
+      "matched": true
+    },
+    {
+      "requested": {
+        "width": 1536,
+        "height": 1024
+      },
+      "actual": {
+        "height": 656,
+        "width": 1536
+      },
+      "matched": false
+    }
+  ],
+  "source_boundary": "record source digest with collected reports"
+}

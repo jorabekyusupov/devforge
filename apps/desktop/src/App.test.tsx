@@ -27,7 +27,7 @@ function backend(): Backend & { current: Bootstrap } {
     save: vi.fn(async (settings: Preferences) => {
       service.current = {
         ...service.current,
-        settings,
+        settings: { ...service.current.settings, ...settings },
         resolvedLocale:
           settings.language === "system" ? "en" : settings.language,
       };
@@ -63,6 +63,22 @@ describe("preferences interface", () => {
     await user.click(screen.getByRole("radio", { name: "O‘zbekcha" }));
     await screen.findByRole("heading", { level: 1, name: "Sozlamalar" });
     expect(document.documentElement.lang).toBe("uz-Latn");
+  });
+  it("keeps folder preferences out of unrelated language updates", async () => {
+    const service = backend();
+    service.current.settings.project_folder = "/temporarily-unavailable";
+    await open(service);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("radio", { name: "Русский" }));
+    await waitFor(() =>
+      expect(service.save).toHaveBeenLastCalledWith({
+        language: "ru",
+        theme: "system",
+      }),
+    );
+    expect(service.current.settings.project_folder).toBe(
+      "/temporarily-unavailable",
+    );
   });
   it("preserves selected theme and restores preferences on remount", async () => {
     const service = backend();

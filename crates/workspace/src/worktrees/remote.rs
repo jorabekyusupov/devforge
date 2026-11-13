@@ -12,7 +12,7 @@ impl Workspace {
         if record.stage != "ready" {
             return Err(error("worktree_archive_unavailable"));
         }
-        let project = self.projects.get(
+        let project = self.available_project(
             record
                 .project_id
                 .as_deref()
@@ -58,7 +58,7 @@ impl Workspace {
         if plan["digest"] != review {
             return Err(error("worktree_review_changed"));
         }
-        let project = self.projects.get(plan["project"].as_str().unwrap())?;
+        let project = self.available_project(plan["project"].as_str().unwrap())?;
         let password = self.remote_password(&project, source)?;
         let b = self
             .projects

@@ -10,8 +10,13 @@ fn hash(bytes: &[u8]) -> String {
         .collect()
 }
 impl Workspace {
+    pub fn configuration_secret(&self, id: &str, reference: &str, value: &str) -> Result<()> {
+        let project = self.available_project(id)?;
+        self.manifest_secret(&project.path, reference, value)
+    }
+
     pub fn configuration_document(&self, id: &str) -> Result<serde_json::Value> {
-        let project = self.projects.get(id)?;
+        let project = self.available_project(id)?;
         let path = project.path.join("devforge.yaml");
         let existing = if fs::symlink_metadata(&path).is_ok() {
             Some(manifest::read_file(&path, 65536)?)
@@ -42,7 +47,7 @@ impl Workspace {
         if text.len() > 65536 {
             return Err(error("manifest_invalid"));
         }
-        let project = self.projects.get(id)?;
+        let project = self.available_project(id)?;
         let parsed = Manifest::parse(text.as_bytes())?;
         self.validate_site(id, &parsed.project.domain)?;
         let _lock = self.repro_lock(&project.path)?;
@@ -94,7 +99,7 @@ impl Workspace {
         self.configuration_document(id)
     }
     pub fn configuration_plan(&self, id: &str, write_env: bool) -> Result<serde_json::Value> {
-        let p = self.projects.get(id)?;
+        let p = self.available_project(id)?;
         Ok(serde_json::to_value(self.manifest_plan(&p.path, write_env)?).unwrap())
     }
     pub fn configuration_apply(
@@ -106,7 +111,7 @@ impl Workspace {
         cancel: &Cancellation,
     ) -> Result<serde_json::Value> {
         self.require_stopped(id)?;
-        let p = self.projects.get(id)?;
+        let p = self.available_project(id)?;
         Ok(
             serde_json::to_value(self.manifest_setup(&p.path, review, write_env, trusted, cancel)?)
                 .unwrap(),

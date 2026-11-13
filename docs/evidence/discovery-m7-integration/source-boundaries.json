@@ -1,0 +1,24 @@
+{
+  "main_baseline": "65948e0f769f8def543d056544ad620abc2228d5",
+  "feature_parent": "e5c5f6469d8ed999b06cbba11210196c1c78b53d",
+  "merge_source": "4ff34116e6e6a703bd0d6c222d31d1c2180ef333",
+  "all_existing_package_descriptors_unchanged": true,
+  "existing_descriptor_count": 48,
+  "new_package_ids": [
+    "php-8.5.12-staticphp20261113-cli-macos-x64",
+    "php-8.5.12-staticphp20261113-fpm-macos-x64"
+  ],
+  "unchanged_source_boundaries": [
+    "crates/inspector",
+    "apps/desktop/src/pages/InspectorPage.tsx",
+    "crates/debugger/src/provider/build_runtime.py",
+    "crates/debugger/src/provider/recipe.json"
+  ],
+  "project_schema": 7,
+  "migration_histories_tested": [
+    "M7 schema6 without ledger",
+    "discovery schema6 with ledger",
+    "older schema4/1 records"
+  ],
+  "source_build_recipe_sha256": "3b57ba212f621f414da76c904b0aff8131c4473d2c062b4839f5f04d3f12796e"
+}

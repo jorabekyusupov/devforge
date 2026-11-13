@@ -15,6 +15,7 @@ pub struct State {
     cache: Arc<Mutex<Snapshot>>,
     progress: Arc<Mutex<Option<devforge_workspace::setup::Progress>>>,
     cancel: Arc<Mutex<Option<Cancellation>>>,
+    discovery: Arc<Mutex<Option<devforge_workspace::discovery::Service>>>,
     pub quitting: Arc<AtomicBool>,
     pub exited: Arc<AtomicBool>,
 }
@@ -26,9 +27,48 @@ impl State {
             cache: Arc::new(Mutex::new(Snapshot::default())),
             progress: Arc::new(Mutex::new(None)),
             cancel: Arc::new(Mutex::new(None)),
+            discovery: Arc::new(Mutex::new(Some(
+                devforge_workspace::discovery::Service::new(),
+            ))),
             quitting: Arc::new(AtomicBool::new(false)),
             exited: Arc::new(AtomicBool::new(false)),
         }
+    }
+    pub fn set_discovery_root(&self, root: PathBuf) {
+        if let Some(service) = self.discovery.lock().unwrap().as_ref() {
+            service.set_root(root);
+        }
+    }
+    pub fn request_discovery(&self) {
+        if let Some(service) = self.discovery.lock().unwrap().as_ref() {
+            service.request();
+        }
+    }
+    pub fn start_discovery_coordinator(&self) {
+        let state = self.clone();
+        std::thread::spawn(move || {
+            while !state.quitting.load(Ordering::Relaxed) {
+                if let Ok(mut lock) = state.workspace.try_lock() {
+                    if lock.is_none() {
+                        *lock = Workspace::open(&state.root, secrets(&state.root)).ok();
+                    }
+                    if let Some(w) = lock.as_mut() {
+                        let _ = state.sync_discovery(w);
+                    }
+                }
+                std::thread::sleep(std::time::Duration::from_millis(250));
+            }
+        });
+    }
+    fn sync_discovery(&self, w: &mut Workspace) -> Result<(), Error> {
+        if let Some(service) = self.discovery.lock().unwrap().as_ref() {
+            if let Some(scan) = service.take() {
+                w.reconcile_discovery(scan)?;
+            }
+            let status = service.status();
+            w.discovery_status(status.root, status.scanning, status.degraded);
+        }
+        Ok(())
     }
     fn failure(code: &str) -> Error {
         Error {
@@ -46,6 +86,7 @@ impl State {
             *lock = Some(Workspace::open(&self.root, secrets(&self.root))?);
         }
         let w = lock.as_mut().unwrap();
+        self.sync_discovery(w)?;
         w.progress = self.progress.clone();
         let result = f(w);
         if let Ok(snapshot) = w.snapshot() {
@@ -60,6 +101,7 @@ impl State {
             if lock.is_none() {
                 *lock = Some(Workspace::open(&self.root, secrets(&self.root))?);
             }
+            self.sync_discovery(lock.as_mut().unwrap())?;
             let value = lock.as_ref().unwrap().snapshot()?;
             *self.cache.lock().unwrap() = value;
         }
@@ -72,6 +114,13 @@ impl State {
             operation: self.progress.lock().unwrap().clone(),
         })
     }
+}
+#[tauri::command]
+pub fn discovery_scan(state: tauri::State<'_, State>) -> Result<(), Error> {
+    if let Some(service) = state.discovery.lock().unwrap().as_ref() {
+        service.request();
+    }
+    Ok(())
 }
 pub fn secrets(root: &std::path::Path) -> Arc<dyn devforge_core::SecretStore + Send + Sync> {
     #[cfg(feature = "e2e")]
@@ -132,6 +181,9 @@ pub async fn workspace_command(
     }
     tauri::async_runtime::spawn_blocking(move || {
         let result = state.with(|w| w.execute(command, &cancel));
+        if let Some(service) = state.discovery.lock().unwrap().as_ref() {
+            service.request();
+        }
         state.cancel.lock().unwrap().take();
         result
     })
@@ -173,9 +225,16 @@ pub async fn choose_project_directory(
             .as_str()
             .or_else(|| bundle["catalogs"][fallback]["work"]["path"].as_str())
             .unwrap();
-        app.dialog()
-            .file()
-            .set_title(title)
+        let mut dialog = app.dialog().file().set_title(title);
+        if let Some(folder) = snapshot
+            .settings
+            .project_folder
+            .as_ref()
+            .filter(|p| std::path::Path::new(p).is_dir())
+        {
+            dialog = dialog.set_directory(folder);
+        }
+        dialog
             .blocking_pick_folder()
             .map(|p| p.into_path().map_err(|_| State::failure("open_failed")))
             .transpose()
@@ -229,6 +288,7 @@ pub fn quit(app: &tauri::AppHandle) {
     tauri::async_runtime::spawn(async move {
         let worker = state.clone();
         let result = tauri::async_runtime::spawn_blocking(move || {
+            worker.discovery.lock().unwrap().take();
             worker
                 .workspace
                 .lock()
@@ -454,10 +514,7 @@ pub async fn configuration_secret(
 ) -> Result<(), Error> {
     let state = state.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
-        state.with(|w| {
-            let p = w.projects.get(&id)?;
-            w.manifest_secret(&p.path, &reference, &value)
-        })
+        state.with(|w| w.configuration_secret(&id, &reference, &value))
     })
     .await
     .map_err(|_| State::failure("manifest_secret_unavailable"))?

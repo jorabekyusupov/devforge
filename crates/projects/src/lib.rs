@@ -3,6 +3,7 @@ pub mod backup;
 pub mod cache;
 pub mod database;
 pub mod database_store;
+pub mod discovery;
 pub mod env_file;
 pub mod environment;
 pub mod execution;

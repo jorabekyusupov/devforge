@@ -253,3 +253,16 @@ qolmagani tekshirilgach o'chirildi; boshqa loyiha data'siga tegilmadi.
 [^ci-native]: Per-target source/job/artifact/provenance digest mapping.
 [^boundaries]: Git path/source comparisons, SDK builder fingerprint va immutable catalog descriptors.
 [^attempts]: Original failure/cancellation holatlari va sabablarining alohida qaydi.
+
+
+# Discovery bilan main integration — keyingi qabul
+
+Discovery bilan birlashtirilganda project schema6 ikki history sabab schema7’ga
+additive ko‘tarildi; debugger sozlamalari va discovery ledger birgalikda saqlanadi.
+Yetishmagan reviewed Intel PHP8.5 family’lari qo‘shilib, old48 descriptor unchanged
+qoldi. Source38847ce actual ARM64/Intel/Windows qabulida M7 aynan avtomatik topilgan
+loyihada ishladi; explicit fixture preparation secret binding’larni meros qilmadi.
+[Hisobot](../evidence/discovery-m7-integration/README.md) new source/job/hash boundary,
+20UI/22axe0 per target va actual current-catalog downloads’ni beradi. Old M7.1 va
+SDK builder/recipe source o‘zgarmadi. Yuqoridagi original schema6/source dalili o‘z
+tarixiy chegarasida saqlanadi; current main integration yangi qabul bilan bog‘lanadi.

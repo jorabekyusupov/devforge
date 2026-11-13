@@ -156,7 +156,9 @@ fn owner_default_dacl(token: HANDLE) -> Result<(), std::io::Error> {
     let access = EXPLICIT_ACCESS_W {
         grfAccessPermissions: GENERIC_ALL,
         grfAccessMode: GRANT_ACCESS,
-        grfInheritance: OBJECT_INHERIT_ACE,
+        // The fixture user needs its own inherited rights on directories as
+        // well as files; object-only inheritance excludes directory operations.
+        grfInheritance: OBJECT_INHERIT_ACE | CONTAINER_INHERIT_ACE,
         Trustee: TRUSTEE_W {
             pMultipleTrustee: std::ptr::null_mut(),
             MultipleTrusteeOperation: NO_MULTIPLE_TRUSTEE,

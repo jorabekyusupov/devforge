@@ -73,7 +73,10 @@
     "desktop_unavailable": "Sozlamalarni saqlash va qurilma diagnostikasini ko‘rish uchun DevForge ilovasini oching.",
     "unexpected": "Xatolik yuz berdi. Oldingi sozlamalaringiz saqlangan. Qayta urinib ko‘ring.",
     "native_partial": "Sozlamalar saqlandi, lekin ilova menyusi yangilanmadi. Ularni qo‘llash uchun DevForge’ni qayta oching.",
-    "shutdown_failed": "Ayrim xizmatlar to‘xtamadi. Loglarni tekshirib, Chiqish amalini takrorlang."
+    "shutdown_failed": "Ayrim xizmatlar to‘xtamadi. Loglarni tekshirib, Chiqish amalini takrorlang.",
+    "invalid_project_folder": "To‘liq papka manzilini yoki ~/Devforge’ni kiriting.",
+    "project_folder_missing": "Papka mavjud emas. Uni yarating yoki boshqa papka tanlang.",
+    "project_folder_unavailable": "Papka ochilmayapti yoki uni o‘qish huquqi yo‘q."
   },
   "native": {
     "show": "DevForge’ni ochish",
@@ -283,7 +286,8 @@
       "activate_database_generation": "Xizmat amali bajarilmoqda…",
       "mail_configure": "Mail amali bajarilmoqda…",
       "mail_delete": "Mail amali bajarilmoqda…",
-      "mail_save": "Mail amali bajarilmoqda…"
+      "mail_save": "Mail amali bajarilmoqda…",
+      "discovery_restore": "Qaytarish"
     },
     "kinds": {
       "php": "PHP",
@@ -397,7 +401,8 @@
       "worktree_detached": "Worktree detached HEAD holatida. Commit’lar saqlanishi uchun tozalashdan oldin lokal branch yarating yoki unga o‘ting.",
       "manifest_review_required": "Avval konfiguratsiyani ko‘rib chiqib tasdiqlang.",
       "worktree_archive_unavailable": "Arxiv ushbu amal uchun mavjud emas. Fayllar va qayd etilgan holatni tekshiring.",
-      "worktree_archive_limit": "Arxiv fayllar soni, hajmi yoki chuqurligi chegarasidan oshgan."
+      "worktree_archive_limit": "Arxiv fayllar soni, hajmi yoki chuqurligi chegarasidan oshgan.",
+      "discovery_unavailable": "Loyiha papkasi o‘zgargan yoki ochilmayapti. Loyihani to‘xtatib, qayta tekshiring."
     }
   },
   "runtimes": {
@@ -926,5 +931,53 @@
       "complete": "Sozlash yakunlandi",
       "not_started": "Boshlanmagan"
     }
+  },
+  "discovery": {
+    "title": "Loyiha papkasi",
+    "description": "Ushbu papkadagi loyihalar DevForge ro‘yxatida avtomatik paydo bo‘ladi.",
+    "folder": "Papka manzili",
+    "browse": "Papka tanlash",
+    "save": "Papkani saqlash",
+    "create": "Papka yaratish",
+    "reset": "~/Devforge’dan foydalanish",
+    "scan": "Hozir tekshirish",
+    "defaultHint": "Default manzil — shaxsiy papkangizdagi ~/Devforge. Faqat bevosita ichki Laravel loyiha papkalari tekshiriladi.",
+    "failed": "Papkani yangilab bo‘lmadi. Manzilni tekshirib, qayta urining.",
+    "count": "Topilgan loyihalar: {{count}}",
+    "lastScan": "Oxirgi tekshiruv: {{time}}",
+    "discovered": "Avtomatik aniqlash",
+    "manageFolder": "Papkani sozlash",
+    "restore": "Qaytarish",
+    "configure": "Loyihani sozlash",
+    "installRuntimes": "PHP va Node muhitlarini boshqarish",
+    "states": {
+      "scanning": "Tekshirilmoqda…",
+      "ready": "Yangilangan",
+      "degraded": "Kuzatish cheklangan",
+      "needs_runtime": "Muhitni tayyorlash kerak",
+      "conflict": "E’tibor talab qilinadi",
+      "invalid": "Loyiha noto‘liq yoki yaroqsiz",
+      "missing": "Papka topilmadi",
+      "relocation_pending": "Ko‘chirish kutilmoqda — loyihani to‘xtatib, qayta tekshiring",
+      "ignored": "Ro‘yxatdan chiqarilgan",
+      "detached": "Joriy loyiha papkasidan tashqarida",
+      "detected": "Aniqlandi"
+    },
+    "problems": {
+      "invalid_project": "Ushbu papkada hali to‘liq Laravel loyihasi yo‘q.",
+      "invalid_manifest": "Loyiha manifesti noto‘liq yoki yaroqsiz.",
+      "unsupported_constraint": "Muhit talablarini o‘qib bo‘lmadi.",
+      "unavailable": "Papka ochilmadi. Keyinroq avtomatik qayta tekshiriladi.",
+      "watch_unavailable": "Jonli kuzatish ishlamadi. Davriy tekshirish davom etadi.",
+      "partial": "Ayrim papkalar tekshirilmadi. Mavjud loyihalar saqlandi.",
+      "limit": "Papka soni chegarasiga yetildi. Mavjud loyihalar saqlandi.",
+      "cancelled": "Tekshiruv bekor qilindi.",
+      "identity_changed": "Ushbu manzilda boshqa papka paydo bo‘lgan. Oldingi bog‘lanishlar saqlandi.",
+      "domain_conflict": "Taklif qilingan domen band. Boshqa domen tanlang.",
+      "storage_unavailable": "Loyihalar registrini yangilab bo‘lmadi. Qayta tekshiring."
+    },
+    "unsaved": "Papka saqlanmagan",
+    "unsavedDescription": "Saqlanmagan papka manzilini bekor qilasizmi?",
+    "showMore": "Yana loyihalarni ko‘rsatish"
   }
 }

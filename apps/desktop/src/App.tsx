@@ -103,13 +103,18 @@ export function App({ backend = desktopBackend }: { backend?: Backend }) {
     }
   }
   async function persist(patch: Partial<Preferences>) {
-    if (!snapshot || busy) return;
+    if (!snapshot || busy) return false;
     setBusy(true);
     setError(null);
     try {
-      await apply(await backend.save({ ...settings, ...patch }));
+      const update: Preferences = { ...settings, ...patch };
+      // A language/theme update must not revalidate or restore a stale folder.
+      if (patch.project_folder === undefined) delete update.project_folder;
+      await apply(await backend.save(update));
+      return true;
     } catch (reason) {
       if (mounted.current) setError(codeOf(reason));
+      return false;
     } finally {
       if (mounted.current) setBusy(false);
     }
@@ -310,7 +315,15 @@ export function App({ backend = desktopBackend }: { backend?: Backend }) {
         )}
 
         {page === "settings" && (
-          <SettingsPage snapshot={snapshot} busy={busy} onChange={persist} />
+          <SettingsPage
+            snapshot={snapshot}
+            busy={busy}
+            backend={backend}
+            onChange={async (patch) => {
+              await persist(patch);
+            }}
+            onFolderChange={(path) => persist({ project_folder: path })}
+          />
         )}
 
         {(["projects", "runtimes", "services"] as Page[]).includes(page) && (

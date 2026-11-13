@@ -73,7 +73,10 @@
     "desktop_unavailable": "Open the DevForge desktop app to save preferences and view device diagnostics.",
     "unexpected": "Something went wrong. Your previous preferences are preserved. Try again.",
     "native_partial": "Preferences were saved, but app menus could not be updated. Reopen DevForge to apply them.",
-    "shutdown_failed": "Some owned services could not stop. Check logs and retry Quit."
+    "shutdown_failed": "Some owned services could not stop. Check logs and retry Quit.",
+    "invalid_project_folder": "Enter an absolute folder path or ~/Devforge.",
+    "project_folder_missing": "The folder does not exist. Create it or choose another folder.",
+    "project_folder_unavailable": "The folder is unavailable or cannot be read."
   },
   "native": {
     "show": "Open DevForge",
@@ -283,7 +286,8 @@
       "activate_database_generation": "Applying service operation…",
       "mail_configure": "Applying mail operation…",
       "mail_delete": "Applying mail operation…",
-      "mail_save": "Applying mail operation…"
+      "mail_save": "Applying mail operation…",
+      "discovery_restore": "Restore"
     },
     "kinds": {
       "php": "PHP",
@@ -397,7 +401,8 @@
       "worktree_detached": "This worktree has a detached HEAD. Create or switch to a local branch before cleanup so its commits remain reachable.",
       "manifest_review_required": "Review and confirm configuration first.",
       "worktree_archive_unavailable": "This archive is unavailable for this action. Check its files and recorded lifecycle state.",
-      "worktree_archive_limit": "This archive exceeds the supported file, size or depth limit."
+      "worktree_archive_limit": "This archive exceeds the supported file, size or depth limit.",
+      "discovery_unavailable": "This project folder changed or is unavailable. Stop the project and scan again."
     }
   },
   "runtimes": {
@@ -926,5 +931,53 @@
       "complete": "Setup complete",
       "not_started": "Not started"
     }
+  },
+  "discovery": {
+    "title": "Project folder",
+    "description": "Projects in this folder appear automatically in DevForge.",
+    "folder": "Folder path",
+    "browse": "Choose folder",
+    "save": "Save folder",
+    "create": "Create folder",
+    "reset": "Use ~/Devforge",
+    "scan": "Scan now",
+    "defaultHint": "The default is ~/Devforge in your home folder. Only immediate Laravel project folders are scanned.",
+    "failed": "The folder could not be updated. Check the path and try again.",
+    "count": "Projects found: {{count}}",
+    "lastScan": "Last scan: {{time}}",
+    "discovered": "Folder discovery",
+    "manageFolder": "Manage folder",
+    "restore": "Restore",
+    "configure": "Configure project",
+    "installRuntimes": "Manage PHP and Node runtimes",
+    "states": {
+      "scanning": "Scanning…",
+      "ready": "Up to date",
+      "degraded": "Limited monitoring",
+      "needs_runtime": "Runtime setup needed",
+      "conflict": "Needs attention",
+      "invalid": "Project incomplete or invalid",
+      "missing": "Folder not found",
+      "relocation_pending": "Relocation pending — stop the project and scan again",
+      "ignored": "Ignored",
+      "detached": "Outside the current project folder",
+      "detected": "Detected"
+    },
+    "problems": {
+      "invalid_project": "This folder is not a complete Laravel project yet.",
+      "invalid_manifest": "The project manifest is incomplete or invalid.",
+      "unsupported_constraint": "The runtime requirements could not be read.",
+      "unavailable": "The folder is unavailable. It will be checked again automatically.",
+      "watch_unavailable": "Live monitoring is unavailable. Periodic scanning remains active.",
+      "partial": "Some folders could not be checked. Existing projects are preserved.",
+      "limit": "Folder limit reached. Existing projects are preserved.",
+      "cancelled": "The scan was cancelled.",
+      "identity_changed": "A different folder now occupies this path. Existing bindings were preserved.",
+      "domain_conflict": "The proposed domain is already used. Choose another domain.",
+      "storage_unavailable": "The registry could not be updated. Try scanning again."
+    },
+    "unsaved": "Unsaved folder",
+    "unsavedDescription": "Discard the folder path you have not saved?",
+    "showMore": "Show more projects"
   }
 }

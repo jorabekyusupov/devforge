@@ -1,7 +1,9 @@
 #[cfg(all(feature = "e2e", not(debug_assertions)))]
 compile_error!("E2E instrumentation is supported only in debug acceptance builds");
 mod workspace;
-use devforge_core::{ErrorCode, LocaleRegistry, Settings, SettingsRepository, Theme};
+use devforge_core::{
+    ErrorCode, LocaleRegistry, Settings, SettingsPatch, SettingsRepository, Theme,
+};
 use devforge_platform::{Diagnostics, SqliteSettings, app_data_dir, diagnostics};
 use serde::Serialize;
 use std::{
@@ -70,10 +72,17 @@ struct Bootstrap {
     native_ui_synced: bool,
 }
 impl AppState {
-    fn snapshot(&self, update: Option<Settings>) -> Result<Bootstrap, ErrorCode> {
-        if let Some(ref settings) = update {
-            self.registry.validate(settings)?;
+    fn project_home(&self) -> Result<PathBuf, ErrorCode> {
+        #[cfg(feature = "e2e")]
+        {
+            let home = self.directory.join("fixture-home");
+            std::fs::create_dir_all(&home).map_err(|_| ErrorCode::ProjectFolderUnavailable)?;
+            Ok(home)
         }
+        #[cfg(not(feature = "e2e"))]
+        devforge_platform::home_dir()
+    }
+    fn snapshot(&self, update: Option<SettingsPatch>) -> Result<Bootstrap, ErrorCode> {
         let mut lock = self
             .database
             .lock()
@@ -82,7 +91,18 @@ impl AppState {
             *lock = Some(SqliteSettings::open(&self.directory)?);
         }
         let database = lock.as_mut().ok_or(ErrorCode::StorageUnavailable)?;
-        if let Some(settings) = update {
+        database.initialize_project_folder(&self.project_home()?)?;
+        if let Some(patch) = update {
+            let changing_folder = patch.project_folder.is_some();
+            let mut settings = patch.apply(database.load()?);
+            self.registry.validate(&settings)?;
+            if changing_folder {
+                let folder = devforge_platform::resolve_project_folder(
+                    settings.project_folder.as_deref().unwrap_or_default(),
+                    &self.project_home()?,
+                )?;
+                settings.project_folder = Some(folder.to_string_lossy().into_owned());
+            }
             database.save(&settings)?;
         }
         let settings = database.load()?;
@@ -112,7 +132,7 @@ async fn bootstrap(state: tauri::State<'_, AppState>) -> Result<Bootstrap, Error
 async fn save_settings(
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
-    settings: Settings,
+    settings: SettingsPatch,
 ) -> Result<Bootstrap, ErrorCode> {
     let worker = state.inner().clone();
     let mut snapshot =
@@ -124,7 +144,43 @@ async fn save_settings(
     state
         .native_synced
         .store(snapshot.native_ui_synced, Ordering::Relaxed);
+    if let Some(folder) = &snapshot.settings.project_folder {
+        app.state::<workspace::State>()
+            .set_discovery_root(PathBuf::from(folder));
+    }
     Ok(snapshot)
+}
+
+#[tauri::command]
+async fn create_project_folder(
+    state: tauri::State<'_, AppState>,
+    path: String,
+) -> Result<String, ErrorCode> {
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let home = state.project_home()?;
+        if path.trim().is_empty() || path.chars().any(char::is_control) {
+            return Err(ErrorCode::InvalidProjectFolder);
+        }
+        let expanded =
+            if let Some(rest) = path.strip_prefix("~/").or_else(|| path.strip_prefix("~\\")) {
+                home.join(rest)
+            } else {
+                PathBuf::from(&path)
+            };
+        if !expanded.is_absolute() {
+            return Err(ErrorCode::InvalidProjectFolder);
+        }
+        match std::fs::create_dir(&expanded) {
+            Ok(()) => {}
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {}
+            Err(_) => return Err(ErrorCode::ProjectFolderUnavailable),
+        }
+        devforge_platform::resolve_project_folder(&expanded.to_string_lossy(), &home)
+            .map(|p| p.to_string_lossy().into_owned())
+    })
+    .await
+    .map_err(|_| ErrorCode::ProjectFolderUnavailable)?
 }
 
 fn label(locale: &str, key: &str) -> String {
@@ -310,6 +366,8 @@ pub fn run() {
             bootstrap,
             startup_ready,
             save_settings,
+            create_project_folder,
+            workspace::discovery_scan,
             workspace::workspace_snapshot,
             workspace::inspector_snapshot,
             workspace::debug_read,
@@ -328,6 +386,11 @@ pub fn run() {
         ])
         .on_menu_event(|app, event| menu_action(app, event.id.as_ref()))
         .on_window_event(|window, event| {
+            if matches!(event, tauri::WindowEvent::Focused(true))
+                && let Some(state) = window.app_handle().try_state::<workspace::State>()
+            {
+                state.request_discovery();
+            }
             if let tauri::WindowEvent::CloseRequested { api, .. } = event
                 && window.app_handle().tray_by_id("main").is_some()
             {
@@ -371,7 +434,15 @@ pub fn run() {
             state
                 .native_synced
                 .store(tray.is_ok() && menus_synced, Ordering::Relaxed);
-            app.manage(workspace::State::new(app_data_dir()?));
+            let workspace_state = workspace::State::new(app_data_dir()?);
+            if let Some(folder) = snapshot
+                .as_ref()
+                .and_then(|s| s.settings.project_folder.as_ref())
+            {
+                workspace_state.set_discovery_root(PathBuf::from(folder));
+            }
+            workspace_state.start_discovery_coordinator();
+            app.manage(workspace_state);
             app.manage(state);
             #[cfg(feature = "e2e")]
             eprintln!("E2E_PHASE: app state ready");

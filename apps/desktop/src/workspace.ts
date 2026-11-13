@@ -40,6 +40,7 @@ export interface Binding {
   ready?: boolean;
 }
 export interface Row {
+  discovery_state?: string | null;
   navigation?: { favorite: boolean; last_opened_ms: number };
   php_diagnostics?: PhpDiagnostics | null;
   setup_owned?: boolean;
@@ -102,7 +103,26 @@ export interface Database {
   state: string;
   users: number;
 }
+export interface DiscoveryEntry {
+  identity: string;
+  root: string;
+  path: string;
+  name: string;
+  project_id: string | null;
+  state: string;
+  problem: string | null;
+  ignored: boolean;
+}
+export interface DiscoveryView {
+  root: string | null;
+  state: string;
+  problem: string | null;
+  skipped: number;
+  last_scan: number;
+  entries: DiscoveryEntry[];
+}
 export interface Snapshot {
+  discovery?: DiscoveryView;
   worktrees?: WorktreeView[];
   starter_constraint?: string;
   projects: Row[];
@@ -560,6 +580,7 @@ export type Command =
       profile: string;
       path: string;
     }
+  | { action: "discovery_restore"; identity: string }
   | { action: "worktree_plan"; input: WorktreeInput }
   | {
       action: "worktree_create";

@@ -1,0 +1,43 @@
+{
+  "recorded_at_utc": "2026-11-13T10:06:00Z",
+  "scope": "publisher artifact drift; runtime pins unchanged; reviewed original cache supplied only to native acceptance",
+  "checks": [
+    {
+      "id": "php-8.4.27-cli-macos-arm64",
+      "catalog_sha256": "ef03c8fcb789892683c9091f26699e63438494ebef6e63f7a99e8adb25f065cb",
+      "current_publisher_checksum": "b1692a87ca293f198020a97be0132b5ffff1c828d7e35c9ca17b19f2fd70bf5f",
+      "checksum_source": "https://dl.static-php.dev/v3/php-bin/common/php-8.4.27-cli-macos-aarch64.tar.gz.sha256"
+    },
+    {
+      "id": "php-8.4.27-fpm-macos-arm64",
+      "catalog_sha256": "b615ed61a4605074775838fc5ce64178da77b99a70f30330d1dbf25b9869a72f",
+      "current_publisher_checksum": "1140c87db27734c52bd72c687e71b4097536c7c6ce3fd1a2e7ab3e4068aec261",
+      "checksum_source": "https://dl.static-php.dev/v3/php-bin/common/php-8.4.27-fpm-macos-aarch64.tar.gz.sha256"
+    },
+    {
+      "id": "php-8.5.12-cli-macos-arm64",
+      "catalog_sha256": "cfbb53b904bb29f553c23cb51dfb9ec82bb69adaf9aeb6df8b6da29ea9f03553",
+      "current_publisher_checksum": "15b530298ac4e3560d685bbce5031dafa2db062f0b114b620db3fabfe25e326b",
+      "checksum_source": "https://dl.static-php.dev/v3/php-bin/common/php-8.5.12-cli-macos-aarch64.tar.gz.sha256"
+    },
+    {
+      "id": "php-8.5.12-fpm-macos-arm64",
+      "catalog_sha256": "b11e25657f6190b86453a6989c631b25ed041329e9cdf6f85189d653133ce970",
+      "current_publisher_checksum": "7f40383764102dbad2db3f7d99f93d42f7a2c2e5906a6ab248ae85eb04d90183",
+      "checksum_source": "https://dl.static-php.dev/v3/php-bin/common/php-8.5.12-fpm-macos-aarch64.tar.gz.sha256"
+    },
+    {
+      "id": "php-8.5.12-fpm-macos-x64",
+      "catalog_sha256": "7c166125797e536d6cda9a8267eb89fffd294b4f49878bb586dadbba713a879a",
+      "downloaded_replacement_sha256": "d7c07c9476b128cc567549601813717aa3cf7d63fe2677f73a86665fd8219061",
+      "checksum_source": "https://dl.static-php.dev/v3/php-bin/common/php-8.5.12-fpm-macos-x86_64.tar.gz.sha256"
+    },
+    {
+      "id": "php-8.5.12-cli-macos-x64",
+      "catalog_sha256": "32c08d8d793d939c960f944d92abe16350dddf0ea79418256fa76633e110ce2b",
+      "current_publisher_checksum": "492cc40aadb7207433cd15fd6085525d6f8661ce50719c84c2456d0e70f39dd7",
+      "checksum_source": "https://dl.static-php.dev/v3/php-bin/common/php-8.5.12-cli-macos-x86_64.tar.gz.sha256"
+    }
+  ],
+  "native_acceptance_resolution": "Use original reviewed public archives matching unchanged catalog pins through .github/fixtures/discovery-runtime-blobs.json; production download URLs/pins unchanged."
+}

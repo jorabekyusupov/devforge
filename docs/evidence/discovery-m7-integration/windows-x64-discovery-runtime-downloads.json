@@ -1,0 +1,171 @@
+{
+  "target": "windows-x64",
+  "scope": "Current non-superseded catalog: upstream archive SHA256 and static architecture audit",
+  "artifacts": [
+    {
+      "id": "caddy-v2.11.9-windows-x64",
+      "package": "caddy",
+      "version": "v2.11.9",
+      "target": "windows-x64",
+      "url": "https://github.com/caddyserver/caddy/releases/download/v2.11.9/caddy_2.11.9_windows_amd64.zip",
+      "sha256": "ad93112d335ee687100c4c9f11bced16ca590377976b7fe7883882b9e797e472",
+      "checksum_source": "https://api.github.com/repos/caddyserver/caddy/releases/tags/v2.11.9",
+      "runtime_executed": false,
+      "signature_verification": "not-performed",
+      "cache_file": "caddy-v2.11.9-windows-x64-caddy_2.11.9_windows_amd64.zip",
+      "bytes": 18384117,
+      "computed_sha256": "ad93112d335ee687100c4c9f11bced16ca590377976b7fe7883882b9e797e472",
+      "integrity": "publisher-sha256-matched",
+      "inspection": {
+        "archive_kind": "zip",
+        "file_count": 3,
+        "binaries": [
+          {
+            "member": "caddy.exe",
+            "architectures": [
+              "x64"
+            ]
+          }
+        ],
+        "nested_archives_inspected": [],
+        "license_members": [
+          "LICENSE"
+        ],
+        "windows_pdo_pgsql_present": false
+      },
+      "status": "inspected",
+      "target_header_match": true,
+      "catalog_id": "caddy-v2.11.9-windows-x64"
+    },
+    {
+      "id": "composer-2.11.2",
+      "package": "composer",
+      "version": "2.11.2",
+      "target": "php-portable",
+      "url": "https://getcomposer.org/download/2.11.2/composer.phar",
+      "sha256": "dd158c0afd41d15fac89e1b4e47b5d42911fe316c3687cd5edac98319b25d028",
+      "checksum_source": "https://getcomposer.org/download/2.11.2/composer.phar.sha256sum",
+      "runtime_executed": false,
+      "signature_verification": "not-performed",
+      "cache_file": "composer-2.11.2-composer.phar",
+      "bytes": 3815650,
+      "computed_sha256": "dd158c0afd41d15fac89e1b4e47b5d42911fe316c3687cd5edac98319b25d028",
+      "integrity": "publisher-sha256-matched",
+      "inspection": {
+        "archive_kind": "single-file",
+        "file_count": 0,
+        "binaries": [],
+        "nested_archives_inspected": [],
+        "license_members": [],
+        "windows_pdo_pgsql_present": false
+      },
+      "status": "inspected",
+      "catalog_id": "composer-2.11.2-windows-x64"
+    },
+    {
+      "id": "node-v24.22.2-windows-x64",
+      "package": "node",
+      "version": "v24.22.2",
+      "target": "windows-x64",
+      "url": "https://nodejs.org/dist/v24.22.2/node-v24.22.2-win-x64.zip",
+      "sha256": "ca1bff5d8ead13c9f2ea404a176db46bd430704d5b5113734049fa365e7799e2",
+      "checksum_source": "https://nodejs.org/dist/v24.22.2/SHASUMS256.txt",
+      "runtime_executed": false,
+      "signature_verification": "not-performed",
+      "cache_file": "node-v24.22.2-windows-x64-node-v24.22.2-win-x64.zip",
+      "bytes": 37754834,
+      "computed_sha256": "ca1bff5d8ead13c9f2ea404a176db46bd430704d5b5113734049fa365e7799e2",
+      "integrity": "publisher-sha256-matched",
+      "inspection": {
+        "archive_kind": "zip",
+        "file_count": 1994,
+        "binaries": [
+          {
+            "member": "node-v24.22.2-win-x64/node.exe",
+            "architectures": [
+              "x64"
+            ]
+          }
+        ],
+        "nested_archives_inspected": [],
+        "license_members": [
+          "node-v24.22.2-win-x64/LICENSE",
+          "node-v24.22.2-win-x64/node_modules/corepack/LICENSE.md",
+          "node-v24.22.2-win-x64/node_modules/npm/LICENSE",
+          "node-v24.22.2-win-x64/node_modules/npm/node_modules/@gar/promise-retry/LICENSE",
+          "node-v24.22.2-win-x64/node_modules/npm/node_modules/@isaacs/fs-minipass/LICENSE",
+          "node-v24.22.2-win-x64/node_modules/npm/node_modules/@isaacs/string-locale-compare/LICENSE",
+          "node-v24.22.2-win-x64/node_modules/npm/node_modules/@npmcli/arborist/bin/license.js",
+          "node-v24.22.2-win-x64/node_modules/npm/node_modules/@npmcli/arborist/LICENSE.md",
+          "node-v24.22.2-win-x64/node_modules/npm/node_modules/@npmcli/config/LICENSE",
+          "node-v24.22.2-win-x64/node_modules/npm/node_modules/@npmcli/fs/lib/cp/LICENSE",
+          "node-v24.22.2-win-x64/node_modules/npm/node_modules/@npmcli/fs/LICENSE.md",
+          "node-v24.22.2-win-x64/node_modules/npm/node_modules/@npmcli/git/LICENSE",
+          "node-v24.22.2-win-x64/node_modules/npm/node_modules/@npmcli/installed-package-contents/LICENSE",
+          "node-v24.22.2-win-x64/node_modules/npm/node_modules/@npmcli/map-workspaces/LICENSE.md",
+          "node-v24.22.2-win-x64/node_modules/npm/node_modules/@npmcli/metavuln-calculator/LICENSE",
+          "node-v24.22.2-win-x64/node_modules/npm/node_modules/@npmcli/name-from-folder/LICENSE",
+          "node-v24.22.2-win-x64/node_modules/npm/node_modules/@npmcli/node-gyp/LICENSE",
+          "node-v24.22.2-win-x64/node_modules/npm/node_modules/@npmcli/package-json/lib/license.js",
+          "node-v24.22.2-win-x64/node_modules/npm/node_modules/@npmcli/package-json/LICENSE",
+          "node-v24.22.2-win-x64/node_modules/npm/node_modules/@npmcli/promise-spawn/LICENSE",
+          "node-v24.22.2-win-x64/node_modules/npm/node_modules/@npmcli/query/LICENSE",
+          "node-v24.22.2-win-x64/node_modules/npm/node_modules/@npmcli/redact/LICENSE",
+          "node-v24.22.2-win-x64/node_modules/npm/node_modules/@npmcli/run-script/LICENSE",
+          "node-v24.22.2-win-x64/node_modules/npm/node_modules/@sigstore/bundle/LICENSE",
+          "node-v24.22.2-win-x64/node_modules/npm/node_modules/@sigstore/core/LICENSE",
+          "node-v24.22.2-win-x64/node_modules/npm/node_modules/@sigstore/protobuf-specs/LICENSE",
+          "node-v24.22.2-win-x64/node_modules/npm/node_modules/@sigstore/sign/LICENSE",
+          "node-v24.22.2-win-x64/node_modules/npm/node_modules/@sigstore/tuf/LICENSE",
+          "node-v24.22.2-win-x64/node_modules/npm/node_modules/@tufjs/canonical-json/LICENSE",
+          "node-v24.22.2-win-x64/node_modules/npm/node_modules/@tufjs/models/LICENSE"
+        ],
+        "windows_pdo_pgsql_present": false
+      },
+      "status": "inspected",
+      "target_header_match": true,
+      "catalog_id": "node-v24.22.2-windows-x64"
+    },
+    {
+      "id": "php-8.5.12-1-windows-x64",
+      "package": "php",
+      "version": "8.5.12-1",
+      "target": "windows-x64",
+      "url": "https://downloads.php.net/~windows/releases/php-8.5.12-1-nts-Win32-vs17-x64.zip",
+      "sha256": "2a36a2edcb7a5b9252f638fd5e4cf84d7f6e066092654220dc0b63e5cf4e9723",
+      "checksum_source": "https://downloads.php.net/~windows/releases/releases.json",
+      "runtime_executed": false,
+      "signature_verification": "not-performed",
+      "cache_file": "php-8.5.12-1-windows-x64-php-8.5.12-1-nts-Win32-vs17-x64.zip",
+      "bytes": 36310917,
+      "computed_sha256": "2a36a2edcb7a5b9252f638fd5e4cf84d7f6e066092654220dc0b63e5cf4e9723",
+      "integrity": "publisher-sha256-matched",
+      "inspection": {
+        "archive_kind": "zip",
+        "file_count": 78,
+        "binaries": [
+          {
+            "member": "php-cgi.exe",
+            "architectures": [
+              "x64"
+            ]
+          },
+          {
+            "member": "php.exe",
+            "architectures": [
+              "x64"
+            ]
+          }
+        ],
+        "nested_archives_inspected": [],
+        "license_members": [
+          "license.txt"
+        ],
+        "windows_pdo_pgsql_present": true
+      },
+      "status": "inspected",
+      "target_header_match": true,
+      "catalog_id": "php-8.5.12-1-windows-x64"
+    }
+  ]
+}

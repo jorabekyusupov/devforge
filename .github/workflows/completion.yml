@@ -65,8 +65,8 @@ jobs:
         with:
           path: m7-xdebug-fixture/data/runtimes
           key: ${{ steps.runtime-cache.outputs.cache-primary-key }}
-      - name: Native runtime HTTP CLI breakpoints steps profiles privacy and recovery
-        run: target/release/examples/native_workspace debugger-native m7-xdebug-fixture xdebug-sdks
+      - name: Auto-discovered project native runtime HTTP locals steps profiles and recovery
+        run: target/release/examples/native_workspace debugger-discovery-native m7-xdebug-fixture xdebug-sdks
       - name: Configuration archive submodules external PostgreSQL MySQL copies and Intel provider
         run: target/release/examples/native_workspace completion-native m7-xdebug-fixture
       - name: Native shared-core debugger CLI

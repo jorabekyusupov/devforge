@@ -1,3 +1,5 @@
+import { ProjectDiscoverySettings } from "../components/ProjectDiscoverySettings";
+import type { Backend } from "../bridge";
 import { useTranslation } from "react-i18next";
 import { Globe, Monitor, Database } from "lucide-react";
 import { registry } from "../i18n";
@@ -6,7 +8,11 @@ export function SettingsPage({
   snapshot,
   busy,
   onChange,
+  backend,
+  onFolderChange,
 }: {
+  backend?: Backend;
+  onFolderChange?: (path: string) => Promise<boolean>;
   snapshot: Bootstrap | null;
   busy: boolean;
   onChange: (patch: Partial<Preferences>) => Promise<void>;
@@ -135,6 +141,12 @@ export function SettingsPage({
           ))}
         </fieldset>
       </section>
+      <ProjectDiscoverySettings
+        folder={settings.project_folder ?? "~/Devforge"}
+        busy={busy || !snapshot}
+        backend={backend}
+        save={onFolderChange ?? (async () => false)}
+      />
       <div className="local-storage">
         <Database aria-hidden="true" />
         <div>

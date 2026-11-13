@@ -18,6 +18,8 @@ mod activity;
 mod completion;
 #[path = "support/debugger.rs"]
 mod debugger;
+#[path = "support/discovery.rs"]
+mod discovery;
 #[path = "support/inspector.rs"]
 mod inspector;
 #[path = "support/onboarding.rs"]
@@ -51,11 +53,26 @@ fn main() -> Result<()> {
             Path::new(args.get(2).ok_or("CLI required")?),
         );
     }
+    if args.first().map(String::as_str) == Some("debugger-discovery-native") {
+        return debugger::run_discovered(
+            Path::new(args.get(1).ok_or("fixture required")?),
+            Path::new(args.get(2).ok_or("SDK archives required")?),
+        );
+    }
     if args.first().map(String::as_str) == Some("debugger-native") {
         return debugger::run(
             Path::new(args.get(1).ok_or("fixture required")?),
             Path::new(args.get(2).ok_or("SDK archives required")?),
         );
+    }
+    if args.first().map(String::as_str) == Some("discovery-prepare") {
+        return discovery::prepare(
+            Path::new(args.get(1).ok_or("fixture required")?),
+            Path::new(args.get(2).ok_or("cache required")?),
+        );
+    }
+    if args.first().map(String::as_str) == Some("discovery-native") {
+        return discovery::run(Path::new(args.get(1).ok_or("fixture required")?));
     }
     if args.first().map(String::as_str) == Some("worktrees-existing-branch") {
         return worktrees::existing_branch_run(Path::new(args.get(1).ok_or("fixture required")?));

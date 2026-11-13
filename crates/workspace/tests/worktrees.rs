@@ -454,6 +454,10 @@ fn archive_restore_and_purge_preserve_identity_ignored_data_and_source_history()
         w.worktree_archive(&wid, "restore", &restore.digest, true, &Default::default())
             .unwrap();
         assert_eq!(w.projects.get(&p.id).unwrap().id, p.id);
+        assert_eq!(
+            w.projects.get(&p.id).unwrap().filesystem_identity,
+            devforge_projects::discovery::identity(&path).ok()
+        );
         let restored = w
             .snapshot()
             .unwrap()
@@ -545,5 +549,43 @@ fn configuration_save_validates_schema_and_detects_external_changes() {
         fs::read_to_string(p.path.join("devforge.yaml"))
             .unwrap()
             .ends_with("# external\n")
+    );
+}
+
+#[test]
+fn configuration_refuses_a_replaced_registered_directory() {
+    let temp = tempfile::tempdir().unwrap();
+    let (mut w, id, _) = fixture(temp.path());
+    let project = w.projects.get(&id).unwrap();
+    let doc = w.configuration_document(&id).unwrap();
+    let original = temp.path().join("original-directory");
+    fs::rename(&project.path, &original).unwrap();
+    fs::create_dir_all(project.path.join("public")).unwrap();
+    fs::write(project.path.join("public/index.php"), "<?php").unwrap();
+    fs::copy(
+        original.join("composer.json"),
+        project.path.join("composer.json"),
+    )
+    .unwrap();
+    fs::copy(
+        original.join("devforge.yaml"),
+        project.path.join("devforge.yaml"),
+    )
+    .unwrap();
+    assert_eq!(
+        w.configuration_document(&id).err().unwrap().code,
+        "discovery_unavailable"
+    );
+    assert_eq!(
+        w.configuration_save(
+            &id,
+            doc["expected"].as_str(),
+            doc["text"].as_str().unwrap(),
+            true
+        )
+        .err()
+        .unwrap()
+        .code,
+        "discovery_unavailable"
     );
 }
