@@ -6,5 +6,10 @@
   "bytes": 171974960,
   "signature_fingerprint": "BCA43417C3B485DD128EC6D4B7B3B788A8D3785C",
   "signature_result": "VALIDSIG",
-  "native_execution": "pending"
+  "native_execution": {
+    "conclusion": "success",
+    "run_id": 43453067442,
+    "job_id": 131980050440,
+    "source": "08dd8361133eef8be646f6df1449f2363a887516"
+  }
 }

@@ -1,5 +1,7 @@
 # DevForge bilim bazasi tarixi
 
+- **M7–M12 functional completion**: [yakun yozuvi](m7-m12-completion.md): shared Rust core,7-method request builder va revision-guarded primitive locals, verified common MySQL8.4.11 oilasi, reviewed YAML GUI, same-ID archive restoration/purge, recursive isolated submodules va external PG/MySQL staged copy. macOS ARM64/Intel hamda Windows native backend/CLI/UI qabul; har target22 axe case/0 violation. Concurrent main996a11d saqlandi, filesystem-identity interop regressiyalari qo'shildi. Latest core macOS134/Windows131 Rust va44 frontend/OS;1 OS-credential test M15 ignored. Failure/infrastructure history, runtime hash rollover va aniq source projection evidence'da.30-doc strict close; M13–M15'ga avtomatik o'tilmadi.
+
 ## 2026-11-13
 
 - **Discovery/main/M7 integration:** schema7 ikki schema6 history’ni saqlaydi; reviewed Intel PHP8.5 CLI/FPM family qo‘shildi, old48 descriptor unchanged. Current production downloads va actual auto-discovered project’da debug/profile/ForgetRestore uch targetda o‘tdi. Har target20UI/22axe0; core124Mac/120Win Rust,42frontend. [Source/job/digest va fixture-failure chegaralari](../evidence/discovery-m7-integration/README.md) saqlandi. Main promotion user tomonidan vakolatlangan; strict validator va final remoteSHA handoff’da.

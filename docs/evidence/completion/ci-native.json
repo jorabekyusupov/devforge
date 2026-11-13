@@ -1,0 +1,39 @@
+{
+  "final_product_source": "f13c10697dc4f55a6b4b02f27fe5c4120cdba50b",
+  "accepted_concurrent_main": "996a11d5015c8433397cf6b6c09682cd883251a1",
+  "targets": [
+    {
+      "target": "macos-arm64",
+      "source": "08dd8361133eef8be646f6df1449f2363a887516",
+      "run_id": 43453644852,
+      "job_id": 131982029879,
+      "job_url": "https://github.com/jorabekyusupov/devforge/actions/runs/43453644852/job/131982029879",
+      "artifact_id": 14054410734,
+      "artifact_digest": "sha256:f82a6b2d799734b63852684842828e01778d8879e6ac2aa3186a1739fc8f0b99",
+      "conclusion": "success"
+    },
+    {
+      "target": "macos-x64",
+      "source": "08dd8361133eef8be646f6df1449f2363a887516",
+      "run_id": 43453067442,
+      "job_id": 131980050440,
+      "job_url": "https://github.com/jorabekyusupov/devforge/actions/runs/43453067442/job/131980050440",
+      "artifact_id": 14055425799,
+      "artifact_digest": "sha256:d0bcd0a818fa77ed07e7b32bc0bf68e5f46919a552abc5e5174c012c1f5944f6",
+      "conclusion": "success"
+    },
+    {
+      "target": "windows-x64",
+      "source": "f13c10697dc4f55a6b4b02f27fe5c4120cdba50b",
+      "run_id": 43457642556,
+      "job_id": 131995900378,
+      "job_url": "https://github.com/jorabekyusupov/devforge/actions/runs/43457642556/job/131995900378",
+      "artifact_id": 14055712200,
+      "artifact_digest": "sha256:ff4b4bf2f8c5408e77c9143026acb85d47a50373e46c4825afeaa994040d2321",
+      "conclusion": "success"
+    }
+  ],
+  "source_boundary": "macOS native source08dd836; f13 changes only Windows erase diagnostics and acceptance Git actor. Unchanged Unix production projection is checked in platform-source-boundary.json.",
+  "coverage": "Each target:19 debugger native checks,12 completion native checks, both CLI scenarios,13 debugger and9 completion axe cases,0 violations. Fixture secret adapter is not production OS credential verification.",
+  "release_gates": "M15 clean/minimum OS, OS credential/system dialogs, signing/distribution and installer/update/rollback remain separate."
+}

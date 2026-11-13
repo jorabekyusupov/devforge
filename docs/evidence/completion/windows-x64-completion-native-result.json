@@ -1,0 +1,21 @@
+{
+  "checks": {
+    "common_mysql_8411_native_backup_restore": true,
+    "configuration_atomic_save_review_apply": true,
+    "dirty_submodule_blocked": true,
+    "external_mysql_tables_staged_copy": true,
+    "external_pg_verified_tls": true,
+    "external_pg_wrong_ca_preserves_binding": true,
+    "external_postgresql_read_dump_staged_copy": true,
+    "failed_external_connection_preserves_binding": true,
+    "identity_and_database_retained": true,
+    "linked_archive_restore_purge": true,
+    "recursive_submodule_create_archive_restore_purge": true,
+    "source_data_unchanged": true
+  },
+  "mysql_package": "mysql-8.4.13-windows-x64",
+  "passed": true,
+  "target": "windows-x64",
+  "ui_project": "37d4953380ae49278af16f892ef8fc6b",
+  "ui_workspace": "b815bdf62933402784d68fdeaff6731e"
+}

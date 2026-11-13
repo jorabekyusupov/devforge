@@ -355,3 +355,12 @@ UI’da o‘tdi. Old M7 va discovery schema6 history’lari schema7’da saqland
 Intel PHP8.5 arxivlari alohida build family bilan review qilindi, legacy pinlar
 saqlandi. [Dalil](../../evidence/discovery-m7-integration/README.md) final push
 vakolati, source/digest va native/structural qamrovni ajratadi.
+
+### M7–M12 completion yakuni — 2026-11-13
+
+Joriy topshiriq qolgan scope'ni bajarish, test, OKF va final pushni vakolatladi.
+Agent implemented scope, cheklov va actual native evidence'ni completion yozuviga
+bog'ladi; inson tasdig'i o'ylab topilmadi. Concurrent accepted main996a11d merge'da
+saqlandi. Mac ARM64/Intel source08dd836 va Windows f13c106 native qabuli, latest
+core f13c106 natijalari hamda Windows-only/test-helper projection farqi ochiq qayd
+etildi. M15 release/native-credential/minimum-OS gate'lari yopilgan deb aytilmaydi.

@@ -1,0 +1,22 @@
+{
+  "accepted_main": "996a11d5015c8433397cf6b6c09682cd883251a1",
+  "integrated_product": "08dd8361133eef8be646f6df1449f2363a887516",
+  "protected_scopes": {
+    "crates/runtime": "unchanged from concurrent accepted main source",
+    "crates/inspector": "unchanged from concurrent accepted main source",
+    "crates/workspace/src/setup.rs": "unchanged from concurrent accepted main source",
+    "crates/workspace/src/mail.rs": "unchanged from concurrent accepted main source",
+    "crates/projects/src/mail.rs": "unchanged from concurrent accepted main source",
+    "apps/desktop/src/components/ProjectSetup.tsx": "unchanged from concurrent accepted main source",
+    "apps/desktop/src/pages/ActivityPage.tsx": "unchanged from concurrent accepted main source",
+    "crates/projects/src/discovery.rs": "unchanged from concurrent accepted main source",
+    "crates/workspace/src/discovery.rs": "unchanged from concurrent accepted main source",
+    "apps/desktop/src/components/ProjectDiscoverySettings.tsx": "unchanged from concurrent accepted main source"
+  },
+  "intentional_interop": [
+    "Archive reactivation refreshes the filesystem identity after owned linked checkout restoration.",
+    "Configuration and new worktree entry points reuse discovery availability guards.",
+    "Both independent immutable runtime descriptor sets were compared and preserved."
+  ],
+  "scope": "Source equivalence is not a fresh native re-verification claim for all historical features."
+}

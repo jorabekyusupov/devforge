@@ -133,70 +133,118 @@ qarori deb talqin qilinmaydi.[^commands]
   DB nomi ASCII identifier va63 belgigacha; arbitrary version/engine conversion
   va production remote administrator bu feature emas.[^remote]
 
-# Tekshirish holati
+# Yakuniy tekshirish va source chegarasi
 
-Product candidate: `fd8c73e1edabd327c35067fa4e35960425049b02`.
-Lokal macOS27.2.1 ARM64'da117 Rust testi o'tdi;1 explicit native credential
-roundtrip testi M15 uchun ignored.38 frontend testi, locale/fmt/clippy va
-fixture-feature clippy o'tdi. Native PG/MySQL, TLS wrong-CA refusal, archive/
-restore/purge, recursive submodule va CLI sinovlari o'tdi; `core.autocrlf=true`
-qo'shimcha native qabuldan ham o'tdi. Native debugger PHP8.4/8.5, barcha primitive
-mutation, inert executable-looking string, stepping, HTTP builder va profiler
-sinovidan o'tdi. HTTP native fixture GET/POST/PUT/PATCH/DELETE body, HEAD/OPTIONS
-empty-body holatlarini tekshiradi; transport unit testi OPTIONS'da ham UTF-8
-payload byte'larini tekshiradi. Source PHP'ning method body talqini transport
-byte'lari bilan bir claim emas.
+M7–M12 qolgan funksional scope yakunlandi. Yakuniy product source
+`f13c10697dc4f55a6b4b02f27fe5c4120cdba50b`; docs/evidence-only close commit undan
+keyin keladi. Inson ko'rib chiqqan `verified` metadata qo'shilmadi.
 
-Actual WKWebView'da debugger13 va completion9 axe case/0 violation; RU/UZ/EN,
-light/dark, minimum820x620, YAML read/edit/save/review, secret input clearing,
-archive reactivation va explicit purge o'tdi. `agent-desktop` mavjud emasligi
-sabab existing native W3C harness ishlatildi; OS permission o'zgartirilmadi.
-Production credential adapter bu fixture secret store bilan tasdiqlanmaydi.
+| Target | Native source | Run / job | Natija |
+| --- | --- | --- | --- |
+| macOS15 ARM64 |08dd836|43453644852 /131982029879|passed|
+| macOS15 Intel |08dd836|43453067442 /131980050440|passed|
+| Windows Server2025 x64 |f13c106|43457642556 /131995900378|passed|
 
-`15a9377` core run43439756815 macOS/Windows'da to'liq o'tdi; native
-run43439751906 ARM64 job131933982082 ham barcha backend/CLI/GUI checks bilan
-muvaffaqiyatli. O'sha run Intel'da upstream stock PHP hash mismatch, Windows'da
-CRLF false-dirty holatini aniqladi; bu failures yashirilmadi. Tuzatilgan c5c3231
-uchun hosted native43444634035 va core43444639614 yakunlanmoqda. Oldingi
-6f11ed2/96cc405 failures DBGp literal/null hamda test fixture path tuzatishlaridan
-oldingi source hisoblanadi. Runtime source builder/recipe o'zgarmadi; SDK cache
-ularning source hashiga bog'langan.
+Har bir targetda19 debugger backend check va12 completion backend check,
+shared-core CLI,13 debugger va9 completion axe case/0 violation o'tdi. M7 actual
+avtomatik topilgan va explicit tayyorlangan Laravel loyihasida bajarildi:
+PHP8.4/8.5, primitive mutation, inert executable-looking string, stepping,
+redaction/isolation, request/profiler va Forget/Restore configuration preservation.
+GET/POST/PUT/PATCH/DELETE body bilan, HEAD/OPTIONS native fixture'da empty body
+bilan tekshirildi; real TCP unit testi OPTIONS UTF-8 byte'larini ham tekshiradi.
+HTTP serverning body talqini yuborilgan transport byte'lari bilan bir xil claim emas.
 
-Keyingi c5c3231 run Windows'da archive/TLS qismlaridan o'tib, submodule'ning
-normal CRLF checkout'i uchun LF-only test expectation'ini aniqladi. Test initial
-normalized matnni va archive/restore'dan keyingi aynan original byte'larni
-solishtiradi. ARM64'da backend/CLI o'tdi, UI read-busy paytida Edit tugmasi
-DOM'dan olinishi flaky click'ni ochdi; button endi joyida disabled qoladi va native
-harness editable holatni kutadi. macOS core'da serial configuration save'dan keyin
-transient manifest_busy kuzatildi: transaction guard explicit unlock bilan
-yakunlanadi; duplicated descriptor saqlanganda ham keyingi lock ochilishini unit
-test tekshiradi. Parallel fork'da descriptor inheritance ehtimoli mexanizmga mos,
-ammo aynan o'sha CI fork'i traced deb ko'rsatilmaydi.
+Core run43457648747 yakuniy f13c106 source'da ikkala OS'da muvaffaqiyatli:
+macOS134 Rust, Windows131 Rust, har birida44 frontend testi, locale/typecheck,
+fmt/clippy, distribution tooling va actual native desktop build.1 explicit OS
+credential roundtrip testi har ikkala platformada M15 uchun intentionally ignored.
 
-fd8c73e native run43447799027 va core43447805176 yakunlanmoqda.
+- [Native matrix va artifact digestlar](../evidence/completion/ci-native.json).
+- [Core counts va checks](../evidence/completion/ci-core.json).
+- [Source projection](../evidence/completion/platform-source-boundary.json):
+  f13c106'da macOS production source08dd836 bilan bir xil; o'zgarish Windows-only
+  erase diagnostics va acceptance Git actor'ida. Unix wrapper, boshqa Rust,
+  frontend, manifests va runtime catalog bir xil. Mac'da keyingi test-helper actor
+  qayta native bajarildi deb da'vo qilinmaydi.
+- [Bajarilgan source saqlanishi](../evidence/completion/source-preservation.json):
+  M2 runtime, M7.1 Inspector, M8 setup, M11 mail/log va accepted Discovery source
+  main996a11d bilan bir xil. Bu har bir tarixiy feature uchun yangi barcha native
+  gate'lar qayta yopildi degani emas.
+- [Attempt tarixi](../evidence/completion/attempts.json): failure va fixlar yashirilmagan.
 
-Structural OKF29 document/0 error/0 warning; bu desktop yoki human verification
-emas. Final phase closure hosted matritsa va committed public reports bilan
-bog'lanadi.
+Actual WKWebView va WebView2 screenshots saqlandi va ko'rib chiqildi. RU/UZ/EN,
+light/dark, requested minimum820x620, captured actual viewport, YAML read/edit/save/
+review, secret clearing, archive same-ID reactivation va explicit purge tekshirildi.
+Windows outer/client size farqi va real viewportlar raw report'larda bor; ular
+requested size bilan aralashtirilmaydi. `agent-desktop` mavjud emasligi uchun
+existing debug-only native W3C harness ishlatildi, OS permission o'zgartirilmadi.
+FixtureSecrets production OS credential adapterini tasdiqlamaydi.
+
+# Concurrent main bilan integratsiya
+
+Parallel accepted delivery main996a11d5015c8433397cf6b6c09682cd883251a1'ga
+kirdi. Isolated milestone branch unga merge qilindi; original checkout
+almashtirilmadi. Runtime descriptorlar ikkala source'dan qiymati bilan saqlangan.
+Discovery availability guard yangi config/source entry point'larda qo'llanadi;
+owned archive restoration yangi katalog filesystem identity'sini o'sha project ID'ga
+mos yangilaydi. Replaced directory read/save'da rad etilishi va restored identity
+unit regressiyalari bor. Discovery funksiyalari qayta yozilmadi.
+
+# Platforma failure'lari va recovery
+
+Windows CRLF checkout ustiga LF archive fayli tiklanganda porcelain false-dirty
+holati lokal `core.autocrlf=true` bilan takrorlandi; read-only normalized staged/
+working/untracked diff yechimi actual staged-only o'zgarishni ham bloklaydi.
+
+Windows GUI purge fixture'da Git commit elevated Python actor ostida bajarilganidan
+keyin storage failure chiqdi. Fixture Git commit endi native app bilan aynan bir
+restricted token ostida bajariladi; privilege oshirilmaydi. Owned-handle unlink
+read-only Git object hardlink'ining source atributi yoki data'sini o'zgartirmaydi;
+Windows unit va yakuniy actual UI purge o'tdi. Foreign ACL yoki ochiq file handle
+uchun avtomatik ACL o'zgartirish/escalation qo'shilmadi; failure bo'lsa purging
+journal, managed DB va recovery history qoladi. Read-only atribut failure'ning
+har bir OS sababini alohida traced deb talqin qilinmaydi.
+
+Mac transaction lock explicit unlock guard bilan bo'shatiladi; duplicated descriptor
+saqlanganda ham keyingi lock ochilishi unit testi bilan tekshirilgan. Parallel fork
+descriptor inheritance observed manifest_busy mexanizmiga mos, ammo aynan CI fork'i
+traced deb ko'rsatilmaydi. Edit control read-busy paytida DOM'dan olib tashlanmaydi.
+
+Birinchi08dd836 ARM64 job native assertion'ga yetmasdan aws-lc archive yozishda
+runner I/O error bilan to'xtagan. Same-source fresh ARM64 run muvaffaqiyatli; dastlabki
+run red holati va alohida successful retry source matrix'da ochiq ko'rsatilgan.
 
 # Phase reconciliation
 
-| Claim | Source bilan holati | Dalil chegarasi |
+| Claim | Holat | Dalil |
 | --- | --- | --- |
-| M7.1 Inspector | matching, saqlangan | Companion source qayta yozilmadi; yangi debugger undan ajratilgan |
-| M7.2 kengaytma | changed/implemented | Latest hosted native acceptance kutilmoqda |
-| M8 | matching, saqlangan | Onboarding/product implementation o'zgarmadi; umumiy regression bor |
-| M9 common runtime | changed/implemented | GPG3 target; latest native common-version matrix kutilmoqda |
-| M10 GUI | changed/implemented | Existing planner reused; latest native UI matrix kutilmoqda |
-| M11 | matching, saqlangan | Mail/log source qayta yozilmadi; umumiy regression bor |
-| M12 kengaytma | changed/implemented | Local backend/CLI/UI dalili; latest hosted matrix kutilmoqda |
-| M13/M14 | boshlanmagan | Ushbu topshiriq ularga o'tmagan |
-| M15 release | unverified/ochiq | Signing, clean/minimum OS, native credential/system dialog, installer/update/rollback gate'lari alohida |
+| M7.1 Inspector |matching, saqlangan|source preservation|
+| M7.2 request/locals kengaytma |changed, implemented, native passed|uch target debugger backend/CLI/GUI|
+| M8 |matching, saqlangan|setup source unchanged; merged core regressions|
+| M9 common runtime |changed, implemented, native passed|GPG3 target; actual MySQL common backup/restore|
+| M10 GUI |changed, implemented, native passed|existing planner; uch target native editor/secret/review|
+| M11 |matching, saqlangan|mail/log source unchanged; merged core regressions|
+| M12 kengaytma |changed, implemented, native passed|archive/submodule/remote TLS/staged DB/CLI/native UI|
+| Discovery interop |matching + owned restore guard|auto-discovered M7, filesystem identity regressions|
+| M13/M14 |boshlanmagan|ushbu topshiriq ularga o'tmagan|
+| M15 release |unverified, ochiq|clean/minimum OS, native credential/system dialog, signing, distribution, installer/update/rollback|
+
+# Qabul chegarasi
+
+Submodule-bearing branch yangi isolated clone orqali boshqariladi; oldingi linked
+worktree'ga qo'lda qo'shilgan metadata'ni automatic conversion qilish yo'q. MySQL
+external copy table/data scope; trigger/routine/event va engine/arbitrary-version
+conversion yo'q. Locals simple ASCII identifiers, primitive values va bounded
+display/mutation bilan cheklangan; arrays/objects/arbitrary expression editing yo'q.
+Bu normal funksional scope chegaralari public release yoki barcha OS/device'larda
+cheksiz muvofiqlik va'dasi emas. Existing DB/project pinlari avtomatik almashtirilmagan.
+
+Structural OKF close:30 document,0 error,0 warning (strict). Bu test/source dalilini
+bog'laydi; o'zi runtime yoki human verification hisoblanmaydi.
 
 [^request]: Joriy user topshirigi: qolgan ishlar to'liq, test, OKF, final push; bajarilganlar saqlansin.
 [^previous]: Oldingi accepted M7.1/M7.2 normal operation scope saqlanadi.
 [^roadmap]: Qolgan functional scope ushbu topshiriq bilan vakolatlandi; public release emas.
-
 [^commands]: Shared-core Command va desktop/CLI adapterlari actual source.
 [^debugger]: Local name/value allowlist, generated literal, pause revision va scoped source.
 [^xdebug]: Xdebug3.5.3 property_set handlerning cast/data talabi; caller matni literal qilinadi.
@@ -204,6 +252,5 @@ bog'lanadi.
 [^remote]: Verified dump executables, private auth files, TLS va staged restore.
 [^editor]: Read revision, reviewed save/setup va localized UI.
 [^packages]: Oracle signature fingerprint va immutable package hashes kandidat provenance'da.
-
 [^git-state]: Git content guard read-only; CRLF va staged-only regression sinovlari mavjud.
 [^php-review]: Actual artifact/payload SHA, publisher sidecar va explicit replacement metadata.

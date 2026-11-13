@@ -1,0 +1,6 @@
+{
+  "real_cli_create_remote_review_archive_restore_purge": true,
+  "same_project_identity": true,
+  "source_and_bindings_retained": true,
+  "target": "macos-arm64"
+}

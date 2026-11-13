@@ -1,0 +1,14 @@
+{
+  "macos_native_product_source": "08dd8361133eef8be646f6df1449f2363a887516",
+  "latest_source": "f13c10697dc4f55a6b4b02f27fe5c4120cdba50b",
+  "production_diff": [
+    "crates/workspace/src/worktrees/erase.rs"
+  ],
+  "difference_scope": "Windows-only payload erasure diagnostic branches; Unix wrapper, imports and all other macOS production sources/manifests/frontend/catalog remain identical.",
+  "unchanged_unix_source_sha256": "36471ffa7e79bb88df7501f85e5feea2547de148a24cf4a98997b103dbb43912",
+  "test_changes": [
+    "Native fixture Git commit uses the same restricted token as the app on Windows; Unix actor remains the same user.",
+    "Purge failure diagnostic prints only acceptance fixture erase error codes."
+  ],
+  "scope": "This supports source equivalence for macOS native results; it does not turn Windows diagnostics or test code into a fresh macOS run."
+}

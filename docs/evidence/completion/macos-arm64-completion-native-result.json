@@ -1,0 +1,21 @@
+{
+  "checks": {
+    "common_mysql_8411_native_backup_restore": true,
+    "configuration_atomic_save_review_apply": true,
+    "dirty_submodule_blocked": true,
+    "external_mysql_tables_staged_copy": true,
+    "external_pg_verified_tls": true,
+    "external_pg_wrong_ca_preserves_binding": true,
+    "external_postgresql_read_dump_staged_copy": true,
+    "failed_external_connection_preserves_binding": true,
+    "identity_and_database_retained": true,
+    "linked_archive_restore_purge": true,
+    "recursive_submodule_create_archive_restore_purge": true,
+    "source_data_unchanged": true
+  },
+  "mysql_package": "mysql-8.4.13-macos-arm64",
+  "passed": true,
+  "target": "macos-arm64",
+  "ui_project": "5903cd79a5f04de1997c89a2e2c8d95c",
+  "ui_workspace": "ac18c74be0d74841932a7c72e33bc358"
+}

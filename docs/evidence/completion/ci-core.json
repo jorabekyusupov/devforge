@@ -1,0 +1,39 @@
+{
+  "product_source": "f13c10697dc4f55a6b4b02f27fe5c4120cdba50b",
+  "accepted_concurrent_main": "996a11d5015c8433397cf6b6c09682cd883251a1",
+  "run_id": 43457648747,
+  "run_url": "https://github.com/jorabekyusupov/devforge/actions/runs/43457648747",
+  "conclusion": "success",
+  "jobs": [
+    {
+      "job_id": 131995918504,
+      "os": "macos-latest",
+      "rust_passed": 134,
+      "frontend_passed": 44,
+      "native_credential_ignored": 1,
+      "conclusion": "success"
+    },
+    {
+      "job_id": 131995918213,
+      "os": "windows-latest",
+      "rust_passed": 131,
+      "frontend_passed": 44,
+      "native_credential_ignored": 1,
+      "readonly_hardlink_source_preserved": true,
+      "conclusion": "success"
+    }
+  ],
+  "checks": [
+    "distribution tooling tests",
+    "three locale catalogs",
+    "locale validator tests",
+    "TypeScript",
+    "frontend tests",
+    "Rust formatting",
+    "workspace clippy all targets -D warnings",
+    "cargo test workspace",
+    "native desktop debug build with embedded frontend",
+    "strict OKF 30 documents 0 errors 0 warnings"
+  ],
+  "scope": "Core and build evidence; native runtime/GUI matrix is recorded separately. OS credential item is intentionally a distinct M15 gate."
+}

@@ -1,0 +1,156 @@
+{
+  "native": "real WKWebView/WebView2",
+  "checks": {
+    "native_yaml_edit_review_save_and_plan": true,
+    "native_secret_store_value_cleared_and_not_in_snapshot": true,
+    "native_external_database_review_form": true,
+    "native_archive_restore_same_project": true,
+    "native_purge_explicit_review_files_only": true
+  },
+  "accessibility": [
+    {
+      "case": "configuration-save-review",
+      "violations": []
+    },
+    {
+      "case": "configuration-editor-review",
+      "violations": []
+    },
+    {
+      "case": "configuration-ru-minimum",
+      "violations": []
+    },
+    {
+      "case": "configuration-uz-Latn-minimum",
+      "violations": []
+    },
+    {
+      "case": "configuration-en-minimum",
+      "violations": []
+    },
+    {
+      "case": "configuration-dark",
+      "violations": []
+    },
+    {
+      "case": "external-copy-form",
+      "violations": []
+    },
+    {
+      "case": "archive-reactivation-review",
+      "violations": []
+    },
+    {
+      "case": "archive-purge-review",
+      "violations": []
+    }
+  ],
+  "captures": [
+    {
+      "file": "configuration-en-light.png",
+      "viewport": {
+        "height": 772,
+        "language": "en",
+        "scale": 1,
+        "theme": "light",
+        "width": 1180
+      }
+    },
+    {
+      "file": "configuration-ru-minimum.png",
+      "viewport": {
+        "height": 620,
+        "language": "ru",
+        "scale": 1,
+        "theme": "light",
+        "width": 820
+      }
+    },
+    {
+      "file": "configuration-uz-Latn-minimum.png",
+      "viewport": {
+        "height": 620,
+        "language": "uz-Latn",
+        "scale": 1,
+        "theme": "light",
+        "width": 820
+      }
+    },
+    {
+      "file": "configuration-en-minimum.png",
+      "viewport": {
+        "height": 620,
+        "language": "en",
+        "scale": 1,
+        "theme": "light",
+        "width": 820
+      }
+    },
+    {
+      "file": "configuration-dark.png",
+      "viewport": {
+        "height": 942,
+        "language": "en",
+        "scale": 1,
+        "theme": "dark",
+        "width": 1536
+      }
+    },
+    {
+      "file": "external-copy-form.png",
+      "viewport": {
+        "height": 942,
+        "language": "en",
+        "scale": 1,
+        "theme": "dark",
+        "width": 1536
+      }
+    }
+  ],
+  "viewport_attempts": [
+    {
+      "requested": {
+        "width": 820,
+        "height": 620
+      },
+      "actual": {
+        "height": 620,
+        "width": 820
+      },
+      "matched": true
+    },
+    {
+      "requested": {
+        "width": 820,
+        "height": 620
+      },
+      "actual": {
+        "height": 620,
+        "width": 820
+      },
+      "matched": true
+    },
+    {
+      "requested": {
+        "width": 820,
+        "height": 620
+      },
+      "actual": {
+        "height": 620,
+        "width": 820
+      },
+      "matched": true
+    },
+    {
+      "requested": {
+        "width": 1536,
+        "height": 1024
+      },
+      "actual": {
+        "height": 942,
+        "width": 1536
+      },
+      "matched": false
+    }
+  ]
+}

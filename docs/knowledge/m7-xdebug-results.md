@@ -56,7 +56,7 @@ sources:
 > Davom yozuvi: ushbu hisobot oldingi accepted source'ning tarixiy dalilidir.
 > GET/read-only locals, Intel MySQL, GUI editor va archive-only kabi chegaralarning
 > kengayishi [M7–M12 completion](m7-m12-completion.md) yozuvida yuritiladi;
-> joriy hosted tekshiruv hali yakunlanmoqda.
+> kengaytma uch native targetda qabuldan o‘tgan; aniq source/job chegaralari o‘sha yozuvda.
 
 # Yakuniy holat
 

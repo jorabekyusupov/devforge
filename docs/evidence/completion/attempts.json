@@ -1,0 +1,61 @@
+{
+  "attempts": [
+    {
+      "source": "6f11ed2",
+      "native_run": 43426056558,
+      "finding": "Acceptance predicate expected label but DBGp reports $label; actual bool assignment worked.",
+      "resolution": "Normalize displayed DBGp name in native predicates; retain source name in UI."
+    },
+    {
+      "source": "96cc405",
+      "native_run": 43430401591,
+      "core_run": 43430406419,
+      "finding": "Actual property_set null data/type contract; Windows test clone used verbatim path as repository URL.",
+      "resolution": "Owned PHP primitive literal encoder, omit unsupported null cast; simplify external Git fixture paths."
+    },
+    {
+      "source": "15a9377",
+      "native_run": 43439751906,
+      "core_run": 43439756815,
+      "finding": "ARM64 complete success; Intel current stock PHP85 publisher bytes changed; Windows restored LF over CRLF checkout produced porcelain false-dirty.",
+      "resolution": "Verified publisher sidecars/payload/version; immutable replacement descriptors preserve legacy pins. Dirty checks compare staged/working/untracked content without rewriting index."
+    },
+    {
+      "source": "c5c3231",
+      "native_run": 43444634035,
+      "core_run": 43444639614,
+      "finding": "Windows submodule file is valid CRLF; Mac core observed transient manifest_busy; ARM UI edit control disappeared during read-busy polling.",
+      "resolution": "Compare normalized initial module text and exact restored bytes; explicit transaction unlock with duplicate-handle regression; persistent disabled edit button plus native readiness wait."
+    },
+    {
+      "source": "fd8c73e",
+      "native_run": 43447799027,
+      "core_run": 43447805176,
+      "finding": "Core both platforms and ARM64 native passed. Windows native backend/CLI/debugger UI passed; GUI purge failed with storage error after a Git commit created readonly objects.",
+      "resolution": "Windows owned-handle POSIX unlink ignores readonly attribute without changing hardlinked source attributes; Windows unit confirms source data/attribute retained."
+    },
+    {
+      "source": "758dfe4",
+      "native_run": 43451208123,
+      "core_run": 43451215389,
+      "finding": "Concurrent main discovery delivery integrated; full core success, native matrix retained as a pre-Windows-unlink boundary.",
+      "resolution": "Preserve both descriptor sets and feature paths; refresh restored directory identity; reuse availability guard; test debugger on auto-discovered project."
+    },
+    {
+      "source": "08dd836",
+      "native_run": 43453067442,
+      "core_run": 43453074659,
+      "arm_infrastructure_retry": 43453644852,
+      "finding": "Core success both OSes; ARM first native runner compile I/O failure; actual mixed-token Windows GUI purge fixture still failed after read-only unlink support.",
+      "resolution": "Fresh ARM64 native runner at identical source; no integrity/compilation checks bypassed."
+    },
+    {
+      "source": "f13c106",
+      "native_run": 43457642556,
+      "core_run": 43457648747,
+      "finding": "Fixture Git commit moved from elevated Python actor to same restricted native token. Full Windows native backend/CLI/UI/purge and core both OSes passed.",
+      "resolution": "No privilege escalation or source hardlink attribute mutation. macOS production projection matches08dd836, whose ARM64/Intel native jobs passed."
+    }
+  ],
+  "scope": "Failure history is retained. Accepted native rows are recorded separately and must have success conclusions and matching source."
+}

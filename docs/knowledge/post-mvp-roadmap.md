@@ -39,6 +39,12 @@ matritsasi [M8 natijalarida](m8-project-setup-results.md). System authorization
 dialoglari va release/minimum-OS/profile gate'lari M15'da qoladi. Keyingi reja
 M9 foydalanuvchi topshirigi bilan boshlandi; functional native qabul hamda Intel MySQL capability gap [M9 natijalarida](m9-services-results.md). M9 topshirigi M10 ni avtomatik boshlamagan; keyingi user so‘rovi M10 ni vakolatladi. M10 CLI funksional qabul holati va cheklovlari [M10 natijalarida](m10-reproducible-results.md). M11 SMTP/mail va kengaytirilgan loglar funksional qabuli macOS ARM64/Intel hamda Windows x64’da o‘tdi; source/job/artifact dalillari va ochiq dialog/release gate‘lari [M11 natijalarida](m11-mail-logs-results.md). M12 workspaces uch native targetda backend/CLI/GUI funksional qabuli bilan yakunlandi; [workspaces natijalari](m12-workspaces-results.md) source/job/artifact chegaralarini saqlaydi. User keyin M7 qolgan qismini yakunlashni topshirdi; bajarilgan M7.1 saqlanadi. M13 avtomatik boshlanmaydi.
 
+M7–M12 qolgan funksional qismlari keyingi topshiriq bilan yakunlandi:
+request builder/typed locals, common Intel/ARM/Windows MySQL oilasi, GUI YAML editor,
+archive reactivation/purge, recursive submodule workspace va external DB staged copy.
+Uch native target source/job/artifact qabuli va saqlangan M8/M11/Discovery chegaralari
+[completion yozuvida](m7-m12-completion.md). M13/M14 boshlanmadi; M15 release gate'lari ochiq.
+
 M0-M6 tarixiy raqamlari saqlanadi. Keyingi ishlar bajarish ketma-ketligi bo'yicha
 qayta raqamlandi: oldingi M12 endi M7, oldingi M7 endi M15. Eski raqamlar faqat
 quyidagi moslik jadvali va suhbat tarixiga murojaat qilish uchun ishlatiladi.
