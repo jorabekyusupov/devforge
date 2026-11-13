@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Private-prefix PHP/Xdebug build. Never invokes brew, doctor, PECL or system installers."""
-import argparse, hashlib, json, os, pathlib, platform, shutil, subprocess, tarfile, tempfile, urllib.request, zipfile, time
+import argparse, hashlib, json, os, pathlib, shutil, subprocess, tarfile, tempfile, zipfile
 
 p = argparse.ArgumentParser()
 p.add_argument("recipe", type=pathlib.Path)
@@ -69,21 +69,34 @@ def download(meta):
     if path.exists() and hash(path) == meta["sha256"]:
         return path
     temporary = path.with_suffix(".part")
-    request = urllib.request.Request(
-        meta["url"], headers={"User-Agent": "DevForge debug-runtime builder"}
+    # Apple CLT Python may use an older TLS library; the native curl uses system trust.
+    # --disable is first so user curl configuration cannot alter this pinned transfer.
+    run(
+        [
+            "/usr/bin/curl",
+            "--disable",
+            "--fail",
+            "--location",
+            "--silent",
+            "--show-error",
+            "--proto",
+            "=https",
+            "--proto-redir",
+            "=https",
+            "--connect-timeout",
+            "20",
+            "--max-time",
+            "180",
+            "--retry",
+            "2",
+            "--max-filesize",
+            str(1024 * 1024 * 1024),
+            "--output",
+            str(temporary),
+            meta["url"],
+        ],
+        work,
     )
-    with urllib.request.urlopen(request, timeout=120) as response, temporary.open(
-        "wb"
-    ) as output:
-        size = 0
-        while True:
-            chunk = response.read(1024 * 1024)
-            if not chunk:
-                break
-            size += len(chunk)
-            if size > 1024 * 1024 * 1024:
-                raise RuntimeError("build input too large")
-            output.write(chunk)
     if hash(temporary) != meta["sha256"]:
         raise RuntimeError("source checksum mismatch")
     temporary.replace(path)

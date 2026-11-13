@@ -53,7 +53,7 @@ pub enum Control {
 }
 pub struct Server {
     state: Arc<Mutex<Snapshot>>,
-    tx: mpsc::Sender<Control>,
+    tx: mpsc::SyncSender<Control>,
     stop: Arc<AtomicBool>,
     socket: Arc<Mutex<Option<TcpStream>>>,
     worker: Option<JoinHandle<()>>,
@@ -377,7 +377,7 @@ impl Server {
         }));
         let stop = Arc::new(AtomicBool::new(false));
         let socket = Arc::new(Mutex::new(None));
-        let (tx, rx) = mpsc::channel();
+        let (tx, rx) = mpsc::sync_channel(16);
         let (view, closing, active) = (state.clone(), stop.clone(), socket.clone());
         let worker = thread::spawn(move || {
             let key = zeroize::Zeroizing::new(key);
@@ -435,11 +435,30 @@ impl Server {
         self.state.lock().unwrap().clone()
     }
     pub fn control(&self, command: Control) -> Result<()> {
-        let state = self.state.lock().unwrap().state.clone();
-        if !matches!(command, Control::Detach) && state != "paused" {
+        let mut state = self.state.lock().unwrap();
+        let detach = matches!(command, Control::Detach);
+        if state.state != "paused" && !(detach && state.state == "running") {
             return Err(Error::Busy);
         }
-        self.tx.send(command).map_err(|_| Error::Unavailable)
+        let resumes = matches!(
+            command,
+            Control::Run
+                | Control::StepInto
+                | Control::StepOver
+                | Control::StepOut
+                | Control::Stop
+                | Control::Detach
+        );
+        self.tx.try_send(command).map_err(|e| match e {
+            mpsc::TrySendError::Full(_) => Error::Busy,
+            mpsc::TrySendError::Disconnected(_) => Error::Unavailable,
+        })?;
+        // Disable further resume/step actions immediately, before the engine ACK.
+        if resumes {
+            state.state = "running".into();
+            state.variables.clear();
+        }
+        Ok(())
     }
 }
 impl Drop for Server {
@@ -456,6 +475,21 @@ impl Drop for Server {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn control_backlog_is_bounded_and_resume_disables_duplicate_steps() {
+        let root = tempfile::tempdir().unwrap();
+        let server = Server::start(root.path(), "a".repeat(64), vec![], vec![]).unwrap();
+        server.state.lock().unwrap().state = "paused".into();
+        for _ in 0..16 {
+            server.control(Control::Frame(0)).unwrap();
+        }
+        assert_eq!(server.control(Control::Frame(0)).err(), Some(Error::Busy));
+        let next = Server::start(root.path(), "b".repeat(64), vec![], vec![]).unwrap();
+        next.state.lock().unwrap().state = "paused".into();
+        next.control(Control::StepInto).unwrap();
+        assert_eq!(next.snapshot().state, "running");
+        assert_eq!(next.control(Control::StepOver).err(), Some(Error::Busy));
+    }
     #[test]
     fn unknown_clients_are_refused_and_values_redacted() {
         let dir = tempfile::tempdir().unwrap();

@@ -158,6 +158,24 @@ pub fn run(root: &Path, archives: &Path) -> Result<()> {
         }
         runtimes.push((e, probe));
     }
+    assert!(
+        w.execute(
+            Command::DebugInstall {
+                id: a.id.clone(),
+                trusted: false
+            },
+            &cancel
+        )
+        .is_err()
+    );
+    let reused = w.execute(
+        Command::DebugInstall {
+            id: a.id.clone(),
+            trusted: true,
+        },
+        &cancel,
+    )?;
+    assert!(reused["installed"].as_bool().unwrap());
     let runtime = runtimes
         .iter()
         .find(|(e, _)| e.php == "8.5.12")

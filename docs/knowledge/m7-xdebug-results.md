@@ -58,12 +58,15 @@ archive digest va descriptor OS secret store'dagi key bilan attestation qilinadi
 activation'da paket/resource integrity tekshiriladi. Inventory poll faqat receipt
 va file presence'ni o'qiydi, katta executable'larni har poll'da hash qilmaydi.
 Build private prefix'dan tashqarida package manager ishlatmaydi; Apple CLT va
-network talab qilinadi. Upstream GitHub API rate limit build'ni fail qilishi
+network talab qilinadi. Apple CLT Python HTTPS probe real TLS protocol xatosi
+berdi; shu source system curl bilan kutilgan SHA256'ga mos yuklandi. Builder
+secure HTTPS-only system curl va SHA256 yo'liga o'tdi; TLS verification o'chirilmaydi. Upstream GitHub API rate limit build'ni fail qilishi
 mumkin; prior runtime o'zgarmaydi, bounded log bilan retry mavjud.[^provider][^recipe]
 
 DBGp listener ephemeral loopback port va per-session private key bilan ishlaydi.
 Breakpoint, Continue, Step into/over/out, stack frame va bounded read-only locals
-mavjud. Key/sensitive variable nomlari va known project secrets mask qilinadi;
+mavjud. Control queue16 bilan bounded; resume/step engine ACK'idan oldin Running
+holatini beradi, duplicate step Busy bo'ladi. Key/sensitive variable nomlari va known project secrets mask qilinadi;
 source viewer faqat project ichidagi PHP fayllarni ochadi. Arbitrary eval yoki
 variable mutation API yo'q. CLI debug status/source/profile va reviewed install/
 mode commands shu Rust boundary'dan foydalanadi.[^core][^workspace]
@@ -99,8 +102,13 @@ native CI source/build matritsasi alohida tekshiriladi.[^native]
 Local WKWebView'da genuine IPC/control flow, install review/cancel, breakpoint/
 source/locals, stepping, profile/filter/delete-cancel, ru/uz/en katta va minimum
 viewport, dark/relaunch o'tdi:11 axe holati0 violation. Native Save dialog
-avtomatlashtirilmadi; export actual backend fixture'da tekshirildi. Keyingi scoped
-spacing/privacy/source changes yakuniy build va CI'da qayta tekshiriladi.[^ui][^workflow]
+avtomatlashtirilmadi; export actual backend fixture'da tekshirildi. Scoped spacing/privacy va stale-profile-read fix'dan keyingi native UI retry
+ham11 axe/0 bilan o'tdi. Oldingi retry aynan window resize'dagi ikki animatsiya
+kadrini kutishda timeout berdi; debugger breakpoint/locals assertions ungacha
+o'tgan edi. Harness paint wait endi bounded animation-frame-or-timer ACK bilan;
+functional/accessibility assertions saqlanadi. Yakuniy CI hali kutilmoqda.
+Local full workspace104 Rust passed/1 credential fixture ignored,34 frontend,
+clippy va strict OKF28/0/0 o'tdi; target matritsa o'rniga o'tmaydi.[^ui][^workflow]
 
 Windows x64 va Intel macOS native Xdebug acceptance hali tugamadi. M15 signing,
 minimum OS, native credential/system-dialog, interrupted-install va licensing

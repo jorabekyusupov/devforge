@@ -23,6 +23,7 @@ accessibility = []
 captures = []
 viewport_attempts = []
 performance = []
+paint_waits = []
 opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
 
@@ -45,7 +46,14 @@ def request(method, path, data=None, timeout=120):
 
 
 def call(method, path, data=None):
-    return request(method, "/session/" + session + path, data)
+    value = request(method, "/session/" + session + path, data)
+    if (
+        path == "/execute/async"
+        and data
+        and "animation-frame" in data.get("script", "")
+    ):
+        paint_waits.append(value)
+    return value
 
 
 def script(source, *values):
@@ -206,7 +214,7 @@ def content_viewport(width, height):
             "POST",
             "/execute/async",
             {
-                "script": "const done=arguments[arguments.length-1];requestAnimationFrame(()=>requestAnimationFrame(()=>done(true)));",
+                "script": "const callback=arguments[arguments.length-1];let finished=false;const done=source=>{if(finished)return;finished=true;callback({source,visibility:document.visibilityState,focused:document.hasFocus()})};setTimeout(()=>done('timer'),700);requestAnimationFrame(()=>requestAnimationFrame(()=>done('animation-frame')));",
                 "args": [],
             },
         )
@@ -232,7 +240,7 @@ def screenshot(name):
         "POST",
         "/execute/async",
         {
-            "script": "const done=arguments[arguments.length-1];requestAnimationFrame(()=>requestAnimationFrame(()=>done(true)));",
+            "script": "const callback=arguments[arguments.length-1];let finished=false;const done=source=>{if(finished)return;finished=true;callback({source,visibility:document.visibilityState,focused:document.hasFocus()})};setTimeout(()=>done('timer'),700);requestAnimationFrame(()=>requestAnimationFrame(()=>done('animation-frame')));",
             "args": [],
         },
     )
@@ -319,6 +327,7 @@ def debugger_button(label):
 
 
 def configure(mode):
+    print("M7_XDEBUG_UI_PHASE: configure " + mode, flush=True)
     debugger_button("Configure Xdebug")
     wait(lambda: script("return !!document.querySelector('dialog [name=debug-mode]')"))
     select("[name=debug-mode]", mode)
@@ -465,6 +474,7 @@ try:
         "accessibility": accessibility,
         "captures": captures,
         "viewport_attempts": viewport_attempts,
+        "paint_waits": paint_waits,
         "export_native_dialog": "not automated; actual bounded export verified in backend fixture",
     }
     (args.fixture / "m7-xdebug-desktop-result.json").write_text(
