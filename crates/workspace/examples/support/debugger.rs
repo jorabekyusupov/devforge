@@ -68,13 +68,19 @@ fn pids(w: &Workspace, id: &str) -> Result<Vec<(String, Option<u32>)>> {
         .collect())
 }
 pub fn run(root: &Path, archives: &Path) -> Result<()> {
+    run_case(root, archives, false)
+}
+pub fn run_discovered(root: &Path, archives: &Path) -> Result<()> {
+    run_case(root, archives, true)
+}
+fn run_case(root: &Path, archives: &Path, auto_discovery: bool) -> Result<()> {
     let data = root.join("data");
     let secrets = Arc::new(devforge_workspace::testing::FixtureSecrets::open(
         data.join("e2e-secrets.json"),
     ));
     let mut w = Workspace::open(&data, secrets.clone())?;
     let cancel = Cancellation::default();
-    let a = w
+    let mut a = w
         .projects
         .list()?
         .into_iter()
@@ -86,6 +92,29 @@ pub fn run(root: &Path, archives: &Path) -> Result<()> {
         .into_iter()
         .find(|p| p.name == "Studio")
         .unwrap();
+    let collection = root.join("Discovered debug projects");
+    if auto_discovery {
+        use devforge_core::SettingsRepository;
+        fs::create_dir_all(&collection)?;
+        let discovered = collection.join("Auto debug Atlas");
+        copy(&a.path, &discovered)?;
+        w.reconcile_discovery(devforge_projects::discovery::scan(&collection, &cancel))?;
+        a = w
+            .projects
+            .list()?
+            .into_iter()
+            .find(|p| p.path == fs::canonicalize(&discovered).unwrap())
+            .ok_or("discovery did not register debug project")?;
+        assert_eq!(a.debugger.mode, Mode::Off);
+        let mut settings = devforge_platform::SqliteSettings::open(&data)?;
+        let mut current = settings.load()?;
+        current.project_folder = Some(
+            dunce::simplified(&fs::canonicalize(&collection)?)
+                .to_string_lossy()
+                .into_owned(),
+        );
+        settings.save(&current)?;
+    }
     let env_before = fs::read(a.path.join(".env")).ok();
     let selected = a.php.clone();
     let normal = Context::resolve(
@@ -467,8 +496,54 @@ pub fn run(root: &Path, archives: &Path) -> Result<()> {
     fs::rename(&source, &moved)?;
     mode(&mut w, &a.id, None, Mode::Off)?;
     fs::rename(&moved, &source)?;
+    if auto_discovery {
+        let selected_version = w.catalog.get(&selected)?.version.split('-').next().unwrap();
+        let selected_runtime = runtimes
+            .iter()
+            .find(|(e, _)| e.php == selected_version)
+            .unwrap()
+            .0
+            .id
+            .clone();
+        mode(&mut w, &a.id, Some(selected_runtime), Mode::Profile)?;
+        let before = w.projects.get(&a.id)?;
+        w.execute(
+            Command::Forget {
+                id: a.id.clone(),
+                revision: before.revision,
+            },
+            &cancel,
+        )?;
+        w.reconcile_discovery(devforge_projects::discovery::scan(&collection, &cancel))?;
+        assert!(w.projects.get(&a.id).is_err());
+        let entry = w
+            .projects
+            .discovery_entries()?
+            .into_iter()
+            .find(|e| e.project_id.as_deref() == Some(&a.id))
+            .unwrap();
+        assert!(entry.ignored);
+        w.execute(
+            Command::DiscoveryRestore {
+                identity: entry.identity,
+            },
+            &cancel,
+        )?;
+        let restored = w.projects.get(&a.id)?;
+        assert_eq!(restored.php, before.php);
+        assert_eq!(restored.node, before.node);
+        assert_eq!(
+            serde_json::to_value(&restored.debugger)?,
+            serde_json::to_value(&before.debugger)?
+        );
+        mode(&mut w, &a.id, None, Mode::Off)?;
+    }
     w.shutdown()?;
-    let report = json!({"passed":true,"host":{"os":std::env::consts::OS,"arch":std::env::consts::ARCH},"project_id":a.id,"other_project_id":b.id,"runtime_id":runtime,"php_probes":runtimes.iter().map(|(_,p)|p).collect::<Vec<_>>(),"checks":{"verified_provider_install":true,"real_laravel_http_breakpoint":true,"step_into_over_out":true,"stop_paused_request_preserves_web_runtime":true,"locals_and_source_redacted":true,"request_http_200":true,"profile_http_and_cli":true,"php84_native_web":true,"profile_parse_export_delete":true,"cross_project_denial":true,"other_process_pids_unchanged":true,"off_restores_normal_php":true,"off_after_source_deleted":true,"project_php_pin_and_env_unchanged":true,"shutdown_cleans_own_sessions":true}});
+    let mut report = json!({"passed":true,"host":{"os":std::env::consts::OS,"arch":std::env::consts::ARCH},"project_id":a.id,"other_project_id":b.id,"runtime_id":runtime,"php_probes":runtimes.iter().map(|(_,p)|p).collect::<Vec<_>>(),"checks":{"verified_provider_install":true,"real_laravel_http_breakpoint":true,"step_into_over_out":true,"stop_paused_request_preserves_web_runtime":true,"locals_and_source_redacted":true,"request_http_200":true,"profile_http_and_cli":true,"php84_native_web":true,"profile_parse_export_delete":true,"cross_project_denial":true,"other_process_pids_unchanged":true,"off_restores_normal_php":true,"off_after_source_deleted":true,"project_php_pin_and_env_unchanged":true,"shutdown_cleans_own_sessions":true}});
+    if auto_discovery {
+        report["checks"]["automatically_discovered_project_debug_and_profile"] = json!(true);
+        report["checks"]["forget_restore_preserves_debugger_configuration"] = json!(true);
+    }
     fs::write(
         root.join("m7-xdebug-native-result.json"),
         serde_json::to_vec_pretty(&report)?,

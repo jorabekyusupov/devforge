@@ -1,0 +1,80 @@
+{
+  "observations": [
+    {
+      "id": "php-8.5.12-cli-macos-x64",
+      "url": "https://dl.static-php.dev/v3/php-bin/common/php-8.5.12-cli-macos-x86_64.tar.gz",
+      "catalog_sha256": "32c08d8d793d939c960f944d92abe16350dddf0ea79418256fa76633e110ce2b",
+      "publisher_checksum": "492cc40aadb7207433cd15fd6085525d6f8661ce50719c84c2456d0e70f39dd7  php-8.5.12-cli-macos-x86_64.tar.gz",
+      "exit": 0
+    },
+    {
+      "id": "php-8.5.12-fpm-macos-x64",
+      "url": "https://dl.static-php.dev/v3/php-bin/common/php-8.5.12-fpm-macos-x86_64.tar.gz",
+      "catalog_sha256": "7c166125797e536d6cda9a8267eb89fffd294b4f49878bb586dadbba713a879a",
+      "publisher_checksum": "d7c07c9476b128cc567549601813717aa3cf7d63fe2677f73a86665fd8219061  php-8.5.12-fpm-macos-x86_64.tar.gz",
+      "exit": 0
+    },
+    {
+      "id": "php-8.5.12-staticphp20261113-cli-macos-arm64",
+      "url": "https://dl.static-php.dev/v3/php-bin/common/php-8.5.12-cli-macos-aarch64.tar.gz",
+      "catalog_sha256": "15b530298ac4e3560d685bbce5031dafa2db062f0b114b620db3fabfe25e326b",
+      "publisher_checksum": "15b530298ac4e3560d685bbce5031dafa2db062f0b114b620db3fabfe25e326b  php-8.5.12-cli-macos-aarch64.tar.gz",
+      "exit": 0
+    },
+    {
+      "id": "php-8.5.12-staticphp20261113-fpm-macos-arm64",
+      "url": "https://dl.static-php.dev/v3/php-bin/common/php-8.5.12-fpm-macos-aarch64.tar.gz",
+      "catalog_sha256": "7f40383764102dbad2db3f7d99f93d42f7a2c2e5906a6ab248ae85eb04d90183",
+      "publisher_checksum": "7f40383764102dbad2db3f7d99f93d42f7a2c2e5906a6ab248ae85eb04d90183  php-8.5.12-fpm-macos-aarch64.tar.gz",
+      "exit": 0
+    },
+    {
+      "id": "php-8.4.27-staticphp20261113-cli-macos-arm64",
+      "url": "https://dl.static-php.dev/v3/php-bin/common/php-8.4.27-cli-macos-aarch64.tar.gz",
+      "catalog_sha256": "b1692a87ca293f198020a97be0132b5ffff1c828d7e35c9ca17b19f2fd70bf5f",
+      "publisher_checksum": "b1692a87ca293f198020a97be0132b5ffff1c828d7e35c9ca17b19f2fd70bf5f  php-8.4.27-cli-macos-aarch64.tar.gz",
+      "exit": 0
+    },
+    {
+      "id": "php-8.4.27-staticphp20261113-fpm-macos-arm64",
+      "url": "https://dl.static-php.dev/v3/php-bin/common/php-8.4.27-fpm-macos-aarch64.tar.gz",
+      "catalog_sha256": "1140c87db27734c52bd72c687e71b4097536c7c6ce3fd1a2e7ab3e4068aec261",
+      "publisher_checksum": "1140c87db27734c52bd72c687e71b4097536c7c6ce3fd1a2e7ab3e4068aec261  php-8.4.27-fpm-macos-aarch64.tar.gz",
+      "exit": 0
+    },
+    {
+      "id": "php-8.4.27-staticphp20261113-cli-macos-x64",
+      "url": "https://dl.static-php.dev/v3/php-bin/common/php-8.4.27-cli-macos-x86_64.tar.gz",
+      "catalog_sha256": "a5675d17fe5d55cace683a2515d574a3e0cddeb74d3b9b247433000129263c56",
+      "publisher_checksum": "a5675d17fe5d55cace683a2515d574a3e0cddeb74d3b9b247433000129263c56  php-8.4.27-cli-macos-x86_64.tar.gz",
+      "exit": 0
+    },
+    {
+      "id": "php-8.4.27-staticphp20261113-fpm-macos-x64",
+      "url": "https://dl.static-php.dev/v3/php-bin/common/php-8.4.27-fpm-macos-x86_64.tar.gz",
+      "catalog_sha256": "22c7bb81af2f482c43c44b9919fd8ca047fb0062433bfa0d5c95c876f4b4aba0",
+      "publisher_checksum": "22c7bb81af2f482c43c44b9919fd8ca047fb0062433bfa0d5c95c876f4b4aba0  php-8.4.27-fpm-macos-x86_64.tar.gz",
+      "exit": 0
+    }
+  ],
+  "new_families": [
+    {
+      "legacy_id": "php-8.5.12-cli-macos-x64",
+      "reviewed_id": "php-8.5.12-staticphp20261113-cli-macos-x64",
+      "original_sha256": "32c08d8d793d939c960f944d92abe16350dddf0ea79418256fa76633e110ce2b",
+      "publisher_sha256": "492cc40aadb7207433cd15fd6085525d6f8661ce50719c84c2456d0e70f39dd7",
+      "checksum_source": "https://dl.static-php.dev/v3/php-bin/common/php-8.5.12-cli-macos-x86_64.tar.gz.sha256",
+      "legacy_unchanged": true
+    },
+    {
+      "legacy_id": "php-8.5.12-fpm-macos-x64",
+      "reviewed_id": "php-8.5.12-staticphp20261113-fpm-macos-x64",
+      "original_sha256": "7c166125797e536d6cda9a8267eb89fffd294b4f49878bb586dadbba713a879a",
+      "publisher_sha256": "d7c07c9476b128cc567549601813717aa3cf7d63fe2677f73a86665fd8219061",
+      "checksum_source": "https://dl.static-php.dev/v3/php-bin/common/php-8.5.12-fpm-macos-x86_64.tar.gz.sha256",
+      "legacy_unchanged": true
+    }
+  ],
+  "legacy_descriptors_preserved": true,
+  "scope": "Publisher metadata checked live; actual archive/architecture/runtime probes follow in native acceptance."
+}

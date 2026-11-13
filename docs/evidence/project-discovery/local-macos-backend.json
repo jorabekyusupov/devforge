@@ -1,0 +1,43 @@
+{
+  "authority_store_unchanged": true,
+  "automatic_registration": true,
+  "case_only_rename": true,
+  "cold_100_scan_ms": 5,
+  "event_storm_10000_ms": 895,
+  "fifty_root_switches": true,
+  "forget_restore": true,
+  "long_unicode_path": true,
+  "manual_metadata_preserved": true,
+  "native_event_count": 41189,
+  "native_root_delete_recreate": true,
+  "native_watch_incomplete_copy": true,
+  "no_runtime_candidate": true,
+  "passed": true,
+  "periodic_fallback_ms": 30556,
+  "permission_denied_preserves_registry": true,
+  "real_laravel_http": {
+    "discovered": true,
+    "framework": "13.42.0",
+    "php": "8.5.12"
+  },
+  "rename_preserves_id_domain": true,
+  "reparse_children_skipped": true,
+  "resource_lifecycle_generations": 50,
+  "resources_after": {
+    "handles": 9,
+    "rss_bytes": 20267008,
+    "threads": 3
+  },
+  "resources_before": {
+    "handles": 9,
+    "rss_bytes": 19546112,
+    "threads": 3
+  },
+  "restore_preserves_profile": true,
+  "system_hosts_unchanged": true,
+  "system_trust_operations_invoked": false,
+  "target": "macos-arm64",
+  "ui_project_id": "40483264792e4011ab94ebc1c23f61ea",
+  "ui_root": "/private/tmp/devforge-discovery-focused/discovery projects Ўзбек",
+  "watch_copy_to_registration_ms": 747
+}

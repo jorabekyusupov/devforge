@@ -1,5 +1,6 @@
 //! Shared daily-workspace orchestration. No Tauri or UI types, no credentials in DTOs.
 pub mod debugging;
+pub mod discovery;
 mod mail;
 pub mod repro;
 pub mod worktrees;
@@ -108,6 +109,7 @@ pub struct Runtime {
 }
 #[derive(Clone, Serialize)]
 pub struct Row {
+    pub discovery_state: Option<String>,
     pub setup_owned: bool,
     pub navigation: setup::Navigation,
     pub php_diagnostics: Option<serde_json::Value>,
@@ -137,6 +139,7 @@ pub struct Log {
 }
 #[derive(Clone, Serialize, Default)]
 pub struct Snapshot {
+    pub discovery: discovery::View,
     pub worktrees: Vec<worktrees::View>,
     pub starter_constraint: String,
     pub projects: Vec<Row>,
@@ -180,6 +183,9 @@ pub enum Command {
         id: String,
         profile: String,
         path: PathBuf,
+    },
+    DiscoveryRestore {
+        identity: String,
     },
     WorktreeOpen {
         id: String,
@@ -403,6 +409,7 @@ pub struct Workspace {
     databases: BTreeMap<String, RunningDatabase>,
     caches: BTreeMap<String, devforge_projects::cache::RunningCache>,
     preferences: Preferences,
+    discovery: discovery::View,
     runtime_cache: Vec<Runtime>,
     history: Vec<Log>,
     inspector: Option<devforge_inspector::Collector>,
@@ -443,6 +450,7 @@ impl Workspace {
             databases: BTreeMap::new(),
             caches: BTreeMap::new(),
             preferences,
+            discovery: discovery::View::default(),
             root,
             runtime_cache: vec![],
             history: vec![],
@@ -543,6 +551,22 @@ impl Workspace {
             } => self.debug_profile_delete(&id, &profile, consent),
             Command::DebugProfileExport { id, profile, path } => {
                 self.debug_profile_export(&id, &profile, &path)
+            }
+            Command::DiscoveryRestore { identity } => {
+                self.projects.restore_discovery(&identity)?;
+                if let Some(entry) = self
+                    .projects
+                    .discovery_entries()?
+                    .into_iter()
+                    .find(|e| e.identity == identity)
+                    && let Some(id) = entry.project_id
+                {
+                    let project = self.projects.get(&id)?;
+                    if !self.sites.sites()?.iter().any(|s| s.project_id == id) {
+                        self.configure_discovered_site(&project, &entry.name)?;
+                    }
+                }
+                Ok(serde_json::json!({"restored":true}))
             }
             Command::WorktreeOpen { id } => self.worktree_open(&id),
             Command::WorktreePlan { input } => {
@@ -816,6 +840,7 @@ impl Workspace {
                 let p = self
                     .projects
                     .import(&path, &name, &php, &node, &self.catalog)?;
+                self.projects.clear_discovery_suppression(&path)?;
                 self.sites.configure(
                     &self.projects,
                     Site {
@@ -987,6 +1012,23 @@ impl Workspace {
         Ok(())
     }
     pub fn start(&mut self, id: &str) -> Result<()> {
+        let unavailable = self.projects.discovery_entries()?.into_iter().any(|e| {
+            e.project_id.as_deref() == Some(id)
+                && ["missing", "invalid", "relocation_pending", "conflict"]
+                    .contains(&e.state.as_str())
+        });
+        if unavailable {
+            return Err(error("discovery_unavailable"));
+        }
+        let selected = self.projects.get(id)?;
+        if selected.filesystem_identity.as_ref().is_some_and(|id| {
+            devforge_projects::discovery::identity(&selected.path)
+                .ok()
+                .as_ref()
+                != Some(id)
+        }) {
+            return Err(error("discovery_unavailable"));
+        }
         if self.sessions.contains_key(id) {
             return Err(error("already_running"));
         }
@@ -1159,6 +1201,15 @@ impl Workspace {
     }
     pub fn snapshot(&self) -> Result<Snapshot> {
         let sites = self.sites.sites()?;
+        let discovered = self.projects.discovery_entries()?;
+        let discovery_states = discovered
+            .iter()
+            .filter_map(|e| {
+                e.project_id
+                    .as_ref()
+                    .map(|id| (id.clone(), e.state.clone()))
+            })
+            .collect::<BTreeMap<_, _>>();
         let mut logs = self.history.clone();
         let mut rows = vec![];
         for project in self.projects.list()? {
@@ -1218,6 +1269,7 @@ impl Workspace {
             }
             let database = self.projects.binding(&project.id)?;
             rows.push(Row {
+                discovery_state: discovery_states.get(&project.id).cloned(),
                 setup_owned: self
                     .projects
                     .root()
@@ -1285,6 +1337,10 @@ impl Workspace {
         logs.truncate(500);
         logs.reverse();
         Ok(Snapshot {
+            discovery: discovery::View {
+                entries: discovered,
+                ..self.discovery.clone()
+            },
             worktrees: self.worktrees()?,
             starter_constraint: self
                 .catalog

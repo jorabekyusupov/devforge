@@ -303,3 +303,42 @@ Foydalanuvchi M12 kelgan joydan toliq tugatilishini, keyin M7 qolgan ishlarining
 yakunlanishini topshirdi. Oldingi «bajarilganlariga tegma» chegarasi saqlanadi;
 shu sabab M7.1 Inspector qayta yozilmaydi, M7.2 native Xdebug alohida slice sifatida
 qo‘shiladi. M13 avtomatik boshlanmaydi.
+## Avtomatik loyiha aniqlash rejasi — 2026-11-13
+
+Herd parked paths tadqiqoti va maslahatdan keyin foydalanuvchi so‘radi:
+
+> Shu maslahatlaring asosida funksiyani to‘liq reja qilib ber. Settings’da default
+> \~/Devforge bo‘lsin, foydalanuvchi o‘zgartira olsin, loyihalarni avtomatik topsin.
+> macOS va Windows’da ishlashini tekshirilsin, birinchi navbatda reja qil
+
+Talab: home ichidagi `Devforge`, o‘zgartiriladigan Settings root, avtomatik aniqlash
+va ikkala OS acceptance. Hozir faqat rejalash; product code yoki publish boshlash
+ruxsati emas. [Reja konsepti](../project-discovery.md) va uning phase specs’ida
+texnik tafsilotlar taklif sifatida, amaldagi source va hali bajarilmagan platforma
+tekshiruvlari alohida qayd etiladi.
+
+Keyingi topshiriq: “Reja asosida boshlagin, barcha bosqichlarni to‘liq tugat. macOS
+va Windows’da tekshirib, xatolarini tuzat, yakunda natijani ber.” Implementatsiya
+va native verifikatsiya endi ruxsatli scope. Tekshiruv uchun ajratilgan branch/CI
+manbasi qayd etiladi; production merge yoki deploy shu topshiriqdan kelib chiqmaydi.
+
+
+## Discovery actual execution close — 2026-11-13
+
+Yuqoridagi to‘liq bajarish topshirig‘i doirasida7 bosqich va60 mezon bajarildi.
+Native ARM64/Windows0fb0eca, Intelc33eadc’da actual backend/UI o‘tdi; product/runner
+tree hash bir xil. Windows handle/path va overflow recovery xatolari source hamda
+native regressiya bilan tuzatildi. Tashqi PHP arxivlari qayta chiqarilgani sabab
+pinlar almashtirilmadi:original public arxivlar SHA256 bilan tekshirilgan vaqtinchalik
+CI cache orqali ishlatildi. Bu katalog/live-URL maintenance yoki public release
+scope’ini yakunlangan deb ko‘rsatmaydi. [Natijalar](../../evidence/project-discovery/README.md)
+va [konsept](../project-discovery.md) actual qamrovni beradi. Global memory yozilmadi.
+
+
+## Upstream/main integration topshirig‘i — 2026-11-13
+
+User: “Qolgan upstream katalog masalasini ham hal qil, funksiyani main’dagi M7
+o‘zgarishlari bilan birlashtir. macOS va Windows’da tekshirib, xatolarini tuzat va
+yakunda main’ga push qil.” Katalog review, M7/discovery integration, native qayta
+qabul va main’ga push endi aniq ruxsatli scope. Oldingi alohida-branch boundary
+ushbu yangi topshiriq bilan almashtirildi; signing/public installer scope qo‘shilmadi.

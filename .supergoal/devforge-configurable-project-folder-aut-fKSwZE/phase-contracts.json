@@ -1,0 +1,229 @@
+[
+  {
+    "n": 1,
+    "title": "Sozlama kontraktini kengaytirish",
+    "why": "Loyiha papkasining yagona, saqlanadigan va eski sozlamalarga mos kontraktini yaratish.",
+    "deps": "none",
+    "paths": [
+      "crates/core/src/lib.rs",
+      "crates/platform/src/lib.rs",
+      "apps/desktop/src/bridge.ts",
+      "apps/desktop/src-tauri/src/lib.rs"
+    ],
+    "work": "Core Settings ichida discovery sozlamasini default policy bilan ifodalash; OS home resolution platform qatlamida qoladi. JSON preferences uchun additive serde default va kerak bo‘lsa versioned migratsiya. Rust/TS Bootstrap DTO, mavjud test fixture va save oqimini moslashtirish. Faqat parent directory policy; UI va watcher keyingi bosqichlarda.",
+    "criteria": [
+      "Eski language/theme JSON yangi maydonlarsiz yuklanadi va ikkala qiymat saqlanadi.",
+      "Default policy macOS va Windows uchun foydalanuvchining home katalogiga Devforge segmentini qo‘shadi; disk ildizidagi /Devforge yaratilmaydi.",
+      "Custom absolute yo‘l yoki boshlang‘ich ~ qo‘llab-quvvatlanadi; relative, bo‘sh, NUL/control character va faylga ishora qiladigan yo‘l actionable error beradi.",
+      "Til/theme o‘zgarishi discovery yo‘lini, discovery o‘zgarishi til/theme qiymatini yo‘qotmaydi; stale full-settings yozuvlari uchun regression testi bor.",
+      "Default katalogni yaratish bir martalik initialization yoki explicit create bilan bajariladi; mavjud katalog va uning tarkibi o‘zgarmaydi.",
+      "Custom path mavjud bo‘lmasa Save uni jim yaratmaydi: Create folder amali yoki boshqa yo‘l tanlash talab etiladi.",
+      "Saqlash/validation xatosida oldingi saqlangan yo‘l saqlanadi; app startup settings xatosini muvaffaqiyat deb yashirmaydi."
+    ],
+    "commands": [
+      "cargo test -p devforge-core -p devforge-platform",
+      "npm run typecheck",
+      "cargo fmt --all -- --check"
+    ],
+    "evidence": "Legacy JSON/reopen, home resolver (har target), invalid path va saved-value preservation test natijalari; old/new settings payload namunasi (secrets yo‘q)."
+  },
+  {
+    "n": 2,
+    "title": "Chegaralangan skanerni yaratish",
+    "why": "Runtime tanlanmagan bo‘lsa ham Laravel loyihasini xavfsiz aniqlash.",
+    "deps": "1",
+    "paths": [
+      "crates/projects/src/discovery.rs (new)",
+      "crates/projects/src/project.rs",
+      "crates/projects/src/lib.rs"
+    ],
+    "work": "Tauri’dan mustaqil shallow scanner va typed candidate DTO yaratiladi. Mavjud inspect()/manifest limitlarini qayta ishlatish yoki read-only tekshiruv chegarasini ajratish. Only direct child directories, maqsadli composer/package/public index metadata. Root scan natijasi complete/partial/unavailable/cancelled holatlarini farqlaydi. Chunk, cancellation, entry cap va per-entry errors.",
+    "criteria": [
+      "Laravel fixture artisan/public/index.php/composer.json belgilariga ko‘ra topiladi; mos kelmagan katalog successful Laravel deb ko‘rsatilmaydi.",
+      "Bir daraja skanerlanadi: nested app, vendor va node_modules tarkibi rekursiv o‘qilmaydi; dot-directory va DevForge staging/data kataloglari kandidat bo‘lmaydi.",
+      "PHP/Node paketlari o‘rnatilmagan fixture ham needs_runtime candidate sifatida chiqadi; hech qanday download boshlanmaydi.",
+      "Qisman ko‘chirilgan loyiha keyingi skanda to‘liq bo‘lgach topiladi; invalid yoki oversize manifest boshqa loyihalarning natijasini to‘sib qo‘ymaydi.",
+      "Scan script, composer/npm, artisan, Git hook va .env amallarini bajarmaydi; byte/sentinel tekshiruvi project fayllari o‘zgarmaganini isbotlaydi.",
+      "Symlink/junction/reparse child boshlang‘ich scope’da avtomatik follow qilinmaydi; sabab ko‘rsatiladi va explicit Import saqlanadi.",
+      "Root unavailable yoki entry cap holatida partial/unavailable qaytadi; bu holat barcha eski loyihalar missing degan natijaga aylantirilmaydi.",
+      "Tekshiruv uchun fake clock/temporary tree ishlatilib cancellation va 10,000 direct-child cap aniq tasdiqlanadi; cap natijasida truncation ko‘rsatiladi."
+    ],
+    "commands": [
+      "cargo test -p devforge-projects",
+      "cargo fmt --all -- --check"
+    ],
+    "evidence": "Golden, no-runtime, malformed, incomplete-copy, unreadable-child, no-recursion/no-side-effects, cancellation va cap fixture natijalari."
+  },
+  {
+    "n": 3,
+    "title": "Registrni xavfsiz birlashtirish",
+    "why": "Topilgan loyihalarni mavjud ma’lumotlar bilan dublikatsiyasiz va tiklanadigan tarzda birlashtirish.",
+    "deps": "1, 2",
+    "paths": [
+      "crates/projects/src/project.rs",
+      "crates/projects/src/discovery.rs",
+      "crates/workspace/src/discovery.rs (new)",
+      "crates/workspace/src/lib.rs",
+      "crates/serving/src/site.rs (only if scoped reuse is necessary)"
+    ],
+    "work": "ProjectStore’da additive discovery ledger/candidates/suppression metadata va source association; registration Project invariants saqlangan holda bajariladi. Compatible verified installed runtime topilsa register + HTTP site configure; topilmasa candidate snapshot’da qoladi. Registry va sites.json yozuvlari cross-file transaction emas: idempotent pending/recovery holati kerak. Root generation, optimistic revisions va operation/session guard ishlatiladi.",
+    "criteria": [
+      "Bir xil canonical/fizik loyiha manual import, create wizard va discovery orqali uchrasa bitta active Project ID bilan qoladi.",
+      "Compatible installed runtime mavjud bo‘lganda har qanday qayta skan registrda aynan bitta project/site yaratadi; yarim yozuv keyingi reconcile’da tuzatiladi.",
+      "Runtime yetishmasa candidate UI contract’da qoladi; register qilish uchun soxta package ID ishlatilmaydi va xizmat ishga tushmaydi.",
+      "Mavjud PHP/Node selections, custom domain, favorite, DB/cache/mail bindings, secrets, worktree ownership va project revisions skaner tomonidan almashtirilmaydi.",
+      "Forget discovery suppression yozadi; qayta skan/restart loyihani qaytarmaydi; Restore/Import suppression’ni explicit olib tashlaydi.",
+      "Complete skan yo‘qolgan papkani missing deb belgilaydi; failed/partial scan hech qanday ommaviy missing holatini qo‘llamaydi va DB/project fayllari o‘chmaydi.",
+      "Same-filesystem stable identity bilan ishonchli rename project ID va bog‘lanishlarni saqlaydi; running session bo‘lsa relocation pending bo‘ladi, guarded stop/apply yo‘li talab etiladi.",
+      "Windows File ID/volume identity mavjud bo‘lmasa yoki identity noaniq bo‘lsa avtomatik birlashtirish qilinmaydi: relocation review candidate, old record saqlanadi.",
+      "Root A dan B ga o‘tganda old association detached bo‘ladi, manual entries qoladi va A generation natijalari B ni o‘zgartira olmaydi.",
+      "Yangi domen shop.devforge.test formatida; Unicode/invalid nomga stable valid slug taklif qilinadi; domain conflict mavjud saytni egallamaydi va rename custom domenni o‘zgartirmaydi."
+    ],
+    "commands": [
+      "cargo test -p devforge-projects -p devforge-workspace -p devforge-serving",
+      "cargo fmt --all -- --check"
+    ],
+    "evidence": "Legacy project DB additive migration/reopen, dual-source dedup, suppression/restart, rename/ambiguous move, pending-site recovery, stale generation va binding preservation assertions."
+  },
+  {
+    "n": 4,
+    "title": "Kuzatuvchi hayotini ulash",
+    "why": "Ilova ochiq paytda fayl tizimi o‘zgarishlarini yo‘qotmasdan va UI’ni bloklamasdan aniqlash.",
+    "deps": "1, 2, 3",
+    "paths": [
+      "crates/workspace/src/discovery.rs",
+      "crates/workspace/Cargo.toml",
+      "Cargo.lock (if watcher dependency is added)",
+      "apps/desktop/src-tauri/src/workspace.rs",
+      "apps/desktop/src-tauri/src/lib.rs"
+    ],
+    "work": "notify backend yoki mos mavjud dependency bilan cancellable DiscoveryService. Native notification faqat invalidation signal; authoritative shallow scan qayta reconcile qiladi. Root parent va direct children uchun nonrecursive watches, faqat inspection marker fayllari kerak bo‘lsa maqsadli public watcher; full tree watch yo‘q. Initial/focus/manual/periodic reconciliation, bounded coalescing queue, single-flight scan va generation token. Workspace Mutex ichida filesystem walk yoki watcher callback yo‘q.",
+    "criteria": [
+      "Ilova startida UI sahifasi ochilishini kutmasdan saved root scan boshlanadi; close-to-tray holatida davom etadi, Quit’da to‘liq tugaydi.",
+      "Root ichida mkdir/copy/rename/delete va direct-child manifest atomic replace natijalari restart yoki Refresh bosmasdan snapshot’da chiqadi.",
+      "Watcher event’lari 500ms quiet debounce va 2s max-latency invalidation bilan birlashtiriladi; bitta active scan va bounded dirty flag/queue mavjud.",
+      "Root/child watch error yoki overflow 30s periodic shallow fallback va ko‘rinadigan degraded status beradi; app focus va manual rescan recovery qiladi.",
+      "100-child local fixture event’i UI pollingni qo‘shib 5s ichida ko‘rinadi; fallback fixture 35s ichida konvergensiya qiladi; bular proposed acceptance budget, o‘lchov qayd etiladi.",
+      "Root switch vaqtida eski watch’lar va pending timer bekor qilinadi; late generation natija persist qilinmaydi; 50 switch stress’da handle/thread soni baseline’ga qaytadi.",
+      "Root delete/recreate yoki disconnect/reconnect parent watch/fallback orqali tiklanadi; permission-denied degraded holati eski rows’ni o‘chirmaydi.",
+      "10,000 ta event burst bounded xotira bilan bitta final authoritative natijaga konvergensiya qiladi; user project scripts/caches bo‘yicha recursive event storm kuzatilmaydi."
+    ],
+    "commands": [
+      "cargo test -p devforge-workspace -p devforge-projects",
+      "cargo clippy --workspace --all-targets -- -D warnings",
+      "cargo fmt --all -- --check"
+    ],
+    "evidence": "Native watch smoke timing, forced failure/fallback, burst/switch/quit lifecycle assertions; backend thread/queue bound hisobotlari; dependency versiyasi va mosligi primary source bilan qayd etiladi."
+  },
+  {
+    "n": 5,
+    "title": "Settings oqimini yetkazish",
+    "why": "Foydalanuvchi papkani tanlashi va aniqlash natijasini boshqarishi uchun mavjud UI’ni kengaytirish.",
+    "deps": "1, 2, 3, 4",
+    "paths": [
+      "apps/desktop/src/pages/SettingsPage.tsx",
+      "apps/desktop/src/components/ProjectDiscoverySettings.tsx (new, if extracted)",
+      "apps/desktop/src/pages/WorkspacePage.tsx",
+      "apps/desktop/src/components/ProjectSetup.tsx",
+      "apps/desktop/src/bridge.ts",
+      "apps/desktop/src/workspace.ts",
+      "apps/desktop/src/App.tsx",
+      "apps/desktop/src/styles.css",
+      "apps/desktop/src/discovery.test.tsx (new)",
+      "shared/locales/{en,ru,uz-Latn}.json (actual catalog layout)"
+    ],
+    "work": "Mavjud Settings uslubida Loyiha papkasi: label+path draft, native picker, explicit Save, Reset to default, Create folder kerak bo‘lsa, Scan now. Status/count/last scan/retry. Projects ro‘yxatida candidate va registered statuslarini farqlash; existing Prepare/Start/Import oqimlarini qayta ishlatish. New Project wizard parent default saved root’dan, foydalanuvchi o‘zgartira oladi. Backend DTO tor typed commands; UI’dan filesystemga to‘g‘ridan to‘g‘ri ruxsat qo‘shilmaydi.",
+    "criteria": [
+      "Text input va native folder picker bir xil draft’ni yangilaydi; Cancel picker current/saved qiymatni o‘zgartirmaydi; Save keyin relaunch’da yo‘l qaytadi.",
+      "Save explicit: har keystroke active watcher’ni o‘zgartirmaydi; invalid input inline xato, pending holatda double-submit bloklanadi; failed Save eski active root’ni saqlaydi.",
+      "Default qiymat ~/Devforge, Windows’da resolved native path ko‘rsatiladi; Reset default oldingi user folder contentini ko‘chirmaydi yoki o‘chirmaydi.",
+      "Scan now single-flight ishlaydi; scanning/empty/success/degraded/error/unavailable holatlar ko‘rinadi, error’ning retry amali bor.",
+      "Candidate needs-runtime/missing/conflict/ignored/relocation-pending holatlari oddiy stopped/ready bilan aralashtirilmaydi; Start faqat haqiqiy registered ready loyiha uchun ishlaydi.",
+      "Forget qilingan entry uchun Restore oqimi va root o‘zgargandagi detached loyihalar tushuntiriladi; existing manual Import tashqaridagi loyihalarni qo‘shadi.",
+      "New Project default parent saved root’dan olinadi; publish/setup staging katalogi tayyor bo‘lguncha discovery uni register qilmaydi; create/discovery race bitta project yaratadi.",
+      "Russian, Uzbek, English catalogs label/error/status/a11y matnlar bilan teng; dark/light/system va minimum desktop window’da long Unicode path horizontal overflow bermaydi.",
+      "Keyboard Tab, visible focus, picker cancel/return focus va aria-live status ishlaydi; loyiha nomlari/yo‘llari tarjima qilinmaydi."
+    ],
+    "commands": [
+      "npm run typecheck",
+      "npm test",
+      "npm run check:locales",
+      "npm run build",
+      "cargo test -p devforge-workspace"
+    ],
+    "evidence": "React interaction/async error tests, locale lint, incumbent va updated Settings screenshot’lari; ui-taste/uizze-ui scoped implementation, web-design-guidelines affected-source review. Native system picker interaction phase 6’da alohida tekshiriladi."
+  },
+  {
+    "n": 6,
+    "title": "Native platformalarni tekshirish",
+    "why": "OS watcher, path identity, Tauri IPC va real serving’ni har targetda bajarib isbotlash.",
+    "deps": "1, 2, 3, 4, 5",
+    "paths": [
+      "crates/workspace/examples/support/discovery.rs (new)",
+      "crates/workspace/examples/native_workspace.rs (existing dispatcher path verify)",
+      "scripts/discovery_desktop_smoke.py (new)",
+      "scripts/discovery_native_smoke.py (if needed)",
+      ".github/workflows/discovery.yml (new)",
+      "docs/evidence/project-discovery/ (public reports only)"
+    ],
+    "work": "M12/M8 native harness pattern’ini qayta ishlatib alohida fixtures/data dirs/ports. Matrix macOS ARM64, macOS Intel, Windows x64. Actual watcher events orqali default/custom/add/rename/delete/resume, actual WebView Settings input-save-relaunch, Prepare/Start real HTTP. Native picker selection/cancel return-focus alohida actual system-dialog evidence; mock tanlov bu gate o‘rnini bosmaydi. Native lane authorization mavjud bo‘lsa CI; push/run scope bo‘lmasa aynan tested source artifact bilan existing authorized remote route, bo‘lmasa ochiq gate.",
+    "criteria": [
+      "macOS ARM64’da built Tauri app, watcher, saved path, startup/relaunch va discovered Laravel HTTP fixture actual ishlaydi; OS/arch/source hash hisobotda bor.",
+      "macOS Intel’da ayni final source hash bilan native backend va WebView checks bajariladi; ARM64 natijasi Intel o‘rniga yozilmaydi.",
+      "Windows x64’da ayni final source hash bilan WebView2, watcher, backslash/drive case, case-only rename, Cyrillic/spaces/non-ASCII parent va long path tests bajariladi.",
+      "Har targetda real folder picker selection/cancel tekshiriladi yoki alohida NOT VERIFIED gate yoziladi; native dialogga xizmat qiladigan IPC mock bilan pass belgilanmaydi.",
+      "No-runtime candidate, installed-runtime register, duplicate/manual import, Forget+Restore, corrupt manifest recovery, root permission/missing va switch-during-scan stsenariylari native hisobotda bor.",
+      "Actual watcher event/overflow fallback va tray/quit lifecycle tekshiriladi; App e2e feature production HTTP control endpointini ochmaydi.",
+      "Fixture HTTP selected PHP orqali 200 beradi; existing .devforge.test/.localhost-port serving modeli saqlanadi; hosts/CA native fixture faqat owned isolated muhitda.",
+      "Reports/screenshots tested commit + uncommitted artifact digest/source archive bilan bog‘lanadi; zip report provenance tekshiriladi va secrets/raw .env yuklanmaydi.",
+      "Target yoki dialog automation mavjud bo‘lmasa no green completion: bajarilgan mustaqil checks va ochiq native gates aniq saqlanadi; cross-compile runtime deb ko‘rsatilmaydi."
+    ],
+    "commands": [
+      "npm run tauri -- build --debug --no-bundle --features e2e",
+      "cargo run --release -p devforge-workspace --example native_workspace --features test-support -- discovery-native discovery-fixture",
+      "python scripts/discovery_desktop_smoke.py discovery-fixture target/debug/devforge-desktop target/release/examples/native_workspace",
+      "cargo test --workspace",
+      "npm test"
+    ],
+    "evidence": "Har target uchun alohida JSON assertions, source hash, native Settings/Projects screenshots, picker evidence, HTTP response, watcher/fallback timings va cleanup result; skipped/cancelled lane pass emas."
+  },
+  {
+    "n": 7,
+    "title": "Polish & Harden",
+    "why": "Oxirgi source barcha kontrakt, foydalanish va platforma mezonlariga mosligini yakuniy tekshirish.",
+    "deps": "1, 2, 3, 4, 5, 6",
+    "paths": [
+      "affected implementation/tests from phases 1-6",
+      "docs/knowledge/project-discovery.md",
+      "docs/knowledge/references/conversation-decisions.md",
+      "docs/knowledge/index.md",
+      "docs/knowledge/log.md",
+      "docs/evidence/project-discovery/"
+    ],
+    "work": "Bounded UX/copy/a11y pass, input/IPC/diff review, isolated rename/permission/storm regression, release-mode performance measurement va adjacent import/create/prepare/worktree/service smoke. Documentation/code/evidence reconciliation; faqat affected knowledge. Old unrelated tests failures baseline bilan alohida ko‘rsatiladi, yangi regression yopiladi. Audit source native tekshirilgan hashga teng bo‘lishini tekshiradi; keyingi code o‘zgarsa tegishli native gate qayta bajariladi.",
+    "criteria": [
+      "Final workspace fmt/clippy/tests va frontend typecheck/test/build/locale checks exit 0; relevant baseline failures bo‘lsa ular aniq dalil bilan ochiq va complete claim berilmaydi.",
+      "100 local sibling candidate fixture cold scan 3s ichida, UI confirmation native event’dan 5s ichida, fallback 35s ichida; release build/hardware/workload bilan o‘lchanadi yoki asosli revised budget review’da qayd etiladi.",
+      "Normal local idle’da periodic root reconciliation 30s dan tez emas, unchanged candidates reimport qilinmaydi, child dependency subtree o‘qilmaydi; resource trend 50 root switch/10k event test’da bound ichida.",
+      "Minimum supported desktop size va 3 locale x light/dark (system representative) states screenshot/interaction bilan tekshiriladi; scoped axe’da yangi finding 0, native picker focus alohida tekshiriladi.",
+      "Existing manual import/Create/Prepare, custom runtime/domain, worktree cleanup, service binding va persistent DB ma’lumotlari uchun tegishli regression stsenariylari o‘tadi.",
+      "Discovery avtomatik process/download/DB/.env/system DNS/CA mutation boshlamasligi sentinel/owned-state checks bilan tasdiqlanadi; Start/Prepare mavjud explicit oqimida qoladi.",
+      "Yakuniy knowledge’da confirmed requirement, proposed/changed design, actual implementation va har platformaning verified/unverified chegarasi ajratiladi; strict validator 0 error/0 warning.",
+      "Final diff’da task debug prints, session TODO/FIXME, dead imports yoki aloqasiz source o‘zgarishi yo‘q; publish/deploy/commit/push userning yangi ko‘rsatmasisiz bajarilmaydi.",
+      "Original ROADMAP criteria yakuniy source/evidence bilan qayta audit qilinadi; native yoki system-dialog gate ochiq bo‘lsa feature fully verified deb yopilmaydi."
+    ],
+    "commands": [
+      "cargo fmt --all -- --check",
+      "cargo clippy --workspace --all-targets -- -D warnings",
+      "cargo test --workspace",
+      "npm run typecheck",
+      "npm test",
+      "npm run check:locales",
+      "node --test scripts/check_locales.test.mjs",
+      "npm run build",
+      "npm run tauri -- build --debug --no-bundle",
+      "python scripts/validate_knowledge.py --strict (prepared tooling interpreter)"
+    ],
+    "evidence": "Final check summaries/exit codes, native matrix final-source table, measured budgets, scoped diff/a11y review, knowledge validation va open gates; product completion faqat actual evidence bilan."
+  }
+]

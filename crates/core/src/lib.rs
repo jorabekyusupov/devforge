@@ -9,6 +9,9 @@ pub enum ErrorCode {
     InvalidRegistry,
     StorageUnavailable,
     SecretUnavailable,
+    InvalidProjectFolder,
+    ProjectFolderMissing,
+    ProjectFolderUnavailable,
 }
 
 impl std::fmt::Display for ErrorCode {
@@ -31,13 +34,40 @@ pub enum Theme {
 pub struct Settings {
     pub language: String,
     pub theme: Theme,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub project_folder: Option<String>,
 }
 impl Default for Settings {
     fn default() -> Self {
         Self {
             language: "system".into(),
             theme: Theme::System,
+            project_folder: None,
         }
+    }
+}
+
+/// Omitted fields preserve the stored value; a stale language/theme form cannot
+/// reset the project folder. Merge under the repository's settings lock.
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SettingsPatch {
+    pub language: Option<String>,
+    pub theme: Option<Theme>,
+    pub project_folder: Option<String>,
+}
+impl SettingsPatch {
+    pub fn apply(self, mut settings: Settings) -> Settings {
+        if let Some(language) = self.language {
+            settings.language = language;
+        }
+        if let Some(theme) = self.theme {
+            settings.theme = theme;
+        }
+        if let Some(folder) = self.project_folder {
+            settings.project_folder = Some(folder);
+        }
+        settings
     }
 }
 

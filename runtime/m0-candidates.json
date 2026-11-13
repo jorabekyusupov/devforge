@@ -188,7 +188,8 @@
     "url": "https://dl.static-php.dev/v3/php-bin/common/php-8.5.12-cli-macos-x86_64.tar.gz",
     "sha256": "32c08d8d793d939c960f944d92abe16350dddf0ea79418256fa76633e110ce2b",
     "checksum_source": "https://dl.static-php.dev/v3/php-bin/common/php-8.5.12-cli-macos-x86_64.tar.gz.sha256",
-    "provider": "StaticPHP v3 common; third-party candidate"
+    "provider": "StaticPHP v3 common; third-party candidate",
+    "superseded_by": "php-8.5.12-staticphp20261113-cli-macos-x64"
   },
   {
     "id": "php-8.5.12-fpm-macos-x64",
@@ -199,7 +200,8 @@
     "url": "https://dl.static-php.dev/v3/php-bin/common/php-8.5.12-fpm-macos-x86_64.tar.gz",
     "sha256": "7c166125797e536d6cda9a8267eb89fffd294b4f49878bb586dadbba713a879a",
     "checksum_source": "https://dl.static-php.dev/v3/php-bin/common/php-8.5.12-fpm-macos-x86_64.tar.gz.sha256",
-    "provider": "StaticPHP v3 common; third-party candidate"
+    "provider": "StaticPHP v3 common; third-party candidate",
+    "superseded_by": "php-8.5.12-staticphp20261113-fpm-macos-x64"
   },
   {
     "id": "postgresapp-18-macos-universal",
@@ -322,6 +324,30 @@
     "url": "https://dl.static-php.dev/v3/php-bin/common/php-8.4.27-fpm-macos-x86_64.tar.gz",
     "sha256": "22c7bb81af2f482c43c44b9919fd8ca047fb0062433bfa0d5c95c876f4b4aba0",
     "checksum_source": "https://dl.static-php.dev/v3/php-bin/common/php-8.4.27-fpm-macos-x86_64.tar.gz.sha256",
+    "provider": "StaticPHP v3 common; third-party candidate",
+    "build_revision": "reviewed20261113"
+  },
+  {
+    "id": "php-8.5.12-staticphp20261113-cli-macos-x64",
+    "package": "php",
+    "sapi": "cli",
+    "version": "8.5.12",
+    "target": "macos-x64",
+    "url": "https://dl.static-php.dev/v3/php-bin/common/php-8.5.12-cli-macos-x86_64.tar.gz",
+    "sha256": "492cc40aadb7207433cd15fd6085525d6f8661ce50719c84c2456d0e70f39dd7",
+    "checksum_source": "https://dl.static-php.dev/v3/php-bin/common/php-8.5.12-cli-macos-x86_64.tar.gz.sha256",
+    "provider": "StaticPHP v3 common; third-party candidate",
+    "build_revision": "reviewed20261113"
+  },
+  {
+    "id": "php-8.5.12-staticphp20261113-fpm-macos-x64",
+    "package": "php",
+    "sapi": "fpm",
+    "version": "8.5.12",
+    "target": "macos-x64",
+    "url": "https://dl.static-php.dev/v3/php-bin/common/php-8.5.12-fpm-macos-x86_64.tar.gz",
+    "sha256": "d7c07c9476b128cc567549601813717aa3cf7d63fe2677f73a86665fd8219061",
+    "checksum_source": "https://dl.static-php.dev/v3/php-bin/common/php-8.5.12-fpm-macos-x86_64.tar.gz.sha256",
     "provider": "StaticPHP v3 common; third-party candidate",
     "build_revision": "reviewed20261113"
   }

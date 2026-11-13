@@ -1,0 +1,501 @@
+{
+  "status": "PASSED",
+  "baseline": "9319e82457c7b6dc18c2b7b68b86eac9edda7de0",
+  "criteria": [
+    {
+      "id": "P1.1",
+      "criterion": "Eski language/theme JSON yangi maydonlarsiz yuklanadi va ikkala qiymat saqlanadi.",
+      "status": "PASS",
+      "evidence": "crates/platform/src/lib.rs: legacy_preferences_and_one_time_default_initialization, resolve_rejects_invalid_missing_and_file_without_creating; crates/core/src/lib.rs SettingsPatch; native desktop invalid_path_keeps_saved_root/explicit_default_create_save/custom_unicode_path_saved/saved_folder_survives_native_relaunch",
+      "assessment": "Legacy JSON roundtrip retains language/theme; optional field serde compatibility.",
+      "native_evidence": "docs/evidence/project-discovery/provenance.json; per-target native/desktop JSON; core-checks.json"
+    },
+    {
+      "id": "P1.2",
+      "criterion": "Default policy macOS va Windows uchun foydalanuvchining home katalogiga Devforge segmentini qo‘shadi; disk ildizidagi /Devforge yaratilmaydi.",
+      "status": "PASS",
+      "evidence": "crates/platform/src/lib.rs: legacy_preferences_and_one_time_default_initialization, resolve_rejects_invalid_missing_and_file_without_creating; crates/core/src/lib.rs SettingsPatch; native desktop invalid_path_keeps_saved_root/explicit_default_create_save/custom_unicode_path_saved/saved_folder_survives_native_relaunch",
+      "assessment": "default_project_folder joins supplied OS home with Devforge; e2e uses isolated home.",
+      "native_evidence": "docs/evidence/project-discovery/provenance.json; per-target native/desktop JSON; core-checks.json"
+    },
+    {
+      "id": "P1.3",
+      "criterion": "Custom absolute yo‘l yoki boshlang‘ich ~ qo‘llab-quvvatlanadi; relative, bo‘sh, NUL/control character va faylga ishora qiladigan yo‘l actionable error beradi.",
+      "status": "PASS",
+      "evidence": "crates/platform/src/lib.rs: legacy_preferences_and_one_time_default_initialization, resolve_rejects_invalid_missing_and_file_without_creating; crates/core/src/lib.rs SettingsPatch; native desktop invalid_path_keeps_saved_root/explicit_default_create_save/custom_unicode_path_saved/saved_folder_survives_native_relaunch",
+      "assessment": "resolve validates absolute/home marker, controls, readability and directory type.",
+      "native_evidence": "docs/evidence/project-discovery/provenance.json; per-target native/desktop JSON; core-checks.json"
+    },
+    {
+      "id": "P1.4",
+      "criterion": "Til/theme o‘zgarishi discovery yo‘lini, discovery o‘zgarishi til/theme qiymatini yo‘qotmaydi; stale full-settings yozuvlari uchun regression testi bor.",
+      "status": "PASS",
+      "evidence": "crates/platform/src/lib.rs: legacy_preferences_and_one_time_default_initialization, resolve_rejects_invalid_missing_and_file_without_creating; crates/core/src/lib.rs SettingsPatch; native desktop invalid_path_keeps_saved_root/explicit_default_create_save/custom_unicode_path_saved/saved_folder_survives_native_relaunch",
+      "assessment": "SettingsPatch merges under preference lock; language/theme omit project_folder; App regression covers unavailable root.",
+      "native_evidence": "docs/evidence/project-discovery/provenance.json; per-target native/desktop JSON; core-checks.json"
+    },
+    {
+      "id": "P1.5",
+      "criterion": "Default katalogni yaratish bir martalik initialization yoki explicit create bilan bajariladi; mavjud katalog va uning tarkibi o‘zgarmaydi.",
+      "status": "PASS",
+      "evidence": "crates/platform/src/lib.rs: legacy_preferences_and_one_time_default_initialization, resolve_rejects_invalid_missing_and_file_without_creating; crates/core/src/lib.rs SettingsPatch; native desktop invalid_path_keeps_saved_root/explicit_default_create_save/custom_unicode_path_saved/saved_folder_survives_native_relaunch",
+      "assessment": "Initialization persists first attempt; later deletion is not recreated; explicit default create tested natively.",
+      "native_evidence": "docs/evidence/project-discovery/provenance.json; per-target native/desktop JSON; core-checks.json"
+    },
+    {
+      "id": "P1.6",
+      "criterion": "Custom path mavjud bo‘lmasa Save uni jim yaratmaydi: Create folder amali yoki boshqa yo‘l tanlash talab etiladi.",
+      "status": "PASS",
+      "evidence": "crates/platform/src/lib.rs: legacy_preferences_and_one_time_default_initialization, resolve_rejects_invalid_missing_and_file_without_creating; crates/core/src/lib.rs SettingsPatch; native desktop invalid_path_keeps_saved_root/explicit_default_create_save/custom_unicode_path_saved/saved_folder_survives_native_relaunch",
+      "assessment": "Resolve never creates; only explicit create_project_folder calls create_dir.",
+      "native_evidence": "docs/evidence/project-discovery/provenance.json; per-target native/desktop JSON; core-checks.json"
+    },
+    {
+      "id": "P1.7",
+      "criterion": "Saqlash/validation xatosida oldingi saqlangan yo‘l saqlanadi; app startup settings xatosini muvaffaqiyat deb yashirmaydi.",
+      "status": "PASS",
+      "evidence": "crates/platform/src/lib.rs: legacy_preferences_and_one_time_default_initialization, resolve_rejects_invalid_missing_and_file_without_creating; crates/core/src/lib.rs SettingsPatch; native desktop invalid_path_keeps_saved_root/explicit_default_create_save/custom_unicode_path_saved/saved_folder_survives_native_relaunch",
+      "assessment": "Persist follows validation; failed save preserves original root, draft error is actionable.",
+      "native_evidence": "docs/evidence/project-discovery/provenance.json; per-target native/desktop JSON; core-checks.json"
+    },
+    {
+      "id": "P2.1",
+      "criterion": "Laravel fixture artisan/public/index.php/composer.json belgilariga ko‘ra topiladi; mos kelmagan katalog successful Laravel deb ko‘rsatilmaydi.",
+      "status": "PASS",
+      "evidence": "crates/projects/src/discovery.rs: shallow_incomplete_invalid_and_no_side_effects, cancellation_cap_missing_and_identity, symlink_child_is_not_followed, setup_reservation_is_not_registered_until_publication_finishes, entry_limit_and_cancelled_empty_root_are_explicit, unreadable_child_does_not_invent_a_complete_removal_scan; native no_runtime_candidate/reparse_children_skipped/permission_denied_preserves_registry",
+      "assessment": "inspect plus artisan marker gates candidates; non-Laravel folders excluded.",
+      "native_evidence": "docs/evidence/project-discovery/provenance.json; per-target native/desktop JSON; core-checks.json"
+    },
+    {
+      "id": "P2.2",
+      "criterion": "Bir daraja skanerlanadi: nested app, vendor va node_modules tarkibi rekursiv o‘qilmaydi; dot-directory va DevForge staging/data kataloglari kandidat bo‘lmaydi.",
+      "status": "PASS",
+      "evidence": "crates/projects/src/discovery.rs: shallow_incomplete_invalid_and_no_side_effects, cancellation_cap_missing_and_identity, symlink_child_is_not_followed, setup_reservation_is_not_registered_until_publication_finishes, entry_limit_and_cancelled_empty_root_are_explicit, unreadable_child_does_not_invent_a_complete_removal_scan; native no_runtime_candidate/reparse_children_skipped/permission_denied_preserves_registry",
+      "assessment": "One read_dir collection level, inspect bounded manifests; dependencies/dot/owned data/staging skipped.",
+      "native_evidence": "docs/evidence/project-discovery/provenance.json; per-target native/desktop JSON; core-checks.json"
+    },
+    {
+      "id": "P2.3",
+      "criterion": "PHP/Node paketlari o‘rnatilmagan fixture ham needs_runtime candidate sifatida chiqadi; hech qanday download boshlanmaydi.",
+      "status": "PASS",
+      "evidence": "crates/projects/src/discovery.rs: shallow_incomplete_invalid_and_no_side_effects, cancellation_cap_missing_and_identity, symlink_child_is_not_followed, setup_reservation_is_not_registered_until_publication_finishes, entry_limit_and_cancelled_empty_root_are_explicit, unreadable_child_does_not_invent_a_complete_removal_scan; native no_runtime_candidate/reparse_children_skipped/permission_denied_preserves_registry",
+      "assessment": "Native no-runtime store yields needs_runtime without registration/download.",
+      "native_evidence": "docs/evidence/project-discovery/provenance.json; per-target native/desktop JSON; core-checks.json"
+    },
+    {
+      "id": "P2.4",
+      "criterion": "Qisman ko‘chirilgan loyiha keyingi skanda to‘liq bo‘lgach topiladi; invalid yoki oversize manifest boshqa loyihalarning natijasini to‘sib qo‘ymaydi.",
+      "status": "PASS",
+      "evidence": "crates/projects/src/discovery.rs: shallow_incomplete_invalid_and_no_side_effects, cancellation_cap_missing_and_identity, symlink_child_is_not_followed, setup_reservation_is_not_registered_until_publication_finishes, entry_limit_and_cancelled_empty_root_are_explicit, unreadable_child_does_not_invent_a_complete_removal_scan; native no_runtime_candidate/reparse_children_skipped/permission_denied_preserves_registry",
+      "assessment": "Incomplete-copy native watcher converges; inspect/parser tests cover bad/oversize manifests independently.",
+      "native_evidence": "docs/evidence/project-discovery/provenance.json; per-target native/desktop JSON; core-checks.json"
+    },
+    {
+      "id": "P2.5",
+      "criterion": "Scan script, composer/npm, artisan, Git hook va .env amallarini bajarmaydi; byte/sentinel tekshiruvi project fayllari o‘zgarmaganini isbotlaydi.",
+      "status": "PASS",
+      "evidence": "crates/projects/src/discovery.rs: shallow_incomplete_invalid_and_no_side_effects, cancellation_cap_missing_and_identity, symlink_child_is_not_followed, setup_reservation_is_not_registered_until_publication_finishes, entry_limit_and_cancelled_empty_root_are_explicit, unreadable_child_does_not_invent_a_complete_removal_scan; native no_runtime_candidate/reparse_children_skipped/permission_denied_preserves_registry",
+      "assessment": "Read-only sentinel tests and NoSecrets panic adapter; scanner has no execution/env/Git capability.",
+      "native_evidence": "docs/evidence/project-discovery/provenance.json; per-target native/desktop JSON; core-checks.json"
+    },
+    {
+      "id": "P2.6",
+      "criterion": "Symlink/junction/reparse child boshlang‘ich scope’da avtomatik follow qilinmaydi; sabab ko‘rsatiladi va explicit Import saqlanadi.",
+      "status": "PASS",
+      "evidence": "crates/projects/src/discovery.rs: shallow_incomplete_invalid_and_no_side_effects, cancellation_cap_missing_and_identity, symlink_child_is_not_followed, setup_reservation_is_not_registered_until_publication_finishes, entry_limit_and_cancelled_empty_root_are_explicit, unreadable_child_does_not_invent_a_complete_removal_scan; native no_runtime_candidate/reparse_children_skipped/permission_denied_preserves_registry",
+      "assessment": "Unix symlink and Windows junction native assertions; skipped count and explicit Import remain.",
+      "native_evidence": "docs/evidence/project-discovery/provenance.json; per-target native/desktop JSON; core-checks.json"
+    },
+    {
+      "id": "P2.7",
+      "criterion": "Root unavailable yoki entry cap holatida partial/unavailable qaytadi; bu holat barcha eski loyihalar missing degan natijaga aylantirilmaydi.",
+      "status": "PASS",
+      "evidence": "crates/projects/src/discovery.rs: shallow_incomplete_invalid_and_no_side_effects, cancellation_cap_missing_and_identity, symlink_child_is_not_followed, setup_reservation_is_not_registered_until_publication_finishes, entry_limit_and_cancelled_empty_root_are_explicit, unreadable_child_does_not_invent_a_complete_removal_scan; native no_runtime_candidate/reparse_children_skipped/permission_denied_preserves_registry",
+      "assessment": "Complete flag gates missing; unavailable/partial preserves previous entries.",
+      "native_evidence": "docs/evidence/project-discovery/provenance.json; per-target native/desktop JSON; core-checks.json"
+    },
+    {
+      "id": "P2.8",
+      "criterion": "Tekshiruv uchun fake clock/temporary tree ishlatilib cancellation va 10,000 direct-child cap aniq tasdiqlanadi; cap natijasida truncation ko‘rsatiladi.",
+      "status": "PASS",
+      "evidence": "crates/projects/src/discovery.rs: shallow_incomplete_invalid_and_no_side_effects, cancellation_cap_missing_and_identity, symlink_child_is_not_followed, setup_reservation_is_not_registered_until_publication_finishes, entry_limit_and_cancelled_empty_root_are_explicit, unreadable_child_does_not_invent_a_complete_removal_scan; native no_runtime_candidate/reparse_children_skipped/permission_denied_preserves_registry",
+      "assessment": "Actual10,001 entry tree/cancellation tests enforce10,000 cap; partial limit problem serialized.",
+      "native_evidence": "docs/evidence/project-discovery/provenance.json; per-target native/desktop JSON; core-checks.json"
+    },
+    {
+      "id": "P3.1",
+      "criterion": "Bir xil canonical/fizik loyiha manual import, create wizard va discovery orqali uchrasa bitta active Project ID bilan qoladi.",
+      "status": "PASS",
+      "evidence": "crates/workspace/src/discovery.rs: no_runtime_candidates_missing_partial_and_detached_preserve_registry, registration_rename_forget_restart_and_replacement_are_conservative, forgetting_before_the_first_scan_remains_suppressed_and_restore_keeps_id; crates/projects/src/discovery.rs transactional suppression/restore; native manual_metadata_preserved/rename_preserves_id_domain/restore_preserves_profile",
+      "assessment": "Import duplicate guard plus physical identity matching and setup reservation prevents double registration.",
+      "native_evidence": "docs/evidence/project-discovery/provenance.json; per-target native/desktop JSON; core-checks.json"
+    },
+    {
+      "id": "P3.2",
+      "criterion": "Compatible installed runtime mavjud bo‘lganda har qanday qayta skan registrda aynan bitta project/site yaratadi; yarim yozuv keyingi reconcile’da tuzatiladi.",
+      "status": "PASS",
+      "evidence": "crates/workspace/src/discovery.rs: no_runtime_candidates_missing_partial_and_detached_preserve_registry, registration_rename_forget_restart_and_replacement_are_conservative, forgetting_before_the_first_scan_remains_suppressed_and_restore_keeps_id; crates/projects/src/discovery.rs transactional suppression/restore; native manual_metadata_preserved/rename_preserves_id_domain/restore_preserves_profile",
+      "assessment": "Repeat scan test leaves one ID; existing project with absent site retries configure only.",
+      "native_evidence": "docs/evidence/project-discovery/provenance.json; per-target native/desktop JSON; core-checks.json"
+    },
+    {
+      "id": "P3.3",
+      "criterion": "Runtime yetishmasa candidate UI contract’da qoladi; register qilish uchun soxta package ID ishlatilmaydi va xizmat ishga tushmaydi.",
+      "status": "PASS",
+      "evidence": "crates/workspace/src/discovery.rs: no_runtime_candidates_missing_partial_and_detached_preserve_registry, registration_rename_forget_restart_and_replacement_are_conservative, forgetting_before_the_first_scan_remains_suppressed_and_restore_keeps_id; crates/projects/src/discovery.rs transactional suppression/restore; native manual_metadata_preserved/rename_preserves_id_domain/restore_preserves_profile",
+      "assessment": "Runtime-independent ledger and compatible installed CLI+web+Node selection, explicit Start.",
+      "native_evidence": "docs/evidence/project-discovery/provenance.json; per-target native/desktop JSON; core-checks.json"
+    },
+    {
+      "id": "P3.4",
+      "criterion": "Mavjud PHP/Node selections, custom domain, favorite, DB/cache/mail bindings, secrets, worktree ownership va project revisions skaner tomonidan almashtirilmaydi.",
+      "status": "PASS",
+      "evidence": "crates/workspace/src/discovery.rs: no_runtime_candidates_missing_partial_and_detached_preserve_registry, registration_rename_forget_restart_and_replacement_are_conservative, forgetting_before_the_first_scan_remains_suppressed_and_restore_keeps_id; crates/projects/src/discovery.rs transactional suppression/restore; native manual_metadata_preserved/rename_preserves_id_domain/restore_preserves_profile",
+      "assessment": "Native manual profiles byte-equivalent; existing project record not reconstructed by scanner.",
+      "native_evidence": "docs/evidence/project-discovery/provenance.json; per-target native/desktop JSON; core-checks.json"
+    },
+    {
+      "id": "P3.5",
+      "criterion": "Forget discovery suppression yozadi; qayta skan/restart loyihani qaytarmaydi; Restore/Import suppression’ni explicit olib tashlaydi.",
+      "status": "PASS",
+      "evidence": "crates/workspace/src/discovery.rs: no_runtime_candidates_missing_partial_and_detached_preserve_registry, registration_rename_forget_restart_and_replacement_are_conservative, forgetting_before_the_first_scan_remains_suppressed_and_restore_keeps_id; crates/projects/src/discovery.rs transactional suppression/restore; native manual_metadata_preserved/rename_preserves_id_domain/restore_preserves_profile",
+      "assessment": "Transaction suppression includes first-scan CLI Forget; stale revision test; Restore same ID/runtime; Import clears only after success.",
+      "native_evidence": "docs/evidence/project-discovery/provenance.json; per-target native/desktop JSON; core-checks.json"
+    },
+    {
+      "id": "P3.6",
+      "criterion": "Complete skan yo‘qolgan papkani missing deb belgilaydi; failed/partial scan hech qanday ommaviy missing holatini qo‘llamaydi va DB/project fayllari o‘chmaydi.",
+      "status": "PASS",
+      "evidence": "crates/workspace/src/discovery.rs: no_runtime_candidates_missing_partial_and_detached_preserve_registry, registration_rename_forget_restart_and_replacement_are_conservative, forgetting_before_the_first_scan_remains_suppressed_and_restore_keeps_id; crates/projects/src/discovery.rs transactional suppression/restore; native manual_metadata_preserved/rename_preserves_id_domain/restore_preserves_profile",
+      "assessment": "No registry/project/DB destructive delete in reconcile; complete missing vs partial regression.",
+      "native_evidence": "docs/evidence/project-discovery/provenance.json; per-target native/desktop JSON; core-checks.json"
+    },
+    {
+      "id": "P3.7",
+      "criterion": "Same-filesystem stable identity bilan ishonchli rename project ID va bog‘lanishlarni saqlaydi; running session bo‘lsa relocation pending bo‘ladi, guarded stop/apply yo‘li talab etiladi.",
+      "status": "PASS",
+      "evidence": "crates/workspace/src/discovery.rs: no_runtime_candidates_missing_partial_and_detached_preserve_registry, registration_rename_forget_restart_and_replacement_are_conservative, forgetting_before_the_first_scan_remains_suppressed_and_restore_keeps_id; crates/projects/src/discovery.rs transactional suppression/restore; native manual_metadata_preserved/rename_preserves_id_domain/restore_preserves_profile",
+      "assessment": "Native rename preserves ID/domain; sessions/worktree guard and sites mutation guard enforce pending.",
+      "native_evidence": "docs/evidence/project-discovery/provenance.json; per-target native/desktop JSON; core-checks.json"
+    },
+    {
+      "id": "P3.8",
+      "criterion": "Windows File ID/volume identity mavjud bo‘lmasa yoki identity noaniq bo‘lsa avtomatik birlashtirish qilinmaydi: relocation review candidate, old record saqlanadi.",
+      "status": "PASS",
+      "evidence": "crates/workspace/src/discovery.rs: no_runtime_candidates_missing_partial_and_detached_preserve_registry, registration_rename_forget_restart_and_replacement_are_conservative, forgetting_before_the_first_scan_remains_suppressed_and_restore_keeps_id; crates/projects/src/discovery.rs transactional suppression/restore; native manual_metadata_preserved/rename_preserves_id_domain/restore_preserves_profile",
+      "assessment": "Windows volume/file/creation identity; explicitly path-prefixed fallback cannot auto-relocate.",
+      "native_evidence": "docs/evidence/project-discovery/provenance.json; per-target native/desktop JSON; core-checks.json"
+    },
+    {
+      "id": "P3.9",
+      "criterion": "Root A dan B ga o‘tganda old association detached bo‘ladi, manual entries qoladi va A generation natijalari B ni o‘zgartira olmaydi.",
+      "status": "PASS",
+      "evidence": "crates/workspace/src/discovery.rs: no_runtime_candidates_missing_partial_and_detached_preserve_registry, registration_rename_forget_restart_and_replacement_are_conservative, forgetting_before_the_first_scan_remains_suppressed_and_restore_keeps_id; crates/projects/src/discovery.rs transactional suppression/restore; native manual_metadata_preserved/rename_preserves_id_domain/restore_preserves_profile",
+      "assessment": "Cancellation generation discards old results; detached ledger retains manual projects;50 completed native root generations.",
+      "native_evidence": "docs/evidence/project-discovery/provenance.json; per-target native/desktop JSON; core-checks.json"
+    },
+    {
+      "id": "P3.10",
+      "criterion": "Yangi domen shop.devforge.test formatida; Unicode/invalid nomga stable valid slug taklif qilinadi; domain conflict mavjud saytni egallamaydi va rename custom domenni o‘zgartirmaydi.",
+      "status": "PASS",
+      "evidence": "crates/workspace/src/discovery.rs: no_runtime_candidates_missing_partial_and_detached_preserve_registry, registration_rename_forget_restart_and_replacement_are_conservative, forgetting_before_the_first_scan_remains_suppressed_and_restore_keeps_id; crates/projects/src/discovery.rs transactional suppression/restore; native manual_metadata_preserved/rename_preserves_id_domain/restore_preserves_profile",
+      "assessment": "ASCII deterministic slug and existing SiteStore collision validator; native domain preservation on rename.",
+      "native_evidence": "docs/evidence/project-discovery/provenance.json; per-target native/desktop JSON; core-checks.json"
+    },
+    {
+      "id": "P4.1",
+      "criterion": "Ilova startida UI sahifasi ochilishini kutmasdan saved root scan boshlanadi; close-to-tray holatida davom etadi, Quit’da to‘liq tugaydi.",
+      "status": "PASS",
+      "evidence": "crates/workspace/src/discovery.rs Service (bounded wake/result slots, generation/cancellation,500ms quiet/2s maximum invalidation,30s timer,Drop join); native native_watch_incomplete_copy/periodic_fallback_ms/native_root_delete_recreate/resource_lifecycle_generations/resources_before/resources_after; desktop close_to_tray_focus_recovery/native_event_to_ui_under_5s",
+      "assessment": "Startup coordinator starts independent of page; native hidden tray process survives, restore focus scan, explicit quit exits.",
+      "native_evidence": "docs/evidence/project-discovery/provenance.json; per-target native/desktop JSON; core-checks.json"
+    },
+    {
+      "id": "P4.2",
+      "criterion": "Root ichida mkdir/copy/rename/delete va direct-child manifest atomic replace natijalari restart yoki Refresh bosmasdan snapshot’da chiqadi.",
+      "status": "PASS",
+      "evidence": "crates/workspace/src/discovery.rs Service (bounded wake/result slots, generation/cancellation,500ms quiet/2s maximum invalidation,30s timer,Drop join); native native_watch_incomplete_copy/periodic_fallback_ms/native_root_delete_recreate/resource_lifecycle_generations/resources_before/resources_after; desktop close_to_tray_focus_recovery/native_event_to_ui_under_5s",
+      "assessment": "Native incomplete mkdir/copy/rename/root-delete tests; marker-filter unit covers atomic composer/package/artisan/public changes.",
+      "native_evidence": "docs/evidence/project-discovery/provenance.json; per-target native/desktop JSON; core-checks.json"
+    },
+    {
+      "id": "P4.3",
+      "criterion": "Watcher event’lari 500ms quiet debounce va 2s max-latency invalidation bilan birlashtiriladi; bitta active scan va bounded dirty flag/queue mavjud.",
+      "status": "PASS",
+      "evidence": "crates/workspace/src/discovery.rs Service (bounded wake/result slots, generation/cancellation,500ms quiet/2s maximum invalidation,30s timer,Drop join); native native_watch_incomplete_copy/periodic_fallback_ms/native_root_delete_recreate/resource_lifecycle_generations/resources_before/resources_after; desktop close_to_tray_focus_recovery/native_event_to_ui_under_5s",
+      "assessment": "sync_channel(1), one worker and one result slot;500ms quiet/2s dirty debounce in Service.",
+      "native_evidence": "docs/evidence/project-discovery/provenance.json; per-target native/desktop JSON; core-checks.json"
+    },
+    {
+      "id": "P4.4",
+      "criterion": "Root/child watch error yoki overflow 30s periodic shallow fallback va ko‘rinadigan degraded status beradi; app focus va manual rescan recovery qiladi.",
+      "status": "PASS",
+      "evidence": "crates/workspace/src/discovery.rs Service (bounded wake/result slots, generation/cancellation,500ms quiet/2s maximum invalidation,30s timer,Drop join); native native_watch_incomplete_copy/periodic_fallback_ms/native_root_delete_recreate/resource_lifecycle_generations/resources_before/resources_after; desktop close_to_tray_focus_recovery/native_event_to_ui_under_5s",
+      "assessment": "Watch failure degraded plus actual30s fallback; native focus recovery/manual Scan now bridge share request.",
+      "native_evidence": "docs/evidence/project-discovery/provenance.json; per-target native/desktop JSON; core-checks.json"
+    },
+    {
+      "id": "P4.5",
+      "criterion": "100-child local fixture event’i UI pollingni qo‘shib 5s ichida ko‘rinadi; fallback fixture 35s ichida konvergensiya qiladi; bular proposed acceptance budget, o‘lchov qayd etiladi.",
+      "status": "PASS",
+      "evidence": "crates/workspace/src/discovery.rs Service (bounded wake/result slots, generation/cancellation,500ms quiet/2s maximum invalidation,30s timer,Drop join); native native_watch_incomplete_copy/periodic_fallback_ms/native_root_delete_recreate/resource_lifecycle_generations/resources_before/resources_after; desktop close_to_tray_focus_recovery/native_event_to_ui_under_5s",
+      "assessment": "Native desktop fresh100-project root event measured below5s; real fallback below35s.",
+      "native_evidence": "docs/evidence/project-discovery/provenance.json; per-target native/desktop JSON; core-checks.json"
+    },
+    {
+      "id": "P4.6",
+      "criterion": "Root switch vaqtida eski watch’lar va pending timer bekor qilinadi; late generation natija persist qilinmaydi; 50 switch stress’da handle/thread soni baseline’ga qaytadi.",
+      "status": "PASS",
+      "evidence": "crates/workspace/src/discovery.rs Service (bounded wake/result slots, generation/cancellation,500ms quiet/2s maximum invalidation,30s timer,Drop join); native native_watch_incomplete_copy/periodic_fallback_ms/native_root_delete_recreate/resource_lifecycle_generations/resources_before/resources_after; desktop close_to_tray_focus_recovery/native_event_to_ui_under_5s",
+      "assessment": "Generation/cancellation;50 coalesced changes and50 completed backend generations; native process resource counts after Drop.",
+      "native_evidence": "docs/evidence/project-discovery/provenance.json; per-target native/desktop JSON; core-checks.json"
+    },
+    {
+      "id": "P4.7",
+      "criterion": "Root delete/recreate yoki disconnect/reconnect parent watch/fallback orqali tiklanadi; permission-denied degraded holati eski rows’ni o‘chirmaydi.",
+      "status": "PASS",
+      "evidence": "crates/workspace/src/discovery.rs Service (bounded wake/result slots, generation/cancellation,500ms quiet/2s maximum invalidation,30s timer,Drop join); native native_watch_incomplete_copy/periodic_fallback_ms/native_root_delete_recreate/resource_lifecycle_generations/resources_before/resources_after; desktop close_to_tray_focus_recovery/native_event_to_ui_under_5s",
+      "assessment": "Real root delete/recreate and owned permission-denied tests preserve registry; scanner partial gate.",
+      "native_evidence": "docs/evidence/project-discovery/provenance.json; per-target native/desktop JSON; core-checks.json"
+    },
+    {
+      "id": "P4.8",
+      "criterion": "10,000 ta event burst bounded xotira bilan bitta final authoritative natijaga konvergensiya qiladi; user project scripts/caches bo‘yicha recursive event storm kuzatilmaydi.",
+      "status": "PASS",
+      "evidence": "crates/workspace/src/discovery.rs Service (bounded wake/result slots, generation/cancellation,500ms quiet/2s maximum invalidation,30s timer,Drop join); native native_watch_incomplete_copy/periodic_fallback_ms/native_root_delete_recreate/resource_lifecycle_generations/resources_before/resources_after; desktop close_to_tray_focus_recovery/native_event_to_ui_under_5s",
+      "assessment": "10k-file native workload and bounded queue; Windows changed to root recursive handle with lexical deep-event rejection to permit rename.",
+      "native_evidence": "docs/evidence/project-discovery/provenance.json; per-target native/desktop JSON; core-checks.json"
+    },
+    {
+      "id": "P5.1",
+      "criterion": "Text input va native folder picker bir xil draft’ni yangilaydi; Cancel picker current/saved qiymatni o‘zgartirmaydi; Save keyin relaunch’da yo‘l qaytadi.",
+      "status": "PASS",
+      "evidence": "apps/desktop/src/discovery.test.tsx; apps/desktop/src/App.test.tsx; apps/desktop/src/components/ProjectDiscoverySettings.tsx; apps/desktop/src/pages/WorkspacePage.tsx discovery_state Start guard; native desktop checks and10 axe cases; three locale catalogs",
+      "assessment": "Actual OS selection/cancel strict samefile; native saved path relaunch; input draft tests.",
+      "native_evidence": "docs/evidence/project-discovery/provenance.json; per-target native/desktop JSON; core-checks.json"
+    },
+    {
+      "id": "P5.2",
+      "criterion": "Save explicit: har keystroke active watcher’ni o‘zgartirmaydi; invalid input inline xato, pending holatda double-submit bloklanadi; failed Save eski active root’ni saqlaydi.",
+      "status": "PASS",
+      "evidence": "apps/desktop/src/discovery.test.tsx; apps/desktop/src/App.test.tsx; apps/desktop/src/components/ProjectDiscoverySettings.tsx; apps/desktop/src/pages/WorkspacePage.tsx discovery_state Start guard; native desktop checks and10 axe cases; three locale catalogs",
+      "assessment": "Explicit form save, pending disabled, failed save retains active root; native invalid path assertion.",
+      "native_evidence": "docs/evidence/project-discovery/provenance.json; per-target native/desktop JSON; core-checks.json"
+    },
+    {
+      "id": "P5.3",
+      "criterion": "Default qiymat ~/Devforge, Windows’da resolved native path ko‘rsatiladi; Reset default oldingi user folder contentini ko‘chirmaydi yoki o‘chirmaydi.",
+      "status": "PASS",
+      "evidence": "apps/desktop/src/discovery.test.tsx; apps/desktop/src/App.test.tsx; apps/desktop/src/components/ProjectDiscoverySettings.tsx; apps/desktop/src/pages/WorkspacePage.tsx discovery_state Start guard; native desktop checks and10 axe cases; three locale catalogs",
+      "assessment": "Reset draft is ~/Devforge; saved root resolves via OS adapter; no source tree move/delete path.",
+      "native_evidence": "docs/evidence/project-discovery/provenance.json; per-target native/desktop JSON; core-checks.json"
+    },
+    {
+      "id": "P5.4",
+      "criterion": "Scan now single-flight ishlaydi; scanning/empty/success/degraded/error/unavailable holatlar ko‘rinadi, error’ning retry amali bor.",
+      "status": "PASS",
+      "evidence": "apps/desktop/src/discovery.test.tsx; apps/desktop/src/App.test.tsx; apps/desktop/src/components/ProjectDiscoverySettings.tsx; apps/desktop/src/pages/WorkspacePage.tsx discovery_state Start guard; native desktop checks and10 axe cases; three locale catalogs",
+      "assessment": "Service status, localized problems, scanning/manual retry controls; one worker.",
+      "native_evidence": "docs/evidence/project-discovery/provenance.json; per-target native/desktop JSON; core-checks.json"
+    },
+    {
+      "id": "P5.5",
+      "criterion": "Candidate needs-runtime/missing/conflict/ignored/relocation-pending holatlari oddiy stopped/ready bilan aralashtirilmaydi; Start faqat haqiqiy registered ready loyiha uchun ishlaydi.",
+      "status": "PASS",
+      "evidence": "apps/desktop/src/discovery.test.tsx; apps/desktop/src/App.test.tsx; apps/desktop/src/components/ProjectDiscoverySettings.tsx; apps/desktop/src/pages/WorkspacePage.tsx discovery_state Start guard; native desktop checks and10 axe cases; three locale catalogs",
+      "assessment": "Separate discovery_state and UI Start disabled except ready/detached; backend validates project identity/runtime.",
+      "native_evidence": "docs/evidence/project-discovery/provenance.json; per-target native/desktop JSON; core-checks.json"
+    },
+    {
+      "id": "P5.6",
+      "criterion": "Forget qilingan entry uchun Restore oqimi va root o‘zgargandagi detached loyihalar tushuntiriladi; existing manual Import tashqaridagi loyihalarni qo‘shadi.",
+      "status": "PASS",
+      "evidence": "apps/desktop/src/discovery.test.tsx; apps/desktop/src/App.test.tsx; apps/desktop/src/components/ProjectDiscoverySettings.tsx; apps/desktop/src/pages/WorkspacePage.tsx discovery_state Start guard; native desktop checks and10 axe cases; three locale catalogs",
+      "assessment": "Native Forget/Restore UI; detached retained on ordinary registered row; explicit Import remains available.",
+      "native_evidence": "docs/evidence/project-discovery/provenance.json; per-target native/desktop JSON; core-checks.json"
+    },
+    {
+      "id": "P5.7",
+      "criterion": "New Project default parent saved root’dan olinadi; publish/setup staging katalogi tayyor bo‘lguncha discovery uni register qilmaydi; create/discovery race bitta project yaratadi.",
+      "status": "PASS",
+      "evidence": "apps/desktop/src/discovery.test.tsx; apps/desktop/src/App.test.tsx; apps/desktop/src/components/ProjectDiscoverySettings.tsx; apps/desktop/src/pages/WorkspacePage.tsx discovery_state Start guard; native desktop checks and10 axe cases; three locale catalogs",
+      "assessment": "Native wizard parent samefile(saved root); setup reservation scanner regression and shared import duplicate guard.",
+      "native_evidence": "docs/evidence/project-discovery/provenance.json; per-target native/desktop JSON; core-checks.json"
+    },
+    {
+      "id": "P5.8",
+      "criterion": "Russian, Uzbek, English catalogs label/error/status/a11y matnlar bilan teng; dark/light/system va minimum desktop window’da long Unicode path horizontal overflow bermaydi.",
+      "status": "PASS",
+      "evidence": "apps/desktop/src/discovery.test.tsx; apps/desktop/src/App.test.tsx; apps/desktop/src/components/ProjectDiscoverySettings.tsx; apps/desktop/src/pages/WorkspacePage.tsx discovery_state Start guard; native desktop checks and10 axe cases; three locale catalogs",
+      "assessment": "Three semantic catalogs; native3 locales x2 themes and actual recorded minimum viewport, no overflow.",
+      "native_evidence": "docs/evidence/project-discovery/provenance.json; per-target native/desktop JSON; core-checks.json"
+    },
+    {
+      "id": "P5.9",
+      "criterion": "Keyboard Tab, visible focus, picker cancel/return focus va aria-live status ishlaydi; loyiha nomlari/yo‘llari tarjima qilinmaydi.",
+      "status": "PASS",
+      "evidence": "apps/desktop/src/discovery.test.tsx; apps/desktop/src/App.test.tsx; apps/desktop/src/components/ProjectDiscoverySettings.tsx; apps/desktop/src/pages/WorkspacePage.tsx discovery_state Start guard; native desktop checks and10 axe cases; three locale catalogs",
+      "assessment": "Native OS Tab into picker; global2px focus-visible outline; actual select/cancel focus return; paths/names translate=no.",
+      "native_evidence": "docs/evidence/project-discovery/provenance.json; per-target native/desktop JSON; core-checks.json"
+    },
+    {
+      "id": "P6.1",
+      "criterion": "macOS ARM64’da built Tauri app, watcher, saved path, startup/relaunch va discovered Laravel HTTP fixture actual ishlaydi; OS/arch/source hash hisobotda bor.",
+      "status": "PASS",
+      "evidence": "Final same-source native workflow, public backend/desktop JSON, source SHA and artifact SHA256 provenance; scopes and limits in docs/evidence/project-discovery/README.md",
+      "assessment": "Same-source macos-arm64 native release backend and actual WKWebView/HTTP/path/relaunch report.",
+      "native_evidence": "docs/evidence/project-discovery/provenance.json; per-target native/desktop JSON; core-checks.json"
+    },
+    {
+      "id": "P6.2",
+      "criterion": "macOS Intel’da ayni final source hash bilan native backend va WebView checks bajariladi; ARM64 natijasi Intel o‘rniga yozilmaydi.",
+      "status": "PASS",
+      "evidence": "Final same-source native workflow, public backend/desktop JSON, source SHA and artifact SHA256 provenance; scopes and limits in docs/evidence/project-discovery/README.md",
+      "assessment": "Same-source macos-x64 actual Intel runner backend and WKWebView report, separately bound source/artifact digest.",
+      "native_evidence": "docs/evidence/project-discovery/provenance.json; per-target native/desktop JSON; core-checks.json"
+    },
+    {
+      "id": "P6.3",
+      "criterion": "Windows x64’da ayni final source hash bilan WebView2, watcher, backslash/drive case, case-only rename, Cyrillic/spaces/non-ASCII parent va long path tests bajariladi.",
+      "status": "PASS",
+      "evidence": "Final same-source native workflow, public backend/desktop JSON, source SHA and artifact SHA256 provenance; scopes and limits in docs/evidence/project-discovery/README.md",
+      "assessment": "Same-source Windows x64 native kernel, restricted user, WebView2 and path/identity/case/junction tests.",
+      "native_evidence": "docs/evidence/project-discovery/provenance.json; per-target native/desktop JSON; core-checks.json"
+    },
+    {
+      "id": "P6.4",
+      "criterion": "Har targetda real folder picker selection/cancel tekshiriladi yoki alohida NOT VERIFIED gate yoziladi; native dialogga xizmat qiladigan IPC mock bilan pass belgilanmaydi.",
+      "status": "PASS",
+      "evidence": "Final same-source native workflow, public backend/desktop JSON, source SHA and artifact SHA256 provenance; scopes and limits in docs/evidence/project-discovery/README.md",
+      "assessment": "Real NSOpenPanel AXPress and real Win32 common-dialog Button HWND BM_CLICK; no supplied path/IPC picker return.",
+      "native_evidence": "docs/evidence/project-discovery/provenance.json; per-target native/desktop JSON; core-checks.json"
+    },
+    {
+      "id": "P6.5",
+      "criterion": "No-runtime candidate, installed-runtime register, duplicate/manual import, Forget+Restore, corrupt manifest recovery, root permission/missing va switch-during-scan stsenariylari native hisobotda bor.",
+      "status": "PASS",
+      "evidence": "Final same-source native workflow, public backend/desktop JSON, source SHA and artifact SHA256 provenance; scopes and limits in docs/evidence/project-discovery/README.md",
+      "assessment": "Native no-runtime/registration/manual preservation/ForgetRestore/permission/root recovery; parser and race regression tests.",
+      "native_evidence": "docs/evidence/project-discovery/provenance.json; per-target native/desktop JSON; core-checks.json"
+    },
+    {
+      "id": "P6.6",
+      "criterion": "Actual watcher event/overflow fallback va tray/quit lifecycle tekshiriladi; App e2e feature production HTTP control endpointini ochmaydi.",
+      "status": "PASS",
+      "evidence": "Final same-source native workflow, public backend/desktop JSON, source SHA and artifact SHA256 provenance; scopes and limits in docs/evidence/project-discovery/README.md",
+      "assessment": "Native watcher and tray/focus/quit plus Service Drop; W3C dependency/plugin cfg(feature=e2e); normal desktop builds omit feature.",
+      "native_evidence": "docs/evidence/project-discovery/provenance.json; per-target native/desktop JSON; core-checks.json"
+    },
+    {
+      "id": "P6.7",
+      "criterion": "Fixture HTTP selected PHP orqali 200 beradi; existing .devforge.test/.localhost-port serving modeli saqlanadi; hosts/CA native fixture faqat owned isolated muhitda.",
+      "status": "PASS",
+      "evidence": "Final same-source native workflow, public backend/desktop JSON, source SHA and artifact SHA256 provenance; scopes and limits in docs/evidence/project-discovery/README.md",
+      "assessment": "Actual Laravel13 HTTP response includes selected PHP version; owned fixture checks hosts/authority unchanged and no trust invocation.",
+      "native_evidence": "docs/evidence/project-discovery/provenance.json; per-target native/desktop JSON; core-checks.json"
+    },
+    {
+      "id": "P6.8",
+      "criterion": "Reports/screenshots tested commit + uncommitted artifact digest/source archive bilan bog‘lanadi; zip report provenance tekshiriladi va secrets/raw .env yuklanmaydi.",
+      "status": "PASS",
+      "evidence": "Final same-source native workflow, public backend/desktop JSON, source SHA and artifact SHA256 provenance; scopes and limits in docs/evidence/project-discovery/README.md",
+      "assessment": "GitHub run head_sha and job conclusion checked; ZIP digest equals API digest; only public JSON/screenshots retained.",
+      "native_evidence": "docs/evidence/project-discovery/provenance.json; per-target native/desktop JSON; core-checks.json"
+    },
+    {
+      "id": "P6.9",
+      "criterion": "Target yoki dialog automation mavjud bo‘lmasa no green completion: bajarilgan mustaqil checks va ochiq native gates aniq saqlanadi; cross-compile runtime deb ko‘rsatilmaydi.",
+      "status": "PASS",
+      "evidence": "Final same-source native workflow, public backend/desktop JSON, source SHA and artifact SHA256 provenance; scopes and limits in docs/evidence/project-discovery/README.md",
+      "assessment": "Historical failed gates retained in report; final completion requires all3 actual native reports.",
+      "native_evidence": "docs/evidence/project-discovery/provenance.json; per-target native/desktop JSON; core-checks.json"
+    },
+    {
+      "id": "P7.1",
+      "criterion": "Final workspace fmt/clippy/tests va frontend typecheck/test/build/locale checks exit 0; relevant baseline failures bo‘lsa ular aniq dalil bilan ochiq va complete claim berilmaydi.",
+      "status": "PASS",
+      "evidence": "Final fmt/clippy/workspace tests/frontend/locales/default desktop+CLI builds; native performance/resources/HTTP and12 desktop checks,10 axe cases; final source/knowledge reconciliation and strict validator; full60-criterion audit",
+      "assessment": "Final source CI and local command summaries; ignored credential case explicitly reported.",
+      "native_evidence": "docs/evidence/project-discovery/provenance.json; per-target native/desktop JSON; core-checks.json"
+    },
+    {
+      "id": "P7.2",
+      "criterion": "100 local sibling candidate fixture cold scan 3s ichida, UI confirmation native event’dan 5s ichida, fallback 35s ichida; release build/hardware/workload bilan o‘lchanadi yoki asosli revised budget review’da qayd etiladi.",
+      "status": "PASS",
+      "evidence": "Final fmt/clippy/workspace tests/frontend/locales/default desktop+CLI builds; native performance/resources/HTTP and12 desktop checks,10 axe cases; final source/knowledge reconciliation and strict validator; full60-criterion audit",
+      "assessment": "100 candidate release scan,100-project event-to-rendered-row, real30s fallback; actual measured results in report.",
+      "native_evidence": "docs/evidence/project-discovery/provenance.json; per-target native/desktop JSON; core-checks.json"
+    },
+    {
+      "id": "P7.3",
+      "criterion": "Normal local idle’da periodic root reconciliation 30s dan tez emas, unchanged candidates reimport qilinmaydi, child dependency subtree o‘qilmaydi; resource trend 50 root switch/10k event test’da bound ichida.",
+      "status": "PASS",
+      "evidence": "Final fmt/clippy/workspace tests/frontend/locales/default desktop+CLI builds; native performance/resources/HTTP and12 desktop checks,10 axe cases; final source/knowledge reconciliation and strict validator; full60-criterion audit",
+      "assessment": "30s timer; SQL unchanged-record update guard; no reimport of registered projects; native handles/threads/RSS before/after50 actual generations.",
+      "native_evidence": "docs/evidence/project-discovery/provenance.json; per-target native/desktop JSON; core-checks.json"
+    },
+    {
+      "id": "P7.4",
+      "criterion": "Minimum supported desktop size va 3 locale x light/dark (system representative) states screenshot/interaction bilan tekshiriladi; scoped axe’da yangi finding 0, native picker focus alohida tekshiriladi.",
+      "status": "PASS",
+      "evidence": "Final fmt/clippy/workspace tests/frontend/locales/default desktop+CLI builds; native performance/resources/HTTP and12 desktop checks,10 axe cases; final source/knowledge reconciliation and strict validator; full60-criterion audit",
+      "assessment": "Inspected native screenshots;3 locale x2 themes;10 axe cases/0 per target; native focus and recorded viewport.",
+      "native_evidence": "docs/evidence/project-discovery/provenance.json; per-target native/desktop JSON; core-checks.json"
+    },
+    {
+      "id": "P7.5",
+      "criterion": "Existing manual import/Create/Prepare, custom runtime/domain, worktree cleanup, service binding va persistent DB ma’lumotlari uchun tegishli regression stsenariylari o‘tadi.",
+      "status": "PASS",
+      "evidence": "Final fmt/clippy/workspace tests/frontend/locales/default desktop+CLI builds; native performance/resources/HTTP and12 desktop checks,10 axe cases; final source/knowledge reconciliation and strict validator; full60-criterion audit",
+      "assessment": "Full workspace tests incl setup/worktree/services plus native Composer Laravel/manual profile/domain/restore invariants.",
+      "native_evidence": "docs/evidence/project-discovery/provenance.json; per-target native/desktop JSON; core-checks.json"
+    },
+    {
+      "id": "P7.6",
+      "criterion": "Discovery avtomatik process/download/DB/.env/system DNS/CA mutation boshlamasligi sentinel/owned-state checks bilan tasdiqlanadi; Start/Prepare mavjud explicit oqimida qoladi.",
+      "status": "PASS",
+      "evidence": "Final fmt/clippy/workspace tests/frontend/locales/default desktop+CLI builds; native performance/resources/HTTP and12 desktop checks,10 axe cases; final source/knowledge reconciliation and strict validator; full60-criterion audit",
+      "assessment": "Read-only scanner/NoSecrets/sentinel checks; native owned hosts/authority invariants; explicit Start only.",
+      "native_evidence": "docs/evidence/project-discovery/provenance.json; per-target native/desktop JSON; core-checks.json"
+    },
+    {
+      "id": "P7.7",
+      "criterion": "Yakuniy knowledge’da confirmed requirement, proposed/changed design, actual implementation va har platformaning verified/unverified chegarasi ajratiladi; strict validator 0 error/0 warning.",
+      "status": "PASS",
+      "evidence": "Final fmt/clippy/workspace tests/frontend/locales/default desktop+CLI builds; native performance/resources/HTTP and12 desktop checks,10 axe cases; final source/knowledge reconciliation and strict validator; full60-criterion audit",
+      "assessment": "Feature concept/index/provenance/log/state reconciled to source and final reports; strict28/0/0.",
+      "native_evidence": "docs/evidence/project-discovery/provenance.json; per-target native/desktop JSON; core-checks.json"
+    },
+    {
+      "id": "P7.8",
+      "criterion": "Final diff’da task debug prints, session TODO/FIXME, dead imports yoki aloqasiz source o‘zgarishi yo‘q; publish/deploy/commit/push userning yangi ko‘rsatmasisiz bajarilmaydi.",
+      "status": "PASS",
+      "evidence": "Final fmt/clippy/workspace tests/frontend/locales/default desktop+CLI builds; native performance/resources/HTTP and12 desktop checks,10 axe cases; final source/knowledge reconciliation and strict validator; full60-criterion audit",
+      "assessment": "Final source/diff and diagnostic-boundary review; task-only branch used for authorized verification, no main merge/release.",
+      "native_evidence": "docs/evidence/project-discovery/provenance.json; per-target native/desktop JSON; core-checks.json"
+    },
+    {
+      "id": "P7.9",
+      "criterion": "Original ROADMAP criteria yakuniy source/evidence bilan qayta audit qilinadi; native yoki system-dialog gate ochiq bo‘lsa feature fully verified deb yopilmaydi.",
+      "status": "PASS",
+      "evidence": "Final fmt/clippy/workspace tests/frontend/locales/default desktop+CLI builds; native performance/resources/HTTP and12 desktop checks,10 axe cases; final source/knowledge reconciliation and strict validator; full60-criterion audit",
+      "assessment": "All60 original IDs checked individually; final source/three platform/actual picker gates mandatory.",
+      "native_evidence": "docs/evidence/project-discovery/provenance.json; per-target native/desktop JSON; core-checks.json"
+    }
+  ],
+  "tested_source_commits": [
+    "0fb0eca7d7bf28dfae1039d584503275cadb2b79",
+    "c33eadc4486ebf12c9ad50a95dab81dbdd5d4e7e"
+  ],
+  "product_and_runner_tree_sha256": "74a7e5f84fcf45c7f7bddd5c4896c8bd1c26689bde92719ed33ca8cc5285331a",
+  "knowledge_validation": {
+    "okf_version": "0.2",
+    "strict": true,
+    "documents": 28,
+    "errors": 0,
+    "warnings": 0,
+    "passed": true,
+    "issues": []
+  },
+  "criterion_count": 60
+}

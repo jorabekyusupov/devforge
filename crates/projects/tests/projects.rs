@@ -301,7 +301,7 @@ fn staged_generations_preserve_active_binding_and_use_engine_specific_role_limit
 }
 
 #[test]
-fn schema_four_records_keep_environment_and_runtime_selections_in_schema_six() {
+fn schema_four_records_keep_environment_and_runtime_selections_in_schema_seven() {
     let root = tempfile::tempdir().unwrap();
     let catalog = Catalog::bundled();
     let php = selection(&catalog, "php", "8.4");
@@ -317,6 +317,7 @@ fn schema_four_records_keep_environment_and_runtime_selections_in_schema_six() {
     let connection = rusqlite::Connection::open(metadata.join("projects.sqlite3")).unwrap();
     let mut json = serde_json::to_value(&p).unwrap();
     json.as_object_mut().unwrap().remove("worktree");
+    json.as_object_mut().unwrap().remove("filesystem_identity");
     connection
         .execute(
             "UPDATE projects SET record=?1 WHERE id=?2",
@@ -337,7 +338,7 @@ fn schema_four_records_keep_environment_and_runtime_selections_in_schema_six() {
         connection
             .pragma_query_value(None, "user_version", |r| r.get::<_, u32>(0))
             .unwrap(),
-        6
+        7
     );
 }
 
@@ -378,4 +379,92 @@ fn provider_rebuild_keeps_legacy_pins_and_selects_a_separate_reviewed_family() {
             .unwrap()["php"],
         old
     );
+}
+
+#[test]
+fn schema_six_from_either_history_preserves_debugger_profiles_and_discovery() {
+    for with_ledger in [false, true] {
+        let root = tempfile::tempdir().unwrap();
+        let catalog = Catalog::bundled();
+        let php = selection(&catalog, "php", "8.4");
+        let node = selection(&catalog, "node", "v22");
+        let path = root.path().join("project");
+        project(&path, "^8.3", "*");
+        let data = root.path().join("metadata");
+        let store = ProjectStore::open(&data).unwrap();
+        let imported = store
+            .import(&path, "Preserved", &php, &node, &catalog)
+            .unwrap();
+        store
+            .save_debugger(
+                &imported.id,
+                imported.revision,
+                devforge_debugger::Settings {
+                    mode: devforge_debugger::Mode::Profile,
+                    runtime: Some("a".repeat(32)),
+                    breakpoints: vec![],
+                },
+            )
+            .unwrap();
+        let expected = serde_json::to_value(store.get(&imported.id).unwrap()).unwrap();
+        if with_ledger {
+            store
+                .save_discovery(&devforge_projects::discovery::Entry {
+                    identity: devforge_projects::discovery::identity(&path).unwrap(),
+                    root: root.path().to_owned(),
+                    path: path.clone(),
+                    name: "Preserved".into(),
+                    project_id: Some(imported.id.clone()),
+                    state: "ignored".into(),
+                    problem: None,
+                    ignored: true,
+                })
+                .unwrap();
+        }
+        drop(store);
+        let db = rusqlite::Connection::open(data.join("projects.sqlite3")).unwrap();
+        if !with_ledger {
+            db.execute_batch("DROP TABLE discovery_entries").unwrap();
+        }
+        db.pragma_update(None, "user_version", 6).unwrap();
+        drop(db);
+        let store = ProjectStore::open(&data).unwrap();
+        assert_eq!(
+            serde_json::to_value(store.get(&imported.id).unwrap()).unwrap(),
+            expected
+        );
+        assert_eq!(
+            store.discovery_entries().unwrap().len(),
+            usize::from(with_ledger)
+        );
+        drop(store);
+        // Replay must be harmless after either migration history.
+        let reopened = ProjectStore::open(&data).unwrap();
+        assert_eq!(
+            serde_json::to_value(reopened.get(&imported.id).unwrap()).unwrap(),
+            expected
+        );
+    }
+}
+
+#[test]
+fn every_reviewed_php_family_pairs_web_and_cli_without_replacing_locked_ids() {
+    let catalog = Catalog::bundled();
+    for (legacy, replacement) in &catalog.superseded {
+        let old = catalog.get(legacy).unwrap();
+        let next = catalog.get(replacement).unwrap();
+        assert_ne!(old.key().unwrap(), next.key().unwrap());
+        assert_ne!(old.sha256, next.sha256);
+        assert_eq!(old.target, next.target);
+        assert_eq!(
+            old.version.split('-').next(),
+            next.version.split('-').next()
+        );
+        if next.executables.contains_key("php") {
+            assert_eq!(catalog.php_server(next).unwrap().version, next.version);
+            assert_eq!(catalog.php_server(old).unwrap().version, old.version);
+        }
+    }
+    assert!(catalog.superseded.contains_key("php-8.5.12-cli-macos-x64"));
+    assert!(catalog.superseded.contains_key("php-8.5.12-fpm-macos-x64"));
 }

@@ -14,11 +14,68 @@ pub fn app_data_dir() -> Result<PathBuf, ErrorCode> {
         .ok_or(ErrorCode::StorageUnavailable)
 }
 
+pub fn default_project_folder(home: &Path) -> PathBuf {
+    home.join("Devforge")
+}
+pub fn home_dir() -> Result<PathBuf, ErrorCode> {
+    dirs::home_dir().ok_or(ErrorCode::ProjectFolderUnavailable)
+}
+
+/// Resolve only a leading home marker, never shell expressions or environment
+/// substitutions. Canonicalization is required before activating a root.
+pub fn resolve_project_folder(input: &str, home: &Path) -> Result<PathBuf, ErrorCode> {
+    if input.trim().is_empty() || input.chars().any(char::is_control) {
+        return Err(ErrorCode::InvalidProjectFolder);
+    }
+    let path = if input == "~" {
+        home.to_path_buf()
+    } else if let Some(rest) = input
+        .strip_prefix("~/")
+        .or_else(|| input.strip_prefix("~\\"))
+    {
+        home.join(rest)
+    } else {
+        PathBuf::from(input)
+    };
+    if !path.is_absolute() {
+        return Err(ErrorCode::InvalidProjectFolder);
+    }
+    let metadata = std::fs::metadata(&path).map_err(|e| {
+        if e.kind() == std::io::ErrorKind::NotFound {
+            ErrorCode::ProjectFolderMissing
+        } else {
+            ErrorCode::ProjectFolderUnavailable
+        }
+    })?;
+    if !metadata.is_dir() {
+        return Err(ErrorCode::InvalidProjectFolder);
+    }
+    std::fs::read_dir(&path).map_err(|_| ErrorCode::ProjectFolderUnavailable)?;
+    std::fs::canonicalize(path)
+        .map(|p| dunce::simplified(&p).to_path_buf())
+        .map_err(|_| ErrorCode::ProjectFolderUnavailable)
+}
+
 pub struct SqliteSettings {
     connection: Connection,
     path: PathBuf,
 }
 impl SqliteSettings {
+    /// Initialization is recorded by saving the resolved path. Later loss of the
+    /// directory must remain visible, rather than re-creating it on every launch.
+    pub fn initialize_project_folder(&mut self, home: &Path) -> Result<(), ErrorCode> {
+        let mut settings = self.load()?;
+        if settings.project_folder.is_none() {
+            let path = default_project_folder(home);
+            // Record the first attempt even when the default cannot be created.
+            // Root health is reported by discovery, keeping Settings available so
+            // the user can select an accessible folder. Never recreate on launch.
+            let _ = std::fs::create_dir(&path);
+            settings.project_folder = Some(path.to_string_lossy().into_owned());
+            self.save(&settings)?;
+        }
+        Ok(())
+    }
     pub fn open(directory: &Path) -> Result<Self, ErrorCode> {
         std::fs::create_dir_all(directory).map_err(|_| ErrorCode::StorageUnavailable)?;
         let path = directory.join("preferences.sqlite3");
@@ -128,6 +185,7 @@ mod tests {
         let chosen = Settings {
             language: "ru".into(),
             theme: Theme::Dark,
+            project_folder: None,
         };
         {
             let mut db = SqliteSettings::open(root.path()).unwrap();
@@ -196,5 +254,76 @@ mod tests {
         assert!(cleanup.is_ok(), "task credential cleanup failed");
         assert!(outcome.is_ok(), "native credential roundtrip failed");
         assert_eq!(store.get(&key).unwrap(), None);
+    }
+}
+
+#[cfg(test)]
+mod discovery_tests {
+    use super::*;
+    #[test]
+    fn legacy_preferences_and_one_time_default_initialization() {
+        let temp = tempfile::tempdir().unwrap();
+        let home = temp.path().join("home");
+        std::fs::create_dir(&home).unwrap();
+        let mut db = SqliteSettings::open(&temp.path().join("data")).unwrap();
+        db.connection
+            .execute(
+                "INSERT INTO preferences VALUES(1,?1)",
+                [r#"{"language":"ru","theme":"dark"}"#],
+            )
+            .unwrap();
+        db.initialize_project_folder(&home).unwrap();
+        let settings = db.load().unwrap();
+        assert_eq!(settings.language, "ru");
+        assert_eq!(settings.theme, devforge_core::Theme::Dark);
+        assert_eq!(
+            settings.project_folder.as_deref(),
+            Some(home.join("Devforge").to_str().unwrap())
+        );
+        std::fs::remove_dir(home.join("Devforge")).unwrap();
+        db.initialize_project_folder(&home).unwrap();
+        assert!(!home.join("Devforge").exists());
+        let stale: devforge_core::SettingsPatch =
+            serde_json::from_str(r#"{"language":"en"}"#).unwrap();
+        let updated = stale.apply(settings.clone());
+        assert_eq!(updated.project_folder, settings.project_folder);
+        assert_eq!(updated.theme, settings.theme);
+        db.save(&updated).unwrap();
+        drop(db);
+        assert_eq!(
+            SqliteSettings::open(&temp.path().join("data"))
+                .unwrap()
+                .load()
+                .unwrap(),
+            updated
+        );
+    }
+    #[test]
+    fn resolve_rejects_invalid_missing_and_file_without_creating() {
+        let home = tempfile::tempdir().unwrap();
+        std::fs::create_dir(home.path().join("Devforge")).unwrap();
+        assert_eq!(
+            resolve_project_folder("~/Devforge", home.path()).unwrap(),
+            dunce::simplified(&std::fs::canonicalize(home.path().join("Devforge")).unwrap())
+                .to_path_buf()
+        );
+        for input in ["", "  ", "relative", "bad\npath"] {
+            assert_eq!(
+                resolve_project_folder(input, home.path()),
+                Err(ErrorCode::InvalidProjectFolder)
+            );
+        }
+        let missing = home.path().join("missing");
+        assert_eq!(
+            resolve_project_folder(missing.to_str().unwrap(), home.path()),
+            Err(ErrorCode::ProjectFolderMissing)
+        );
+        assert!(!missing.exists());
+        let file = home.path().join("file");
+        std::fs::write(&file, "").unwrap();
+        assert_eq!(
+            resolve_project_folder(file.to_str().unwrap(), home.path()),
+            Err(ErrorCode::InvalidProjectFolder)
+        );
     }
 }

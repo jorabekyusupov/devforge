@@ -161,6 +161,7 @@ function Progress({
   );
 }
 export function CreateProjectDialog({
+  defaultParent = "",
   runtimes,
   starter,
   busy,
@@ -172,6 +173,7 @@ export function CreateProjectDialog({
   onClose,
   onCreated,
 }: {
+  defaultParent?: string;
   runtimes: Runtime[];
   starter: string;
   busy: boolean;
@@ -200,7 +202,7 @@ export function CreateProjectDialog({
       )[0]?.id ?? "";
   const [input, setInput] = useState<CreateInput>({
     source: { kind: "laravel", version: starter },
-    parent: "",
+    parent: defaultParent,
     folder: "",
     name: "",
     php: first("php"),

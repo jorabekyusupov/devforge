@@ -45,6 +45,8 @@ impl Catalog {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Project {
     pub id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub filesystem_identity: Option<String>,
     pub name: String,
     pub path: PathBuf,
     pub php: String,
@@ -173,7 +175,7 @@ impl ProjectStore {
         connection.busy_timeout(Duration::from_secs(3))?;
         connection.pragma_update(None, "foreign_keys", true)?;
         let version: u32 = connection.pragma_query_value(None, "user_version", |r| r.get(0))?;
-        if version > 6 {
+        if version > 7 {
             return Err(E::StorageUnavailable);
         }
         if version == 0 {
@@ -193,6 +195,11 @@ impl ProjectStore {
         }
         if version <= 5 {
             connection.pragma_update(None, "user_version", 6)?;
+        }
+        // Both released M7 and the discovery feature used schema6. The additive
+        // schema7 migration supports either history and preserves existing ledgers.
+        if version <= 6 {
+            connection.execute_batch("BEGIN IMMEDIATE; CREATE TABLE IF NOT EXISTS discovery_entries(identity TEXT PRIMARY KEY,record TEXT NOT NULL); PRAGMA user_version=7; COMMIT;")?;
         }
         Ok(Self { connection, root })
     }
@@ -235,6 +242,7 @@ impl ProjectStore {
         }
         let project = Project {
             id: crate::id(),
+            filesystem_identity: crate::discovery::identity(&checked.path).ok(),
             name: name.into(),
             path: checked.path,
             php: php.into(),
@@ -275,6 +283,35 @@ impl ProjectStore {
             .ok_or(E::NotFound)?;
         serde_json::from_str(&value).map_err(|_| E::StorageUnavailable)
     }
+    /// Caller holds the project session guard. Retain ID and all bindings while
+    /// atomically updating the path and optimistic revision.
+    pub fn relocate(&self, id: &str, revision: u64, path: &Path) -> Result<Project> {
+        let mut project = self.get(id)?;
+        if project.revision != revision || project.worktree.is_some() {
+            return Err(E::StaleRevision);
+        }
+        let checked = inspect(path)?;
+        let identity = crate::discovery::identity(&checked.path).map_err(|_| E::InvalidProject)?;
+        if project
+            .filesystem_identity
+            .as_ref()
+            .is_some_and(|old| old != &identity)
+        {
+            return Err(E::InvalidProject);
+        }
+        project.filesystem_identity = Some(identity);
+        let key = path_key(&checked.path);
+        project.path = checked.path;
+        project.revision += 1;
+        let changed = self.connection.execute(
+            "UPDATE projects SET path_key=?1,record=?2,revision=?3 WHERE id=?4 AND revision=?5 AND active=1",
+            params![key,serde_json::to_string(&project).unwrap(),project.revision as i64,id,revision as i64],
+        )?;
+        if changed != 1 {
+            return Err(E::StaleRevision);
+        }
+        Ok(project)
+    }
     pub fn configure(
         &self,
         id: &str,
@@ -305,7 +342,11 @@ impl ProjectStore {
             return Err(E::WorkspaceManaged);
         }
         p.active = false;
-        self.save(&mut p, revision)
+        let transaction = self.connection.unchecked_transaction()?;
+        self.save(&mut p, revision)?;
+        self.suppress_discovery(id)?;
+        transaction.commit()?;
+        Ok(())
     }
     pub fn save_debugger(
         &self,
@@ -365,7 +406,7 @@ impl ProjectStore {
         Ok(())
     }
 }
-fn path_key(path: &Path) -> String {
+pub(crate) fn path_key(path: &Path) -> String {
     #[cfg(unix)]
     {
         use std::os::unix::fs::MetadataExt;

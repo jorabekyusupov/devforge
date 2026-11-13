@@ -1,0 +1,43 @@
+{
+  "authority_store_unchanged": true,
+  "automatic_registration": true,
+  "case_only_rename": true,
+  "cold_100_scan_ms": 9,
+  "event_storm_10000_ms": 5251,
+  "fifty_root_switches": true,
+  "forget_restore": true,
+  "long_unicode_path": true,
+  "manual_metadata_preserved": true,
+  "native_event_count": 28540,
+  "native_root_delete_recreate": true,
+  "native_watch_incomplete_copy": true,
+  "no_runtime_candidate": true,
+  "passed": true,
+  "periodic_fallback_ms": 30588,
+  "permission_denied_preserves_registry": true,
+  "real_laravel_http": {
+    "discovered": true,
+    "framework": "13.42.0",
+    "php": "8.5.12"
+  },
+  "rename_preserves_id_domain": true,
+  "reparse_children_skipped": true,
+  "resource_lifecycle_generations": 50,
+  "resources_after": {
+    "handles": 13,
+    "rss_bytes": 10244096,
+    "threads": 3
+  },
+  "resources_before": {
+    "handles": 13,
+    "rss_bytes": 10039296,
+    "threads": 3
+  },
+  "restore_preserves_profile": true,
+  "system_hosts_unchanged": true,
+  "system_trust_operations_invoked": false,
+  "target": "macos-x64",
+  "ui_project_id": "1a5fa072ec934d58814905fda66bba1f",
+  "ui_root": "/private/var/folders/20/jp1_0n3n7kndh6rnbqb5344m0000gn/T/devforge-discovery-fixture/discovery projects Ўзбек",
+  "watch_copy_to_registration_ms": 1866
+}
