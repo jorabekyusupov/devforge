@@ -221,7 +221,7 @@ impl Workspace {
         }
         None
     }
-    fn configure_discovered_site(&self, p: &Project, name: &str) -> Result<()> {
+    pub(crate) fn configure_discovered_site(&self, p: &Project, name: &str) -> Result<()> {
         let mut slug = name
             .chars()
             .map(|c| {
@@ -621,6 +621,63 @@ mod tests {
                 .any(|e| e.problem.as_deref() == Some("identity_changed"))
         );
         assert!(w.start(&restored.id).is_err());
+    }
+    #[test]
+    fn forgetting_before_the_first_scan_remains_suppressed_and_restore_keeps_id() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join("projects");
+        fs::create_dir(&root).unwrap();
+        fixture(&root.join("manual"));
+        let mut w = Workspace::open(temp.path().join("data"), Arc::new(NoSecrets)).unwrap();
+        let target = devforge_runtime::package::Target::current().unwrap();
+        let php = w
+            .catalog
+            .packages
+            .iter()
+            .find(|(_, p)| {
+                p.target == target && p.kind == "php" && p.executables.contains_key("php")
+            })
+            .unwrap()
+            .0
+            .clone();
+        let node = w
+            .catalog
+            .packages
+            .iter()
+            .find(|(_, p)| p.target == target && p.kind == "node")
+            .unwrap()
+            .0
+            .clone();
+        let project = w
+            .projects
+            .import(&root.join("manual"), "Manual", &php, &node, &w.catalog)
+            .unwrap();
+        w.projects.forget(&project.id, project.revision).unwrap();
+        scan_into(&mut w, &root);
+        assert!(w.projects.list().unwrap().is_empty());
+        let entry = w
+            .projects
+            .discovery_entries()
+            .unwrap()
+            .into_iter()
+            .find(|e| e.project_id.as_deref() == Some(&project.id))
+            .unwrap();
+        assert!(entry.ignored);
+        w.execute(
+            Command::DiscoveryRestore {
+                identity: entry.identity,
+            },
+            &Cancellation::default(),
+        )
+        .unwrap();
+        assert_eq!(w.projects.get(&project.id).unwrap().php, php);
+        assert!(
+            w.sites
+                .sites()
+                .unwrap()
+                .iter()
+                .any(|s| s.project_id == project.id)
+        );
     }
     #[test]
     fn native_watcher_converges_after_incomplete_copy_root_switch_and_quit() {

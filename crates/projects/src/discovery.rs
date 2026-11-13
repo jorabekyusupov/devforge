@@ -385,14 +385,42 @@ impl crate::project::ProjectStore {
         Ok(())
     }
     pub fn suppress_discovery(&self, id: &str) -> crate::Result<()> {
-        for mut e in self
+        let mut matched = false;
+        for mut entry in self
             .discovery_entries()?
             .into_iter()
             .filter(|e| e.project_id.as_deref() == Some(id))
         {
-            e.ignored = true;
-            e.state = "ignored".into();
-            self.save_discovery(&e)?;
+            matched = true;
+            entry.ignored = true;
+            entry.state = "ignored".into();
+            self.save_discovery(&entry)?;
+        }
+        if !matched {
+            // A manual/CLI project may be forgotten before its first scan.
+            // Suppress its physical identity in the same transaction as retirement.
+            let raw: String = self.connection.query_row(
+                "SELECT record FROM projects WHERE id=?1",
+                [id],
+                |r| r.get(0),
+            )?;
+            let project: crate::project::Project =
+                serde_json::from_str(&raw).map_err(|_| crate::ProjectError::StorageUnavailable)?;
+            if let Some(identity) = project
+                .filesystem_identity
+                .or_else(|| identity(&project.path).ok())
+            {
+                self.save_discovery(&Entry {
+                    identity,
+                    root: project.path.parent().unwrap_or(&project.path).to_path_buf(),
+                    path: project.path,
+                    name: project.name,
+                    project_id: Some(project.id),
+                    state: "ignored".into(),
+                    problem: None,
+                    ignored: true,
+                })?;
+            }
         }
         Ok(())
     }

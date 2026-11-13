@@ -494,6 +494,19 @@ impl Workspace {
         match command {
             Command::DiscoveryRestore { identity } => {
                 self.projects.restore_discovery(&identity)?;
+                if let Some(entry) = self
+                    .projects
+                    .discovery_entries()?
+                    .into_iter()
+                    .find(|e| e.identity == identity)
+                {
+                    if let Some(id) = entry.project_id {
+                        let project = self.projects.get(&id)?;
+                        if !self.sites.sites()?.iter().any(|s| s.project_id == id) {
+                            self.configure_discovered_site(&project, &entry.name)?;
+                        }
+                    }
+                }
                 Ok(serde_json::json!({"restored":true}))
             }
             Command::WorktreeOpen { id } => self.worktree_open(&id),

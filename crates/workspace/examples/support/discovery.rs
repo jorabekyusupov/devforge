@@ -399,6 +399,13 @@ pub fn prepare(root: &Path, cache: &Path) -> Result<()> {
     ));
     let mut w = Workspace::open(&data, secrets.clone())?;
     let target = Target::current()?;
+    let rename_probe = root.join("rename-probe");
+    let source_probe = rename_probe.join("child");
+    fs::create_dir_all(&source_probe)?;
+    fs::rename(&source_probe, rename_probe.join("renamed"))
+        .map_err(|e| format!("same-user directory rename before any process or watcher: {e}"))?;
+    fs::remove_dir_all(&rename_probe)?;
+    eprintln!("DISCOVERY_PREPARE: same-user directory mutation probe passed");
     let candidates: Vec<serde_json::Value> =
         serde_json::from_str(include_str!("../../../../runtime/m0-candidates.json"))?;
     for (id, p) in w.catalog.packages.iter().filter(|(_, p)| {

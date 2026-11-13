@@ -100,7 +100,10 @@ export function App({ backend = desktopBackend }: { backend?: Backend }) {
     setBusy(true);
     setError(null);
     try {
-      await apply(await backend.save({ ...settings, ...patch }));
+      const update: Preferences = { ...settings, ...patch };
+      // A language/theme update must not revalidate or restore a stale folder.
+      if (patch.project_folder === undefined) delete update.project_folder;
+      await apply(await backend.save(update));
       return true;
     } catch (reason) {
       if (mounted.current) setError(codeOf(reason));

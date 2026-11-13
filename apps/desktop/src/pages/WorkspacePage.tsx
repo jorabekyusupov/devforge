@@ -75,6 +75,14 @@ export function WorkspacePage({
     a.project.name.localeCompare(b.project.name, i18n.language),
   );
   const row = projects.find((p) => p.project.id === selected) ?? projects[0];
+  const discovered = (api.snapshot?.discovery?.entries ?? []).filter(
+    (entry) =>
+      entry.state !== "ready" &&
+      entry.state !== "detached" &&
+      `${entry.name} ${entry.path}`
+        .toLocaleLowerCase()
+        .includes(query.toLocaleLowerCase()),
+  );
   const runtimes = api.snapshot?.runtimes ?? [];
   useEffect(() => {
     const changed = () =>
@@ -227,65 +235,55 @@ export function WorkspacePage({
                 {api.snapshot.discovery.root}
               </p>
               <ul>
-                {api.snapshot.discovery.entries
-                  .filter(
-                    (entry) =>
-                      entry.state !== "ready" &&
-                      `${entry.name} ${entry.path}`
-                        .toLocaleLowerCase()
-                        .includes(query.toLocaleLowerCase()),
-                  )
-                  .slice(0, discoveryLimit)
-                  .map((entry) => (
-                    <li
-                      key={entry.identity}
-                      data-discovery-identity={entry.identity}
-                    >
-                      <div>
-                        <strong translate="no">{entry.name}</strong>
-                        <span>{t(`discovery.states.${entry.state}`)}</span>
-                        <small translate="no">{entry.path}</small>
-                        {entry.problem && (
-                          <small>
-                            {t(`discovery.problems.${entry.problem}`, {
-                              defaultValue: t("discovery.failed"),
-                            })}
-                          </small>
-                        )}
-                      </div>
-                      {entry.ignored ? (
+                {discovered.slice(0, discoveryLimit).map((entry) => (
+                  <li
+                    key={entry.identity}
+                    data-discovery-identity={entry.identity}
+                  >
+                    <div>
+                      <strong translate="no">{entry.name}</strong>
+                      <span>{t(`discovery.states.${entry.state}`)}</span>
+                      <small translate="no">{entry.path}</small>
+                      {entry.problem && (
+                        <small>
+                          {t(`discovery.problems.${entry.problem}`, {
+                            defaultValue: t("discovery.failed"),
+                          })}
+                        </small>
+                      )}
+                    </div>
+                    {entry.ignored ? (
+                      <button
+                        disabled={api.busy}
+                        onClick={() =>
+                          void api.run({
+                            action: "discovery_restore",
+                            identity: entry.identity,
+                          })
+                        }
+                      >
+                        {t("discovery.restore")}
+                      </button>
+                    ) : (
+                      !entry.project_id &&
+                      entry.state !== "missing" &&
+                      entry.state !== "detached" && (
                         <button
                           disabled={api.busy}
-                          onClick={() =>
-                            void api.run({
-                              action: "discovery_restore",
-                              identity: entry.identity,
-                            })
-                          }
+                          onClick={() => {
+                            setDiscoveryPath(entry.path);
+                            api.clearError();
+                            setAdding(true);
+                          }}
                         >
-                          {t("discovery.restore")}
+                          {t("discovery.configure")}
                         </button>
-                      ) : (
-                        !entry.project_id &&
-                        entry.state !== "missing" &&
-                        entry.state !== "detached" && (
-                          <button
-                            disabled={api.busy}
-                            onClick={() => {
-                              setDiscoveryPath(entry.path);
-                              api.clearError();
-                              setAdding(true);
-                            }}
-                          >
-                            {t("discovery.configure")}
-                          </button>
-                        )
-                      )}
-                    </li>
-                  ))}
+                      )
+                    )}
+                  </li>
+                ))}
               </ul>
-              {api.snapshot.discovery.entries.filter((e) => e.state !== "ready")
-                .length > discoveryLimit && (
+              {discovered.length > discoveryLimit && (
                 <button onClick={() => setDiscoveryLimit((n) => n + 50)}>
                   {t("discovery.showMore")}
                 </button>
