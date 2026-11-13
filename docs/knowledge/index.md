@@ -25,7 +25,7 @@ mavzuni tanlang, so'ng faqat tegishli hujjatlar va ularning manbalarini o'qing.
 
 ## Manba va yuritish
 
-- [M12 workspaces](m12-workspaces-results.md) - reviewed Git worktree projectlari, alohida muhit/DB va arxivlovchi cleanup; native dalillar yakunda.
+- [M12 workspaces](m12-workspaces-results.md) - reviewed Git worktree projectlari, alohida muhit/DB va arxivlovchi cleanup; ARM64/Intel/Windows native backend/CLI/UI qabuli va source chegarasi bilan.
 
 - [M11 mail va loglar](m11-mail-logs-results.md) - per-project local SMTP, safe MIME preview va structured log/exception filters; ARM64/Intel/Windows backend va native UI qabuli, source chegarasi va ochiq release gate‘lari bilan.
 

@@ -1,0 +1,963 @@
+{
+  "source": "356555fb9e01cd76f13649ce9e54697144f9503c",
+  "run": 43363941554,
+  "jobs": [
+    {
+      "target": "macos-arm64",
+      "job": 131683780693,
+      "url": "https://github.com/jorabekyusupov/devforge/actions/runs/43363941554/job/131683780693",
+      "conclusion": "success",
+      "artifact": {
+        "id": 14010455348,
+        "name": "m12-macos-arm64",
+        "zip_sha256": "05c9ddb1a6f65f418f5eafdcfc7d2130ca4a5a3e9b881bb3c411db7ece901bf7",
+        "github_digest_matched": true
+      },
+      "reports": {
+        "native": {
+          "sha256": "f3d559554c228581dc06c5746c7dbc37ca5807154feb602398c37bf33e6af8f1",
+          "result": {
+            "archive_preserves_ignored_env_and_branch": true,
+            "copied_environment_secret_entries_independent": true,
+            "database_credentials_and_permissions_isolated": true,
+            "dirty_cleanup_refused": true,
+            "existing_local_branch_reuse_isolated": true,
+            "mail_listener_and_inbox_isolated": true,
+            "mysql_capability": "verified",
+            "mysql_clone": true,
+            "parallel_laravel_php_node_queue_http": true,
+            "parent_process_survives_child_cleanup": true,
+            "postgresql_empty_and_clone": true,
+            "redis_cache_queue_isolated": true,
+            "retained_database_data_accessible": true,
+            "source_environment_and_head_preserved": true,
+            "source_id": "2c8a5aa821f94ba3b3303ae1133891ae",
+            "sqlite_empty_then_explicit_prepare": true,
+            "sqlite_wizard_snapshot_and_archive": true,
+            "target": "macos-arm64",
+            "ui_create_source_id": "0d8737843b514b35961f4442a8f4cccc",
+            "ui_seed_workspace": "eb4c0ad2ba7f40b7864ac02236d12b50"
+          }
+        },
+        "cli": {
+          "sha256": "2312032f15307749be1f1811a07cf98204c2d052a9cef63d0cecab1dc1e87629",
+          "result": {
+            "archived_local_files": true,
+            "fixture_secret_store": "test-support only",
+            "real_cli_json_plan_create_cleanup": true,
+            "review_and_explicit_trust": true,
+            "target": "macos-arm64"
+          }
+        },
+        "sqlite-empty": {
+          "sha256": "0cd3e446e97291f1a05a1c0f3fb17bda8cae337113867b67c48b37be65a0fd78",
+          "result": {
+            "explicit_prepare_runs_migrations": true,
+            "source_sqlite_data_preserved": true,
+            "sqlite_empty_starts_without_source_tables": true,
+            "sqlite_file_archived": true,
+            "target": "macos-arm64"
+          }
+        },
+        "existing-branch": {
+          "sha256": "3757e5295e5ae2f6b3ddae97cde53863ebf7dbed6963270e359ae4bfc1dd87d7",
+          "result": {
+            "branch_preserved_after_cleanup": true,
+            "checked_out_branch_refused": true,
+            "copied_custom_secret_in_store_not_env": true,
+            "existing_local_branch_attached": true,
+            "independent_project_and_database": true,
+            "target": "macos-arm64"
+          }
+        },
+        "desktop": {
+          "sha256": "2657ffefabd6e5cb03560c310a6059bd4dfa205c95d2614426e79b827201762e",
+          "result": {
+            "native": "real WKWebView/WebView2 via debug-only W3C endpoint",
+            "checks": {
+              "real_ui_creation_and_independent_project": true,
+              "cleanup_review_cancel_preserves_worktree": true,
+              "dirty_worktree_cleanup_refused": true,
+              "real_archive_and_project_retirement": true,
+              "languages_appearance_and_relaunch": true,
+              "source_environment_preserved": true
+            },
+            "accessibility": [
+              {
+                "case": "workspace-list",
+                "violations": []
+              },
+              {
+                "case": "create-form",
+                "violations": []
+              },
+              {
+                "case": "create-review",
+                "violations": []
+              },
+              {
+                "case": "created-workspace",
+                "violations": []
+              },
+              {
+                "case": "cleanup-review",
+                "violations": []
+              },
+              {
+                "case": "dirty-cleanup-refusal",
+                "violations": []
+              },
+              {
+                "case": "archived-workspace",
+                "violations": []
+              },
+              {
+                "case": "workspaces-ru",
+                "violations": []
+              },
+              {
+                "case": "workspaces-ru-minimum",
+                "violations": []
+              },
+              {
+                "case": "workspaces-uz-Latn",
+                "violations": []
+              },
+              {
+                "case": "workspaces-uz-Latn-minimum",
+                "violations": []
+              },
+              {
+                "case": "workspaces-en",
+                "violations": []
+              },
+              {
+                "case": "workspaces-en-minimum",
+                "violations": []
+              },
+              {
+                "case": "workspaces-dark",
+                "violations": []
+              },
+              {
+                "case": "preferences-relaunch",
+                "violations": []
+              }
+            ],
+            "captures": [
+              {
+                "file": "workspaces-en-light.png",
+                "viewport": {
+                  "height": 656,
+                  "language": "en",
+                  "scale": 1,
+                  "theme": "light",
+                  "width": 1536
+                }
+              },
+              {
+                "file": "workspace-create.png",
+                "viewport": {
+                  "height": 656,
+                  "language": "en",
+                  "scale": 1,
+                  "theme": "light",
+                  "width": 1536
+                }
+              },
+              {
+                "file": "workspace-cleanup-review.png",
+                "viewport": {
+                  "height": 656,
+                  "language": "en",
+                  "scale": 1,
+                  "theme": "light",
+                  "width": 1536
+                }
+              },
+              {
+                "file": "workspace-archived.png",
+                "viewport": {
+                  "height": 656,
+                  "language": "en",
+                  "scale": 1,
+                  "theme": "light",
+                  "width": 1536
+                }
+              },
+              {
+                "file": "workspaces-ru.png",
+                "viewport": {
+                  "height": 656,
+                  "language": "ru",
+                  "scale": 1,
+                  "theme": "light",
+                  "width": 1536
+                }
+              },
+              {
+                "file": "workspaces-uz-Latn.png",
+                "viewport": {
+                  "height": 656,
+                  "language": "uz-Latn",
+                  "scale": 1,
+                  "theme": "light",
+                  "width": 1536
+                }
+              },
+              {
+                "file": "workspaces-en.png",
+                "viewport": {
+                  "height": 656,
+                  "language": "en",
+                  "scale": 1,
+                  "theme": "light",
+                  "width": 1536
+                }
+              },
+              {
+                "file": "workspaces-dark.png",
+                "viewport": {
+                  "height": 656,
+                  "language": "en",
+                  "scale": 1,
+                  "theme": "dark",
+                  "width": 1536
+                }
+              }
+            ],
+            "viewport_attempts": [
+              {
+                "requested": {
+                  "width": 1536,
+                  "height": 1024
+                },
+                "actual": {
+                  "height": 656,
+                  "width": 1536
+                },
+                "matched": false
+              },
+              {
+                "requested": {
+                  "width": 1536,
+                  "height": 1024
+                },
+                "actual": {
+                  "height": 656,
+                  "width": 1536
+                },
+                "matched": false
+              },
+              {
+                "requested": {
+                  "width": 820,
+                  "height": 620
+                },
+                "actual": {
+                  "height": 620,
+                  "width": 820
+                },
+                "matched": true
+              },
+              {
+                "requested": {
+                  "width": 1536,
+                  "height": 1024
+                },
+                "actual": {
+                  "height": 656,
+                  "width": 1536
+                },
+                "matched": false
+              },
+              {
+                "requested": {
+                  "width": 820,
+                  "height": 620
+                },
+                "actual": {
+                  "height": 620,
+                  "width": 820
+                },
+                "matched": true
+              },
+              {
+                "requested": {
+                  "width": 1536,
+                  "height": 1024
+                },
+                "actual": {
+                  "height": 656,
+                  "width": 1536
+                },
+                "matched": false
+              },
+              {
+                "requested": {
+                  "width": 820,
+                  "height": 620
+                },
+                "actual": {
+                  "height": 620,
+                  "width": 820
+                },
+                "matched": true
+              },
+              {
+                "requested": {
+                  "width": 1536,
+                  "height": 1024
+                },
+                "actual": {
+                  "height": 656,
+                  "width": 1536
+                },
+                "matched": false
+              }
+            ],
+            "external_folder_launch": "not automated; ownership URL boundary inspected"
+          }
+        }
+      }
+    },
+    {
+      "target": "windows-x64",
+      "job": 131683781086,
+      "url": "https://github.com/jorabekyusupov/devforge/actions/runs/43363941554/job/131683781086",
+      "conclusion": "success",
+      "artifact": {
+        "id": 14009344832,
+        "name": "m12-windows-x64",
+        "zip_sha256": "4479bfd10f6d9f0b747befbfa584329a897c06e6c0b2abd3094ceb5774fc8d49",
+        "github_digest_matched": true
+      },
+      "reports": {
+        "native": {
+          "sha256": "1c1f91f588e79bb3c699bb36e8ac77bd2296fca9b2b3abfdf1bed617927760d8",
+          "result": {
+            "archive_preserves_ignored_env_and_branch": true,
+            "copied_environment_secret_entries_independent": true,
+            "database_credentials_and_permissions_isolated": true,
+            "dirty_cleanup_refused": true,
+            "existing_local_branch_reuse_isolated": true,
+            "mail_listener_and_inbox_isolated": true,
+            "mysql_capability": "verified",
+            "mysql_clone": true,
+            "parallel_laravel_php_node_queue_http": true,
+            "parent_process_survives_child_cleanup": true,
+            "postgresql_empty_and_clone": true,
+            "redis_cache_queue_isolated": true,
+            "retained_database_data_accessible": true,
+            "source_environment_and_head_preserved": true,
+            "source_id": "eaeb482b185547aa96ec2edeea8c834d",
+            "sqlite_empty_then_explicit_prepare": true,
+            "sqlite_wizard_snapshot_and_archive": true,
+            "target": "windows-x64",
+            "ui_create_source_id": "96162457550d4c0c8367236057b64dcc",
+            "ui_seed_workspace": "ca870ce2d87f4bb08e2ac7d99031c811"
+          }
+        },
+        "cli": {
+          "sha256": "397486b245c0d7c6b8968692e5f22da66bcbf53a62a200b0c1d5740b76b90b60",
+          "result": {
+            "archived_local_files": true,
+            "fixture_secret_store": "test-support only",
+            "real_cli_json_plan_create_cleanup": true,
+            "review_and_explicit_trust": true,
+            "target": "windows-x64"
+          }
+        },
+        "sqlite-empty": {
+          "sha256": "a92d5497deb13a4851d3524a1ae18edc902d5125d1a2d8472160f7b141c559a1",
+          "result": {
+            "explicit_prepare_runs_migrations": true,
+            "source_sqlite_data_preserved": true,
+            "sqlite_empty_starts_without_source_tables": true,
+            "sqlite_file_archived": true,
+            "target": "windows-x64"
+          }
+        },
+        "existing-branch": {
+          "sha256": "fd719d482cf70c38a4f9b1e9837bcd19c19de24ce80a0ac98327d54a2778a3e4",
+          "result": {
+            "branch_preserved_after_cleanup": true,
+            "checked_out_branch_refused": true,
+            "copied_custom_secret_in_store_not_env": true,
+            "existing_local_branch_attached": true,
+            "independent_project_and_database": true,
+            "target": "windows-x64"
+          }
+        },
+        "desktop": {
+          "sha256": "89c4932cd6b3a5b81e0ad469b3a8b5510db98e8548c6e3ba02089cd4643cd659",
+          "result": {
+            "native": "real WKWebView/WebView2 via debug-only W3C endpoint",
+            "checks": {
+              "real_ui_creation_and_independent_project": true,
+              "cleanup_review_cancel_preserves_worktree": true,
+              "dirty_worktree_cleanup_refused": true,
+              "real_archive_and_project_retirement": true,
+              "languages_appearance_and_relaunch": true,
+              "source_environment_preserved": true
+            },
+            "accessibility": [
+              {
+                "case": "workspace-list",
+                "violations": []
+              },
+              {
+                "case": "create-form",
+                "violations": []
+              },
+              {
+                "case": "create-review",
+                "violations": []
+              },
+              {
+                "case": "created-workspace",
+                "violations": []
+              },
+              {
+                "case": "cleanup-review",
+                "violations": []
+              },
+              {
+                "case": "dirty-cleanup-refusal",
+                "violations": []
+              },
+              {
+                "case": "archived-workspace",
+                "violations": []
+              },
+              {
+                "case": "workspaces-ru",
+                "violations": []
+              },
+              {
+                "case": "workspaces-ru-minimum",
+                "violations": []
+              },
+              {
+                "case": "workspaces-uz-Latn",
+                "violations": []
+              },
+              {
+                "case": "workspaces-uz-Latn-minimum",
+                "violations": []
+              },
+              {
+                "case": "workspaces-en",
+                "violations": []
+              },
+              {
+                "case": "workspaces-en-minimum",
+                "violations": []
+              },
+              {
+                "case": "workspaces-dark",
+                "violations": []
+              },
+              {
+                "case": "preferences-relaunch",
+                "violations": []
+              }
+            ],
+            "captures": [
+              {
+                "file": "workspaces-en-light.png",
+                "viewport": {
+                  "height": 1024,
+                  "language": "en",
+                  "scale": 1,
+                  "theme": "light",
+                  "width": 1536
+                }
+              },
+              {
+                "file": "workspace-create.png",
+                "viewport": {
+                  "height": 1024,
+                  "language": "en",
+                  "scale": 1,
+                  "theme": "light",
+                  "width": 1536
+                }
+              },
+              {
+                "file": "workspace-cleanup-review.png",
+                "viewport": {
+                  "height": 1024,
+                  "language": "en",
+                  "scale": 1,
+                  "theme": "light",
+                  "width": 1536
+                }
+              },
+              {
+                "file": "workspace-archived.png",
+                "viewport": {
+                  "height": 1024,
+                  "language": "en",
+                  "scale": 1,
+                  "theme": "light",
+                  "width": 1536
+                }
+              },
+              {
+                "file": "workspaces-ru.png",
+                "viewport": {
+                  "height": 1024,
+                  "language": "ru",
+                  "scale": 1,
+                  "theme": "light",
+                  "width": 1536
+                }
+              },
+              {
+                "file": "workspaces-uz-Latn.png",
+                "viewport": {
+                  "height": 1024,
+                  "language": "uz-Latn",
+                  "scale": 1,
+                  "theme": "light",
+                  "width": 1536
+                }
+              },
+              {
+                "file": "workspaces-en.png",
+                "viewport": {
+                  "height": 1024,
+                  "language": "en",
+                  "scale": 1,
+                  "theme": "light",
+                  "width": 1536
+                }
+              },
+              {
+                "file": "workspaces-dark.png",
+                "viewport": {
+                  "height": 1024,
+                  "language": "en",
+                  "scale": 1,
+                  "theme": "dark",
+                  "width": 1536
+                }
+              }
+            ],
+            "viewport_attempts": [
+              {
+                "requested": {
+                  "width": 1536,
+                  "height": 1024
+                },
+                "actual": {
+                  "height": 1024,
+                  "width": 1536
+                },
+                "matched": true
+              },
+              {
+                "requested": {
+                  "width": 1536,
+                  "height": 1024
+                },
+                "actual": {
+                  "height": 1024,
+                  "width": 1536
+                },
+                "matched": true
+              },
+              {
+                "requested": {
+                  "width": 820,
+                  "height": 620
+                },
+                "actual": {
+                  "height": 620,
+                  "width": 820
+                },
+                "matched": true
+              },
+              {
+                "requested": {
+                  "width": 1536,
+                  "height": 1024
+                },
+                "actual": {
+                  "height": 1024,
+                  "width": 1536
+                },
+                "matched": true
+              },
+              {
+                "requested": {
+                  "width": 820,
+                  "height": 620
+                },
+                "actual": {
+                  "height": 620,
+                  "width": 820
+                },
+                "matched": true
+              },
+              {
+                "requested": {
+                  "width": 1536,
+                  "height": 1024
+                },
+                "actual": {
+                  "height": 1024,
+                  "width": 1536
+                },
+                "matched": true
+              },
+              {
+                "requested": {
+                  "width": 820,
+                  "height": 620
+                },
+                "actual": {
+                  "height": 620,
+                  "width": 820
+                },
+                "matched": true
+              },
+              {
+                "requested": {
+                  "width": 1536,
+                  "height": 1024
+                },
+                "actual": {
+                  "height": 1024,
+                  "width": 1536
+                },
+                "matched": true
+              }
+            ],
+            "external_folder_launch": "not automated; ownership URL boundary inspected"
+          }
+        }
+      }
+    },
+    {
+      "target": "macos-x64",
+      "job": 131683781746,
+      "url": "https://github.com/jorabekyusupov/devforge/actions/runs/43363941554/job/131683781746",
+      "conclusion": "success",
+      "artifact": {
+        "id": 14010672839,
+        "name": "m12-macos-x64",
+        "zip_sha256": "2df60b95dc2260d233d1de9769b7d0b2859700c8dcc2014468433728c0a3541a",
+        "github_digest_matched": true
+      },
+      "reports": {
+        "native": {
+          "sha256": "3a1db9bcf6981db4f6d89f15d41846382d55a9e8b14497dde77ca0b1428fb246",
+          "result": {
+            "archive_preserves_ignored_env_and_branch": true,
+            "copied_environment_secret_entries_independent": true,
+            "database_credentials_and_permissions_isolated": true,
+            "dirty_cleanup_refused": true,
+            "existing_local_branch_reuse_isolated": true,
+            "mail_listener_and_inbox_isolated": true,
+            "mysql_capability": "unavailable current Intel package",
+            "mysql_clone": false,
+            "parallel_laravel_php_node_queue_http": true,
+            "parent_process_survives_child_cleanup": true,
+            "postgresql_empty_and_clone": true,
+            "redis_cache_queue_isolated": true,
+            "retained_database_data_accessible": true,
+            "source_environment_and_head_preserved": true,
+            "source_id": "025d607ec77e4b17b02a4eadc5b40a39",
+            "sqlite_empty_then_explicit_prepare": true,
+            "sqlite_wizard_snapshot_and_archive": true,
+            "target": "macos-x64",
+            "ui_create_source_id": "d6af186cee7a46429f935d5ac5dcc994",
+            "ui_seed_workspace": "d749752c25ab406087de1215c671c1c4"
+          }
+        },
+        "cli": {
+          "sha256": "e88dd8916eb2e8939dab70cef5cd928fba7472593bd902dec65b55f9826ed67c",
+          "result": {
+            "archived_local_files": true,
+            "fixture_secret_store": "test-support only",
+            "real_cli_json_plan_create_cleanup": true,
+            "review_and_explicit_trust": true,
+            "target": "macos-x64"
+          }
+        },
+        "sqlite-empty": {
+          "sha256": "01030415b4735c6b09bfd70ac768f8811ef3b90338c1dec1ff092c0f3e849ff3",
+          "result": {
+            "explicit_prepare_runs_migrations": true,
+            "source_sqlite_data_preserved": true,
+            "sqlite_empty_starts_without_source_tables": true,
+            "sqlite_file_archived": true,
+            "target": "macos-x64"
+          }
+        },
+        "existing-branch": {
+          "sha256": "64253ce4f5d7b184c1bc4562793e0e6e6cca6c095bb3171fcbd981a86235ce8e",
+          "result": {
+            "branch_preserved_after_cleanup": true,
+            "checked_out_branch_refused": true,
+            "copied_custom_secret_in_store_not_env": true,
+            "existing_local_branch_attached": true,
+            "independent_project_and_database": true,
+            "target": "macos-x64"
+          }
+        },
+        "desktop": {
+          "sha256": "9b65a34f26e6600aaa7c5bb1ffd1a4fd26e798c6b68731a817cb50dad7b77c65",
+          "result": {
+            "native": "real WKWebView/WebView2 via debug-only W3C endpoint",
+            "checks": {
+              "real_ui_creation_and_independent_project": true,
+              "cleanup_review_cancel_preserves_worktree": true,
+              "dirty_worktree_cleanup_refused": true,
+              "real_archive_and_project_retirement": true,
+              "languages_appearance_and_relaunch": true,
+              "source_environment_preserved": true
+            },
+            "accessibility": [
+              {
+                "case": "workspace-list",
+                "violations": []
+              },
+              {
+                "case": "create-form",
+                "violations": []
+              },
+              {
+                "case": "create-review",
+                "violations": []
+              },
+              {
+                "case": "created-workspace",
+                "violations": []
+              },
+              {
+                "case": "cleanup-review",
+                "violations": []
+              },
+              {
+                "case": "dirty-cleanup-refusal",
+                "violations": []
+              },
+              {
+                "case": "archived-workspace",
+                "violations": []
+              },
+              {
+                "case": "workspaces-ru",
+                "violations": []
+              },
+              {
+                "case": "workspaces-ru-minimum",
+                "violations": []
+              },
+              {
+                "case": "workspaces-uz-Latn",
+                "violations": []
+              },
+              {
+                "case": "workspaces-uz-Latn-minimum",
+                "violations": []
+              },
+              {
+                "case": "workspaces-en",
+                "violations": []
+              },
+              {
+                "case": "workspaces-en-minimum",
+                "violations": []
+              },
+              {
+                "case": "workspaces-dark",
+                "violations": []
+              },
+              {
+                "case": "preferences-relaunch",
+                "violations": []
+              }
+            ],
+            "captures": [
+              {
+                "file": "workspaces-en-light.png",
+                "viewport": {
+                  "height": 942,
+                  "language": "en",
+                  "scale": 1,
+                  "theme": "light",
+                  "width": 1536
+                }
+              },
+              {
+                "file": "workspace-create.png",
+                "viewport": {
+                  "height": 942,
+                  "language": "en",
+                  "scale": 1,
+                  "theme": "light",
+                  "width": 1536
+                }
+              },
+              {
+                "file": "workspace-cleanup-review.png",
+                "viewport": {
+                  "height": 942,
+                  "language": "en",
+                  "scale": 1,
+                  "theme": "light",
+                  "width": 1536
+                }
+              },
+              {
+                "file": "workspace-archived.png",
+                "viewport": {
+                  "height": 942,
+                  "language": "en",
+                  "scale": 1,
+                  "theme": "light",
+                  "width": 1536
+                }
+              },
+              {
+                "file": "workspaces-ru.png",
+                "viewport": {
+                  "height": 942,
+                  "language": "ru",
+                  "scale": 1,
+                  "theme": "light",
+                  "width": 1536
+                }
+              },
+              {
+                "file": "workspaces-uz-Latn.png",
+                "viewport": {
+                  "height": 942,
+                  "language": "uz-Latn",
+                  "scale": 1,
+                  "theme": "light",
+                  "width": 1536
+                }
+              },
+              {
+                "file": "workspaces-en.png",
+                "viewport": {
+                  "height": 942,
+                  "language": "en",
+                  "scale": 1,
+                  "theme": "light",
+                  "width": 1536
+                }
+              },
+              {
+                "file": "workspaces-dark.png",
+                "viewport": {
+                  "height": 942,
+                  "language": "en",
+                  "scale": 1,
+                  "theme": "dark",
+                  "width": 1536
+                }
+              }
+            ],
+            "viewport_attempts": [
+              {
+                "requested": {
+                  "width": 1536,
+                  "height": 1024
+                },
+                "actual": {
+                  "height": 942,
+                  "width": 1536
+                },
+                "matched": false
+              },
+              {
+                "requested": {
+                  "width": 1536,
+                  "height": 1024
+                },
+                "actual": {
+                  "height": 942,
+                  "width": 1536
+                },
+                "matched": false
+              },
+              {
+                "requested": {
+                  "width": 820,
+                  "height": 620
+                },
+                "actual": {
+                  "height": 620,
+                  "width": 820
+                },
+                "matched": true
+              },
+              {
+                "requested": {
+                  "width": 1536,
+                  "height": 1024
+                },
+                "actual": {
+                  "height": 942,
+                  "width": 1536
+                },
+                "matched": false
+              },
+              {
+                "requested": {
+                  "width": 820,
+                  "height": 620
+                },
+                "actual": {
+                  "height": 620,
+                  "width": 820
+                },
+                "matched": true
+              },
+              {
+                "requested": {
+                  "width": 1536,
+                  "height": 1024
+                },
+                "actual": {
+                  "height": 942,
+                  "width": 1536
+                },
+                "matched": false
+              },
+              {
+                "requested": {
+                  "width": 820,
+                  "height": 620
+                },
+                "actual": {
+                  "height": 620,
+                  "width": 820
+                },
+                "matched": true
+              },
+              {
+                "requested": {
+                  "width": 1536,
+                  "height": 1024
+                },
+                "actual": {
+                  "height": 942,
+                  "width": 1536
+                },
+                "matched": false
+              }
+            ],
+            "external_folder_launch": "not automated; ownership URL boundary inspected"
+          }
+        }
+      }
+    }
+  ]
+}

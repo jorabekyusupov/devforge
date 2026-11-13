@@ -7,5 +7,12 @@
   "clippy_all_targets_test_support": true,
   "native_axe_cases": 15,
   "native_axe_violations": 0,
-  "source_scope": "Local working-tree development checks and focused followups. Backend main preceded final host-Git and archival-retry guards; existing-branch, SQLite, CLI and final desktop followups provide separate evidence. Immutable-source CI records final platform acceptance."
+  "source_scope": "Local working-tree development checks and focused followups. Backend main preceded final host-Git and archival-retry guards; existing-branch, SQLite, CLI and final desktop followups provide separate evidence. Immutable-source CI records final platform acceptance.",
+  "default_cli_release_build": true,
+  "default_desktop_debug_no_bundle_build": true,
+  "default_build_source": "6f68bd4cae13725ab82b1d967a15834b003033fd",
+  "default_features_restored": true,
+  "product_tests_rerun_for_final_publication": false,
+  "owned_local_private_fixture_removed": true,
+  "owned_download_staging_removed": true
 }

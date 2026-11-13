@@ -1,0 +1,42 @@
+{
+  "source": "6f68bd4cae13725ab82b1d967a15834b003033fd",
+  "run": 43362034589,
+  "jobs": [
+    {
+      "target": "macos",
+      "job": 131677557703,
+      "url": "https://github.com/jorabekyusupov/devforge/actions/runs/43362034589/job/131677557703",
+      "conclusion": "success",
+      "rust_passed": 96,
+      "rust_ignored": 1,
+      "frontend_passed": 31,
+      "locale_catalogs": 3,
+      "packaging_tests": 6,
+      "okf": {
+        "documents": 27,
+        "errors": 0,
+        "warnings": 0
+      },
+      "log_sha256": "6ac65b67d9b75499ac758780fc85e96729901d781d5314ae3b05cdd56e23392b",
+      "default_desktop_debug_no_bundle_build": true
+    },
+    {
+      "target": "windows",
+      "job": 131677558144,
+      "url": "https://github.com/jorabekyusupov/devforge/actions/runs/43362034589/job/131677558144",
+      "conclusion": "success",
+      "rust_passed": 96,
+      "rust_ignored": 1,
+      "frontend_passed": 31,
+      "locale_catalogs": 3,
+      "packaging_tests": 6,
+      "okf": {
+        "documents": 27,
+        "errors": 0,
+        "warnings": 0
+      },
+      "log_sha256": "078477d615480b8d177f3b2fbee20a93d0b1f8b8607720108b48768e4e33ba70",
+      "default_desktop_debug_no_bundle_build": true
+    }
+  ]
+}
