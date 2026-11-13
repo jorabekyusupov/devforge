@@ -135,7 +135,13 @@ fn scan_with_limit(root: &Path, cancel: &Cancellation, limit: usize) -> Scan {
             }
         };
         let path = entry.path();
-        let name = entry.file_name().to_string_lossy().into_owned();
+        let name = match entry.file_name().into_string() {
+            Ok(name) => name,
+            Err(_) => {
+                result.skipped += 1;
+                continue;
+            }
+        };
         if name.starts_with('.')
             || ["vendor", "node_modules", "target"].contains(&name.to_ascii_lowercase().as_str())
         {
@@ -285,6 +291,44 @@ mod tests {
         assert!(s.candidates.is_empty());
         assert_eq!(s.skipped, 1);
     }
+    #[cfg(unix)]
+    #[test]
+    fn non_unicode_child_is_skipped_without_poisoning_the_registry() {
+        use std::{ffi::OsString, os::unix::ffi::OsStringExt};
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join(OsString::from_vec(vec![b'a', 0xff]));
+        if let Err(error) = fs::create_dir(&path) {
+            // APFS rejects the fixture itself with EILSEQ; Linux may permit it.
+            assert_eq!(error.raw_os_error(), Some(92));
+            assert!(
+                scan(root.path(), &Cancellation::default())
+                    .candidates
+                    .is_empty()
+            );
+            return;
+        }
+        laravel(&path);
+        let result = scan(root.path(), &Cancellation::default());
+        assert!(result.complete);
+        assert!(result.candidates.is_empty());
+        assert_eq!(result.skipped, 1);
+    }
+
+    #[test]
+    fn setup_reservation_is_not_registered_until_publication_finishes() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("new-app");
+        laravel(&path);
+        fs::write(path.join(".devforge-setup-reservation"), "owned fixture").unwrap();
+        let pending = scan(root.path(), &Cancellation::default());
+        assert!(pending.candidates.is_empty());
+        assert_eq!(pending.watch_paths.len(), 1);
+        fs::remove_file(path.join(".devforge-setup-reservation")).unwrap();
+        assert_eq!(
+            scan(root.path(), &Cancellation::default()).candidates.len(),
+            1
+        );
+    }
     #[test]
     fn entry_limit_and_cancelled_empty_root_are_explicit() {
         let root = tempfile::tempdir().unwrap();
@@ -352,16 +396,64 @@ impl crate::project::ProjectStore {
         }
         Ok(())
     }
-    pub fn restore_discovery(&self, identity: &str) -> crate::Result<()> {
-        let mut e = self
+    pub fn restore_discovery(&self, identity_key: &str) -> crate::Result<()> {
+        use rusqlite::OptionalExtension;
+        let mut entry = self
             .discovery_entries()?
             .into_iter()
-            .find(|e| e.identity == identity)
+            .find(|e| e.identity == identity_key)
             .ok_or(crate::ProjectError::NotFound)?;
-        e.ignored = false;
-        e.project_id = None;
-        e.state = "detected".into();
-        self.save_discovery(&e)
+        if identity(&entry.path).ok().as_deref() != Some(identity_key) {
+            return Err(crate::ProjectError::InvalidProject);
+        }
+        let transaction = self.connection.unchecked_transaction()?;
+        if let Some(id) = &entry.project_id {
+            let raw: Option<String> = self
+                .connection
+                .query_row("SELECT record FROM projects WHERE id=?1", [id], |r| {
+                    r.get(0)
+                })
+                .optional()?;
+            if let Some(raw) = raw {
+                let mut project: crate::project::Project = serde_json::from_str(&raw)
+                    .map_err(|_| crate::ProjectError::StorageUnavailable)?;
+                if project
+                    .filesystem_identity
+                    .as_ref()
+                    .is_some_and(|id| id != identity_key)
+                {
+                    return Err(crate::ProjectError::InvalidProject);
+                }
+                if !project.active {
+                    if project.worktree.is_some() {
+                        return Err(crate::ProjectError::WorkspaceManaged);
+                    }
+                    let checked = inspect(&entry.path)?;
+                    if let Some(existing) =
+                        self.list()?.into_iter().find(|p| p.path == checked.path)
+                    {
+                        entry.project_id = Some(existing.id);
+                    } else {
+                        let revision = project.revision;
+                        project.revision = revision
+                            .checked_add(1)
+                            .filter(|v| *v <= i64::MAX as u64)
+                            .ok_or(crate::ProjectError::StaleRevision)?;
+                        project.path = checked.path;
+                        project.active = true;
+                        let changed=self.connection.execute("UPDATE projects SET path_key=?1,active=1,revision=?2,record=?3 WHERE id=?4 AND active=0 AND revision=?5",rusqlite::params![crate::project::path_key(&project.path),project.revision as i64,serde_json::to_string(&project).unwrap(),project.id,revision as i64])?;
+                        if changed != 1 {
+                            return Err(crate::ProjectError::StaleRevision);
+                        }
+                    }
+                }
+            }
+        }
+        entry.ignored = false;
+        entry.state = "detected".into();
+        self.save_discovery(&entry)?;
+        transaction.commit()?;
+        Ok(())
     }
     pub fn clear_discovery_suppression(&self, path: &Path) -> crate::Result<()> {
         if let Ok(id) = identity(path) {

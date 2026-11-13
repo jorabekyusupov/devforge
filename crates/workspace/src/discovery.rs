@@ -563,6 +563,18 @@ mod tests {
         let p = w.projects.list().unwrap().pop().unwrap();
         scan_into(&mut w, &root);
         assert_eq!(w.projects.list().unwrap().len(), 1);
+        assert!(
+            w.execute(
+                Command::Forget {
+                    id: p.id.clone(),
+                    revision: p.revision + 1
+                },
+                &Cancellation::default()
+            )
+            .is_err()
+        );
+        assert!(w.projects.get(&p.id).unwrap().active);
+        assert!(!w.projects.discovery_entries().unwrap()[0].ignored);
         let domain = w.sites.sites().unwrap()[0].domain.clone();
         fs::rename(root.join("app"), root.join("renamed")).unwrap();
         scan_into(&mut w, &root);
@@ -594,6 +606,9 @@ mod tests {
         }
         scan_into(&mut w, &root);
         let restored = w.projects.list().unwrap().pop().unwrap();
+        assert_eq!(restored.id, p.id);
+        assert_eq!(restored.php, p.php);
+        assert_eq!(restored.node, p.node);
         fs::rename(root.join("renamed"), temp.path().join("old-code")).unwrap();
         fixture(&root.join("renamed"));
         scan_into(&mut w, &root);

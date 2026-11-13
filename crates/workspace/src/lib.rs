@@ -765,10 +765,10 @@ impl Workspace {
                 queue,
             } => {
                 self.validate_site("", &domain)?;
-                self.projects.clear_discovery_suppression(&path)?;
                 let p = self
                     .projects
                     .import(&path, &name, &php, &node, &self.catalog)?;
+                self.projects.clear_discovery_suppression(&path)?;
                 self.sites.configure(
                     &self.projects,
                     Site {
@@ -834,7 +834,6 @@ impl Workspace {
                 }
                 self.stop(&id)?;
                 self.mail.remove(&id);
-                self.projects.suppress_discovery(&id)?;
                 self.projects.forget(&id, revision)?;
                 self.sites.remove(&id)?;
                 self.preferences.development.remove(&id);

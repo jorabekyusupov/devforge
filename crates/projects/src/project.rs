@@ -329,7 +329,11 @@ impl ProjectStore {
             return Err(E::WorkspaceManaged);
         }
         p.active = false;
-        self.save(&mut p, revision)
+        let transaction = self.connection.unchecked_transaction()?;
+        self.save(&mut p, revision)?;
+        self.suppress_discovery(id)?;
+        transaction.commit()?;
+        Ok(())
     }
     pub fn claim_worktree(&self, id: &str, revision: u64, worktree: &str) -> Result<()> {
         if worktree.len() != 32 || !worktree.bytes().all(|b| b.is_ascii_hexdigit()) {
@@ -375,7 +379,7 @@ impl ProjectStore {
         Ok(())
     }
 }
-fn path_key(path: &Path) -> String {
+pub(crate) fn path_key(path: &Path) -> String {
     #[cfg(unix)]
     {
         use std::os::unix::fs::MetadataExt;

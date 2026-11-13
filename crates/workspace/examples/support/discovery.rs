@@ -43,11 +43,14 @@ fn tiny(path: &Path) -> Result<()> {
 }
 pub fn run(root: &Path) -> Result<()> {
     let root = fs::canonicalize(root)?;
+    let system_hosts_path = devforge_serving::system::hosts_path()?;
+    let hosts_before = fs::read(&system_hosts_path)?;
     let data = root.join("data");
     let secrets = Arc::new(devforge_workspace::testing::FixtureSecrets::open(
         data.join("e2e-secrets.json"),
     ));
     let mut w = Workspace::open(&data, secrets.clone())?;
+    let authority_before = w.sites.root().join("authority").exists();
     let manual = w
         .projects
         .list()?
@@ -113,15 +116,16 @@ pub fn run(root: &Path) -> Result<()> {
         .find(|p| p.name == "Studio")
         .ok_or("Studio fixture missing")?;
     let copy_started = Instant::now();
-    super::copy(&source.path, &added)?;
+    eprintln!("DISCOVERY_PHASE: copy real Laravel into watched root");
+    super::copy(&source.path, &added).map_err(|e| format!("copy Laravel fixture: {e}"))?;
     fs::write(
         added.join(".env"),
         "APP_NAME=Discovery\nAPP_ENV=local\nAPP_KEY=base64:MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=\nAPP_DEBUG=false\nSESSION_DRIVER=file\nCACHE_STORE=file\nQUEUE_CONNECTION=sync\nLOG_CHANNEL=single\n",
-    )?;
+    ).map_err(|e|format!("write cloned fixture env: {e}"))?;
     fs::write(
         added.join("routes/web.php"),
         "<?php use Illuminate\\Support\\Facades\\Route; Route::get('/', fn()=>response()->json(['framework'=>app()->version(),'php'=>PHP_VERSION,'discovered'=>true]));",
-    )?;
+    ).map_err(|e|format!("write cloned fixture route: {e}"))?;
     w.reconcile_discovery(wait_scan(&service, &folder, 1, Some("Auto Laravel"))?)?;
     let copy_ms = copy_started.elapsed().as_millis();
     let p = w
@@ -138,6 +142,7 @@ pub fn run(root: &Path) -> Result<()> {
         .unwrap()
         .domain;
     assert!(domain.ends_with(".devforge.test"));
+    eprintln!("DISCOVERY_PHASE: automatic registration ready; start HTTP");
     w.start(&p.id)?;
     let url = w
         .snapshot()?
@@ -155,9 +160,10 @@ pub fn run(root: &Path) -> Result<()> {
             .as_str()
             .is_some_and(|v| v.starts_with("13."))
     );
+    eprintln!("DISCOVERY_PHASE: real Laravel HTTP passed; stop serving");
     w.stop(&p.id)?;
     let renamed = folder.join("Renamed Ўзбек");
-    fs::rename(&added, &renamed)?;
+    fs::rename(&added, &renamed).map_err(|e| format!("rename stopped Laravel directory: {e}"))?;
     w.reconcile_discovery(wait_scan(&service, &folder, 1, Some("Renamed Ўзбек"))?)?;
     assert_eq!(w.projects.get(&p.id)?.path, renamed);
     assert_eq!(
@@ -180,6 +186,7 @@ pub fn run(root: &Path) -> Result<()> {
         )?,
         before
     );
+    eprintln!("DISCOVERY_PHASE: rename and manual metadata preserved; Forget/Restore");
     let p = w.projects.get(&p.id)?;
     w.execute(
         Command::Forget {
@@ -209,6 +216,9 @@ pub fn run(root: &Path) -> Result<()> {
         .into_iter()
         .find(|p| p.path == renamed)
         .unwrap();
+    assert_eq!(restored.id, p.id);
+    assert_eq!(restored.php, p.php);
+    assert_eq!(restored.node, p.node);
     // Leave a stable real Laravel project available for native UI Start checks.
     let mut settings = devforge_platform::SqliteSettings::open(&data)?;
     let mut chosen = settings.load()?;
@@ -233,10 +243,10 @@ pub fn run(root: &Path) -> Result<()> {
     // Case-only rename and long Unicode parent paths exercise Windows identity
     // and verbatim-path handling on an actual Windows kernel in the CI lane.
     let case_path = folder.join("renamed Ўзбек");
-    fs::rename(&renamed, &case_path)?;
+    fs::rename(&renamed, &case_path).map_err(|e| format!("case-only rename: {e}"))?;
     w.reconcile_discovery(scan(&folder, &Cancellation::default()))?;
     assert_eq!(w.projects.get(&restored.id)?.path, case_path);
-    fs::rename(&case_path, &renamed)?;
+    fs::rename(&case_path, &renamed).map_err(|e| format!("case-only rename restore: {e}"))?;
     w.reconcile_discovery(scan(&folder, &Cancellation::default()))?;
     let long_parent = root
         .join("long-path-case")
@@ -285,13 +295,14 @@ pub fn run(root: &Path) -> Result<()> {
         assert!(target.join("composer.json").exists());
     }
     // Native parent monitoring recovers after the configured directory is removed.
+    eprintln!("DISCOVERY_PHASE: native root removal and recreation");
     let recovery_root = root.join("root-recovery");
     fs::create_dir_all(&recovery_root)?;
     let recovery_root = fs::canonicalize(recovery_root)?;
     let recovery = Service::new();
     recovery.set_root(recovery_root.clone());
     wait_scan(&recovery, &recovery_root, 0, None)?;
-    fs::remove_dir(&recovery_root)?;
+    fs::remove_dir(&recovery_root).map_err(|e| format!("remove watched empty root: {e}"))?;
     let recovery_started = Instant::now();
     loop {
         if let Some(report) = recovery.take() {
@@ -309,6 +320,7 @@ pub fn run(root: &Path) -> Result<()> {
     drop(recovery);
     // Force the production fallback branch, then rely on its real 30-second
     // timer and filesystem reads. No manufactured scan result or fake clock.
+    eprintln!("DISCOVERY_PHASE: real periodic fallback and bounded event storm");
     let fallback_root = root.join("fallback-case");
     fs::create_dir_all(&fallback_root)?;
     let fallback = Service::polling_fixture();
@@ -343,7 +355,9 @@ pub fn run(root: &Path) -> Result<()> {
     let count = service.event_count();
     drop(service);
     w.shutdown()?;
-    let report = json!({"target":Target::current()?,"no_runtime_candidate":true,"automatic_registration":true,"native_watch_incomplete_copy":true,"watch_copy_to_registration_ms":copy_ms,"native_event_count":count,"rename_preserves_id_domain":true,"forget_restore":true,"manual_metadata_preserved":true,"fifty_root_switches":true,"case_only_rename":true,"native_root_delete_recreate":true,"reparse_children_skipped":true,"long_unicode_path":true,"periodic_fallback_ms":fallback_ms,"event_storm_10000_ms":storm_ms,"real_laravel_http":response,"cold_100_scan_ms":cold,"system_hosts_trust_unchanged":true,"ui_project_id":restored.id,"ui_root":dunce::simplified(&folder),"passed":true});
+    assert_eq!(hosts_before, fs::read(system_hosts_path)?);
+    assert_eq!(authority_before, w.sites.root().join("authority").exists());
+    let report = json!({"target":Target::current()?,"no_runtime_candidate":true,"automatic_registration":true,"native_watch_incomplete_copy":true,"watch_copy_to_registration_ms":copy_ms,"native_event_count":count,"rename_preserves_id_domain":true,"forget_restore":true,"manual_metadata_preserved":true,"fifty_root_switches":true,"case_only_rename":true,"native_root_delete_recreate":true,"reparse_children_skipped":true,"long_unicode_path":true,"periodic_fallback_ms":fallback_ms,"event_storm_10000_ms":storm_ms,"real_laravel_http":response,"cold_100_scan_ms":cold,"system_hosts_unchanged":true,"authority_store_unchanged":true,"system_trust_operations_invoked":false,"restore_preserves_profile":true,"ui_project_id":restored.id,"ui_root":dunce::simplified(&folder),"passed":true});
     fs::write(
         root.join("discovery-native-result.json"),
         serde_json::to_vec_pretty(&report)?,

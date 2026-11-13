@@ -2,10 +2,10 @@
 """Native WKWebView/WebView2 acceptance via debug-only embedded W3C WebDriver.
 No invoke mocking. Only lifecycle observation/control uses explicit native IPC.
 """
-import argparse,base64,json,os,pathlib,signal,socket,sqlite3,subprocess,time,urllib.request,urllib.error,http.client,uuid
+import argparse,base64,json,os,pathlib,socket,sqlite3,subprocess,time,urllib.request,urllib.error,uuid
 p=argparse.ArgumentParser();p.add_argument('--picker-handoff',action='store_true');p.add_argument('fixture',type=pathlib.Path);p.add_argument('application',type=pathlib.Path);p.add_argument('launcher',type=pathlib.Path);p.add_argument('--output',type=pathlib.Path,default=pathlib.Path('output/playwright/discovery'));args=p.parse_args();args.output.mkdir(parents=True,exist_ok=True)
 with socket.socket() as sock:sock.bind(('127.0.0.1',0));port=sock.getsockname()[1]
-base=f'http://127.0.0.1:{port}';session='';process=None;accessibility=[];captures=[];viewport_attempts=[];performance=[]
+base=f'http://127.0.0.1:{port}';session='';process=None;accessibility=[];captures=[];viewport_attempts=[]
 opener=urllib.request.build_opener(urllib.request.ProxyHandler({}))
 def request(method,path,data=None,timeout=120):
  req=urllib.request.Request(base+path,data=None if data is None else json.dumps(data).encode(),headers={'Content-Type':'application/json'},method=method)
@@ -17,10 +17,6 @@ def request(method,path,data=None,timeout=120):
  return value
 def call(method,path,data=None):return request(method,'/session/'+session+path,data)
 def script(source,*values):return call('POST','/execute/sync',{'script':source,'args':list(values)})
-def begin_frames():
- script("window.dfFrames={count:0,total:0,max:0,started:performance.now(),last:performance.now(),active:true};const tick=t=>{const p=window.dfFrames;if(!p.active)return;const gap=t-p.last;if(gap>=0){p.count++;p.total+=gap;p.max=Math.max(p.max,gap)}p.last=t;requestAnimationFrame(tick)};requestAnimationFrame(tick)")
-def end_frames(workload):
- value=script("const p=window.dfFrames;p.active=false;return {frames:p.count,mean_frame_gap_ms:p.total/Math.max(1,p.count),max_frame_gap_ms:p.max,duration_ms:performance.now()-p.started}");value.update({'workload':workload,'build':'debug_e2e','scope':'native frontend frame intervals; not input-to-paint latency'});performance.append(value)
 def invoke(name,params=None):
  result=call('POST','/execute/async',{'script':"const done=arguments[arguments.length-1];window.__TAURI_INTERNALS__.invoke(arguments[0],arguments[1]).then(done,e=>done({error:e}));",'args':[name,params or {}]})
  if isinstance(result,dict) and 'error'in result:raise RuntimeError(str(result))
@@ -39,8 +35,6 @@ def click(css):
  ident=wait(lambda:element(css));wait(lambda:script("const e=document.querySelector(arguments[0]);return e&&!e.matches(':disabled')",css));wait(lambda:call('GET',f'/element/{ident}/enabled'));call('POST',f'/element/{ident}/click',{})
 def fill(css,text):
  ident=element(css);wait(lambda:call('GET',f'/element/{ident}/enabled'));call('POST',f'/element/{ident}/clear',{});call('POST',f'/element/{ident}/value',{'text':text})
-def select(css,value):
- wait(lambda:script("return !!document.querySelector(arguments[0])",css));script("const el=document.querySelector(arguments[0]);el.value=arguments[1];el.dispatchEvent(new Event('change',{bubbles:true}));",css,value)
 def snap():return invoke('workspace_snapshot')
 def settled():return wait(lambda:not snap()['busy'])
 def row(id):return next(r for r in snap()['snapshot']['projects'] if r['project']['id']==id)
@@ -48,9 +42,6 @@ def project(id):click(f'a.project-row[href$="{id}"]')
 def button(label,scope='.project-detail'):
  wait(lambda:script("return [...document.querySelectorAll(arguments[0]+' button')].some(b=>(b.textContent.trim()===arguments[1]||b.getAttribute('aria-label')===arguments[1])&&!b.disabled)",scope,label))
  css=script("const nodes=[...document.querySelectorAll(arguments[0]+' button')];const index=nodes.findIndex(b=>b.textContent.trim()===arguments[1]||b.getAttribute('aria-label')===arguments[1]);if(index<0)throw new Error('Button missing '+arguments[1]);nodes[index].dataset.smoke='target';return '[data-smoke=target]';",scope,label);click(css);script("document.querySelector('[data-smoke=target]')?.removeAttribute('data-smoke');")
-def served(url):
- from urllib.parse import urlparse
- u=urlparse(url);conn=http.client.HTTPConnection('127.0.0.1',u.port or 80,timeout=4);conn.request('GET',u.path or '/',headers={'Host':u.netloc});r=conn.getresponse();data=r.read();conn.close();assert r.status==200,(r.status,data[:200]);return json.loads(data)
 def content_viewport(width,height):
  for _ in range(3):
   metrics=script('return {width:innerWidth,height:innerHeight}');rect=call('GET','/window/rect')
@@ -109,23 +100,33 @@ try:
     fill('#project-folder',str(custom));button('Save folder','.discovery-settings')
     wait(lambda:pathlib.Path(invoke('bootstrap')['settings']['project_folder']).resolve()==custom.resolve())
     checks['custom_unicode_path_saved']=True
+    wait(lambda:script("return document.querySelector('.discovery-settings').getAttribute('aria-busy')==='false' && document.querySelector('#project-folder').value===arguments[0]",invoke('bootstrap')['settings']['project_folder']))
+    click('a[href="#projects"]');wait(lambda:script("return !!document.querySelector('.discovery-projects')"))
+    def is_auto(project):
+        try:return os.path.samefile(project['project']['path'],auto)
+        except OSError:return False
     # Real native event, not Scan now or an IPC-injected snapshot.
-    name='UI Auto';auto=custom/name;auto.mkdir(exist_ok=True);(auto/'public').mkdir(exist_ok=True)
+    name='UI Auto '+uuid.uuid4().hex[:6];auto=custom/name;auto.mkdir(exist_ok=True);(auto/'public').mkdir(exist_ok=True)
     (auto/'composer.json').write_text('{"require":{"laravel/framework":"^13","php":"^8.4"}}')
     (auto/'artisan').write_text('<?php');(auto/'public/index.php').write_text('<?php echo "UI discovery";')
     started=time.monotonic()
-    wait(lambda:any(r['project']['path'].replace('\\','/').endswith('/UI Auto') for r in snap()['snapshot']['projects']),10)
-    project_row=next(r for r in snap()['snapshot']['projects'] if r['project']['path'].replace('\\','/').endswith('/UI Auto'))
-    auto_id=project_row['project']['id'];assert time.monotonic()-started<5
+    wait(lambda:any(is_auto(r) for r in snap()['snapshot']['projects']),10)
+    project_row=next(r for r in snap()['snapshot']['projects'] if is_auto(r))
+    auto_id=project_row['project']['id']
+    wait(lambda:script("return !!document.querySelector(arguments[0])",'a.project-row[href$="'+auto_id+'"]'),10)
+    assert time.monotonic()-started<5
     checks['native_event_to_ui_under_5s']=True
-    wait(lambda:script("return document.querySelector('.discovery-settings').getAttribute('aria-busy')==='false' && document.querySelector('#project-folder').value===arguments[0]",invoke('bootstrap')['settings']['project_folder']))
-    print('DISCOVERY_UI_PHASE: saved root settled '+json.dumps(script("return {draft:document.querySelector('#project-folder').value,busy:document.querySelector('.discovery-settings').getAttribute('aria-busy')}")),flush=True)
-    click('a[href="#projects"]');wait(lambda:script("return !!document.querySelector('.project-row')"));project(auto_id)
-    wait(lambda:script("return document.querySelector('.project-detail h2')?.textContent==='UI Auto'"));audit('discovered-project');screenshot('projects-discovered.png')
+    project(auto_id)
+    wait(lambda:script("return document.querySelector('.project-detail h2')?.textContent===arguments[0]",name));audit('discovered-project');screenshot('projects-discovered.png')
     button('Forget project');wait(lambda:script("return !!document.querySelector('dialog[open]')"));button('Remove','dialog');wait(lambda:not any(r['project']['id']==auto_id for r in snap()['snapshot']['projects']))
     entry=next(e for e in snap()['snapshot']['discovery']['entries'] if e['project_id']==auto_id);scope='.discovery-projects li[data-discovery-identity="'+entry['identity']+'"]';button('Restore',scope)
-    wait(lambda:any(r['project']['path'].replace('\\','/').endswith('/UI Auto') for r in snap()['snapshot']['projects']))
+    wait(lambda:any(is_auto(r) for r in snap()['snapshot']['projects']))
     checks['native_ui_forget_restore']=True
+    button('New project','.workspace-toolbar');wait(lambda:script("return !!document.querySelector('dialog[open]')"));button('Continue','dialog')
+    wait(lambda:script("return !!document.querySelector('#setup-parent-input')"))
+    assert os.path.samefile(script("return document.querySelector('#setup-parent-input').value"),custom)
+    audit('new-project-default-folder');button('Close dialog','dialog');wait(lambda:not script("return !!document.querySelector('dialog[open]')"))
+    checks['new_project_uses_configured_parent']=True
     click('a[href="#settings"]');fill('#project-folder',native['ui_root']);button('Save folder','.discovery-settings');wait(lambda:invoke('bootstrap')['settings']['project_folder']==native['ui_root'])
     # Native window remount must restore saved settings and monitor without Projects open.
     quit_app();launch();click('a[href="#settings"]');wait(lambda:script("return document.querySelector('#project-folder')?.value===arguments[0]",native['ui_root']))
