@@ -4,7 +4,7 @@ SUPERGOAL_PHASE_START
 Phase: 3 of 7 — Registrni xavfsiz birlashtirish
 Task: Topilgan loyihalarni mavjud ma’lumotlar bilan dublikatsiyasiz va tiklanadigan tarzda birlashtirish.
 Depends on phases: 1, 2
-Status: PLANNED — implementation has not started.
+Status: COMPLETE — source/evidence reconciled; see final acceptance audit.
 
 ## Work
 
@@ -49,3 +49,11 @@ ProjectStore’da additive discovery ledger/candidates/suppression metadata va s
 - User requested planning first. This document is a work specification, not permission to implement or publish.
 - No global memory edits, unrequested dependency upgrades, unrelated project/system changes, or copying Herd proprietary code/assets.
 - Future execution: investigate failure, focused retry, then focused fix; preserve original criteria. Missing target/access remains an honest open gate.
+
+## Actual phase close
+
+All original phase criteria PASS; source/test classifications and platform evidence are in
+[PHASE_RECONCILIATION](../PHASE_RECONCILIATION.md) and [acceptance audit](../acceptance-audit.json).
+
+SUPERGOAL_PHASE_VERIFY: 3 PASS
+SUPERGOAL_PHASE_DONE: 3

@@ -4,7 +4,7 @@ SUPERGOAL_PHASE_START
 Phase: 5 of 7 — Settings oqimini yetkazish
 Task: Foydalanuvchi papkani tanlashi va aniqlash natijasini boshqarishi uchun mavjud UI’ni kengaytirish.
 Depends on phases: 1, 2, 3, 4
-Status: PLANNED — implementation has not started.
+Status: COMPLETE — source/evidence reconciled; see final acceptance audit.
 
 ## Work
 
@@ -56,3 +56,11 @@ Mavjud Settings uslubida Loyiha papkasi: label+path draft, native picker, explic
 - User requested planning first. This document is a work specification, not permission to implement or publish.
 - No global memory edits, unrequested dependency upgrades, unrelated project/system changes, or copying Herd proprietary code/assets.
 - Future execution: investigate failure, focused retry, then focused fix; preserve original criteria. Missing target/access remains an honest open gate.
+
+## Actual phase close
+
+All original phase criteria PASS; source/test classifications and platform evidence are in
+[PHASE_RECONCILIATION](../PHASE_RECONCILIATION.md) and [acceptance audit](../acceptance-audit.json).
+
+SUPERGOAL_PHASE_VERIFY: 5 PASS
+SUPERGOAL_PHASE_DONE: 5

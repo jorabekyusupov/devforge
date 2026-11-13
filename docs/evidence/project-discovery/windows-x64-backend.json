@@ -1,0 +1,43 @@
+{
+  "authority_store_unchanged": true,
+  "automatic_registration": true,
+  "case_only_rename": true,
+  "cold_100_scan_ms": 26,
+  "event_storm_10000_ms": 5782,
+  "fifty_root_switches": true,
+  "forget_restore": true,
+  "long_unicode_path": true,
+  "manual_metadata_preserved": true,
+  "native_event_count": 27797,
+  "native_root_delete_recreate": true,
+  "native_watch_incomplete_copy": true,
+  "no_runtime_candidate": true,
+  "passed": true,
+  "periodic_fallback_ms": 30518,
+  "permission_denied_preserves_registry": true,
+  "real_laravel_http": {
+    "discovered": true,
+    "framework": "13.42.0",
+    "php": "8.5.12"
+  },
+  "rename_preserves_id_domain": true,
+  "reparse_children_skipped": true,
+  "resource_lifecycle_generations": 50,
+  "resources_after": {
+    "handles": 178,
+    "rss_bytes": 17178624,
+    "threads": 2
+  },
+  "resources_before": {
+    "handles": 178,
+    "rss_bytes": 16887808,
+    "threads": 2
+  },
+  "restore_preserves_profile": true,
+  "system_hosts_unchanged": true,
+  "system_trust_operations_invoked": false,
+  "target": "windows-x64",
+  "ui_project_id": "e15ac74d70124f038860ceb05996d0e6",
+  "ui_root": "C:\\Users\\runneradmin\\AppData\\Local\\Temp\\devforge-discovery-fixture\\discovery projects Ўзбек",
+  "watch_copy_to_registration_ms": 7941
+}

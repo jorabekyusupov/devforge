@@ -4,7 +4,7 @@ SUPERGOAL_PHASE_START
 Phase: 7 of 7 — Polish & Harden
 Task: Oxirgi source barcha kontrakt, foydalanish va platforma mezonlariga mosligini yakuniy tekshirish.
 Depends on phases: 1, 2, 3, 4, 5, 6
-Status: PLANNED — implementation has not started.
+Status: COMPLETE — source/evidence reconciled; see final acceptance audit.
 
 ## Work
 
@@ -57,3 +57,11 @@ Bounded UX/copy/a11y pass, input/IPC/diff review, isolated rename/permission/sto
 - User requested planning first. This document is a work specification, not permission to implement or publish.
 - No global memory edits, unrequested dependency upgrades, unrelated project/system changes, or copying Herd proprietary code/assets.
 - Future execution: investigate failure, focused retry, then focused fix; preserve original criteria. Missing target/access remains an honest open gate.
+
+## Actual phase close
+
+All original phase criteria PASS; source/test classifications and platform evidence are in
+[PHASE_RECONCILIATION](../PHASE_RECONCILIATION.md) and [acceptance audit](../acceptance-audit.json).
+
+SUPERGOAL_PHASE_VERIFY: 7 PASS
+SUPERGOAL_PHASE_DONE: 7

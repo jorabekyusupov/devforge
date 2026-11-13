@@ -1,0 +1,120 @@
+{
+  "status": "passed",
+  "product_and_runner_tree_sha256": "74a7e5f84fcf45c7f7bddd5c4896c8bd1c26689bde92719ed33ca8cc5285331a",
+  "product_and_runner_paths": [
+    "apps",
+    "crates",
+    "shared",
+    "runtime",
+    "scripts",
+    "Cargo.toml",
+    "Cargo.lock",
+    "package.json",
+    "package-lock.json",
+    "rust-toolchain.toml"
+  ],
+  "source_commits": {
+    "0fb0eca7d7bf28dfae1039d584503275cadb2b79": {
+      "native_run": 43416651687,
+      "url": "https://github.com/jorabekyusupov/devforge/actions/runs/43416651687",
+      "source_archive_sha256": "137f5741779074a5241b66b3d5a9d1b86bda1bba7f5f2a135c41f43b84fbebe0"
+    },
+    "c33eadc4486ebf12c9ad50a95dab81dbdd5d4e7e": {
+      "native_run": 43419610647,
+      "url": "https://github.com/jorabekyusupov/devforge/actions/runs/43419610647",
+      "source_archive_sha256": "6a5741a5d86ad94e2a7636a854e494862de579d32ace7fee22df5511cd305a8d"
+    }
+  },
+  "targets": [
+    {
+      "target": "macos-arm64",
+      "job_id": 131856134944,
+      "job_url": "https://github.com/jorabekyusupov/devforge/actions/runs/43416651687/job/131856134944",
+      "runner_labels": [
+        "macos-15"
+      ],
+      "artifact_id": 14032139607,
+      "artifact_sha256": "6db7b7037b194a074ef43adcf0200be5f9d3334bac7a28ee470d35c2915531b9",
+      "native_check_passed": true,
+      "desktop_checks": 12,
+      "axe_cases": 10,
+      "axe_violations": 0,
+      "cold_100_scan_ms": 11,
+      "copy_to_registration_ms": 1388,
+      "event_to_ui_100_projects_ms": 1397,
+      "fallback_ms": 30663,
+      "event_storm_10000_ms": 2510,
+      "resources_before": {
+        "handles": 13,
+        "rss_bytes": 14008320,
+        "threads": 3
+      },
+      "resources_after": {
+        "handles": 13,
+        "rss_bytes": 14303232,
+        "threads": 3
+      },
+      "tested_commit": "0fb0eca7d7bf28dfae1039d584503275cadb2b79"
+    },
+    {
+      "target": "windows-x64",
+      "job_id": 131856135395,
+      "job_url": "https://github.com/jorabekyusupov/devforge/actions/runs/43416651687/job/131856135395",
+      "runner_labels": [
+        "windows-latest"
+      ],
+      "artifact_id": 14032433892,
+      "artifact_sha256": "671e9cb46f80cca88e764b29591b5d16b101d5bd1ee3f42b94470b84386e63a5",
+      "native_check_passed": true,
+      "desktop_checks": 12,
+      "axe_cases": 10,
+      "axe_violations": 0,
+      "cold_100_scan_ms": 26,
+      "copy_to_registration_ms": 7941,
+      "event_to_ui_100_projects_ms": 1199,
+      "fallback_ms": 30518,
+      "event_storm_10000_ms": 5782,
+      "resources_before": {
+        "handles": 178,
+        "rss_bytes": 16887808,
+        "threads": 2
+      },
+      "resources_after": {
+        "handles": 178,
+        "rss_bytes": 17178624,
+        "threads": 2
+      },
+      "tested_commit": "0fb0eca7d7bf28dfae1039d584503275cadb2b79"
+    },
+    {
+      "target": "macos-x64",
+      "tested_commit": "c33eadc4486ebf12c9ad50a95dab81dbdd5d4e7e",
+      "job_id": 131866006740,
+      "job_url": "https://github.com/jorabekyusupov/devforge/actions/runs/43419610647/job/131866006740",
+      "runner_labels": [
+        "macos-15-intel"
+      ],
+      "artifact_id": 14035332125,
+      "artifact_sha256": "f5fa9eae014be50e9bf50c5a46c15cb052b53b5c31bf7fa0be525ef5e940a3dc",
+      "native_check_passed": true,
+      "desktop_checks": 12,
+      "axe_cases": 10,
+      "axe_violations": 0,
+      "cold_100_scan_ms": 9,
+      "copy_to_registration_ms": 1866,
+      "event_to_ui_100_projects_ms": 2022,
+      "fallback_ms": 30588,
+      "event_storm_10000_ms": 5251,
+      "resources_before": {
+        "handles": 13,
+        "rss_bytes": 10039296,
+        "threads": 3
+      },
+      "resources_after": {
+        "handles": 13,
+        "rss_bytes": 10244096,
+        "threads": 3
+      }
+    }
+  ]
+}

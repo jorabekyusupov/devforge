@@ -1,14 +1,11 @@
-# Planning validation — 2026-11-13 Asia/Tashkent
+# Final validation
 
-- 7 phase specs: validate-phase.sh structure PASS for each.
-- 60 unique phase criterion IDs; ROADMAP and phase specs agree.
-- Prepared OKF tooling: strict validator PASS, 28 documents, 0 errors, 0 warnings.
-- git diff --check: PASS.
-- Product source, manifests, dependency lockfiles and workflows: unchanged.
-- New files are planning artifacts and project knowledge documentation only.
-- No product tests/builds/native platform acceptance or CI dispatch performed.
-- No implementation, /goal execution, commit, push, deployment or global memory update.
-- Falsifiability/atomicity/dependency self-review is recorded in THINKING and ROADMAP.
-
-Native macOS ARM64 / macOS Intel / Windows x64 status for this feature: NOT RUN.
-Actual native folder picker selection/cancel status for this feature: NOT RUN.
+- Original7 phase documents /60 distinct criteria retained and audited.
+- Core CI:macOS110 Rust/Windows108 Rust;1 opt-in OS credential fixture ignored each.
+- Frontend37,packaging6,locale tests3,semantic catalogs3,typecheck/fmt/clippy passed.
+- Default-feature desktop on bothOS and local CLI build passed; e2e examples clippy checked.
+- Actual native ARM64/Intel/Windows backend and12 UI checks passed;10 axe/0 each.
+- Actual cached original runtimes verified with unchanged catalog SHA256; live upstream drift retained as separate maintenance gate.
+- Native artifacts/source/archive digests and code-equivalence verified; raw user/project secrets excluded.
+- Final strict knowledge validator:PASS,28 documents/0 errors/0 warnings; separate from runtime evidence.
+- No global memory writes, unrelated M7/M13 changes, main merge or public deployment.

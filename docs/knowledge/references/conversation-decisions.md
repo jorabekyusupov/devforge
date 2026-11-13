@@ -315,3 +315,15 @@ Keyingi topshiriq: “Reja asosida boshlagin, barcha bosqichlarni to‘liq tugat
 va Windows’da tekshirib, xatolarini tuzat, yakunda natijani ber.” Implementatsiya
 va native verifikatsiya endi ruxsatli scope. Tekshiruv uchun ajratilgan branch/CI
 manbasi qayd etiladi; production merge yoki deploy shu topshiriqdan kelib chiqmaydi.
+
+
+## Discovery actual execution close — 2026-11-13
+
+Yuqoridagi to‘liq bajarish topshirig‘i doirasida7 bosqich va60 mezon bajarildi.
+Native ARM64/Windows0fb0eca, Intelc33eadc’da actual backend/UI o‘tdi; product/runner
+tree hash bir xil. Windows handle/path va overflow recovery xatolari source hamda
+native regressiya bilan tuzatildi. Tashqi PHP arxivlari qayta chiqarilgani sabab
+pinlar almashtirilmadi:original public arxivlar SHA256 bilan tekshirilgan vaqtinchalik
+CI cache orqali ishlatildi. Bu katalog/live-URL maintenance yoki public release
+scope’ini yakunlangan deb ko‘rsatmaydi. [Natijalar](../../evidence/project-discovery/README.md)
+va [konsept](../project-discovery.md) actual qamrovni beradi. Global memory yozilmadi.

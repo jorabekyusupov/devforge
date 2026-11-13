@@ -1,13 +1,28 @@
 {
-  "status": "in_progress",
+  "status": "passed",
+  "source_commits": [
+    "0fb0eca7d7bf28dfae1039d584503275cadb2b79",
+    "c33eadc4486ebf12c9ad50a95dab81dbdd5d4e7e"
+  ],
   "rust_tests": {
-    "passed": 104,
-    "ignored": 1
+    "macos_passed": 110,
+    "windows_passed": 108,
+    "ignored_each": 1
   },
-  "frontend_tests": 36,
-  "locales": 3,
-  "macos_arm64_backend": "passed",
-  "macos_arm64_ui": "remote-panel-fixture refinement pending",
-  "macos_intel": "not_run",
-  "windows_x64": "not_run"
+  "frontend_tests_each": 37,
+  "locale_catalogs": 3,
+  "native": {
+    "macos-arm64": "passed",
+    "windows-x64": "passed",
+    "macos-x64": "passed"
+  },
+  "axe_cases_each": 10,
+  "axe_violations_each": 0,
+  "reviewed_original_cache_used": true,
+  "catalog_pins_changed": false,
+  "knowledge_validation": {
+    "documents": 28,
+    "errors": 0,
+    "warnings": 0
+  }
 }

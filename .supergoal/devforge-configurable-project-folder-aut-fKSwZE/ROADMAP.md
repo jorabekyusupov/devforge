@@ -1,11 +1,11 @@
 # DevForge — loyiha papkasi va avtomatik aniqlash rejasi
 
-Sana: 2026-11-13 (Asia/Tashkent). Holat: PLANNING / reviewable proposal.
+Sana: 2026-11-13 (Asia/Tashkent). Holat: IMPLEMENTED / native feature acceptance passed; original planning contract retained below.
 Baseline: `9319e82457c7b6dc18c2b7b68b86eac9edda7de0`.
 
 Foydalanuvchi talabi: Settings’da default `~/Devforge`, o‘zgartiriladigan yo‘l,
 loyihalarni avtomatik topish, macOS va Windows’da ishlashini tekshirish; avval reja.
-Bu hujjat implementatsiya, commit/push, CI dispatch yoki deploy topshirig‘i emas.
+Quyidagi original reja keyingi foydalanuvchi topshirig‘i bilan bajarilmoqda; yakuniy mezonlar FINAL_ACCEPTANCE.md da tekshiriladi.
 
 ## 1. Natija
 

@@ -4,7 +4,7 @@ SUPERGOAL_PHASE_START
 Phase: 1 of 7 — Sozlama kontraktini kengaytirish
 Task: Loyiha papkasining yagona, saqlanadigan va eski sozlamalarga mos kontraktini yaratish.
 Depends on phases: none
-Status: PLANNED — implementation has not started.
+Status: COMPLETE — source/evidence reconciled; see final acceptance audit.
 
 ## Work
 
@@ -46,3 +46,11 @@ Core Settings ichida discovery sozlamasini default policy bilan ifodalash; OS ho
 - User requested planning first. This document is a work specification, not permission to implement or publish.
 - No global memory edits, unrequested dependency upgrades, unrelated project/system changes, or copying Herd proprietary code/assets.
 - Future execution: investigate failure, focused retry, then focused fix; preserve original criteria. Missing target/access remains an honest open gate.
+
+## Actual phase close
+
+All original phase criteria PASS; source/test classifications and platform evidence are in
+[PHASE_RECONCILIATION](../PHASE_RECONCILIATION.md) and [acceptance audit](../acceptance-audit.json).
+
+SUPERGOAL_PHASE_VERIFY: 1 PASS
+SUPERGOAL_PHASE_DONE: 1
