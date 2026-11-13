@@ -45,6 +45,8 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - name: Fetch pinned native fixture archives with audited transport
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: python scripts/discovery_runtime_cache.py "${{ matrix.target }}" "${{ env.DISCOVERY_FIXTURE }}/archives"
       - name: Isolated real Laravel discovery fixture
         run: cargo run --release -p devforge-workspace --example native_workspace --features test-support -- discovery-prepare "${{ env.DISCOVERY_FIXTURE }}" "${{ env.DISCOVERY_FIXTURE }}/archives"

@@ -34,7 +34,7 @@ def element(css):return call('POST','/element',{'using':'css selector','value':c
 def click(css):
  ident=wait(lambda:element(css));wait(lambda:script("const e=document.querySelector(arguments[0]);return e&&!e.matches(':disabled')",css));wait(lambda:call('GET',f'/element/{ident}/enabled'));call('POST',f'/element/{ident}/click',{})
 def fill(css,text):
- ident=element(css);wait(lambda:call('GET',f'/element/{ident}/enabled'));call('POST',f'/element/{ident}/clear',{});call('POST',f'/element/{ident}/value',{'text':text})
+ ident=wait(lambda:element(css));wait(lambda:call('GET',f'/element/{ident}/enabled'));call('POST',f'/element/{ident}/clear',{});call('POST',f'/element/{ident}/value',{'text':text})
 def snap():return invoke('workspace_snapshot')
 def settled():return wait(lambda:not snap()['busy'])
 def row(id):return next(r for r in snap()['snapshot']['projects'] if r['project']['id']==id)
