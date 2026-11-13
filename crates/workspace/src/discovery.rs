@@ -252,8 +252,12 @@ impl Workspace {
 use notify::{RecursiveMode, Watcher};
 #[cfg(windows)]
 fn relevant_windows_path(root: &Path, path: &Path) -> bool {
-    let Ok(relative) = path.strip_prefix(root) else {
-        return root.starts_with(path);
+    // notify may report a normal path while metadata canonicalization returns
+    // a verbatim path. Compare the same lexical form before excluding deep noise.
+    let root = PathBuf::from(dunce::simplified(root).to_string_lossy().to_lowercase());
+    let path = PathBuf::from(dunce::simplified(path).to_string_lossy().to_lowercase());
+    let Ok(relative) = path.strip_prefix(&root) else {
+        return root.starts_with(&path);
     };
     let components = relative
         .components()
@@ -375,7 +379,7 @@ impl Service {
                 if watcher.is_none() && native_enabled {
                     let event_wake = waker.clone();
                     let count = event_counter.clone();
-                    let event_root = root.clone();
+                    let event_root = fs::canonicalize(&root).unwrap_or_else(|_| root.clone());
                     let errors = backend_error.clone();
                     watcher = notify::recommended_watcher(
                         move |result: notify::Result<notify::Event>| {
@@ -399,7 +403,9 @@ impl Service {
                                             .map(|p| p.join(path.file_name().unwrap_or_default()))
                                             .unwrap_or_else(|| path.clone())
                                     });
-                                    path.starts_with(&event_root) || event_root.starts_with(&path)
+                                    let observed = dunce::simplified(&path);
+                                    let watched = dunce::simplified(&event_root);
+                                    observed.starts_with(watched) || watched.starts_with(observed)
                                 })
                             }) {
                                 return;
@@ -733,6 +739,18 @@ mod tests {
         ] {
             assert!(relevant_windows_path(root, &root.join(child)));
         }
+        assert!(relevant_windows_path(
+            root,
+            Path::new(r"\\?\C:\PROJECTS\app\composer.json")
+        ));
+        assert!(relevant_windows_path(
+            Path::new(r"\\?\C:\projects"),
+            &root.join(r"app\public\index.php")
+        ));
+        assert!(!relevant_windows_path(
+            Path::new(r"\\?\C:\projects"),
+            &root.join(r"app\vendor\package\file.php")
+        ));
         for child in [
             r"app\vendor\package\file.php",
             r"app\node_modules\package\index.js",
