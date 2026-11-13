@@ -163,6 +163,15 @@ pub fn run(root: &Path) -> Result<()> {
         .unwrap()
         .domain;
     assert!(domain.ends_with(".devforge.test"));
+    #[cfg(windows)]
+    {
+        let temporary = folder.join("Complete rename probe");
+        fs::rename(&added, &temporary)
+            .map_err(|e| format!("rename complete watched Laravel before runtime: {e}"))?;
+        fs::rename(&temporary, &added)
+            .map_err(|e| format!("restore complete watched Laravel before runtime: {e}"))?;
+        eprintln!("DISCOVERY_PHASE: complete watched Laravel rename before runtime passed");
+    }
     eprintln!("DISCOVERY_PHASE: automatic registration ready; start HTTP");
     w.start(&p.id)?;
     let url = w
@@ -343,6 +352,9 @@ pub fn run(root: &Path) -> Result<()> {
     // timer and filesystem reads. No manufactured scan result or fake clock.
     eprintln!("DISCOVERY_PHASE: real periodic fallback and bounded event storm");
     let fallback_root = root.join("fallback-case");
+    if fallback_root.exists() {
+        fs::remove_dir_all(&fallback_root)?;
+    }
     fs::create_dir_all(&fallback_root)?;
     let fallback = Service::polling_fixture();
     let fallback_root = fs::canonicalize(fallback_root)?;

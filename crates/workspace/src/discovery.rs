@@ -250,6 +250,26 @@ impl Workspace {
 }
 
 use notify::{RecursiveMode, Watcher};
+#[cfg(windows)]
+fn relevant_windows_path(root: &Path, path: &Path) -> bool {
+    let Ok(relative) = path.strip_prefix(root) else {
+        return root.starts_with(path);
+    };
+    let components = relative
+        .components()
+        .take(4)
+        .map(|p| p.as_os_str().to_string_lossy().to_ascii_lowercase())
+        .collect::<Vec<_>>();
+    match components.as_slice() {
+        [] | [_] => true,
+        [_, marker] => {
+            ["composer.json", "package.json", "artisan", "public"].contains(&marker.as_str())
+        }
+        [_, directory, file] => directory == "public" && file == "index.php",
+        _ => false,
+    }
+}
+
 use std::sync::{
     Mutex as StdMutex,
     atomic::{AtomicBool, AtomicU64, Ordering},
@@ -362,6 +382,15 @@ impl Service {
                             if result.is_err() {
                                 errors.store(true, Ordering::Relaxed);
                             }
+                            #[cfg(windows)]
+                            if result.as_ref().is_ok_and(|event| {
+                                !event
+                                    .paths
+                                    .iter()
+                                    .any(|path| relevant_windows_path(&event_root, path))
+                            }) {
+                                return;
+                            }
                             if result.as_ref().is_ok_and(|e| {
                                 !e.paths.iter().any(|path| {
                                     let path = fs::canonicalize(path).unwrap_or_else(|_| {
@@ -381,6 +410,11 @@ impl Service {
                     )
                     .ok();
                 }
+                // Windows keeps only a collection-root handle. A handle on a
+                // project's public subdirectory can prevent renaming that project.
+                #[cfg(windows)]
+                let mut desired = std::collections::HashSet::<PathBuf>::new();
+                #[cfg(not(windows))]
                 let mut desired = scan
                     .watch_paths
                     .iter()
@@ -392,6 +426,7 @@ impl Service {
                 if let Some(parent) = root.parent() {
                     desired.insert(parent.to_path_buf());
                 }
+                #[cfg(not(windows))]
                 for path in &scan.watch_paths {
                     if path.join("public").is_dir() {
                         desired.insert(path.join("public"));
@@ -409,7 +444,12 @@ impl Service {
                         .cloned()
                         .collect::<Vec<_>>()
                     {
-                        if watcher.watch(&path, RecursiveMode::NonRecursive).is_ok() {
+                        let mode = if cfg!(windows) && path == root {
+                            RecursiveMode::Recursive
+                        } else {
+                            RecursiveMode::NonRecursive
+                        };
+                        if watcher.watch(&path, mode).is_ok() {
                             watched_paths.insert(path);
                         } else {
                             degraded = true;
@@ -678,6 +718,28 @@ mod tests {
                 .iter()
                 .any(|s| s.project_id == project.id)
         );
+    }
+    #[cfg(windows)]
+    #[test]
+    fn windows_kernel_events_ignore_dependency_trees_but_keep_project_markers() {
+        let root = Path::new(r"C:\projects");
+        for child in [
+            r"app",
+            r"app\composer.json",
+            r"app\package.json",
+            r"app\artisan",
+            r"app\public",
+            r"app\public\index.php",
+        ] {
+            assert!(relevant_windows_path(root, &root.join(child)));
+        }
+        for child in [
+            r"app\vendor\package\file.php",
+            r"app\node_modules\package\index.js",
+            r"app\storage\logs\laravel.log",
+        ] {
+            assert!(!relevant_windows_path(root, &root.join(child)));
+        }
     }
     #[test]
     fn native_watcher_converges_after_incomplete_copy_root_switch_and_quit() {
