@@ -1,8 +1,17 @@
 import json,pathlib,unittest,sys
 from scripts.package_desktop import run
-from scripts.m6_package_smoke import nsis_command,project_registry_snapshot,verify_registry_preserved
+from scripts.m6_package_smoke import nsis_command,project_registry_snapshot,verify_registry_preserved,owned_data_hashes
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 class DistributionContracts(unittest.TestCase):
+    def test_preservation_inventory_uses_portable_paths_and_detects_changed_bytes(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as folder:
+            data=pathlib.Path(folder);p=data/'projects/projects.sqlite3';p.parent.mkdir();p.write_bytes(b'registry')
+            other=data/'databases/cluster/data';other.parent.mkdir(parents=True);other.write_bytes(b'database')
+            before=owned_data_hashes(data)
+            self.assertEqual(set(before),{'projects/projects.sqlite3','databases/cluster/data'})
+            other.write_bytes(b'changed')
+            self.assertNotEqual(before['databases/cluster/data'],owned_data_hashes(data)['databases/cluster/data'])
     def test_scan_status_can_refresh_but_suppression_identity_and_binding_are_preserved(self):
         import sqlite3,tempfile
         from contextlib import closing

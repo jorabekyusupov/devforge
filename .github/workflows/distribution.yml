@@ -71,7 +71,11 @@ jobs:
               (out/'package-manifest.json').write_text(json.dumps(manifest,indent=2))
               (out/'reuse-source.json').write_text(json.dumps({'installer_run':candidate,'installer_source':sha,'original_run_conclusion':source['conclusion'],'test_source':run('git','rev-parse','HEAD'),'changed_paths':changed,'installer_sha256':entry['sha256']},indent=2))
       - name: Native real Laravel projects PostgreSQL queue and Vite fixture
+        if: inputs.installer_run_id == ''
         run: cargo run --release -p devforge-workspace --example native_workspace --features test-support -- m6-fixture empty-cache
+      - name: Disposable native fixture helper for unchanged release installer replay
+        if: inputs.installer_run_id != ''
+        run: cargo run -p devforge-workspace --example native_workspace --features test-support -- m6-fixture empty-cache
       - name: Production release app sidecars notices SBOM DMG or NSIS
         if: inputs.installer_run_id == ''
         run: python scripts/package_desktop.py
@@ -80,7 +84,7 @@ jobs:
         continue-on-error: true
         env:
           WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: --disable-gpu
-        run: target/release/examples/native_workspace run python scripts/m6_package_smoke.py m6-fixture --disposable-host
+        run: target/${{ inputs.installer_run_id != '' && 'debug' || 'release' }}/examples/native_workspace run python scripts/m6_package_smoke.py m6-fixture --disposable-host
       - name: Native GUI and concurrent install/log frame measurements
         if: ${{ !inputs.installer_only }}
         run: npm run tauri -- build --debug --no-bundle --features e2e

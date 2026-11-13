@@ -14,6 +14,8 @@ def wait(test,seconds=60):
         time.sleep(.1)
     raise TimeoutError('native package assertion timed out')
 def digest(path):return hashlib.sha256(path.read_bytes()).hexdigest()
+def owned_data_hashes(data):
+    return {p.relative_to(data).as_posix():digest(p) for folder in ['projects','databases'] for p in (data/folder).rglob('*') if p.is_file()} if data.exists() else {}
 def project_registry_snapshot(path):
     # A launch may add feature tables or checkpoint SQLite pages. Preserve every
     # existing table's definition and rows, without treating page layout as data.
@@ -101,12 +103,10 @@ def main():
         project=fixture/'Project outside app';project.mkdir(exist_ok=True);(project/'keep.txt').write_text('user project survives')
         db=data/'db-preservation-sentinel';db.write_bytes(os.urandom(1024));before=digest(db)
         # Existing native Laravel/PG fixture, when present, must survive replacement byte-for-byte.
-        def owned_data_hashes():
-            return {str(p.relative_to(data)):digest(p) for folder in ['projects','databases'] for p in (data/folder).rglob('*') if p.is_file()} if data.exists() else {}
-        native_before=owned_data_hashes();report['preserved_existing_project_db_files']=len(native_before)
+        native_before=owned_data_hashes(data);report['preserved_existing_project_db_files']=len(native_before)
         registry_before=project_registry_snapshot(data/'projects/projects.sqlite3')
         def verify_preserved():
-            current=owned_data_hashes()
+            current=owned_data_hashes(data)
             changed=[key for key,value in native_before.items() if current.get(key)!=value]
             assert not changed,{'changed_project_db_files':changed[:40]}
         # The standard Windows uninstaller's data-removal paths must also survive
@@ -157,7 +157,7 @@ def main():
         report['checks']['running_app_blocks_uninstall']=True if windows else 'CLI preflight blocks; Finder Trash cannot execute app hooks'
         report['checks']['three_locales_release_native_shell']=True
         report['checks']['second_launch_keeps_original_process']=True
-        after_launch=owned_data_hashes()
+        after_launch=owned_data_hashes(data)
         report['release_launch_changed_files']=[key for key,value in native_before.items() if after_launch.get(key)!=value]
         report['registry_derived_scan_fields']=['discovery_entries.record.state','discovery_entries.record.problem']
         # Release launch and installer replacement are distinct operations. The
