@@ -3,6 +3,11 @@ on:
   push:
     branches: [codex/discovery-m7-integration]
   workflow_dispatch:
+    inputs:
+      target:
+        type: choice
+        default: all
+        options: [all, macos-arm64, macos-x64, windows-x64]
 permissions:
   contents: read
 jobs:
@@ -11,10 +16,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - {os: macos-15, target: macos-arm64}
-          - {os: macos-15-intel, target: macos-x64}
-          - {os: windows-latest, target: windows-x64}
+        include: ${{ fromJSON((inputs.target == 'windows-x64' || contains(github.event.head_commit.message, '[windows-integration]')) && '[{"os":"windows-latest","target":"windows-x64"}]' || inputs.target == 'macos-arm64' && '[{"os":"macos-15","target":"macos-arm64"}]' || inputs.target == 'macos-x64' && '[{"os":"macos-15-intel","target":"macos-x64"}]' || '[{"os":"macos-15","target":"macos-arm64"},{"os":"macos-15-intel","target":"macos-x64"},{"os":"windows-latest","target":"windows-x64"}]') }}
     runs-on: ${{ matrix.os }}
     env:
       PYTHONUTF8: '1'
