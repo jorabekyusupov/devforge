@@ -1,5 +1,9 @@
 # M13.2 JSON CLI
 
+M13.4 adds [reviewed service actions](reviewed-service-actions.md) and own-key
+receipt lookup through a separate typed service client. The M13.2 boundary below
+describes the original six routes; it is not the complete later capability list.
+
 The additive `api` family uses control API version1. Legacy execution routes stay
 unchanged; wrapper help for legacy families is intercepted before their stores/
 leases. Interception stops at `--` and, for `project exec PROJECT TOOL`, after the

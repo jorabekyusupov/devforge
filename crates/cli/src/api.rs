@@ -1,5 +1,8 @@
 //! Additive JSON CLI. Metadata is resolved before roots, IPC or credentials.
-use devforge_control::{API_VERSION, ErrorCode, Id, Response};
+use devforge_control::{
+    API_VERSION, Digest, ErrorCode, Id, Request, Response,
+    mutations::{MutationInput, ServiceActionInput},
+};
 use serde_json::{Value, json};
 use std::io::{self, IsTerminal, Read};
 use zeroize::Zeroizing;
@@ -25,6 +28,26 @@ const COMMANDS: &[(&str, &str)] = &[
     ),
     ("schema", "devforge api schema"),
     ("capabilities", "devforge api capabilities"),
+    (
+        "service plan",
+        "devforge api service plan ACTION PROJECT_ID --revision N --idempotency-key KEY --credential-stdin",
+    ),
+    (
+        "service start",
+        "devforge api service start PROJECT_ID --revision N --idempotency-key KEY --review DIGEST --credential-stdin",
+    ),
+    (
+        "service stop",
+        "devforge api service stop PROJECT_ID --revision N --idempotency-key KEY --review DIGEST --credential-stdin",
+    ),
+    (
+        "service restart",
+        "devforge api service restart PROJECT_ID --revision N --idempotency-key KEY --review DIGEST --credential-stdin",
+    ),
+    (
+        "operation lookup",
+        "devforge api operation lookup KEY --project PROJECT_ID --credential-stdin",
+    ),
 ];
 
 #[derive(Debug)]
@@ -33,6 +56,9 @@ struct Invocation {
     words: Vec<String>,
     project: Option<Id>,
     credential_stdin: bool,
+    revision: Option<u64>,
+    idempotency: Option<Id>,
+    review: Option<Digest>,
 }
 impl Invocation {
     fn parse(args: &[String], request: Id) -> Result<Self, ErrorCode> {
@@ -41,6 +67,9 @@ impl Invocation {
             words: vec![],
             project: None,
             credential_stdin: false,
+            revision: None,
+            idempotency: None,
+            review: None,
         };
         let mut request_seen = false;
         let mut version_seen = false;
@@ -49,7 +78,8 @@ impl Invocation {
         while index < args.len() {
             let argument = &args[index];
             match argument.as_str() {
-                "--api-version" | "--request-id" | "--project" => {
+                "--api-version" | "--request-id" | "--project" | "--revision"
+                | "--idempotency-key" | "--review" => {
                     index += 1;
                     let value = args.get(index).ok_or(ErrorCode::InvalidInput)?;
                     match argument.as_str() {
@@ -67,6 +97,19 @@ impl Invocation {
                         }
                         "--project" if invocation.project.is_none() => {
                             invocation.project = Some(Id::new(value)?)
+                        }
+                        "--revision" if invocation.revision.is_none() => {
+                            let revision = value.parse().map_err(|_| ErrorCode::InvalidInput)?;
+                            if revision > devforge_control::limits::SafeInt::MAX {
+                                return Err(ErrorCode::InvalidInput);
+                            }
+                            invocation.revision = Some(revision);
+                        }
+                        "--idempotency-key" if invocation.idempotency.is_none() => {
+                            invocation.idempotency = Some(Id::new(value)?)
+                        }
+                        "--review" if invocation.review.is_none() => {
+                            invocation.review = Some(Digest::new(value.clone())?)
                         }
                         _ => return Err(ErrorCode::InvalidInput),
                     }
@@ -147,14 +190,14 @@ fn metadata(words: &[String]) -> Result<Option<Value>, ErrorCode> {
         .as_slice()
     {
         ["capabilities"] => Ok(Some(
-            json!({"api_version":API_VERSION,"owner_autostart":false,"native_desktop_authority":false,"external_grant_required":true,"project_visibility":"credential-bound project only","commands":COMMANDS.iter().filter(|(name,_)| !matches!(*name,"schema"|"capabilities")).map(|(name,_)|json!({"name":name,"implemented":true,"requires_connection":true,"requires_grant":*name!="health","required_scopes":match *name {"health"=>vec![],"operation cancel"=>vec!["observer","project_manage"],_=>vec!["observer"]},"effect":if *name=="operation cancel"{"cancel_owned_operation"}else{"read_only"}})).collect::<Vec<_>>(),"deferred":["execution","mcp","content_reads","mutating_project_tools"],"planning_inventory_is_live":false}),
+            json!({"api_version":API_VERSION,"owner_autostart":false,"native_desktop_authority":false,"external_grant_required":true,"project_visibility":"credential-bound project only","commands":COMMANDS.iter().filter(|(name,_)| !matches!(*name,"schema"|"capabilities")).map(|(name,_)|json!({"name":name,"implemented":true,"requires_connection":true,"requires_grant":*name!="health","required_scopes":match *name {"health"=>vec![],"operation cancel"=>vec!["observer","project_manage"],"service start"|"service restart"=>vec!["project_manage","execution_test"],"service stop"=>vec!["project_manage"],"service plan"=>vec!["project_manage"],_=>vec!["observer"]},"execution_requires_native_approval":name.starts_with("service "),"scope_by_action":if *name=="service plan"{json!({"start":["project_manage","execution_test"],"stop":["project_manage"],"restart":["project_manage","execution_test"]})}else{Value::Null},"partial_effects":if matches!(*name,"service plan"|"service start"|"service restart"){json!(["configured_database_cache_smtp_may_remain_running_after_failure_or_cancel","restart_may_have_stopped_selected_session_before_later_denial"])}else{json!([])},"effect":match *name{"operation cancel"=>"cancel_owned_operation","service start"|"service stop"|"service restart"=>"reviewed_owned_service_lifecycle",_=>"read_only"}})).collect::<Vec<_>>(),"deferred":["general_execution_tools","content_reads","other_project_mutations"],"planning_inventory_is_live":false}),
         )),
         ["schema"] => Ok(Some(schema())),
         _ => Ok(None),
     }
 }
 fn exit_codes() -> Value {
-    json!({"0":"success","2":"invalid_input_or_unsupported_version","3":"unauthorized_or_grant_denied","4":"owner_or_storage_unavailable","5":"conflict_or_busy","6":"unsupported_or_bounded_output","7":"timeout_or_interrupted"})
+    json!({"0":"success","2":"invalid_input_or_unsupported_version","3":"unauthorized_or_grant_denied","4":"owner_or_storage_unavailable","5":"conflict_or_busy","6":"unsupported_or_bounded_output","7":"timeout_interrupted_or_admission_unconfirmed"})
 }
 fn exit_code(code: ErrorCode) -> i32 {
     match code {
@@ -169,11 +212,12 @@ fn exit_code(code: ErrorCode) -> i32 {
         | ErrorCode::ReviewMismatch
         | ErrorCode::IdempotencyConflict
         | ErrorCode::InvalidTransition
+        | ErrorCode::PreconditionFailed
         | ErrorCode::Busy => 5,
         ErrorCode::CursorExpired
         | ErrorCode::OutputLimitExceeded
         | ErrorCode::UnsupportedCapability => 6,
-        ErrorCode::TimedOut | ErrorCode::Interrupted => 7,
+        ErrorCode::TimedOut | ErrorCode::Interrupted | ErrorCode::AdmissionUnconfirmed => 7,
     }
 }
 fn schema() -> Value {
@@ -185,17 +229,23 @@ fn schema() -> Value {
             ("request_id".to_owned(),id.clone()),
         ]);
         let mut required = vec!["command"];
-        if *name=="project inspect" || name.starts_with("operation ") {
+        if *name=="project inspect" || name.starts_with("operation ") || name.starts_with("service ") {
             properties.insert("project_id".into(),id.clone());
             required.push("project_id");
         }
-        if name.starts_with("operation ") {
+        if name.starts_with("operation ") && *name!="operation lookup" {
             properties.insert("operation_id".into(),id.clone());
             required.push("operation_id");
         }
+        if name.starts_with("service ") {
+            properties.insert("expected_revision".into(),json!({"type":"integer","minimum":0,"maximum":devforge_control::limits::SafeInt::MAX}));
+            properties.insert("idempotency_key".into(),id.clone());required.extend(["expected_revision","idempotency_key"]);
+            if *name=="service plan"{properties.insert("action".into(),json!({"enum":["start","stop","restart"]}));required.push("action");}else{properties.insert("review".into(),json!({"type":"string","pattern":"^[0-9a-f]{64}$"}));required.push("review");}
+        }
+        if *name=="operation lookup"{properties.insert("idempotency_key".into(),id.clone());required.push("idempotency_key");}
         json!({"type":"object","additionalProperties":false,"properties":properties,"required":required})
     }).collect::<Vec<_>>();
-    let mut value = json!({"api_version":API_VERSION,"scope":"implemented M13.2 JSON CLI, not the broader planning tool inventory","response":{"$schema":"https://json-schema.org/draft/2020-12/schema","type":"object","additionalProperties":false,"required":["api_version","request_id","ok","warnings"],"properties":{"api_version":{"const":API_VERSION},"request_id":{"type":"string","pattern":"^[A-Za-z0-9_.:-]+$","minLength":1,"maxLength":128},"operation_id":{"type":"string"},"ok":{"type":"boolean"},"data":{},"error":{"type":"object","additionalProperties":false,"required":["code","retryable"],"properties":{"code":{"enum":devforge_control::export::ERRORS},"retryable":{"type":"boolean"}}},"warnings":{"type":"array","items":{"enum":devforge_control::export::ERRORS}}},"oneOf":[{"properties":{"ok":{"const":true}},"required":["data"],"not":{"required":["error"]}},{"properties":{"ok":{"const":false}},"required":["error"],"not":{"required":["data"]}}]},"commands":COMMANDS.iter().map(|(name,example)|json!({"name":name,"example":example})).collect::<Vec<_>>(),"exit_codes":exit_codes()});
+    let mut value = json!({"api_version":API_VERSION,"scope":"implemented JSON CLI and first M13.4 service lifecycle slice; other mutations remain unavailable","response":{"$schema":"https://json-schema.org/draft/2020-12/schema","type":"object","additionalProperties":false,"required":["api_version","request_id","ok","warnings"],"properties":{"api_version":{"const":API_VERSION},"request_id":{"type":"string","pattern":"^[A-Za-z0-9_.:-]+$","minLength":1,"maxLength":128},"operation_id":{"type":"string"},"ok":{"type":"boolean"},"data":{},"error":{"type":"object","additionalProperties":false,"required":["code","retryable"],"properties":{"code":{"enum":devforge_control::export::ERRORS},"retryable":{"type":"boolean"}}},"warnings":{"type":"array","items":{"enum":devforge_control::export::ERRORS}}},"oneOf":[{"properties":{"ok":{"const":true}},"required":["data"],"not":{"required":["error"]}},{"properties":{"ok":{"const":false}},"required":["error"],"not":{"required":["data"]}}]},"commands":COMMANDS.iter().map(|(name,example)|json!({"name":name,"example":example})).collect::<Vec<_>>(),"exit_codes":exit_codes()});
     value["input"] = json!({"$schema":"https://json-schema.org/draft/2020-12/schema","description":"Logical CLI arguments; bearer credentials are private stdin transport, never JSON fields.","oneOf":inputs});
     value
 }
@@ -219,11 +269,19 @@ pub fn run(args: &[String]) -> i32 {
     };
     let request = invocation.request.clone();
     let result = metadata(&invocation.words).and_then(|meta| match meta {
-        Some(value) if invocation.project.is_none() && !invocation.credential_stdin => Ok((
-            serde_json::to_value(Response::success(request.clone(), None, value))
-                .expect("control envelope"),
-            0,
-        )),
+        Some(value)
+            if invocation.project.is_none()
+                && !invocation.credential_stdin
+                && invocation.revision.is_none()
+                && invocation.idempotency.is_none()
+                && invocation.review.is_none() =>
+        {
+            Ok((
+                serde_json::to_value(Response::success(request.clone(), None, value))
+                    .expect("control envelope"),
+                0,
+            ))
+        }
         Some(_) => Err(ErrorCode::InvalidInput),
         None => live(&invocation),
     });
@@ -245,6 +303,100 @@ fn emit(response: Response<Value>) {
         serde_json::to_string(&response).expect("JSON control envelope")
     );
 }
+fn service_live(invocation: &Invocation) -> Result<(Value, i32), ErrorCode> {
+    use devforge_manager::{
+        Endpoint, external_auth::ExternalCredential, external_client::ServiceClient,
+    };
+    let words = invocation
+        .words
+        .iter()
+        .map(String::as_str)
+        .collect::<Vec<_>>();
+    enum Call {
+        Plan(Request<MutationInput>),
+        Apply(Request<MutationInput>, Digest),
+        Lookup(Id, Id),
+    }
+    let call = match words.as_slice() {
+        ["operation", "lookup", key]
+            if invocation.revision.is_none()
+                && invocation.idempotency.is_none()
+                && invocation.review.is_none() =>
+        {
+            Call::Lookup(
+                invocation.project.clone().ok_or(ErrorCode::InvalidInput)?,
+                Id::new(*key)?,
+            )
+        }
+        _ => {
+            if invocation.project.is_some() {
+                return Err(ErrorCode::InvalidInput);
+            }
+            let (action, project, plan) = match words.as_slice() {
+                ["service", "plan", action, project] => (*action, *project, true),
+                ["service", action, project] => (*action, *project, false),
+                _ => return Err(ErrorCode::InvalidInput),
+            };
+            let input = match action {
+                "start" => MutationInput::Start(ServiceActionInput { limits: None }),
+                "stop" => MutationInput::Stop(ServiceActionInput { limits: None }),
+                "restart" => MutationInput::Restart(ServiceActionInput { limits: None }),
+                _ => return Err(ErrorCode::InvalidInput),
+            };
+            let request = Request {
+                api_version: Default::default(),
+                request_id: invocation.request.clone(),
+                project_id: Id::new(project)?,
+                expected_revision: Some(invocation.revision.ok_or(ErrorCode::InvalidInput)?),
+                idempotency_key: Some(
+                    invocation
+                        .idempotency
+                        .clone()
+                        .ok_or(ErrorCode::InvalidInput)?,
+                ),
+                input,
+            };
+            if plan {
+                if invocation.review.is_some() {
+                    return Err(ErrorCode::InvalidInput);
+                }
+                Call::Plan(request)
+            } else {
+                Call::Apply(
+                    request,
+                    invocation.review.clone().ok_or(ErrorCode::InvalidInput)?,
+                )
+            }
+        }
+    };
+    if !invocation.credential_stdin {
+        return Err(ErrorCode::Unauthorized);
+    }
+    let credential = credential()?;
+    let credential =
+        ExternalCredential::from_wire(&credential).map_err(|_| ErrorCode::Unauthorized)?;
+    let root = devforge_platform::app_data_dir().map_err(|_| ErrorCode::StorageUnavailable)?;
+    let endpoint = Endpoint::existing(&root).map_err(|_| ErrorCode::StorageUnavailable)?;
+    let mut client = ServiceClient::connect(endpoint, credential)?;
+    match call {
+        Call::Plan(request) => service_response(client.plan(&request)?),
+        Call::Apply(request, review) => service_response(client.apply(&request, &review)?),
+        Call::Lookup(project, key) => {
+            service_response(client.lookup(invocation.request.clone(), &project, &key)?)
+        }
+    }
+}
+fn service_response<T: serde::Serialize>(reply: Response<T>) -> Result<(Value, i32), ErrorCode> {
+    let code = reply
+        .error()
+        .map(|fault| exit_code(fault.code))
+        .unwrap_or(0);
+    Ok((
+        serde_json::to_value(reply).map_err(|_| ErrorCode::InvalidInput)?,
+        code,
+    ))
+}
+
 // Restricted transport only: no NativeClient, owner launch or legacy Workspace.
 fn live(invocation: &Invocation) -> Result<(Value, i32), ErrorCode> {
     use devforge_manager::{
@@ -256,6 +408,15 @@ fn live(invocation: &Invocation) -> Result<(Value, i32), ErrorCode> {
         .iter()
         .map(String::as_str)
         .collect::<Vec<_>>();
+    if words.first() == Some(&"service") || matches!(words.as_slice(), ["operation", "lookup", _]) {
+        return service_live(invocation);
+    }
+    if invocation.revision.is_some()
+        || invocation.idempotency.is_some()
+        || invocation.review.is_some()
+    {
+        return Err(ErrorCode::InvalidInput);
+    }
     if words == ["health"] {
         if invocation.project.is_some() || invocation.credential_stdin {
             return Err(ErrorCode::InvalidInput);

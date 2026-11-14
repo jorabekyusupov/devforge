@@ -117,7 +117,8 @@ struct Context {
     payloads: Mutex<crate::payload::Store>,
     stop: StopSignal,
     shutdown_id: String,
-    external: crate::external_control::Server,
+    external: Arc<crate::external_control::Server>,
+    services: Arc<crate::service_control::Services>,
 }
 /// Trusted OS-signal composition, never a wire role or request field. This may
 /// wait for persistence; call it on the signal library's dedicated worker.
@@ -178,8 +179,11 @@ impl Controller {
         persist_lifecycle_checked(&endpoint, &lifecycle, || Ok(()))?;
         let auth = DesktopAuth::new(endpoint.clone(), local_owner_user()?, options.auth)
             .map_err(|_| Error::AuthenticationUnavailable)?;
-        let external = crate::external_control::Server::new(&owner)
-            .map_err(|_| Error::AuthenticationUnavailable)?;
+        let external = Arc::new(
+            crate::external_control::Server::new(&owner)
+                .map_err(|_| Error::AuthenticationUnavailable)?,
+        );
+        let services = Arc::new(crate::service_control::Services::new(external.clone()));
         let actor = WorkspaceActor::start_with_terminal_arguments(
             owner
                 .claim_workspace()
@@ -204,6 +208,7 @@ impl Controller {
             stop: StopSignal::default(),
             shutdown_id,
             external,
+            services,
         });
         Ok(Self {
             server: Some(Server::new(owner)),
@@ -437,9 +442,14 @@ enum Request {
         session: WireToken,
         grant_id: Id,
     },
+    ApproveServicePlan {
+        session: WireToken,
+        digest: devforge_control::Digest,
+    },
 }
 impl Context {
     fn finish_shutdown(&self, cleanup: Result<()>) -> Result<()> {
+        self.services.clear();
         self.external.close();
         let mut lifecycle = read_inhibition(&self.endpoint)?;
         if lifecycle
@@ -488,6 +498,31 @@ impl Context {
         Ok(())
     }
     fn request(&self, peer: PeerIdentity, input: Value) -> Value {
+        if input
+            .get("method")
+            .and_then(Value::as_str)
+            .is_some_and(crate::service_control::Services::handles)
+        {
+            let _gate = match self.quit_gate.try_lock() {
+                Ok(gate) => gate,
+                Err(_) => {
+                    return self.services.request(
+                        peer,
+                        input,
+                        &self.actor,
+                        Some(devforge_control::ErrorCode::Busy),
+                    );
+                }
+            };
+            return self.services.request(
+                peer,
+                input,
+                &self.actor,
+                self.quitting
+                    .load(Ordering::Acquire)
+                    .then_some(devforge_control::ErrorCode::Interrupted),
+            );
+        }
         if input.get("method").and_then(Value::as_str) == Some("external") {
             let invalid = crate::external_control::invalid_reply(&input);
             return match serde_json::from_value(input) {
@@ -660,6 +695,7 @@ impl Context {
             | Request::ExternalGrantIssue { session, .. }
             | Request::ExternalGrantList { session }
             | Request::ExternalGrantRevoke { session, .. }
+            | Request::ApproveServicePlan { session, .. }
             | Request::Quit { session } => session,
             _ => return fault("controller_invalid_request"),
         };
@@ -676,6 +712,12 @@ impl Context {
             Err(error) => return fault(&error.to_string()),
         };
         match request {
+            Request::ApproveServicePlan { digest, .. } => {
+                match self.services.approve(&authority, &digest, &self.actor) {
+                    Ok(receipt) => bounded_reply(&receipt),
+                    Err(error) => fault(control_code(error)),
+                }
+            }
             Request::ExternalGrantIssue {
                 project_id,
                 scopes,
@@ -701,7 +743,10 @@ impl Context {
             },
             Request::ExternalGrantRevoke { grant_id, .. } => {
                 match self.external.revoke(&authority, &grant_id) {
-                    Ok(()) => success(json!({"revoked":true})),
+                    Ok(()) => {
+                        self.services.revoked(&grant_id);
+                        success(json!({"revoked":true}))
+                    }
                     Err(error) => fault(control_code(error)),
                 }
             }
@@ -1071,6 +1116,52 @@ fn persist_lifecycle_checked<F: FnOnce() -> Result<()>>(
 #[cfg(not(windows))]
 fn replace_marker(source: &Path, target: &Path) -> Result<()> {
     fs::rename(source, target).map_err(|_| Error::PersistenceUnavailable)
+}
+
+#[cfg(test)]
+#[path = "../tests/common/mod.rs"]
+mod quit_test_support;
+#[cfg(test)]
+mod service_quit_tests {
+    use super::*;
+    struct NoSecrets;
+    impl SecretStore for NoSecrets {
+        fn get(&self, _: &str) -> std::result::Result<Option<String>, devforge_core::ErrorCode> {
+            panic!("no native credential probe")
+        }
+        fn set(&self, _: &str, _: &str) -> std::result::Result<(), devforge_core::ErrorCode> {
+            panic!("no native credential write")
+        }
+        fn delete(&self, _: &str) -> std::result::Result<(), devforge_core::ErrorCode> {
+            panic!("no native credential delete")
+        }
+    }
+    #[test]
+    fn service_admission_obeys_existing_quit_gate() {
+        let root = quit_test_support::root("df-service-quit-");
+        let controller = Controller::start(
+            root.path(),
+            StartIntent::AutoStart,
+            Stores {
+                workspace: Arc::new(NoSecrets),
+                desktop: Arc::new(NoSecrets),
+            },
+        )
+        .unwrap();
+        let peer = PeerIdentity {
+            user: local_owner_user().unwrap(),
+            process_id: Some(std::process::id()),
+        };
+        let wire = json!({"method":"service_apply","credential":"0".repeat(64),"review":"0".repeat(64),"request":{"api_version":1,"request_id":"quit-race","project_id":"fixture","expected_revision":1,"idempotency_key":"quit-key","input":{"tool":"services.stop","arguments":{}}}});
+        let gate = controller.context.quit_gate.lock().unwrap();
+        let busy = controller.context.request(peer.clone(), wire.clone());
+        assert_eq!(busy["error"]["code"], "busy");
+        drop(gate);
+        controller.quitter().request_explicit().unwrap();
+        let quitting = controller.context.request(peer, wire);
+        assert_eq!(quitting["error"]["code"], "interrupted");
+        controller.serve(None).unwrap();
+    }
 }
 #[cfg(windows)]
 fn replace_marker(source: &Path, target: &Path) -> Result<()> {

@@ -422,3 +422,88 @@ fn invalid_or_missing_credentials_and_missing_owner_never_initialize_state() {
         assert!(!String::from_utf8(output.stdout).unwrap().contains(&input));
     }
 }
+
+#[test]
+fn service_metadata_requires_exact_intent_and_never_treats_flags_as_approval() {
+    let (_, _, help, value) = invoke(&["api", "service", "plan", "--help"]);
+    assert!(help.status.success());
+    assert_eq!(value["ok"], true);
+    for args in [
+        vec![
+            "api",
+            "service",
+            "start",
+            "project",
+            "--revision",
+            "1",
+            "--idempotency-key",
+            "key",
+        ],
+        vec![
+            "api",
+            "service",
+            "plan",
+            "install",
+            "project",
+            "--revision",
+            "1",
+            "--idempotency-key",
+            "key",
+        ],
+        vec![
+            "api",
+            "service",
+            "plan",
+            "stop",
+            "project",
+            "--idempotency-key",
+            "key",
+        ],
+        vec![
+            "api",
+            "service",
+            "plan",
+            "stop",
+            "project",
+            "--revision",
+            "1",
+        ],
+        vec![
+            "api",
+            "service",
+            "plan",
+            "stop",
+            "project",
+            "--revision",
+            "1",
+            "--idempotency-key",
+            "key",
+            "--trusted",
+        ],
+        vec!["api", "status", "--revision", "1"],
+        vec!["api", "operation", "lookup", "key"],
+    ] {
+        let (_, _, output, value) = invoke(&args);
+        assert_eq!(output.status.code(), Some(2), "{args:?}");
+        assert_eq!(value["error"]["code"], "invalid_input");
+    }
+    let (_, _, _, capabilities) = invoke(&["api", "capabilities"]);
+    let commands = capabilities["data"]["commands"].as_array().unwrap();
+    let start = commands
+        .iter()
+        .find(|entry| entry["name"] == "service start")
+        .unwrap();
+    assert_eq!(
+        start["required_scopes"],
+        serde_json::json!(["project_manage", "execution_test"])
+    );
+    assert_eq!(start["execution_requires_native_approval"], true);
+    let stop = commands
+        .iter()
+        .find(|entry| entry["name"] == "service stop")
+        .unwrap();
+    assert_eq!(
+        stop["required_scopes"],
+        serde_json::json!(["project_manage"])
+    );
+}

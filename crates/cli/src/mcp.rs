@@ -4,8 +4,11 @@ use devforge_control::ErrorCode;
 use devforge_manager::{
     Endpoint,
     credential_file::{CredentialFile, LoadedCredential},
-    external_client::BoundReadOnlyClient,
-    mcp_contract::{self, Action, MAX_REQUEST_BYTES, MAX_RESPONSE_BYTES, Protocol, ToolCall},
+    external_client::{BoundReadOnlyClient, BoundServiceClient},
+    mcp_contract::{
+        self, Action, MAX_REQUEST_BYTES, MAX_RESPONSE_BYTES, Protocol, ServiceCall, ServiceInput,
+        ToolCall,
+    },
 };
 use serde_json::{Value, json};
 use std::{
@@ -34,9 +37,72 @@ enum Input {
     Failed,
 }
 struct Job {
-    call: ToolCall,
+    call: QueuedCall,
     key: String,
     cancelled: Arc<AtomicBool>,
+}
+enum QueuedCall {
+    Read(ToolCall),
+    Service(ServiceCall),
+}
+impl QueuedCall {
+    fn id(&self) -> &Value {
+        match self {
+            Self::Read(call) => call.jsonrpc_id(),
+            Self::Service(call) => call.jsonrpc_id(),
+        }
+    }
+    fn failure(self, code: ErrorCode) -> Value {
+        match self {
+            Self::Read(call) => Protocol::complete(call, Err(code)),
+            Self::Service(call) => Protocol::complete_service(call, Err(code)),
+        }
+    }
+}
+enum BoundClient {
+    Read(BoundReadOnlyClient),
+    Service(BoundServiceClient),
+}
+impl BoundClient {
+    fn dispatch(&mut self, call: QueuedCall) -> Value {
+        match call {
+            QueuedCall::Read(call) => {
+                let result = match self {
+                    Self::Read(client) => {
+                        client.request(call.request_id.clone(), call.input.clone())
+                    }
+                    Self::Service(client) => {
+                        client.read(call.request_id.clone(), call.input.clone())
+                    }
+                };
+                Protocol::complete(call, result)
+            }
+            QueuedCall::Service(call) => {
+                let result = match self {
+                    Self::Read(_) => Err(ErrorCode::UnsupportedCapability),
+                    Self::Service(client) => match &call.input {
+                        ServiceInput::Plan(request) => client.plan(request).and_then(|reply| {
+                            serde_json::to_value(reply).map_err(|_| ErrorCode::InvalidInput)
+                        }),
+                        ServiceInput::Apply { request, review } => {
+                            client.apply(request, review).and_then(|reply| {
+                                serde_json::to_value(reply)
+                                    .map_err(|_| ErrorCode::AdmissionUnconfirmed)
+                            })
+                        }
+                        ServiceInput::Lookup {
+                            idempotency_key, ..
+                        } => client
+                            .lookup(call.request_id.clone(), idempotency_key)
+                            .and_then(|reply| {
+                                serde_json::to_value(reply).map_err(|_| ErrorCode::InvalidInput)
+                            }),
+                    },
+                };
+                Protocol::complete_service(call, result)
+            }
+        }
+    }
 }
 struct Completed {
     key: String,
@@ -113,18 +179,42 @@ pub fn run(args: &[String]) -> i32 {
     {
         println!(
             "{}",
-            json!({"usage":"devforge mcp serve --credential-file ABSOLUTE_PATH","protocol_versions":["2026-07-28","2025-11-25"],"transport":"stdio","read_only":true,"credential":"explicit protected file; never token argv/environment or protocol stdin","owner_autostart":false})
+            json!({"usage":"devforge mcp serve --credential-file ABSOLUTE_PATH [--allow-service-actions]","protocol_versions":["2026-07-28","2025-11-25"],"transport":"stdio","default_read_only":true,"service_actions_opt_in":"--allow-service-actions (surface only; grants and native exact-plan approval remain mandatory)","credential":"explicit protected file; never token argv/environment or protocol stdin","owner_autostart":false})
         );
         return 0;
     }
-    let [serve, flag, path] = args else {
-        eprintln!("mcp_invalid_arguments");
+    let Some((serve, options)) = args.split_first() else {
         return 2;
     };
-    if serve != "serve" || flag != "--credential-file" {
+    if serve != "serve" {
         eprintln!("mcp_invalid_arguments");
         return 2;
     }
+    let mut path = None;
+    let mut service_actions = false;
+    let mut index = 0;
+    while index < options.len() {
+        match options[index].as_str() {
+            "--credential-file" if path.is_none() => {
+                index += 1;
+                path = options.get(index);
+                if path.is_none() {
+                    eprintln!("mcp_invalid_arguments");
+                    return 2;
+                }
+            }
+            "--allow-service-actions" if !service_actions => service_actions = true,
+            _ => {
+                eprintln!("mcp_invalid_arguments");
+                return 2;
+            }
+        }
+        index += 1;
+    }
+    let Some(path) = path else {
+        eprintln!("mcp_invalid_arguments");
+        return 2;
+    };
     let loaded = match CredentialFile::load(Path::new(path)) {
         Ok(loaded) => loaded,
         Err(_) => {
@@ -132,7 +222,7 @@ pub fn run(args: &[String]) -> i32 {
             return 3;
         }
     };
-    match serve_stdio(loaded) {
+    match serve_stdio(loaded, service_actions) {
         Ok(()) => 0,
         Err(_) => {
             eprintln!("mcp_stdio_unavailable");
@@ -140,8 +230,12 @@ pub fn run(args: &[String]) -> i32 {
         }
     }
 }
-fn serve_stdio(loaded: LoadedCredential) -> io::Result<()> {
-    let mut protocol = Protocol::new(loaded.project_id().clone());
+fn serve_stdio(loaded: LoadedCredential, service_actions: bool) -> io::Result<()> {
+    let mut protocol = if service_actions {
+        Protocol::with_service_actions(loaded.project_id().clone())
+    } else {
+        Protocol::new(loaded.project_id().clone())
+    };
     let (input_tx, input_rx) = mpsc::sync_channel(QUEUE);
     let reader = thread::spawn(move || {
         let stdin = io::stdin();
@@ -160,7 +254,7 @@ fn serve_stdio(loaded: LoadedCredential) -> io::Result<()> {
     });
     let (job_tx, job_rx) = mpsc::sync_channel::<Job>(QUEUE);
     let (done_tx, done_rx) = mpsc::sync_channel::<Completed>(QUEUE);
-    let worker = thread::spawn(move || read_worker(loaded, job_rx, done_tx));
+    let worker = thread::spawn(move || read_worker(loaded, service_actions, job_rx, done_tx));
     let mut pending: HashMap<String, Arc<AtomicBool>> = HashMap::new();
     let stdout = io::stdout();
     let mut writer = stdout.lock();
@@ -252,31 +346,43 @@ fn transport_loop(
                     flag.store(true, Ordering::Release);
                 }
             }
-            Action::Call(call) => {
-                let id = key(call.jsonrpc_id());
-                let cancelled = Arc::new(AtomicBool::new(false));
-                let job = Job {
-                    call,
-                    key: id.clone(),
-                    cancelled: cancelled.clone(),
-                };
-                match jobs.try_send(job) {
-                    Ok(()) => {
-                        pending.insert(id, cancelled);
-                    }
-                    Err(mpsc::TrySendError::Full(job)) => {
-                        write_reply(writer, Protocol::complete(job.call, Err(ErrorCode::Busy)))?
-                    }
-                    Err(mpsc::TrySendError::Disconnected(job)) => write_reply(
-                        writer,
-                        Protocol::complete(job.call, Err(ErrorCode::StorageUnavailable)),
-                    )?,
-                }
-            }
+            Action::Call(call) => enqueue(QueuedCall::Read(call), jobs, pending, writer)?,
+            Action::Service(call) => enqueue(QueuedCall::Service(call), jobs, pending, writer)?,
         }
     }
 }
-fn read_worker(loaded: LoadedCredential, jobs: Receiver<Job>, done: SyncSender<Completed>) {
+fn enqueue(
+    call: QueuedCall,
+    jobs: &SyncSender<Job>,
+    pending: &mut HashMap<String, Arc<AtomicBool>>,
+    writer: &mut impl Write,
+) -> io::Result<()> {
+    let id = key(call.id());
+    let cancelled = Arc::new(AtomicBool::new(false));
+    let job = Job {
+        call,
+        key: id.clone(),
+        cancelled: cancelled.clone(),
+    };
+    match jobs.try_send(job) {
+        Ok(()) => {
+            pending.insert(id, cancelled);
+            Ok(())
+        }
+        Err(mpsc::TrySendError::Full(job)) => {
+            write_reply(writer, job.call.failure(ErrorCode::Busy))
+        }
+        Err(mpsc::TrySendError::Disconnected(job)) => {
+            write_reply(writer, job.call.failure(ErrorCode::StorageUnavailable))
+        }
+    }
+}
+fn read_worker(
+    loaded: LoadedCredential,
+    service_actions: bool,
+    jobs: Receiver<Job>,
+    done: SyncSender<Completed>,
+) {
     let mut loaded = Some(loaded);
     let mut client = None;
     let mut failure = None;
@@ -300,26 +406,32 @@ fn read_worker(loaded: LoadedCredential, jobs: Receiver<Job>, done: SyncSender<C
                     Endpoint::existing(&root).map_err(|_| ErrorCode::StorageUnavailable)
                 })
                 .and_then(|endpoint| {
-                    BoundReadOnlyClient::connect(
-                        endpoint,
-                        loaded.take().expect("single credential consumption"),
-                    )
+                    let loaded = loaded.take().expect("single credential consumption");
+                    if service_actions {
+                        BoundServiceClient::connect(endpoint, loaded).map(BoundClient::Service)
+                    } else {
+                        BoundReadOnlyClient::connect(endpoint, loaded).map(BoundClient::Read)
+                    }
                 });
             match connect {
                 Ok(connected) => client = Some(connected),
                 Err(error) => failure = Some(error),
             }
         }
-        let result = if let Some(client) = client.as_mut() {
-            client.request(job.call.request_id.clone(), job.call.input.clone())
-        } else {
-            Err(failure.unwrap_or(ErrorCode::StorageUnavailable))
-        };
+        // Cancellation before admission skips the request. Once apply may have
+        // been sent, EOF/cancellation suppresses only this MCP reply; callers
+        // retain their original key and reconcile the durable owner receipt.
         let reply = if job.cancelled.load(Ordering::Acquire) {
             None
         } else {
-            Some(Protocol::complete(job.call, result))
+            Some(if let Some(client) = client.as_mut() {
+                client.dispatch(job.call)
+            } else {
+                job.call
+                    .failure(failure.unwrap_or(ErrorCode::StorageUnavailable))
+            })
         };
+
         if done
             .send(Completed {
                 key: job.key,

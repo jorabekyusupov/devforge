@@ -108,7 +108,7 @@ fn help_and_invalid_startup_never_create_state_or_mix_stdout() {
             .unwrap();
         assert!(output.status.success());
         let value: Value = serde_json::from_slice(&output.stdout).unwrap();
-        assert_eq!(value["read_only"], true);
+        assert_eq!(value["default_read_only"], true);
         assert!(!root.exists());
     }
     for args in [

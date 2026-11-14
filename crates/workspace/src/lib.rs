@@ -9,6 +9,7 @@ mod mail;
 pub mod repro;
 pub mod worktrees;
 pub use devforge_inspector::logs::Filter as LogFilter;
+pub mod service_control;
 mod services;
 pub mod setup;
 pub mod storage;
@@ -1112,109 +1113,7 @@ impl Workspace {
         Ok(selected)
     }
     pub fn start(&mut self, id: &str) -> Result<()> {
-        let project = self.available_project(id)?;
-        if self.sessions.contains_key(id) {
-            return Err(error("already_running"));
-        }
-        if project.mail {
-            self.ensure_mail(id)?;
-        }
-        self.ensure_debugging(id)?;
-        if project.services.uses_redis() {
-            self.ensure_cache(
-                project
-                    .services
-                    .redis_instance
-                    .as_deref()
-                    .ok_or_else(|| error("database_unbound"))?,
-            )?;
-        }
-        if let Some(binding) = self.projects.binding(id)? {
-            self.ensure_database(&binding.instance_id)?;
-        }
-        let web = Serving::start_selected(
-            &self.sites,
-            &self.projects,
-            &self.catalog,
-            &self.packages,
-            self.secrets.as_ref(),
-            Options::default(),
-            Some(&[id.into()]),
-        )?;
-        let mut session = Session {
-            web,
-            queue: None,
-            supervisor: Supervisor::open(self.root.join("queue-logs").join(id))?,
-        };
-        if self
-            .preferences
-            .development
-            .get(id)
-            .is_some_and(|d| d.queue)
-        {
-            let dir = self.root.join("queue");
-            fs::create_dir_all(&dir)?;
-            let path = dir.join(format!("{}.php", devforge_serving::id()));
-            fs::write(&path, QUEUE_WRAPPER)?;
-            let p = self.projects.get(id)?;
-            let nonce = devforge_serving::id();
-            let origin = session.web.status().sites[0].preferred_url.clone();
-            let invocation = Context::resolve(
-                &self.projects,
-                id,
-                &self.catalog,
-                &self.packages,
-                self.secrets.as_ref(),
-            )?
-            .web_origin(&origin)?
-            .invocation(
-                Tool::Php,
-                vec![
-                    dunce::simplified(&path).as_os_str().into(),
-                    dunce::simplified(&p.path).as_os_str().into(),
-                    nonce.clone().into(),
-                ],
-                &self.catalog,
-                &self.packages,
-            )?;
-            invocation.start_service(
-                &mut session.supervisor,
-                Readiness::Output {
-                    stream: "stdout",
-                    needle: format!("DEVFORGE_QUEUE_READY:{nonce}"),
-                },
-            )?;
-            let queue_id = invocation.id().to_owned();
-            session.queue = Some(invocation);
-            let until = Instant::now() + Duration::from_secs(20);
-            loop {
-                let status = session.supervisor.snapshot(&queue_id)?;
-                if status.observed == Observed::Ready {
-                    break;
-                }
-                if status.observed == Observed::Failed || Instant::now() >= until {
-                    self.history
-                        .extend(
-                            session
-                                .supervisor
-                                .logs(&queue_id)?
-                                .0
-                                .into_iter()
-                                .map(|c| Log {
-                                    project_id: Some(id.into()),
-                                    process: "queue".into(),
-                                    stream: c.stream.into(),
-                                    text: c.text,
-                                }),
-                        );
-                    return Err(error("queue_unavailable"));
-                }
-                thread::sleep(Duration::from_millis(25));
-            }
-        }
-        self.sessions.insert(id.into(), session);
-        self.navigation(id, None, true)?;
-        Ok(())
+        self.start_checked(id, &|| Ok(()))
     }
     pub fn stop(&mut self, id: &str) -> Result<()> {
         if let Some(mut session) = self.sessions.remove(id) {

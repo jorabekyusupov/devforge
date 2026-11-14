@@ -87,6 +87,35 @@ impl Serving {
         options: Options,
         selected: Option<&[String]>,
     ) -> Result<Self> {
+        Self::start_selected_checked(
+            store,
+            projects,
+            catalog,
+            packages,
+            secrets,
+            options,
+            selected,
+            &|| Ok(()),
+        )
+    }
+    /// Cooperative caller policy at startup phases and readiness waits. Existing
+    /// native callers use the no-op adapter above. Failed startup drops only
+    /// this Serving owner's processes/hot files; shared dependencies live above.
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "Preserves the existing serving composition while adding a narrow cooperative callback"
+    )]
+    pub fn start_selected_checked(
+        store: &SiteStore,
+        projects: &ProjectStore,
+        catalog: &Catalog,
+        packages: &PackageStore,
+        secrets: &dyn SecretStore,
+        options: Options,
+        selected: Option<&[String]>,
+        check: &dyn Fn() -> Result<()>,
+    ) -> Result<Self> {
+        check()?;
         if crate::system::elevated()? {
             return Err(E::ElevatedProcessUnsupported);
         }
@@ -103,6 +132,7 @@ impl Serving {
         }
         let mut lock_sites = sites.clone();
         lock_sites.sort_by(|a, b| a.project_id.cmp(&b.project_id));
+        check()?;
         let locks = lock_sites
             .iter()
             .map(|s| store.lock(&format!("session-{}.lock", s.project_id)))
@@ -119,6 +149,7 @@ impl Serving {
         }
         let nonce = crate::id();
         let root = store.root().join("sessions").join(&nonce);
+        check()?;
         crate::private_dir(&root)?;
         let ca = if sites.iter().any(|site| site.https) {
             Some(Authority::open(
@@ -155,6 +186,7 @@ impl Serving {
         };
         let mut routes = Vec::new();
         for site in sites {
+            check()?;
             let project = projects.get(&site.project_id)?;
             let public =
                 fs::canonicalize(project.path.join("public")).map_err(|_| E::InvalidPublicRoot)?;
@@ -188,6 +220,7 @@ impl Serving {
             let php_port = PortReservation::choose(0, 0)?;
             let port = php_port.choice.selected;
             let config = manager.root.join(format!("fpm-{}.conf", project.id));
+            check()?;
             let args = if cfg!(windows) {
                 vec!["-b".into(), format!("127.0.0.1:{port}").into()]
             } else {
@@ -203,6 +236,7 @@ impl Serving {
                 .invocation(Tool::PhpWeb, args, catalog, packages)?;
             let id = invocation.id().to_owned();
             drop(php_port);
+            check()?;
             invocation.start_service(
                 &mut manager.supervisor,
                 Readiness::Tcp {
@@ -210,10 +244,12 @@ impl Serving {
                 },
             )?;
             manager._invocations.push(invocation);
-            manager.wait_ready(&id)?;
+            manager.wait_ready_checked(&id, check)?;
+            check()?;
             let probe = manager.root.join(format!("probe-{}.php", project.id));
             crate::atomic(&probe,format!("<?php header('Content-Type: application/json'); echo json_encode(['token'=>'{nonce}','php'=>PHP_VERSION,'ini'=>php_ini_loaded_file()]);").as_bytes())?;
             crate::fastcgi::probe(port, &probe, &nonce, &catalog.get(&project.php)?.version)?;
+            check()?;
             let leaf = if site.https {
                 Some(
                     ca.as_ref()
@@ -225,6 +261,7 @@ impl Serving {
             };
             let mut vite_port = None;
             if site.vite {
+                check()?;
                 let vite_entry = project.path.join("node_modules/vite/dist/node/index.js");
                 if !vite_entry.is_file() {
                     return Err(E::ViteUnavailable);
@@ -272,6 +309,7 @@ impl Serving {
                         )?;
                 let id = invocation.id().to_owned();
                 drop(reserve);
+                check()?;
                 {
                     use std::io::Write;
                     let mut reservation = std::fs::OpenOptions::new()
@@ -290,7 +328,7 @@ impl Serving {
                     },
                 )?;
                 manager._invocations.push(invocation);
-                manager.wait_ready(&id)?;
+                manager.wait_ready_checked(&id, check)?;
                 vite_port = Some(vport);
             }
             manager.status.sites.push(SiteStatus {
@@ -324,6 +362,7 @@ impl Serving {
             &manager.root.join("caddy-data"),
         )?;
         let path = manager.root.join("Caddyfile");
+        check()?;
         crate::atomic(&path, text.as_bytes())?;
         let version = catalog.defaults.get("caddy").ok_or(E::RuntimeUnavailable)?;
         let package = catalog
@@ -349,6 +388,7 @@ impl Serving {
                 environment.insert(key.into(), value);
             }
         }
+        check()?;
         manager.supervisor.start(ProcessSpec {
             input: None,
             id: "caddy-validate".into(),
@@ -369,8 +409,7 @@ impl Serving {
             logs: LogPolicy::default(),
         })?;
         if manager
-            .supervisor
-            .wait_terminal("caddy-validate", Duration::from_secs(15))?
+            .wait_terminal_checked("caddy-validate", Duration::from_secs(15), check)?
             .observed
             != Observed::Succeeded
         {
@@ -379,6 +418,7 @@ impl Serving {
         manager.supervisor.stop("caddy-validate")?;
         drop(http);
         drop(https);
+        check()?;
         manager.supervisor.start(ProcessSpec {
             input: None,
             id: "caddy".into(),
@@ -403,8 +443,9 @@ impl Serving {
             },
             logs: LogPolicy::default(),
         })?;
-        manager.wait_ready("caddy")?;
+        manager.wait_ready_checked("caddy", check)?;
         for route in &routes {
+            check()?;
             probe(
                 &route.site.domain,
                 manager.status.http.selected,
@@ -413,6 +454,7 @@ impl Serving {
                 &nonce,
             )?;
             if route.site.https {
+                check()?;
                 probe(
                     &route.site.domain,
                     manager.status.https.selected,
@@ -423,6 +465,7 @@ impl Serving {
             }
         }
         for route in &routes {
+            check()?;
             if let Some(port) = route.vite {
                 let path = projects
                     .get(&route.site.project_id)?
@@ -438,6 +481,7 @@ impl Serving {
                 crate::hot::record(store, &route.site.project_id, &path, &origin, port)?;
             }
         }
+        check()?;
         manager.status.running = true;
         crate::atomic(
             &store.root().join("status.json"),
@@ -445,9 +489,10 @@ impl Serving {
         )?;
         Ok(manager)
     }
-    fn wait_ready(&self, id: &str) -> Result<()> {
+    fn wait_ready_checked(&self, id: &str, check: &dyn Fn() -> Result<()>) -> Result<()> {
         let until = Instant::now() + Duration::from_secs(30);
         loop {
+            check()?;
             let s = self.supervisor.snapshot(id)?;
             if s.observed == Observed::Ready {
                 return Ok(());
@@ -457,6 +502,28 @@ impl Serving {
                 return Err(E::StartFailed);
             }
             thread::sleep(Duration::from_millis(20));
+        }
+    }
+    fn wait_terminal_checked(
+        &self,
+        id: &str,
+        timeout: Duration,
+        check: &dyn Fn() -> Result<()>,
+    ) -> Result<devforge_runtime::process::Snapshot> {
+        let until = Instant::now() + timeout;
+        loop {
+            check()?;
+            let state = self.supervisor.snapshot(id)?;
+            if matches!(
+                state.observed,
+                Observed::Succeeded | Observed::Failed | Observed::Stopped
+            ) {
+                return Ok(state);
+            }
+            if Instant::now() >= until {
+                return Err(E::RuntimeUnavailable);
+            }
+            thread::sleep(Duration::from_millis(10));
         }
     }
     pub fn status(&self) -> Status {
@@ -581,3 +648,127 @@ await server.listen();console.log('DEVFORGE_VITE_READY:'+data.nonce);
 let closing=false;const close=async()=>{if(closing)return;closing=true;await server.close();process.exit(0);};
 process.on('SIGTERM',close);process.on('SIGINT',close);process.stdin.on('data',close);
 "#;
+
+#[cfg(test)]
+mod cooperative_tests {
+    use super::*;
+    use devforge_runtime::{
+        Cancellation,
+        package::{Archive, Limits, Package, hash_file},
+    };
+    use std::{cell::Cell, collections::BTreeMap};
+
+    #[test]
+    fn checked_wait_child_fixture() {
+        if std::env::var("DEVFORGE_CHECKED_WAIT_FIXTURE").as_deref() == Ok("1") {
+            // Actual owned native child, deliberately never emitting readiness.
+            thread::sleep(Duration::from_secs(5));
+        }
+    }
+
+    #[test]
+    fn policy_is_rechecked_inside_readiness_and_validation_waits_and_child_is_cleaned_up() {
+        let root = tempfile::tempdir().unwrap();
+        let executable = std::env::current_exe().unwrap();
+        let packages = PackageStore::open(root.path().join("packages"), Limits::default()).unwrap();
+        let package = Package {
+            kind: "native-test-fixture".into(),
+            version: "1.0.0".into(),
+            variant: "wait".into(),
+            target: Target::current().unwrap(),
+            url: "https://example.invalid/fixture.exe".into(),
+            sha256: hash_file(&executable).unwrap(),
+            archive: Archive::File {
+                path: "fixture.exe".into(),
+            },
+            executables: BTreeMap::from([("fixture".into(), "fixture.exe".into())]),
+            resources: BTreeMap::new(),
+        };
+        packages
+            .install_cached(&package, &executable, &Cancellation::default(), |_| {})
+            .unwrap();
+        let mut supervisor = Supervisor::open(root.path().join("logs")).unwrap();
+        let mut environment =
+            BTreeMap::from([("DEVFORGE_CHECKED_WAIT_FIXTURE".into(), "1".into())]);
+        for key in ["SystemRoot", "WINDIR", "TEMP", "TMP", "TMPDIR"] {
+            if let Some(value) = std::env::var_os(key) {
+                environment.insert(key.into(), value);
+            }
+        }
+        supervisor
+            .start(ProcessSpec {
+                input: None,
+                id: "checked-wait".into(),
+                executable: packages.executable(&package, "fixture").unwrap(),
+                args: vec![
+                    "--exact".into(),
+                    "manager::cooperative_tests::checked_wait_child_fixture".into(),
+                    "--nocapture".into(),
+                ],
+                directory: root.path().into(),
+                environment,
+                readiness: Readiness::Output {
+                    stream: "stdout",
+                    needle: "THIS_FIXTURE_NEVER_READY".into(),
+                },
+                readiness_timeout: Duration::from_secs(5),
+                stop_grace: Duration::from_millis(100),
+                restart: RestartPolicy::default(),
+                logs: LogPolicy::default(),
+            })
+            .unwrap();
+        let port = || PortChoice {
+            requested: 0,
+            selected: 0,
+            fallback: false,
+            permission_denied: false,
+        };
+        let mut serving = Serving {
+            supervisor,
+            _invocations: Vec::new(),
+            _locks: Vec::new(),
+            status: Status {
+                running: false,
+                http: port(),
+                https: port(),
+                sites: Vec::new(),
+                nonce: "fixture".into(),
+            },
+            status_file: root.path().join("status.json"),
+            root: root.path().into(),
+            hot_files: Vec::new(),
+            stopped: false,
+        };
+        for terminal in [false, true] {
+            let calls = Cell::new(0);
+            let check = || {
+                calls.set(calls.get() + 1);
+                if calls.get() >= 2 {
+                    Err(E::PermissionRequired)
+                } else {
+                    Ok(())
+                }
+            };
+            let started = Instant::now();
+            let error = if terminal {
+                serving
+                    .wait_terminal_checked("checked-wait", Duration::from_secs(15), &check)
+                    .unwrap_err()
+            } else {
+                serving
+                    .wait_ready_checked("checked-wait", &check)
+                    .unwrap_err()
+            };
+            assert_eq!(error, E::PermissionRequired);
+            assert_eq!(calls.get(), 2);
+            assert!(
+                started.elapsed() < Duration::from_secs(1),
+                "policy waited for process readiness timeout"
+            );
+        }
+        assert_eq!(
+            serving.supervisor.stop("checked-wait").unwrap().observed,
+            Observed::Stopped
+        );
+    }
+}

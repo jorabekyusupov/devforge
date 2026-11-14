@@ -420,7 +420,23 @@ fn command_receipts_are_project_tool_and_byte_bound() {
     let binding = binding("project", 1);
     let grant = all_grants();
     let raw = call("services.stop", json!({}));
-    let prepared = prepare(&raw, &binding, &grant, None, None, 100).unwrap();
+    let backend = state_digest();
+    let review =
+        ReviewedPlan::record(&binding, id("services.stop"), backend.clone(), 1000).unwrap();
+    let fingerprint = request_digest(&raw, &binding);
+    let prepared = prepare(
+        &raw,
+        &binding,
+        &grant,
+        None,
+        Some(ReviewApproval {
+            plan: &review,
+            current_backend_digest: &backend,
+            request_fingerprint: &fingerprint,
+        }),
+        100,
+    )
+    .unwrap();
     let output = |tool, project| {
         serde_json::from_value::<MutationOutput>(json!({"tool":tool,"data":{"project_id":project,"operation_id":"op1","state":"succeeded","revision":1}})).unwrap()
     };
@@ -441,7 +457,20 @@ fn command_receipts_are_project_tool_and_byte_bound() {
         "services.stop",
         json!({"limits":{"timeout_ms":1000,"max_output_bytes":32}}),
     );
-    let small = prepare(&raw, &binding, &grant, None, None, 100).unwrap();
+    let fingerprint = request_digest(&raw, &binding);
+    let small = prepare(
+        &raw,
+        &binding,
+        &grant,
+        None,
+        Some(ReviewApproval {
+            plan: &review,
+            current_backend_digest: &backend,
+            request_fingerprint: &fingerprint,
+        }),
+        100,
+    )
+    .unwrap();
     assert_eq!(
         small.check_output(&output("services.stop", "project")),
         Err(ErrorCode::OutputLimitExceeded)

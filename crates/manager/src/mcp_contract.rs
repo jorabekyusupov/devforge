@@ -2,7 +2,11 @@
 //! only legacy initialize/initialized state is remembered. No I/O or authority
 //! is minted here. The caller dispatches only the returned read-only input.
 use crate::external_control::{ExternalInput, ExternalOutput, ExternalReply};
-use devforge_control::{ErrorCode, Id};
+use devforge_control::{
+    Digest, ErrorCode, Id, Request, Response,
+    mutations::{MutationInput, MutationLimits, ServiceActionInput},
+};
+use serde::Deserialize;
 use serde_json::{Value, json};
 pub const MODERN_VERSION: &str = "2026-07-28";
 pub const LEGACY_VERSION: &str = "2025-11-25";
@@ -33,12 +37,37 @@ pub struct Protocol {
     project: Id,
     legacy: Legacy,
     counter: u64,
+    service_actions: bool,
 }
 pub enum Action {
     Reply(Value),
     Ignore,
     Cancel(Value),
     Call(ToolCall),
+    Service(ServiceCall),
+}
+#[derive(Clone)]
+pub enum ServiceInput {
+    Plan(Request<MutationInput>),
+    Apply {
+        request: Request<MutationInput>,
+        review: Digest,
+    },
+    Lookup {
+        project_id: Id,
+        idempotency_key: Id,
+    },
+}
+pub struct ServiceCall {
+    pub input: ServiceInput,
+    pub request_id: Id,
+    id: Value,
+    version: Version,
+}
+impl ServiceCall {
+    pub fn jsonrpc_id(&self) -> &Value {
+        &self.id
+    }
 }
 enum Kind {
     Tool,
@@ -64,7 +93,15 @@ impl Protocol {
             project: project_id,
             legacy: Legacy::New,
             counter: 0,
+            service_actions: false,
         }
+    }
+    /// Surface selection only; grants and native exact-plan approval remain
+    /// mandatory at the manager. The default constructor stays read-only.
+    pub fn with_service_actions(project_id: Id) -> Self {
+        let mut protocol = Self::new(project_id);
+        protocol.service_actions = true;
+        protocol
     }
     pub fn receive(&mut self, value: Value) -> Action {
         let Some(object) = value.as_object() else {
@@ -198,6 +235,15 @@ impl Protocol {
             ));
         };
         params.as_object_mut().expect("object").remove("_meta");
+        if method == "tools/call"
+            && self.service_actions
+            && let Some(service) = self.service_tool(&params, id.clone(), version)
+        {
+            return match service {
+                Ok(call) => Action::Service(call),
+                Err(()) => Action::Reply(rpc_error(Some(id), -32602, "Invalid params", None)),
+            };
+        }
         let result = match method {
             "server/discover" if matches!(version, Version::Modern) => {
                 if keys(&params, &[]) {
@@ -222,7 +268,7 @@ impl Protocol {
                     return Action::Reply(rpc_success(
                         id,
                         version,
-                        json!({"tools":tool_definitions()}),
+                        json!({"tools":tool_definitions(self.service_actions)}),
                     ));
                 } else {
                     Err(())
@@ -272,6 +318,142 @@ impl Protocol {
             }
             Err(()) => Action::Reply(rpc_error(Some(id), -32602, "Invalid params", None)),
         }
+    }
+    fn service_tool(
+        &mut self,
+        params: &Value,
+        id: Value,
+        version: Version,
+    ) -> Option<Result<ServiceCall, ()>> {
+        let name = params.get("name").and_then(Value::as_str)?;
+        let args = params
+            .get("arguments")
+            .cloned()
+            .unwrap_or_else(|| json!({}));
+        let lookup = name == "operations.status" && args.get("idempotency_key").is_some();
+        if !lookup
+            && !matches!(
+                name,
+                "services.plan" | "services.start" | "services.stop" | "services.restart"
+            )
+        {
+            return None;
+        }
+        if !keys(params, &["name", "arguments"]) {
+            return Some(Err(()));
+        }
+        self.counter = self.counter.wrapping_add(1);
+        let request_id = Id::new(format!("mcp-{}", self.counter)).expect("fixed request ID");
+        let input = (|| {
+            if lookup {
+                #[derive(Deserialize)]
+                #[serde(deny_unknown_fields)]
+                struct Lookup {
+                    idempotency_key: Id,
+                }
+                let parsed: Lookup = serde_json::from_value(args).map_err(|_| ())?;
+                return Ok(ServiceInput::Lookup {
+                    project_id: self.project.clone(),
+                    idempotency_key: parsed.idempotency_key,
+                });
+            }
+            #[derive(Deserialize)]
+            #[serde(deny_unknown_fields)]
+            struct Plan {
+                action: String,
+                expected_revision: u64,
+                idempotency_key: Id,
+                limits: Option<MutationLimits>,
+            }
+            #[derive(Deserialize)]
+            #[serde(deny_unknown_fields)]
+            struct Apply {
+                expected_revision: u64,
+                idempotency_key: Id,
+                review: Digest,
+                limits: Option<MutationLimits>,
+            }
+            let (action, revision, key, review, limits) = if name == "services.plan" {
+                let parsed: Plan = serde_json::from_value(args).map_err(|_| ())?;
+                (
+                    parsed.action,
+                    parsed.expected_revision,
+                    parsed.idempotency_key,
+                    None,
+                    parsed.limits,
+                )
+            } else {
+                let parsed: Apply = serde_json::from_value(args).map_err(|_| ())?;
+                (
+                    name.strip_prefix("services.").ok_or(())?.to_owned(),
+                    parsed.expected_revision,
+                    parsed.idempotency_key,
+                    Some(parsed.review),
+                    parsed.limits,
+                )
+            };
+            if revision > devforge_control::limits::SafeInt::MAX {
+                return Err(());
+            }
+            let input = match action.as_str() {
+                "start" => MutationInput::Start(ServiceActionInput { limits }),
+                "stop" => MutationInput::Stop(ServiceActionInput { limits }),
+                "restart" => MutationInput::Restart(ServiceActionInput { limits }),
+                _ => return Err(()),
+            };
+            let request = Request {
+                api_version: Default::default(),
+                request_id: request_id.clone(),
+                project_id: self.project.clone(),
+                expected_revision: Some(revision),
+                idempotency_key: Some(key),
+                input,
+            };
+            Ok(match review {
+                None => ServiceInput::Plan(request),
+                Some(review) => ServiceInput::Apply { request, review },
+            })
+        })();
+        Some(input.map(|input| ServiceCall {
+            input,
+            request_id,
+            id,
+            version,
+        }))
+    }
+    pub fn complete_service(call: ServiceCall, result: Result<Value, ErrorCode>) -> Value {
+        let invalid = if matches!(call.input, ServiceInput::Apply { .. }) {
+            ErrorCode::AdmissionUnconfirmed
+        } else {
+            ErrorCode::InvalidInput
+        };
+        let content = result
+            .and_then(|value| {
+                if value.get("api_version") != Some(&json!(1))
+                    || value.get("request_id") != Some(&json!(call.request_id))
+                    || value.get("ok").and_then(Value::as_bool).is_none_or(|ok| {
+                        ok != value.get("data").is_some() || ok == value.get("error").is_some()
+                    })
+                {
+                    Err(invalid)
+                } else {
+                    Ok(value)
+                }
+            })
+            .unwrap_or_else(|code| {
+                serde_json::to_value(Response::<Value>::failure(
+                    call.request_id,
+                    None,
+                    code.fault(),
+                ))
+                .expect("fixed error envelope")
+            });
+        let is_error = content.get("ok") != Some(&Value::Bool(true));
+        rpc_success(
+            call.id,
+            call.version,
+            json!({"content":[{"type":"text","text":content.to_string()}],"structuredContent":content,"isError":is_error}),
+        )
     }
     fn tool(&self, params: &Value) -> Result<ExternalInput, ()> {
         if !keys(params, &["name", "arguments"]) {
@@ -457,6 +639,37 @@ fn implementation(value: &Value) -> bool {
                 .is_some_and(|v| !v.is_empty() && v.len() <= 256)
         })
 }
-fn tool_definitions() -> Vec<Value> {
+fn tool_definitions(service_actions: bool) -> Vec<Value> {
+    let mut definitions = read_tool_definitions();
+    if service_actions {
+        definitions.extend(service_tool_definitions());
+        if let Some(status) = definitions
+            .iter_mut()
+            .find(|tool| tool["name"] == "operations.status")
+        {
+            let operation = status["inputSchema"].clone();
+            let mut lookup = operation.clone();
+            lookup["properties"] = json!({"idempotency_key":{"type":"string","minLength":1,"maxLength":128,"pattern":"^[A-Za-z0-9_.:-]+$"}});
+            lookup["required"] = json!(["idempotency_key"]);
+            status["inputSchema"] = json!({"type":"object","oneOf":[operation,lookup]});
+        }
+    }
+    definitions
+}
+fn read_tool_definitions() -> Vec<Value> {
     TOOLS.into_iter().map(|name|json!({"name":name,"description":match name{"health.health"=>"Granted project metadata health","services.status"=>"Granted project cached managed service status","projects.list"=>"List only the granted project metadata","projects.get"=>"Inspect the granted project metadata",_=>"Observe only the external client's own operation"},"inputSchema":if name==TOOLS[4]{json!({"type":"object","properties":{"operation_id":{"type":"string","minLength":1,"maxLength":128,"pattern":"^[A-Za-z0-9_.:-]+$"}},"required":["operation_id"],"additionalProperties":false})}else{json!({"type":"object","properties":{},"additionalProperties":false})},"annotations":{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true,"openWorldHint":false}})).collect()
+}
+
+fn service_tool_definitions() -> Vec<Value> {
+    use devforge_control::export::Wire;
+    ["services.plan","services.start","services.stop","services.restart"].into_iter().map(|name|{
+        let mut schema=ServiceActionInput::schema();
+        schema["properties"]["expected_revision"]=json!({"type":"integer","minimum":0,"maximum":devforge_control::limits::SafeInt::MAX});
+        schema["properties"]["idempotency_key"]=Id::schema();
+        let mut required=vec!["expected_revision","idempotency_key"];
+        let plan=name=="services.plan";
+        if plan{schema["properties"]["action"]=json!({"enum":["start","stop","restart"]});required.push("action");}else{schema["properties"]["review"]=Digest::schema();required.push("review");}
+        schema["required"]=json!(required);
+        json!({"name":name,"description":if plan{"Preview exact service intent. A native owner must approve it; a digest is not approval. Cached dependencies only."}else{"Apply a native-approved exact service intent. Start/restart execute trusted project code. Configured database/cache/SMTP dependencies may remain running after startup failure or cancellation; restart may already have stopped the selected session before a later denial. No rollback or hard deadline guarantee. Preserve the original idempotency key on admission_unconfirmed; reconcile using operations.status with that key, never silently replay with a new key."},"inputSchema":schema,"annotations":{"readOnlyHint":plan,"destructiveHint":!plan,"idempotentHint":true,"openWorldHint":!plan}})
+    }).collect()
 }

@@ -4,6 +4,8 @@
 
 ## 2026-11-14
 
+- **M13.4 first service slice:** native-reviewed start/stop/restart through existing actor, CLI and explicit MCP opt-in; original-key recovery and schema2 revision receipts. Focused client/core checks and actual macOS cached HTTP A/B isolation flow passed; Windows/new GUI gates remain separate. No extra mutation family or deferred report UI mounted. [Contract](../architecture/reviewed-service-actions.md), [execution](execution-status.md).
+
 - **Windows junction native proof:** fixedliteralPowerShell creators; exact3/3nativeguardtests passed on26100, sourcehashes/baseverified. Only3testhelpers published, mainworkflow/production unchanged. [Proof](../evidence/windows-junction/43596587450.json).
 
 - **M13.3 stdio MCP:** bounded5readonlytools+boundsummary, protectedcredentialfile/dual-era protocol, EOF noownerstop.7contract/loader+2transport/3integration/actualfixture andclippy passed; actualInspector/Codex/VSCodepassedwithbootstrapwarningsseparated, fixturecleaned. Windowsgateopen; existingjunctionfixtures7relatedguardsfixed. [Contract](../architecture/mcp-stdio-contract.md).

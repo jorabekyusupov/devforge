@@ -32,6 +32,8 @@ pub enum ErrorCode {
     Busy,
     Interrupted,
     StorageUnavailable,
+    AdmissionUnconfirmed,
+    PreconditionFailed,
 }
 impl fmt::Display for ErrorCode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -420,20 +422,46 @@ pub struct Fault {
     pub retryable: bool,
 }
 /// Construction prevents contradictory ok/data/error combinations.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[serde(bound(deserialize = "T: Deserialize<'de>"))]
 pub struct Response<T> {
     api_version: ApiVersion,
     request_id: Id,
     #[serde(skip_serializing_if = "Option::is_none")]
     operation_id: Option<Id>,
     ok: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "present_data",
+        skip_serializing_if = "Option::is_none"
+    )]
     data: Option<T>,
     #[serde(skip_serializing_if = "Option::is_none")]
     error: Option<Fault>,
     warnings: Vec<ErrorCode>,
 }
+fn present_data<'de, T: Deserialize<'de>, D: serde::Deserializer<'de>>(
+    decoder: D,
+) -> std::result::Result<Option<T>, D::Error> {
+    T::deserialize(decoder).map(Some)
+}
 impl<T> Response<T> {
+    pub fn is_ok(&self) -> bool {
+        self.ok
+    }
+    pub fn data(&self) -> Option<&T> {
+        self.data.as_ref()
+    }
+    pub fn error(&self) -> Option<&Fault> {
+        self.error.as_ref()
+    }
+    pub fn request_id(&self) -> &Id {
+        &self.request_id
+    }
+    pub fn operation_id(&self) -> Option<&Id> {
+        self.operation_id.as_ref()
+    }
     pub fn success(request_id: Id, operation_id: Option<Id>, data: T) -> Self {
         Self {
             api_version: ApiVersion::default(),

@@ -1,0 +1,11 @@
+   Compiling devforge-manager v0.1.0 (/Users/yusupov/Herd/devforge/crates/manager)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.82s
+     Running tests/service_control.rs (target/debug/deps/service_control-b32833356aaaa9fa)
+
+running 4 tests
+test native_cached_start_http_retry_restart_stop_preserves_the_other_project ... ignored, requires an explicitly approved immutable native runtime cache
+test review_is_native_and_exact_and_retry_lookup_never_creates_a_second_effect ... ok
+test schema_one_migration_preserves_old_receipts_and_small_output_budget_never_admits ... ok
+test queued_service_cancel_revoke_revision_and_deadline_are_rechecked_before_effects ... ok
+
+test result: ok. 3 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 3.50s

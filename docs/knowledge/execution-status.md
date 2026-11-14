@@ -1127,3 +1127,37 @@ artifactparentempty was independentlycheckedwithGitHubAPI, notinvented. Owned
 duplicatecore canceled per explicitRootpermission, notcountedaspass. Mainworkflow
 unchanged; tempbranch retained. No broader test rerun; this closes the fixture
 creator blocker, notWindows10/11/nativeGUI/minOS acceptance.
+
+Published c98f798 main [core run43596995185](https://github.com/jorabekyusupov/devforge/actions/runs/43596995185)
+subsequently passed both macOS and Windows jobs. This validates that committed
+baseline; it does not include the later M13.4 working-tree changes.
+
+## M13.4 first slice: reviewed service lifecycle
+
+[Contract](../architecture/reviewed-service-actions.md): existing canonical control
+envelopes/native exact-plan approval/single actor now support only project
+start/stop/restart, with grant and filesystem/revision checks at admission and
+dequeue. Separate typed external service client; default MCP five read-only tools
+remain unchanged, explicit flag adds four service tools. CLI adds plan/apply and
+own-key lookup. No runtime download/pin change or other mutation family is added.
+SQLite schema2 adds original admitted revision transactionally to existing
+receipts. Uncertain admission preserves the key and returns admission_unconfirmed.
+
+Client checks: three focused CLI/MCP/lost-reply integrations, one metadata/parser
+case and existing help case passed; scoped CLI clippy passed before the last
+literal-only metadata correction. Core five focused tests/scoped clippy passed.
+Independent QA source review found no demonstrated blocker and ran no duplicate
+tests. Actual macOS ARM64 cached-runtime flow passed1/1 in32.12s: HTTP A/B,
+same-key/stablePID, restartA/changedPID, stopA preservesB/PID/HTTP, finalstopB and
+clean fixture join. [Final log](../evidence/m13-reviewed-services/native-cached-final.log).
+Manager policy/migration/output-budget3 and active durable cancellation1 passed;
+existing Quit-gate admission1, control mutation/envelope10 and checked exports
+passed. Final manager scoped clippy passed. The strict staged knowledge
+snapshot passed42documents/0errors/0warnings; this is structural evidence only.
+Earlier fixture setup attempts and the observed Busy/cancellation cleanup defect
+are distinguished in the contract. Existing bounded auxiliary startup spans and
+partial shared-dependency effects remain explicit; no rollback guarantee added.
+
+Windows new-slice execution/native GUI credentials/dialogs remain unverified here.
+Other M13.4 families are not complete: runtime install/select, env/YAML, DB and
+domains/HTTPS follow the agreed order. Deferred E02/E05 UI work is not mounted.

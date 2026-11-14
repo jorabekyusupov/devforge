@@ -18,7 +18,9 @@
     "unsupported_capability",
     "busy",
     "interrupted",
-    "storage_unavailable"
+    "storage_unavailable",
+    "admission_unconfirmed",
+    "precondition_failed"
   ],
   "live_available": false,
   "mutation_request_schema": {
@@ -4301,7 +4303,8 @@
     {
       "effects": [
         "owned_process_lifecycle",
-        "trusted_project_code_execution"
+        "trusted_project_code_execution",
+        "configured_shared_dependencies_may_remain_running"
       ],
       "input_schema": {
         "additionalProperties": false,
@@ -4386,7 +4389,7 @@
         "project_manage",
         "execution_test"
       ],
-      "review_required": false,
+      "review_required": true,
       "schema_status": "typed_mutation",
       "unavailable_error": "unsupported_capability"
     },
@@ -4476,14 +4479,15 @@
       "required_scopes": [
         "project_manage"
       ],
-      "review_required": false,
+      "review_required": true,
       "schema_status": "typed_mutation",
       "unavailable_error": "unsupported_capability"
     },
     {
       "effects": [
         "owned_process_lifecycle",
-        "trusted_project_code_execution"
+        "trusted_project_code_execution",
+        "configured_shared_dependencies_may_remain_running"
       ],
       "input_schema": {
         "additionalProperties": false,
@@ -4568,7 +4572,7 @@
         "project_manage",
         "execution_test"
       ],
-      "review_required": false,
+      "review_required": true,
       "schema_status": "typed_mutation",
       "unavailable_error": "unsupported_capability"
     },

@@ -1,0 +1,8 @@
+   Compiling devforge-manager v0.1.0 (/Users/yusupov/Herd/devforge/crates/manager)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 7.17s
+     Running tests/service_control.rs (target/debug/deps/service_control-b32833356aaaa9fa)
+
+running 1 test
+test native_cached_start_http_retry_restart_stop_preserves_the_other_project ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 32.12s

@@ -200,6 +200,7 @@ enum Work {
     Command(Box<Command>),
     Read(Box<ReadRequest>),
     Access(Box<AccessRequest>),
+    Service(Box<crate::service_control::ServiceJob>),
 }
 impl Work {
     fn is_read(&self) -> bool {
@@ -395,6 +396,194 @@ impl Drop for WorkspaceActor {
 }
 
 impl ActorHandle {
+    pub(crate) fn external_find(
+        &self,
+        client: &Id,
+        project: &Id,
+        key: &Id,
+    ) -> Result<Option<(Receipt, String, u64)>> {
+        let state = self
+            .shared
+            .state
+            .lock()
+            .map_err(|_| ActorError::StorageUnavailable)?;
+        let found = state.find(
+            client,
+            &OperationIdentity {
+                project_id: project.clone(),
+                idempotency_key: key.clone(),
+            },
+        )?;
+        found
+            .map(|(receipt, fingerprint)| {
+                let revision: i64 = state
+                    .db
+                    .query_row(
+                        "SELECT revision FROM service_operations WHERE operation_id=?1",
+                        [receipt.operation_id.as_str()],
+                        |row| row.get(0),
+                    )
+                    .map_err(|_| ActorError::StorageUnavailable)?;
+                Ok((
+                    receipt,
+                    fingerprint,
+                    u64::try_from(revision).map_err(|_| ActorError::StorageUnavailable)?,
+                ))
+            })
+            .transpose()
+    }
+    pub(crate) fn submit_service(
+        &self,
+        job: crate::service_control::ServiceJob,
+        registry: &mut crate::external_auth::ExternalRegistry,
+    ) -> devforge_control::Result<Receipt> {
+        use devforge_control::ErrorCode as E;
+        let client = job.client().clone();
+        let identity = OperationIdentity {
+            project_id: job.request().project_id.clone(),
+            idempotency_key: job
+                .request()
+                .idempotency_key
+                .clone()
+                .ok_or(E::InvalidInput)?,
+        };
+        let fingerprint = job.fingerprint().to_owned();
+        let bytes = job.encoded_bytes();
+        let mut state = self
+            .shared
+            .state
+            .lock()
+            .map_err(|_| E::StorageUnavailable)?;
+        if let Some((receipt, old)) = state
+            .find(&client, &identity)
+            .map_err(|_| E::StorageUnavailable)?
+        {
+            if old != fingerprint {
+                return Err(E::IdempotencyConflict);
+            }
+            return Ok(receipt);
+        }
+        if self.shared.stopping.load(Ordering::Acquire) {
+            return Err(E::Interrupted);
+        }
+        state.purge_cancelled_payloads();
+        publish_queue(&self.shared, &state);
+        if state.pending >= QUEUE_CAPACITY
+            || bytes > QUEUE_BYTES.saturating_sub(state.waiting_bytes)
+        {
+            return Err(E::Busy);
+        }
+        let snapshot = self
+            .external_snapshot()
+            .map_err(|_| E::StorageUnavailable)?;
+        let prepared = job.validate_admission(&snapshot.snapshot, registry)?;
+        let receipt = Receipt {
+            operation_id: random_id().map_err(|_| E::StorageUnavailable)?,
+            client_id: client.clone(),
+            project_id: identity.project_id.clone(),
+            state: OperationState::Queued,
+            code: None,
+        };
+        let output = devforge_control::mutations::MutationReceipt {
+            project_id: receipt.project_id.clone(),
+            operation_id: receipt.operation_id.clone(),
+            state: receipt.state,
+            revision: devforge_control::limits::SafeInt::new(
+                job.request().expected_revision.ok_or(E::InvalidInput)?,
+            )?,
+        };
+        use devforge_control::mutations::{MutationInput, MutationOutput};
+        prepared.check_output(&match job.request().input {
+            MutationInput::Start(_) => MutationOutput::Start(output),
+            MutationInput::Stop(_) => MutationOutput::Stop(output),
+            MutationInput::Restart(_) => MutationOutput::Restart(output),
+            _ => return Err(E::UnsupportedCapability),
+        })?;
+        let transaction = state
+            .db
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+            .map_err(|_| E::StorageUnavailable)?;
+        job.claim(&receipt.operation_id)?;
+        let insertion = (|| {
+            job.validate_admission(&snapshot.snapshot, registry)?;
+            transaction.execute("INSERT INTO operations(operation_id,client_id,project_id,idempotency_key,fingerprint,state,created_at,updated_at) VALUES(?1,?2,?3,?4,?5,'queued',?6,?6)",params![receipt.operation_id.as_str(),client.as_str(),identity.project_id.as_str(),identity.idempotency_key.as_str(),fingerprint,now() as i64]).map_err(|_|E::StorageUnavailable)?;
+            transaction
+                .execute(
+                    "INSERT INTO service_operations(operation_id,revision) VALUES(?1,?2)",
+                    params![
+                        receipt.operation_id.as_str(),
+                        job.request().expected_revision.ok_or(E::InvalidInput)? as i64
+                    ],
+                )
+                .map_err(|_| E::StorageUnavailable)?;
+            job.validate_admission(&snapshot.snapshot, registry)?;
+            transaction.commit().map_err(|_| E::StorageUnavailable)
+        })();
+        if let Err(error) = insertion {
+            job.release_claim(&receipt.operation_id);
+            return Err(error);
+        }
+        let cancellation = job.cancellation.clone();
+        let mut cancellations = match self.shared.cancellations.lock() {
+            Ok(lock) => lock,
+            Err(_) => {
+                state
+                    .update(
+                        &receipt.operation_id,
+                        OperationState::Interrupted,
+                        Some("admission_interrupted"),
+                    )
+                    .map_err(|_| E::AdmissionUnconfirmed)?;
+                return Err(E::AdmissionUnconfirmed);
+            }
+        };
+        cancellations.insert(
+            receipt.operation_id.clone(),
+            CancellationEntry {
+                client,
+                project: identity.project_id,
+                cancellation: cancellation.clone(),
+            },
+        );
+        drop(cancellations);
+        state.pending += 1;
+        state.waiting_bytes += bytes;
+        state.waiting.insert(
+            receipt.operation_id.clone(),
+            WaitingCommand {
+                work: Work::Service(Box::new(job)),
+                bytes,
+                cancellation: cancellation.clone(),
+            },
+        );
+        publish_queue(&self.shared, &state);
+        if self
+            .sender
+            .try_send(Message::Job(Box::new(Job {
+                receipt: receipt.clone(),
+                cancellation,
+            })))
+            .is_err()
+        {
+            state.pending -= 1;
+            state.take_payload(&receipt.operation_id);
+            publish_queue(&self.shared, &state);
+            self.shared
+                .cancellations
+                .lock()
+                .map_err(|_| E::StorageUnavailable)?
+                .remove(&receipt.operation_id);
+            state
+                .update(
+                    &receipt.operation_id,
+                    OperationState::Interrupted,
+                    Some("admission_interrupted"),
+                )
+                .map_err(|_| E::StorageUnavailable)?;
+            return Err(E::AdmissionUnconfirmed);
+        }
+        Ok(receipt)
+    }
     pub fn resolve_subject(
         &self,
         authority: &DesktopAuthority<'_>,
@@ -1229,6 +1418,7 @@ fn worker_loop(
                             request.execute(&mut workspace, &shared.root, None)
                         }
                     }
+                    Work::Service(job) => job.execute(&mut workspace),
                 };
                 if read {
                     let expired = {
@@ -1341,19 +1531,6 @@ fn worker_loop(
                     Err(error) => {
                         let cancelled =
                             matches!(error.code.as_str(), "cancelled" | "setup_cancelled");
-                        if read
-                            && cancelled
-                            && let Some(entry) = state.read_tickets.iter().find(|entry| {
-                                entry.receipt.operation_id == job.receipt.operation_id
-                            })
-                            && entry.receipt.state == OperationState::Running
-                        {
-                            state.update(
-                                &job.receipt.operation_id,
-                                OperationState::CancelRequested,
-                                None,
-                            )?;
-                        }
                         if let Some(detail) = validated_failure_with_recovery(
                             &error,
                             &job.receipt.project_id,
@@ -1364,15 +1541,19 @@ fn worker_loop(
                                 RetainedOutcome::Failure(detail),
                             );
                         }
-                        state.update(
-                            &job.receipt.operation_id,
-                            if cancelled {
-                                OperationState::Cancelled
-                            } else {
-                                OperationState::Failed
-                            },
-                            Some(stable_code(error.scope, &error.code)),
-                        )?;
+                        if cancelled {
+                            state.record_cancellation(
+                                &job.receipt,
+                                read,
+                                stable_code(error.scope, &error.code),
+                            )?;
+                        } else {
+                            state.update(
+                                &job.receipt.operation_id,
+                                OperationState::Failed,
+                                Some(stable_code(error.scope, &error.code)),
+                            )?;
+                        }
                     }
                 }
                 drop(state);
@@ -1488,13 +1669,16 @@ impl State {
         let schema: u32 = db
             .pragma_query_value(None, "user_version", |row| row.get(0))
             .map_err(|_| ActorError::StorageUnavailable)?;
-        if schema > 1 {
+        if schema > 2 {
             return Err(ActorError::StorageUnavailable);
         }
         db.execute_batch("PRAGMA journal_mode=DELETE; PRAGMA synchronous=FULL;")
             .map_err(|_| ActorError::StorageUnavailable)?;
         if schema == 0 {
             db.execute_batch("BEGIN IMMEDIATE; CREATE TABLE operations(operation_id TEXT PRIMARY KEY,client_id TEXT NOT NULL,project_id TEXT NOT NULL,idempotency_key TEXT NOT NULL,fingerprint TEXT NOT NULL,state TEXT NOT NULL,code TEXT,created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL,UNIQUE(client_id,project_id,idempotency_key)); PRAGMA user_version=1; COMMIT;").map_err(|_| ActorError::StorageUnavailable)?;
+        }
+        if schema < 2 {
+            db.execute_batch("BEGIN IMMEDIATE; CREATE TABLE service_operations(operation_id TEXT PRIMARY KEY REFERENCES operations(operation_id),revision INTEGER NOT NULL CHECK(revision>=0)); PRAGMA user_version=2; COMMIT;").map_err(|_|ActorError::StorageUnavailable)?;
         }
         let state = Self {
             db,
@@ -1628,6 +1812,26 @@ impl State {
         }
         let row = self.db.query_row("SELECT operation_id,client_id,project_id,state,code FROM operations WHERE operation_id=?1 AND client_id=?2 AND project_id=?3", params![operation.as_str(),client.as_str(),project.as_str()], |row| Ok((row.get::<_,String>(0)?,row.get::<_,String>(1)?,row.get::<_,String>(2)?,row.get::<_,String>(3)?,row.get::<_,Option<String>>(4)?))).optional().map_err(|_| ActorError::StorageUnavailable)?.ok_or(ActorError::OperationNotFound)?;
         receipt(row.0, row.1, row.2, row.3, row.4)
+    }
+    fn record_cancellation(&mut self, receipt: &Receipt, read: bool, code: &str) -> Result<()> {
+        let running = if read {
+            self.read_tickets.iter().any(|entry| {
+                entry.receipt.operation_id == receipt.operation_id
+                    && entry.receipt.state == OperationState::Running
+            })
+        } else {
+            self.get(
+                &receipt.client_id,
+                &receipt.project_id,
+                &receipt.operation_id,
+            )?
+            .state
+                == OperationState::Running
+        };
+        if running {
+            self.update(&receipt.operation_id, OperationState::CancelRequested, None)?;
+        }
+        self.update(&receipt.operation_id, OperationState::Cancelled, Some(code))
     }
     fn update(&mut self, operation: &Id, state: OperationState, code: Option<&str>) -> Result<()> {
         if operation.as_str().starts_with("read-") {
@@ -1882,6 +2086,7 @@ fn work_fingerprint(project: &Id, work: &Work) -> Result<(String, usize)> {
         Work::Command(command) => fingerprint(project, command),
         Work::Read(request) => named_fingerprint(project, "desktop_read", request),
         Work::Access(request) => named_fingerprint(project, "desktop_access", request),
+        Work::Service(job) => Ok((job.fingerprint().to_owned(), job.encoded_bytes())),
     }
 }
 fn named_fingerprint<T: Serialize>(
@@ -1921,8 +2126,66 @@ fn fingerprint(project: &Id, command: &Command) -> Result<(String, usize)> {
 }
 
 #[cfg(test)]
+#[path = "../tests/common/mod.rs"]
+mod test_support;
+#[cfg(test)]
 mod retention_tests {
     use super::*;
+    #[test]
+    fn durable_running_cancellation_without_prior_bit_persistence_finishes_and_keeps_store_usable()
+    {
+        let root = test_support::root("df-active-cancel-");
+        let owner = test_support::acquire(root.path()).unwrap();
+        let mut state = State::open(owner.endpoint().directory.join("operations.sqlite3")).unwrap();
+        for (operation, status) in [
+            ("running-cancel", "running"),
+            ("requested-cancel", "cancel_requested"),
+        ] {
+            state
+                .db
+                .execute(
+                    "INSERT INTO operations VALUES(?1,'client','project',?1,'fixture',?2,NULL,1,1)",
+                    params![operation, status],
+                )
+                .unwrap();
+            let receipt = state
+                .get(
+                    &Id::new("client").unwrap(),
+                    &Id::new("project").unwrap(),
+                    &Id::new(operation).unwrap(),
+                )
+                .unwrap();
+            state
+                .record_cancellation(&receipt, false, "cancelled")
+                .unwrap();
+            assert_eq!(
+                state
+                    .get(
+                        &receipt.client_id,
+                        &receipt.project_id,
+                        &receipt.operation_id
+                    )
+                    .unwrap()
+                    .state,
+                OperationState::Cancelled
+            );
+        }
+        state.db.execute("INSERT INTO operations VALUES('next','client','project','next','fixture','running',NULL,1,1)",[]).unwrap();
+        state
+            .update(&Id::new("next").unwrap(), OperationState::Succeeded, None)
+            .unwrap();
+        assert_eq!(
+            state
+                .get(
+                    &Id::new("client").unwrap(),
+                    &Id::new("project").unwrap(),
+                    &Id::new("next").unwrap()
+                )
+                .unwrap()
+                .state,
+            OperationState::Succeeded
+        );
+    }
     #[test]
     fn malformed_or_foreign_failure_metadata_is_not_projected() {
         let subject = Id::new("project-a").unwrap();

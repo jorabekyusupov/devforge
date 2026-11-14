@@ -957,6 +957,15 @@ impl NativeClient {
             Err(Error::Protocol)
         }
     }
+    /// Approves exactly the server-held short-lived service plan. For a start
+    /// or restart this is also project-execution trust for that one intent;
+    /// neither a digest nor an external boolean can issue this authority.
+    pub fn approve_service_plan(
+        &mut self,
+        digest: &devforge_control::Digest,
+    ) -> Result<devforge_control::mutations::PlanReceipt> {
+        decode(self.authenticated("approve_service_plan", json!({"digest":digest}))?)
+    }
     /// Confirms this authenticated Quit's outcome after cleanup, without any
     /// credential access. Internally holds the legacy exclusion while reading;
     /// a missing/pending/stale record never proves successful cleanup.

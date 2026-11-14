@@ -129,6 +129,8 @@ pub struct AuthorizedExternal {
     project_id: Id,
     revision: u64,
     expires_at: u64,
+    scopes: Vec<Scope>,
+    observed_at: u64,
 }
 impl AuthorizedExternal {
     pub fn client_id(&self) -> &Id {
@@ -145,6 +147,17 @@ impl AuthorizedExternal {
     }
     pub fn expires_at(&self) -> u64 {
         self.expires_at
+    }
+    pub(crate) fn observed_at(&self) -> u64 {
+        self.observed_at
+    }
+    pub(crate) fn control_grant(&self) -> devforge_control::Result<devforge_control::Grant> {
+        devforge_control::Grant::issue(
+            self.client_id.clone(),
+            self.project_id.clone(),
+            self.scopes.clone(),
+            self.expires_at,
+        )
     }
 }
 
@@ -590,6 +603,8 @@ impl ExternalRegistry {
                 project_id: record.project_id,
                 revision: project.revision(),
                 expires_at: record.expires_at,
+                scopes: record.scopes,
+                observed_at: now,
             })
         };
         transaction.commit().map_err(storage)?;

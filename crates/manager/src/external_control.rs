@@ -191,7 +191,7 @@ pub(crate) struct WireRequest {
 }
 
 pub(crate) struct Server {
-    registry: Mutex<Option<ExternalRegistry>>,
+    pub(crate) registry: Mutex<Option<ExternalRegistry>>,
 }
 impl Server {
     pub(crate) fn new(owner: &Owner) -> crate::external_auth::Result<Self> {
@@ -214,9 +214,13 @@ impl Server {
         ttl: Duration,
     ) -> Result<IssuedGrant, ErrorCode> {
         if !scopes.contains(&Scope::Observer)
-            || scopes
-                .iter()
-                .any(|s| !matches!(s, Scope::Observer | Scope::ProjectManage))
+            || (scopes.contains(&Scope::ExecutionTest) && !scopes.contains(&Scope::ProjectManage))
+            || scopes.iter().any(|s| {
+                !matches!(
+                    s,
+                    Scope::Observer | Scope::ProjectManage | Scope::ExecutionTest
+                )
+            })
         {
             return Err(ErrorCode::InvalidInput);
         }
@@ -471,7 +475,10 @@ impl Server {
         Ok(output)
     }
 }
-fn binding(view: &crate::actor::SnapshotView, project: &Id) -> Result<ProjectBinding, ErrorCode> {
+pub(crate) fn binding(
+    view: &crate::actor::SnapshotView,
+    project: &Id,
+) -> Result<ProjectBinding, ErrorCode> {
     let row = view
         .snapshot
         .projects

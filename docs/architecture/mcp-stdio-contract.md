@@ -1,5 +1,9 @@
 # M13.3 bounded read-only stdio contract
 
+M13.4 optionally adds [reviewed service actions](reviewed-service-actions.md)
+behind --allow-service-actions. The five-tool read-only surface below remains
+the default; the flag itself grants no mutation authority.
+
 The adapter supports modern `2026-07-28` and legacy `2025-11-25`, based on the
 official primary specifications read on 2026-11-14. Modern requests independently
 require `params._meta` protocol version and client capabilities; `server/discover`
