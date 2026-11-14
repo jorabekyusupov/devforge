@@ -18,7 +18,7 @@ use devforge_runtime::package::Target;
 use serde_json::json;
 use std::{
     collections::BTreeMap,
-    path::{Path, PathBuf},
+    path::Path,
     sync::{Arc, Condvar, Mutex},
     thread,
     time::{Duration, Instant},
@@ -672,7 +672,7 @@ fn copy_cache(_: &Path, _: &Path, _: &Catalog) {
 #[ignore = "requires an explicitly approved immutable native runtime cache"]
 fn native_cached_start_http_retry_restart_stop_preserves_the_other_project() {
     use std::io::{Read, Write};
-    let source = PathBuf::from(
+    let source = std::path::PathBuf::from(
         std::env::var_os("DEVFORGE_SERVICE_CACHE").expect("explicit approved cache required"),
     );
     let mut rig = Rig::new(Some(&source));

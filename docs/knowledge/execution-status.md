@@ -1178,3 +1178,8 @@ function after service_quit_tests. The test module is now after both platform
 implementations. Selected format/diff checks passed; no product/native tests were
 repeated for this source-order-only correction. macOS/new Windows runtime results
 are reported from CI separately, without treating lint as runtime acceptance.
+
+6ba7fb1 Windows CI then reported only a Mac-only native fixture's unused PathBuf
+import. It is now fully qualified at its Mac-only use, removing the shared import.
+The correction is isolated from subsequent runtime-install/select test work;
+selected diff checks passed, with no product/native test repetition.
