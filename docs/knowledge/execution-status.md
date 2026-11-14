@@ -419,3 +419,15 @@ protected DACL va ACE flags/mask booleansni chiqaradi; rawSID/path/credentials y
 Production owner/ACL validation o'zgarmadi, fixture SetOwner qilinmadi. Probe commit
 sababi79ed2a6 failure qatlamini nativeWindowsda aniq isbotlash; bu platform gate
 yopilganini bildirmaydi. Faqat manager source/tests+docs, TP02 shu paketni tanlaydi.
+
+## Windows fixture cause confirmed and corrected
+
+Native probe968b234 run43561300852: new_root owner_matches_user=false,
+failed_acquire_control exists=false. Demak rad etish private pipe/ACLdan oldingi
+root owner preconditionda; elevated runner TempDir default ownerTokenUserga mos emas.
+Faqat yangi disposable TempDir owner'i TokenUserga OWNER_SECURITY_INFORMATION bilan
+moslandi; DACL/UAC/token/production source o'zgarmadi. Avval originalforeignowner
+production Owner'da rad etilgani va root bo'sh qolgani negativecase bilan tekshiriladi.
+Rootbuilder keyin before/after booleanlarni beradi. NativefixCI hali pending;
+unrelated producttests ishlamasdan TP02manager closure tekshiriladi. Oldred runlar
+43559549217/43561274129/43561300852 saqlanadi, successfulrerun deb almashtirilmaydi.

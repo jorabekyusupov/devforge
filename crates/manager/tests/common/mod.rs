@@ -1,5 +1,6 @@
 //! Disposable manager fixture roots and sanitized native security diagnostics.
-//! This helper never changes production paths, ownership, ACLs or process tokens.
+//! Only a newly allocated Windows TempDir's owner may be normalized. Production
+//! paths, ACLs, security policy and process tokens are never changed.
 pub fn root(prefix: &str) -> tempfile::TempDir {
     let mut builder = tempfile::Builder::new();
     builder.prefix(prefix);
@@ -9,7 +10,12 @@ pub fn root(prefix: &str) -> tempfile::TempDir {
     #[cfg(not(unix))]
     let root = builder.tempdir().unwrap();
     #[cfg(windows)]
-    diagnose("new_root", root.path());
+    {
+        diagnose("new_root_before_owner_normalization", root.path());
+        let normalized = windows::normalize_new_root_owner(&root);
+        diagnose("new_root_after_owner_normalization", root.path());
+        assert!(normalized.is_ok(), "MANAGER_FIXTURE_OWNER_NORMALIZED=false");
+    }
     root
 }
 
@@ -95,8 +101,7 @@ mod windows {
         pub first_ace_full_access: bool,
         pub first_ace_matches_user: bool,
     }
-    pub fn inspect(path: &Path) -> Result<State, ()> {
-        let meta = fs::symlink_metadata(path).map_err(|_| ())?;
+    fn current_user_buffer() -> Result<Vec<usize>, ()> {
         let mut token = std::ptr::null_mut();
         if unsafe { OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token) } == 0 {
             return Err(());
@@ -122,6 +127,81 @@ mod windows {
         {
             return Err(());
         }
+        Ok(user)
+    }
+
+    /// Takes the fresh TempDir itself, not an arbitrary caller-supplied path.
+    /// Hosted runners can create a default owner different from TokenUser;
+    /// normalize only this disposable fixture to the ordinary app-root owner.
+    pub(super) fn normalize_new_root_owner(root: &tempfile::TempDir) -> Result<(), ()> {
+        let path = root.path();
+        let before = inspect(path)?;
+        if !before.directory
+            || before.reparse
+            || fs::read_dir(path).map_err(|_| ())?.next().is_some()
+        {
+            return Err(());
+        }
+        if !before.owner_matches_user {
+            // Negative regression uses the observed original foreign owner, not
+            // an invented permissive fixture. Production must reject before
+            // writing its private control directory or any installer lease.
+            assert!(
+                matches!(
+                    devforge_manager::Owner::acquire(path),
+                    Err(devforge_manager::Error::UnsafeEndpoint)
+                ),
+                "MANAGER_FIXTURE_FOREIGN_OWNER_REJECTED=false"
+            );
+            assert!(
+                fs::read_dir(path).map_err(|_| ())?.next().is_none(),
+                "MANAGER_FIXTURE_FOREIGN_OWNER_LEFT_ROOT_EMPTY=false"
+            );
+            eprintln!(
+                "MANAGER_FIXTURE_SECURITY original_foreign_owner: negative_case_exercised=true rejected=true root_still_empty=true"
+            );
+            // Recheck the disposable directory immediately before the narrow
+            // owner-only API. Never follow a reparse point or change any DACL.
+            let meta = fs::symlink_metadata(path).map_err(|_| ())?;
+            if !meta.is_dir() || meta.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT != 0 {
+                return Err(());
+            }
+            let user = current_user_buffer()?;
+            let sid = unsafe { (*(user.as_ptr().cast::<TOKEN_USER>())).User.Sid };
+            let name = path
+                .as_os_str()
+                .encode_wide()
+                .chain(Some(0))
+                .collect::<Vec<_>>();
+            if unsafe {
+                SetNamedSecurityInfoW(
+                    name.as_ptr(),
+                    SE_FILE_OBJECT,
+                    OWNER_SECURITY_INFORMATION,
+                    sid,
+                    std::ptr::null_mut(),
+                    std::ptr::null(),
+                    std::ptr::null(),
+                )
+            } != 0
+            {
+                return Err(());
+            }
+        } else {
+            eprintln!(
+                "MANAGER_FIXTURE_SECURITY original_foreign_owner: negative_case_exercised=false owner_already_matches=true"
+            );
+        }
+        let after = inspect(path)?;
+        if !after.directory || after.reparse || !after.owner_matches_user {
+            return Err(());
+        }
+        Ok(())
+    }
+
+    pub fn inspect(path: &Path) -> Result<State, ()> {
+        let meta = fs::symlink_metadata(path).map_err(|_| ())?;
+        let user = current_user_buffer()?;
         let sid = unsafe { (*(user.as_ptr().cast::<TOKEN_USER>())).User.Sid };
         let name = path
             .as_os_str()
