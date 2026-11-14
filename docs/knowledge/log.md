@@ -4,6 +4,8 @@
 
 ## 2026-11-14
 
+- **Windows saved-folder fixture:** canonicalpath equivalence replaces verbatim-string equality;1affectedcase/fmt passed, productionunchanged. NativeCIpending. [Execution](execution-status.md).
+
 - **M13.1 bridge/E2E checkpoint:** staged native bridge/subject advice/report reads and isolated debug CLI/locked fixture prerequisites validated with focused checks; old GUI ownership remains until cutover. User strict no-extra-scope/test rule recorded in plan. [Bridge](../architecture/manager-native-bridge.md), [E2E](../architecture/cli-e2e-fixture-composition.md), [execution](execution-status.md).
 
 - **Windows recovery fixture:** Mac-onlyCLIvariantassumption replacedwithnativephp executablecapability;4affectedhelpertests/clippy/fmt passed, no productionpredicatechange. WindowsnewCIpending; original739failurepreserved. [Execution](execution-status.md).

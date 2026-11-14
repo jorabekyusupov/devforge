@@ -857,13 +857,8 @@ fn discovery_owner_loads_only_saved_root_and_uses_atomic_preferences_patch() {
     assert_eq!(persisted.language, "ru");
     assert_eq!(persisted.theme, devforge_core::Theme::Dark);
     assert_eq!(
-        persisted.project_folder.as_deref(),
-        Some(
-            fs::canonicalize(watched.path())
-                .unwrap()
-                .to_string_lossy()
-                .as_ref()
-        )
+        fs::canonicalize(persisted.project_folder.as_deref().unwrap()).unwrap(),
+        fs::canonicalize(watched.path()).unwrap()
     );
     actor.shutdown().unwrap();
 }

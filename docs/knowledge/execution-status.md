@@ -1023,3 +1023,14 @@ credential service invoked. Native GUI cutover/Windows acceptance remain next.
 User's strict scope rule is now recorded in the execution plan. No new optional
 work will be opened; current focus is finishing M13.1 GUI→manager behavior and
 its demonstrated blockers with impact-related checks.
+
+
+## Windows saved-folder assertion followup
+
+08e0556 Windowsrun43587233405 passedrecoveryhelpers and6/7desktopcases; the
+remainingcase compared normalC:\path with canonicalverbatim\\?\C:\path strings.
+Productionprefs intentionallystores normaluser-facing path. Assertion now compares
+canonicalfilesystempaths, preserving ru/dark/valuechecks. Onlythatcase reran:
+1passedmacOS, scopedrustfmtpassed. Priorattempt didnotexecute because shutdown
+helperwasinflight; retriedonceaftercompilefix. No productionpath behavior changed.
+NewWindowsrun required; no full suite rerunlocal.
