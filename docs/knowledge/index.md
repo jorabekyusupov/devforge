@@ -29,6 +29,10 @@ mavzuni tanlang, so'ng faqat tegishli hujjatlar va ularning manbalarini o'qing.
 
 ## Manba va yuritish
 
+- [Native bridge prerequisite](../architecture/manager-native-bridge.md) - Rust-only client state, incremental snapshot va oldingi handlerlarga hali ulanmagan modul.
+- [Native subject advice](../architecture/manager-subject-advice.md) - IDs-only advisory lookup, admission/execution authority saqlanadi.
+- [Debug E2E composition](../architecture/cli-e2e-fixture-composition.md) - explicit feature/flag, bound fresh fixture root va production fallback yo‘qligi.
+
 - [E05.2 cleanup preview](cleanup-preview-results.md) - physical-key refs, read-only lease observation va E06 retained receipt inventory; apply/delete yo‘q.
 
 - [Private desktop facade](../architecture/manager-desktop-facade.md) - owner read/access, bounded images, ephemeral polling, operations va trusted recovery.

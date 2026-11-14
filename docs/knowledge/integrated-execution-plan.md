@@ -56,6 +56,12 @@ bir hujjatdagi jumla bilan boshqa hujjatning scope'i jim bekor qilinmaydi.[^agen
 
 # Ishni boshqarish kontrakti
 
+**Joriy bajarish uchun qat'iy qoida (2026-11-14 user ko'rsatmasi):** ushbu reja
+to'liq tugaguncha faqat navbatdagi zarur ish va unga tegishli tekshiruv bajariladi.
+Yangi taklif, optional hardening yoki scope kengayishi ochilmaydi. Rejadan tashqari
+fix faqat joriy qabulni to'sayotgan aniq isbotlangan xato uchun qilinadi;
+o'zgarmagan testlar yangi sabab bo'lmasa qayta yuritilmaydi.
+
 Har work item uchun: ID, owner, old shart, exact fayl scope, kutiladigan natija,
 qabul mezoni, tanlangan testlar va sababi, source revision, qoldiq risk yoziladi.
 Holatlar: planned → ready → in_progress → review → validated → integrated.

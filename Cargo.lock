@@ -1181,7 +1181,9 @@ dependencies = [
 name = "devforge-desktop"
 version = "0.1.0"
 dependencies = [
+ "devforge-control",
  "devforge-core",
+ "devforge-manager",
  "devforge-platform",
  "devforge-projects",
  "devforge-runtime",
@@ -1194,6 +1196,8 @@ dependencies = [
  "tauri-plugin-dialog",
  "tauri-plugin-single-instance",
  "tauri-plugin-wdio-webdriver",
+ "tempfile",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

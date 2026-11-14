@@ -438,6 +438,7 @@ impl Drop for Session {
     }
 }
 pub struct Workspace {
+    terminal_arguments: Vec<std::ffi::OsString>,
     pub progress: Arc<Mutex<Option<setup::Progress>>>,
     diagnostics: BTreeMap<String, serde_json::Value>,
     root: PathBuf,
@@ -480,6 +481,7 @@ impl Workspace {
             }
         };
         let mut w = Self {
+            terminal_arguments: Vec::new(),
             progress: Arc::new(Mutex::new(None)),
             diagnostics: BTreeMap::new(),
             projects: ProjectStore::open(root.join("projects"))?,
@@ -543,6 +545,12 @@ impl Workspace {
                 }
             })
             .collect();
+        Ok(())
+    }
+    /// Trusted native composition only; not a Command or deserialized setting.
+    pub fn set_terminal_arguments(&mut self, arguments: Vec<std::ffi::OsString>) -> Result<()> {
+        terminal::validate_launch_arguments(&arguments)?;
+        self.terminal_arguments = arguments;
         Ok(())
     }
     fn validate_site(&self, id: &str, domain: &str) -> Result<()> {
@@ -1439,7 +1447,13 @@ impl Workspace {
         if target == "terminal" {
             // The launched shell resolves its own immutable runtime snapshot.
             // Do not rewrite the active manager project's INI/shims beforehand.
-            return terminal::open(&self.projects, id, &self.root).map_err(Into::into);
+            return terminal::open_with_arguments(
+                &self.projects,
+                id,
+                &self.root,
+                &self.terminal_arguments,
+            )
+            .map_err(Into::into);
         }
         let url = match target {
             "browser" => {

@@ -1,6 +1,9 @@
 #[cfg(all(feature = "e2e", not(debug_assertions)))]
 compile_error!("E2E instrumentation is supported only in debug acceptance builds");
+#[cfg(feature = "e2e")]
+mod fixture_root;
 pub mod manager_artifact;
+pub mod native_bridge;
 mod workspace;
 use devforge_core::{
     ErrorCode, LocaleRegistry, Settings, SettingsPatch, SettingsRepository, Theme,
@@ -291,6 +294,11 @@ fn tray_icon() -> tauri::image::Image<'static> {
 }
 
 pub fn run() {
+    #[cfg(feature = "e2e")]
+    let _fixture_root = fixture_root::from_environment().unwrap_or_else(|_| {
+        eprintln!("e2e_fixture_root_invalid");
+        std::process::exit(2);
+    });
     let started = std::time::Instant::now();
     let args: Vec<_> = std::env::args_os().collect();
     let report = args
@@ -309,10 +317,6 @@ pub fn run() {
     .expect("DevForge installer is using its data directory");
     #[cfg(feature = "e2e")]
     {
-        assert!(
-            std::env::var_os("DEVFORGE_DATA_DIR").is_some(),
-            "Acceptance builds require an isolated data directory"
-        );
         eprintln!("E2E_PHASE: building native app");
     }
     #[allow(unused_mut)]
@@ -472,8 +476,14 @@ pub fn terminal_mode() -> Option<i32> {
         if args.len() != 4 || args[3].is_empty() {
             return Err(devforge_projects::ProjectError::InvalidProject);
         }
+        #[cfg(not(feature = "e2e"))]
         let root =
             app_data_dir().map_err(|_| devforge_projects::ProjectError::StorageUnavailable)?;
+        #[cfg(feature = "e2e")]
+        let root = fixture_root::from_environment()
+            .map_err(|_| devforge_projects::ProjectError::StorageUnavailable)?
+            .root()
+            .to_path_buf();
         let metadata = std::fs::symlink_metadata(&root)?;
         if !metadata.is_dir() || metadata.file_type().is_symlink() {
             return Err(devforge_projects::ProjectError::StorageUnavailable);

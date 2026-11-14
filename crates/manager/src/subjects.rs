@@ -31,6 +31,48 @@ fn project_id(value: &str) -> Result<Id, SubjectError> {
     }
     Id::new(value).map_err(|_| SubjectError::InvalidSubject)
 }
+/// Authenticated advisory lookup from manager-origin metadata, not a grant.
+/// Project IDs must identify a unique current registry row; resource owners may
+/// be inactive because retained worktrees/caches still belong to that namespace.
+pub(crate) fn resolve_selector(
+    selector: &crate::desktop::SubjectSelector,
+    snapshot: &Snapshot,
+) -> Result<Id, SubjectError> {
+    match selector {
+        crate::desktop::SubjectSelector::Root {} => {
+            Id::new(ROOT_SUBJECT).map_err(|_| SubjectError::InvalidSubject)
+        }
+        crate::desktop::SubjectSelector::Project { project_id: id } => {
+            if snapshot.projects.len() > PROJECT_LIMIT {
+                return Err(SubjectError::MetadataLimit);
+            }
+            let id = project_id(id.as_str())?;
+            let mut rows = snapshot
+                .projects
+                .iter()
+                .filter(|row| row.project.id == id.as_str() && row.project.active);
+            rows.next().ok_or(SubjectError::MissingResource)?;
+            if rows.next().is_some() {
+                return Err(SubjectError::AmbiguousResource);
+            }
+            Ok(id)
+        }
+        crate::desktop::SubjectSelector::Worktree { worktree_id } => resource_subject(
+            &Command::WorktreeOpen {
+                id: worktree_id.as_str().into(),
+            },
+            snapshot,
+        )?
+        .ok_or(SubjectError::MissingResource),
+        crate::desktop::SubjectSelector::Cache { instance_id } => resource_subject(
+            &Command::StartCache {
+                instance: instance_id.as_str().into(),
+            },
+            snapshot,
+        )?
+        .ok_or(SubjectError::MissingResource),
+    }
+}
 
 /// None leaves ordinary direct-project/global command attribution to the actor.
 /// Worktree namespace is ALWAYS its persisted source project, including after
@@ -489,6 +531,87 @@ mod tests {
             dependencies: false,
             copy_environment: false,
         }
+    }
+    #[test]
+    fn advisory_subject_selector_uses_owned_resource_metadata_not_caller_project_label() {
+        use crate::desktop::SubjectSelector;
+        let root = tempfile::tempdir().unwrap();
+        let workspace = Workspace::open(root.path().join("data"), Arc::new(NoSecrets)).unwrap();
+        let cache = CacheInstance {
+            id: "cache-a".into(),
+            project_id: "owner-a".into(),
+            package: "garnet".into(),
+            runtime: "dotnet".into(),
+            port: 1234,
+            username: "fixture".into(),
+            secret_ref: "ref".into(),
+            admin_ref: "admin".into(),
+            ready: false,
+        };
+        let registry =
+            rusqlite::Connection::open(workspace.projects.root().join("projects.sqlite3")).unwrap();
+        registry
+            .execute(
+                "INSERT INTO cache_instances(id,record) VALUES(?1,?2)",
+                rusqlite::params![cache.id, serde_json::to_string(&cache).unwrap()],
+            )
+            .unwrap();
+        let mut snapshot = workspace.snapshot().unwrap();
+        snapshot
+            .worktrees
+            .push(worktree("source-a", Some("child-b"), "removed"));
+        assert_eq!(
+            resolve_selector(
+                &SubjectSelector::Worktree {
+                    worktree_id: id(&"a".repeat(32))
+                },
+                &snapshot
+            )
+            .unwrap(),
+            id("source-a")
+        );
+        assert_eq!(
+            resolve_selector(
+                &SubjectSelector::Cache {
+                    instance_id: id("cache-a")
+                },
+                &snapshot
+            )
+            .unwrap(),
+            id("owner-a")
+        );
+        assert_eq!(
+            resolve_selector(&SubjectSelector::Root {}, &snapshot).unwrap(),
+            id(ROOT_SUBJECT)
+        );
+        assert!(matches!(
+            resolve_selector(
+                &SubjectSelector::Project {
+                    project_id: id("unregistered")
+                },
+                &snapshot
+            ),
+            Err(SubjectError::MissingResource)
+        ));
+        assert!(matches!(
+            resolve_selector(
+                &SubjectSelector::Worktree {
+                    worktree_id: id("unknown")
+                },
+                &snapshot
+            ),
+            Err(SubjectError::MissingResource)
+        ));
+        snapshot.worktrees.push(snapshot.worktrees[0].clone());
+        assert!(matches!(
+            resolve_selector(
+                &SubjectSelector::Worktree {
+                    worktree_id: id(&"a".repeat(32))
+                },
+                &snapshot
+            ),
+            Err(SubjectError::AmbiguousResource)
+        ));
     }
     fn worktree(source: &str, child: Option<&str>, stage: &str) -> View {
         let record = Record {

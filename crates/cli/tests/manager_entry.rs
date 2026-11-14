@@ -81,6 +81,60 @@ fn invalid_manager_flags_fail_before_data_root_changes() {
         assert!(!root.exists());
     }
 }
+
+#[cfg(not(feature = "e2e"))]
+#[test]
+fn production_rejects_fixture_switch_before_root_or_native_store_bootstrap() {
+    let temp = short_root();
+    let root = temp.path().join("not-created");
+    for args in [
+        vec!["manager", "serve", "--internal-fixture-store"],
+        vec!["project", "shell", "fixture", "--internal-fixture-store"],
+        vec!["--help", "--internal-fixture-store"],
+        vec!["project", "shell", "fixture", "--internal-fixture-store=1"],
+        vec!["manager", "__fixture-root-init", "--internal-fixture-store"],
+    ] {
+        let output = command(&root)
+            .env("DEVFORGE_TEST_SECRETS", "1")
+            .args(args)
+            .output()
+            .unwrap();
+        assert!(!output.status.success());
+        assert!(
+            String::from_utf8(output.stderr)
+                .unwrap()
+                .contains("fixture_feature_disabled")
+        );
+        assert!(!root.exists());
+    }
+}
+
+#[test]
+fn release_configuration_rejects_the_exact_cli_e2e_compile_guard() {
+    let temp = short_root();
+    let guard = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/e2e_guard.rs");
+    let output = Command::new("rustc")
+        .args([
+            "--crate-type",
+            "lib",
+            "--edition=2024",
+            "-C",
+            "debug-assertions=no",
+            "--cfg",
+            "feature=\"e2e\"",
+        ])
+        .arg(guard)
+        .arg("--out-dir")
+        .arg(temp.path())
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    assert!(
+        String::from_utf8(output.stderr)
+            .unwrap()
+            .contains("CLI e2e fixture composition is supported only in debug acceptance builds")
+    );
+}
 #[cfg(unix)]
 #[test]
 fn legacy_mutation_is_excluded_but_metadata_catalog_remains_available() {

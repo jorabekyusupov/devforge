@@ -264,6 +264,15 @@ impl WorkspaceActor {
         permit: WorkspacePermit,
         secrets: Arc<dyn SecretStore + Send + Sync>,
     ) -> Result<Self> {
+        Self::start_with_terminal_arguments(permit, secrets, Vec::new())
+    }
+    pub fn start_with_terminal_arguments(
+        permit: WorkspacePermit,
+        secrets: Arc<dyn SecretStore + Send + Sync>,
+        terminal_arguments: Vec<std::ffi::OsString>,
+    ) -> Result<Self> {
+        devforge_projects::terminal::validate_launch_arguments(&terminal_arguments)
+            .map_err(|_| ActorError::InvalidInput)?;
         permit
             .endpoint()
             .validate()
@@ -296,7 +305,14 @@ impl WorkspaceActor {
             .name("devforge-workspace-owner".into())
             .spawn(move || {
                 let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                    worker_loop(&permit, secrets, &worker_shared, receiver, ready_tx)
+                    worker_loop(
+                        &permit,
+                        secrets,
+                        &worker_shared,
+                        receiver,
+                        ready_tx,
+                        terminal_arguments,
+                    )
                 }));
                 let result = outcome.unwrap_or(Err(ActorError::WorkerUnavailable));
                 if let Err(error) = result
@@ -379,6 +395,22 @@ impl Drop for WorkspaceActor {
 }
 
 impl ActorHandle {
+    pub fn resolve_subject(
+        &self,
+        authority: &DesktopAuthority<'_>,
+        selector: &crate::desktop::SubjectSelector,
+    ) -> Result<Id> {
+        self.client(authority)?;
+        let cache = self
+            .shared
+            .cache
+            .lock()
+            .map_err(|_| ActorError::StorageUnavailable)?;
+        let subject = crate::subjects::resolve_selector(selector, &cache.snapshot)
+            .map_err(|_| ActorError::SubjectMismatch)?;
+        self.client(authority)?;
+        Ok(subject)
+    }
     pub fn operation_by_key(
         &self,
         authority: &DesktopAuthority<'_>,
@@ -956,6 +988,7 @@ fn worker_loop(
     shared: &Arc<Shared>,
     receiver: Receiver<Message>,
     ready: SyncSender<Result<()>>,
+    terminal_arguments: Vec<std::ffi::OsString>,
 ) -> Result<()> {
     let mut workspace = match Workspace::open(permit.root(), secrets) {
         Ok(value) => value,
@@ -965,6 +998,9 @@ fn worker_loop(
         }
     };
     workspace.progress = shared.progress.clone();
+    workspace
+        .set_terminal_arguments(terminal_arguments)
+        .map_err(|_| ActorError::InvalidInput)?;
     {
         let service = devforge_workspace::discovery::Service::new();
         if let Ok(settings) = devforge_platform::SqliteSettings::open(permit.root())
@@ -1635,82 +1671,19 @@ fn random_id() -> Result<Id> {
     Id::new(format!("op-{}", hex(&bytes))).map_err(|_| ActorError::InvalidInput)
 }
 fn validate_subject(subject: &Id, command: &Command, snapshot: &Snapshot) -> Result<()> {
-    if let Some(resolved) = crate::subjects::resource_subject(command, snapshot)
-        .map_err(|_| ActorError::SubjectMismatch)?
-    {
-        return if &resolved == subject {
-            Ok(())
-        } else {
-            Err(ActorError::SubjectMismatch)
-        };
-    }
-    let (expected, global) = match command {
-        Command::ConfigurationSave { id, .. }
-        | Command::ConfigurationApply { id, .. }
-        | Command::DebugInstall { id, .. }
-        | Command::DebugConfigure { id, .. }
-        | Command::DebugBreakpoints { id, .. }
-        | Command::DebugControl { id, .. }
-        | Command::DebugRequest { id, .. }
-        | Command::DebugHttp { id, .. }
-        | Command::DebugProfileDelete { id, .. }
-        | Command::DebugProfileExport { id, .. }
-        | Command::PrepareProject { id, .. }
-        | Command::PhpDiagnostics { id, .. }
-        | Command::PhpSettings { id, .. }
-        | Command::Favorite { id, .. }
-        | Command::Visit { id, .. }
-        | Command::HttpsPreview { id, .. }
-        | Command::HttpsExport { id, .. }
-        | Command::HttpsApply { id, .. }
-        | Command::InspectorInstall { id, .. }
-        | Command::InspectorCapture { id, .. }
-        | Command::InspectorClear { id, .. }
-        | Command::InspectorProbe { id, .. }
-        | Command::Configure { id, .. }
-        | Command::Forget { id, .. }
-        | Command::MailConfigure { id, .. }
-        | Command::MailDelete { id, .. }
-        | Command::MailSave { id, .. }
-        | Command::Start { id, .. }
-        | Command::Stop { id, .. }
-        | Command::Restart { id, .. }
-        | Command::BindDatabase { id, .. }
-        | Command::TestDatabase { id, .. }
-        | Command::ActivateDatabaseGeneration { id, .. }
-        | Command::UnbindDatabase { id, .. }
-        | Command::InstallRedisClient { id, .. }
-        | Command::SwitchDatabase { id, .. }
-        | Command::CreateCache { id, .. }
-        | Command::ConfigureServices { id, .. }
-        | Command::CreateBackup { id, .. }
-        | Command::ExportBackup { id, .. }
-        | Command::ImportBackup { id, .. }
-        | Command::RestoreBackup { id, .. } => (id.as_str(), false),
-        Command::Import { .. }
-        | Command::CreateProject { .. }
-        | Command::DiscoveryRestore { .. }
-        | Command::RefreshRuntimes
-        | Command::Install { .. }
-        | Command::RemoveRuntime { .. }
-        | Command::CreateDatabase { .. }
-        | Command::StartDatabase { .. }
-        | Command::StopDatabase { .. } => (ROOT_SUBJECT, true),
-        // Worktree IDs are not project IDs; cache instance ownership also needs
-        // trusted resolution. No raw label is accepted until that mapping exists.
-        Command::WorktreeArchivePlan { .. }
-        | Command::WorktreeArchive { .. }
-        | Command::WorktreeRemotePlan { .. }
-        | Command::WorktreeRemoteCopy { .. }
-        | Command::WorktreeOpen { .. }
-        | Command::WorktreePlan { .. }
-        | Command::WorktreeCreate { .. }
-        | Command::WorktreeCleanupPlan { .. }
-        | Command::WorktreeCleanup { .. }
-        | Command::StartCache { .. }
-        | Command::StopCache { .. } => return Err(ActorError::UnsupportedSubject),
+    let selector = crate::desktop::SubjectSelector::from_command(command)?;
+    let expected = match &selector {
+        crate::desktop::SubjectSelector::Root {} => {
+            Id::new(ROOT_SUBJECT).map_err(|_| ActorError::InvalidInput)?
+        }
+        crate::desktop::SubjectSelector::Project { project_id } => project_id.clone(),
+        crate::desktop::SubjectSelector::Worktree { .. }
+        | crate::desktop::SubjectSelector::Cache { .. } => {
+            crate::subjects::resolve_selector(&selector, snapshot)
+                .map_err(|_| ActorError::SubjectMismatch)?
+        }
     };
-    if subject.as_str() != expected || (!global && expected == ROOT_SUBJECT) {
+    if &expected != subject {
         return Err(ActorError::SubjectMismatch);
     }
     Ok(())

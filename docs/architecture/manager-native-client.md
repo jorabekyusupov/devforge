@@ -40,6 +40,12 @@ owner after orderly authenticated Quit. A failed/expired session requires explic
 reauthentication. Existing owner replacement and update compatibility remain
 separate from a successful initial handshake.
 
+The later native provider helper `DesktopAuth::read_if_existing` is a blocking
+explicit-user-action boundary only. It returns an existing root-scoped credential
+or None; it never creates/rotates/repairs one. The provider may choose explicit
+creation on missing, while malformed/denied storage remains an error. Construction
+and background polling still perform no credential-store probe.
+
 ## Lifetime metadata and renewal
 
 Auth/redeem/renew responses carry a private session plus cache-only metadata:
@@ -106,6 +112,16 @@ wrapper. Projects/runtimes/databases/logs must be actual arrays; no default or
 placeholder snapshot is substituted. Expired/invalid cursors require explicit
 resynchronization. Release failure preserves the original error or verified
 snapshot; the server's fixed export TTL bounds retained memory.
+
+The later incremental snapshot API exposes `begin_snapshot`, single-RPC
+`snapshot_step`, `finish_snapshot` and `release_snapshot` using opaque native
+`SnapshotRead`. The convenience `snapshot()` delegates to that same validated
+codec. The bridge can release its SDK mutex between global snapshot pages just
+as it does for owner-read images; credentials are neither cloned nor exposed.
+
+`resolve_subject` uses the central exhaustive typed selector derived from Command
+IDs, without sending raw YAML/headers for advice. The returned ID is advisory
+only; actual admission and worker dequeue still validate the owned resource.
 
 Status, result, typed failure detail, cancellation and Quit wrappers preserve
 their server outcomes. Receipt/project/operation identities are checked. Returned

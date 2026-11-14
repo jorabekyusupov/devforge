@@ -352,6 +352,27 @@ impl DesktopAuth {
         self.next_store_attempt = Some(now.checked_add(duration).ok_or(AuthError::InvalidPolicy)?);
         Ok(())
     }
+    /// Trusted native provider boundary only, after an explicit UI/user action.
+    /// BLOCKING: credential worker, never startup/polling or a wire dispatcher.
+    /// Missing stays None, malformed/denied stays an error: this never creates,
+    /// adopts, rotates or repairs a key and does not grant a session by itself.
+    pub fn read_if_existing(
+        &self,
+        _action: &TrustedDesktopAction,
+        store: &dyn SecretStore,
+    ) -> Result<Option<DesktopCredential>> {
+        let Some(value) = store
+            .get(&self.key)
+            .map_err(|_| AuthError::SecretUnavailable)?
+        else {
+            return Ok(None);
+        };
+        let value = Zeroizing::new(value);
+        if !valid_token(&value) {
+            return Err(AuthError::SecretUnavailable);
+        }
+        Ok(Some(DesktopCredential(value)))
+    }
     /// Explicit trusted desktop first-action/rotation only; NEVER expose as a
     /// client-selected role or provisioning RPC. BLOCKING: authentication worker.
     /// Generates the credential internally, invalidates all sessions before the

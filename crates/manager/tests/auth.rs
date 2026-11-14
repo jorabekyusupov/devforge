@@ -109,6 +109,42 @@ fn malformed_wire_credentials_do_not_reach_the_store() {
 }
 
 #[test]
+fn explicit_native_provider_read_never_creates_repairs_or_crosses_root() {
+    let root = make_root();
+    let owner = common::acquire(root.path()).unwrap();
+    let store = MemoryStore::default();
+    let mut auth = make_auth(&owner, Policy::default());
+    assert!(auth.read_if_existing(&action(), &store).unwrap().is_none());
+    assert_eq!(store.sets.get(), 0);
+    let credential = auth
+        .rotate_desktop_key(&action(), &store, Instant::now())
+        .unwrap();
+    let loaded = auth.read_if_existing(&action(), &store).unwrap().unwrap();
+    assert_eq!(loaded.expose_secret(), credential.expose_secret());
+    let other_root = make_root();
+    let other_owner = common::acquire(other_root.path()).unwrap();
+    let other = make_auth(&other_owner, Policy::default());
+    assert!(other.read_if_existing(&action(), &store).unwrap().is_none());
+    for value in store.values.borrow_mut().values_mut() {
+        *value = "malformed fixture".into();
+    }
+    assert_eq!(
+        auth.read_if_existing(&action(), &store).unwrap_err(),
+        AuthError::SecretUnavailable
+    );
+    assert_eq!(
+        store.sets.get(),
+        1,
+        "read must not repair an invalid stored key"
+    );
+    store.deny.set(true);
+    assert_eq!(
+        auth.read_if_existing(&action(), &store).unwrap_err(),
+        AuthError::SecretUnavailable
+    );
+}
+
+#[test]
 fn delayed_failed_store_work_rearms_cooldown_from_completion() {
     for denied in [false, true] {
         let root = make_root();

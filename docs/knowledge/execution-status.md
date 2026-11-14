@@ -987,3 +987,39 @@ productionrecoverypredicate/selectorchange. Localfouraffectedrecovery/worktree
 filterspassed, managerlibclippy/fmt/diff passed. RootstagesexactHEAD-basedonehunk,
 keepingunpublishedadvisory/serverchangesseparate. NewactualWindowsCIpending;
 previous8b/d55/24b/739 MacsuccessdoesnotreplaceWindowsacceptance.
+
+
+## M13.1 native bridge and isolated E2E prerequisites
+
+Ready source checkpoint: NativeBridge module-only with Rust-only sessions,
+separate client lease, tracked command/access cancellation and uncertain-reply
+lookup. Incremental snapshot pages release SDK lock; explicit lifecycle renewal
+uses no provider and cannot resurrect expiry. Explicit existing-key helper never
+creates/repairs a key. Existing controller Authenticate already issues bounded
+native context; fixed core authentication unchanged. Old GUI handlers/default
+ownership are NOT switched in this checkpoint.
+
+Native advisory subject lookup sends only IDs; actual admission/dequeue checks
+remain authoritative. Four report reads use exact library default budgets and
+fixed global/project namespaces through ephemeral image receipts. They are not
+external observer tools. UI report component work is preserved separately and
+not mounted or included as a live feature here.
+
+Debug CLI fixture composition uses e2e feature/release guard + exact internalflag
++ mandatory bound root marker, with new-leaf initializer and no adoption/native
+store fallback. Shared fixture files reload under cross-process lock/atomicmerge;
+trusted terminal args propagate only from native startup, defaultemptyproduction.
+GUI e2e root validation occurs before lease/prefs and its terminal path; production
+behavior unchanged. Current Windows features reuse existing version; Cargo.lock
+only adds approved desktop dependency edges, no version changes.
+
+Relevant local evidence: bridge4, incremental1000-row snapshot1, explicit keyread1,
+advisorycontroller1/selector2/actor1, reportreads4, fixturestore6+lockunit1,
+fixture-root3, actual CLI fixture3, productionflagreject1, exact release-guard
+negativecompile1, factory2/strictshell1/launcher1, GUIearlyguard1 passed. Scoped
+SDK/desktop/CLI-e2e/workspace checks passed as reported; no native window or OS
+credential service invoked. Native GUI cutover/Windows acceptance remain next.
+
+User's strict scope rule is now recorded in the execution plan. No new optional
+work will be opened; current focus is finishing M13.1 GUI→manager behavior and
+its demonstrated blockers with impact-related checks.

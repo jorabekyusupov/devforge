@@ -85,6 +85,8 @@ pub struct Options {
     pub mode: Mode,
     pub auth: Policy,
     pub native_gui: NativeGuiPolicy,
+    /// Trusted native launch configuration only; no renderer/RPC setter.
+    pub terminal_arguments: Vec<std::ffi::OsString>,
 }
 
 /// Native OS context for trusted local composition; never a wire method/field.
@@ -161,11 +163,12 @@ impl Controller {
         }
         let auth = DesktopAuth::new(endpoint.clone(), local_owner_user()?, options.auth)
             .map_err(|_| Error::AuthenticationUnavailable)?;
-        let actor = WorkspaceActor::start(
+        let actor = WorkspaceActor::start_with_terminal_arguments(
             owner
                 .claim_workspace()
                 .map_err(|_| Error::ActorUnavailable)?,
             stores.workspace,
+            options.terminal_arguments,
         )
         .map_err(|_| Error::ActorUnavailable)?;
         let context = Arc::new(Context {
@@ -325,6 +328,10 @@ impl<'de> Deserialize<'de> for WireToken {
 #[derive(Deserialize)]
 #[serde(tag = "method", rename_all = "snake_case", deny_unknown_fields)]
 enum Request {
+    ResolveSubject {
+        session: WireToken,
+        selector: crate::desktop::SubjectSelector,
+    },
     OperationByKey {
         session: WireToken,
         project_id: Id,
@@ -561,6 +568,7 @@ impl Context {
         }
         let session = match &request {
             Request::Snapshot { session }
+            | Request::ResolveSubject { session, .. }
             | Request::OperationByKey { session, .. }
             | Request::DesktopRead { session, .. }
             | Request::DesktopAccess { session, .. }
@@ -587,6 +595,12 @@ impl Context {
             Err(error) => return fault(&error.to_string()),
         };
         match request {
+            Request::ResolveSubject { selector, .. } => {
+                match self.actor.resolve_subject(&authority, &selector) {
+                    Ok(project_id) => success(json!({"project_id":project_id,"advisory":true})),
+                    Err(error) => fault(error.code()),
+                }
+            }
             Request::OperationByKey {
                 project_id,
                 idempotency_key,

@@ -3,17 +3,23 @@ use devforge_platform::{SqliteSettings, app_data_dir, diagnostics};
 mod config;
 mod debugger;
 mod distribution;
+mod e2e_guard;
 mod inspector;
 mod manager;
 mod project;
 mod runtime;
 mod site;
+mod stores;
 mod workspaces;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<_> = std::env::args().skip(1).collect();
+    if let Err(error) = stores::validate_fixture_arguments(&args) {
+        eprintln!("{}", serde_json::json!({"error":error}));
+        std::process::exit(1);
+    }
     if let Some(id) = manager::terminal_snapshot_id(&args) {
-        match project::snapshot_shell(id) {
+        match project::snapshot_shell(id, args.iter().any(|arg| arg == stores::FIXTURE_FLAG)) {
             Ok(code) => std::process::exit(code),
             Err(error) => {
                 eprintln!("{}", serde_json::json!({"error":error}));

@@ -2,6 +2,24 @@ use super::*;
 use devforge_core::{ErrorCode, SecretStore};
 use std::{collections::BTreeMap, fs};
 
+#[test]
+fn trusted_terminal_arguments_preserve_exact_shell_route_without_opening_window() {
+    let extra = vec![std::ffi::OsString::from("--internal-fixture-store")];
+    let args = shell_arguments("registered-project", &extra).unwrap();
+    assert_eq!(
+        args,
+        vec![
+            std::ffi::OsString::from("project"),
+            "shell".into(),
+            "registered-project".into(),
+            "--internal-fixture-store".into()
+        ]
+    );
+    assert_eq!(shell_arguments("registered-project", &[]).unwrap().len(), 3);
+    assert!(shell_arguments("registered-project", &["bad\nargument".into()]).is_err());
+    assert!(shell_arguments("registered-project", &vec!["flag".into(); 9]).is_err());
+}
+
 #[derive(Default)]
 struct Secrets;
 impl SecretStore for Secrets {

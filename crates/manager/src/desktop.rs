@@ -3,6 +3,7 @@
 use crate::{actor::ROOT_SUBJECT, payload};
 use devforge_control::Id;
 use devforge_core::{LocaleRegistry, SettingsPatch};
+use devforge_workspace::Command;
 use devforge_workspace::{LogFilter, Workspace};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
@@ -22,9 +23,103 @@ pub const READ_TOTAL_BYTES: usize = 128 * 1024 * 1024;
 pub const READ_RESULTS: usize = 2;
 pub const READ_TTL: Duration = Duration::from_secs(120);
 
+/// Advisory identifiers only. Never serialize a raw command, HTTP payload,
+/// query path, YAML or native secret into the subject lookup protocol.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum SubjectSelector {
+    Root {},
+    Project { project_id: Id },
+    Worktree { worktree_id: Id },
+    Cache { instance_id: Id },
+}
+impl SubjectSelector {
+    pub fn from_command(command: &Command) -> crate::actor::Result<Self> {
+        let project = |id: &str| -> crate::actor::Result<Self> {
+            let id = Id::new(id).map_err(|_| crate::actor::ActorError::InvalidInput)?;
+            if id.as_str() == ROOT_SUBJECT {
+                return Err(crate::actor::ActorError::SubjectMismatch);
+            }
+            Ok(Self::Project { project_id: id })
+        };
+        match command {
+            Command::ConfigurationSave { id, .. }
+            | Command::ConfigurationApply { id, .. }
+            | Command::DebugInstall { id, .. }
+            | Command::DebugConfigure { id, .. }
+            | Command::DebugBreakpoints { id, .. }
+            | Command::DebugControl { id, .. }
+            | Command::DebugRequest { id, .. }
+            | Command::DebugHttp { id, .. }
+            | Command::DebugProfileDelete { id, .. }
+            | Command::DebugProfileExport { id, .. }
+            | Command::PrepareProject { id, .. }
+            | Command::PhpDiagnostics { id, .. }
+            | Command::PhpSettings { id, .. }
+            | Command::Favorite { id, .. }
+            | Command::Visit { id, .. }
+            | Command::HttpsPreview { id, .. }
+            | Command::HttpsExport { id, .. }
+            | Command::HttpsApply { id, .. }
+            | Command::InspectorInstall { id, .. }
+            | Command::InspectorCapture { id, .. }
+            | Command::InspectorClear { id, .. }
+            | Command::InspectorProbe { id, .. }
+            | Command::Configure { id, .. }
+            | Command::Forget { id, .. }
+            | Command::MailConfigure { id, .. }
+            | Command::MailDelete { id, .. }
+            | Command::MailSave { id, .. }
+            | Command::Start { id, .. }
+            | Command::Stop { id, .. }
+            | Command::Restart { id, .. }
+            | Command::BindDatabase { id, .. }
+            | Command::TestDatabase { id, .. }
+            | Command::ActivateDatabaseGeneration { id, .. }
+            | Command::UnbindDatabase { id, .. }
+            | Command::InstallRedisClient { id, .. }
+            | Command::SwitchDatabase { id, .. }
+            | Command::CreateCache { id, .. }
+            | Command::ConfigureServices { id, .. }
+            | Command::CreateBackup { id, .. }
+            | Command::ExportBackup { id, .. }
+            | Command::ImportBackup { id, .. }
+            | Command::RestoreBackup { id, .. } => project(id),
+            Command::WorktreePlan { input } | Command::WorktreeCreate { input, .. } => {
+                project(&input.source_id)
+            }
+            Command::WorktreeArchivePlan { id, .. }
+            | Command::WorktreeArchive { id, .. }
+            | Command::WorktreeRemotePlan { id, .. }
+            | Command::WorktreeRemoteCopy { id, .. }
+            | Command::WorktreeOpen { id }
+            | Command::WorktreeCleanupPlan { id }
+            | Command::WorktreeCleanup { id, .. } => Ok(Self::Worktree {
+                worktree_id: Id::new(id).map_err(|_| crate::actor::ActorError::InvalidInput)?,
+            }),
+            Command::StartCache { instance } | Command::StopCache { instance } => Ok(Self::Cache {
+                instance_id: Id::new(instance)
+                    .map_err(|_| crate::actor::ActorError::InvalidInput)?,
+            }),
+            Command::Import { .. }
+            | Command::CreateProject { .. }
+            | Command::DiscoveryRestore { .. }
+            | Command::RefreshRuntimes
+            | Command::Install { .. }
+            | Command::RemoveRuntime { .. }
+            | Command::CreateDatabase { .. }
+            | Command::StartDatabase { .. }
+            | Command::StopDatabase { .. } => Ok(Self::Root {}),
+        }
+    }
+}
+
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum ReadRequest {
+    Report {
+        request: crate::report_reads::ReportReadRequest,
+    },
     Inspector {
         project_id: Id,
         context: Option<Id>,
@@ -69,6 +164,7 @@ pub enum ReadRequest {
 impl ReadRequest {
     pub fn project_id(&self) -> &Id {
         match self {
+            Self::Report { request } => request.subject(),
             Self::Inspector { project_id, .. }
             | Self::Inbox { project_id, .. }
             | Self::MailMessage { project_id, .. }
@@ -82,10 +178,14 @@ impl ReadRequest {
         }
     }
     pub(crate) fn valid(&self) -> bool {
+        if let Self::Report { request } = self {
+            return request.valid();
+        }
         if self.project_id().as_str() == ROOT_SUBJECT {
             return false;
         }
         match self {
+            Self::Report { .. } => unreachable!("report validation handled above"),
             Self::Inbox { query, page, .. } => query.len() <= 512 && *page <= 10000,
             Self::MailPart { index, .. } => *index < 50,
             Self::Logs { filter, .. } => {
@@ -104,6 +204,7 @@ impl ReadRequest {
     pub(crate) fn execute(&self, workspace: &Workspace) -> devforge_workspace::Result<Value> {
         let id = self.project_id().as_str();
         match self {
+            Self::Report { request } => request.execute(workspace),
             Self::Inspector { context, .. } => {
                 workspace.inspector_context(id, context.as_ref().map(Id::as_str))
             }
@@ -391,6 +492,32 @@ pub(crate) fn encode_read(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn subject_selector_never_contains_raw_http_query_or_yaml_fields() {
+        let canary = "selector-privacy-fixture";
+        let commands=[Command::DebugRequest{id:"project-a".into(),path:format!("/path?password={canary}")},Command::ConfigurationSave{id:"project-a".into(),expected:None,text:format!("# {canary}"),consent:true},serde_json::from_value::<Command>(serde_json::json!({"action":"debug_http","id":"project-a","request":{"method":"POST","path":"/login","headers":{"authorization":canary},"body":canary}})).unwrap()];
+        for command in commands {
+            let selector = SubjectSelector::from_command(&command).unwrap();
+            let encoded = serde_json::to_value(selector).unwrap();
+            assert_eq!(
+                encoded,
+                serde_json::json!({"kind":"project","project_id":"project-a"})
+            );
+            assert!(!encoded.to_string().contains(canary));
+        }
+        assert!(
+            serde_json::from_value::<SubjectSelector>(
+                serde_json::json!({"kind":"root","role":"desktop"})
+            )
+            .is_err()
+        );
+        assert!(
+            serde_json::from_value::<SubjectSelector>(
+                serde_json::json!({"kind":"project","project_id":"project-a","body":canary})
+            )
+            .is_err()
+        );
+    }
     #[test]
     fn aggregate_quota_denies_before_growth_and_last_pinned_reference_releases_claim() {
         let budget = Arc::new(ImageBudget::default());

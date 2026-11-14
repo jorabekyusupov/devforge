@@ -23,6 +23,8 @@ e2e = ["dep:tauri-plugin-wdio-webdriver", "devforge-workspace/test-support"]
 [dependencies]
 tauri = { version = "2.12.5", features = ["tray-icon"] }
 devforge-core.workspace = true
+devforge-manager.workspace = true
+devforge-control.workspace = true
 devforge-platform.workspace = true
 serde.workspace = true
 serde_json.workspace = true
@@ -35,3 +37,9 @@ tauri-plugin-dialog = "2.8.4"
 tauri-plugin-wdio-webdriver = {version="1.5.1", optional=true}
 
 tauri-plugin-single-instance = "2.5.5"
+
+[dev-dependencies]
+tempfile = "3.27.0"
+
+[target.'cfg(windows)'.dev-dependencies]
+windows-sys = { version = "0.61.2", features = ["Win32_Foundation", "Win32_Security", "Win32_Security_Authorization", "Win32_Storage_FileSystem", "Win32_System_Threading", "Win32_System_SystemServices"] }

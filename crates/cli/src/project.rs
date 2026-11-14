@@ -22,8 +22,9 @@ fn out(value: impl serde::Serialize) {
 }
 /// Explicit interactive terminal entrypoint. No metadata migration or shared
 /// Context preparation is allowed on this manager-coexisting path.
-pub fn snapshot_shell(id: &str) -> Result<i32> {
-    let root = app_data_dir().map_err(|_| E::StorageUnavailable)?;
+pub fn snapshot_shell(id: &str, fixture: bool) -> Result<i32> {
+    let selection = crate::stores::Selection::select(fixture).map_err(|_| E::StorageUnavailable)?;
+    let root = selection.root().map_err(|_| E::StorageUnavailable)?;
     let metadata = std::fs::symlink_metadata(&root)?;
     if !metadata.is_dir() || metadata.file_type().is_symlink() {
         return Err(E::StorageUnavailable);
@@ -32,8 +33,8 @@ pub fn snapshot_shell(id: &str) -> Result<i32> {
     let store = ProjectStore::open_existing_current(root.join("projects"))?;
     let packages = terminal::existing_packages(&root.join("runtimes"))?;
     let catalog = Catalog::bundled();
-    let secrets = NativeSecretStore::new(format!("{APP_IDENTIFIER}.projects"));
-    terminal::shell(&store, id, &catalog, &packages, &secrets)
+    let secrets = selection.project();
+    terminal::shell(&store, id, &catalog, &packages, secrets.as_ref())
 }
 
 pub fn run() -> Result<i32> {

@@ -79,3 +79,5 @@ pub mod external_auth;
 extern crate self as devforge_manager;
 
 pub mod desktop;
+
+pub mod report_reads;

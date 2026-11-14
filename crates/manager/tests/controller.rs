@@ -289,6 +289,99 @@ fn legacy_desktop_lease_excludes_controller_before_workspace_construction() {
 }
 
 #[test]
+fn authenticated_subject_advice_is_typed_and_never_replaces_actual_admission_checks() {
+    use devforge_manager::desktop::SubjectSelector;
+    use devforge_projects::project::{Catalog, ProjectStore};
+    use devforge_runtime::package::Target;
+    let root = common::root("df-selector-");
+    let source = root.path().join("fixture-project");
+    fs::create_dir_all(source.join("public")).unwrap();
+    fs::write(source.join("public/index.php"), "<?php").unwrap();
+    fs::write(
+        source.join("composer.json"),
+        r#"{"require":{"php":"^8.3","laravel/framework":"^13"}}"#,
+    )
+    .unwrap();
+    let catalog = Catalog::bundled();
+    let target = Target::current().unwrap();
+    let php = catalog
+        .packages
+        .iter()
+        .find(|(_, package)| {
+            package.kind == "php"
+                && package.target == target
+                && package.executables.contains_key("php")
+        })
+        .unwrap()
+        .0
+        .clone();
+    let node = catalog
+        .packages
+        .iter()
+        .find(|(_, package)| package.kind == "node" && package.target == target)
+        .unwrap()
+        .0
+        .clone();
+    let registry = ProjectStore::open(root.path().join("projects")).unwrap();
+    let project = registry
+        .import(&source, "Selector fixture", &php, &node, &catalog)
+        .unwrap();
+    drop(registry);
+    let secrets = Arc::new(MemorySecrets::default());
+    let credential = provision(root.path(), secrets.as_ref());
+    let (client, worker) = running(root.path(), secrets.clone());
+    assert_eq!(client.request(&json!({"method":"resolve_subject","session":"0".repeat(64),"selector":{"kind":"root"}})).unwrap()["error"]["code"],"manager_auth_unauthorized");
+    assert_eq!(secrets.gets.load(Ordering::SeqCst), 0);
+    let session = authenticate(&client, &credential);
+    let selector = SubjectSelector::from_command(&devforge_workspace::Command::Visit {
+        id: project.id.clone(),
+    })
+    .unwrap();
+    let advice = client
+        .request(&json!({"method":"resolve_subject","session":session,"selector":selector}))
+        .unwrap();
+    assert_eq!(advice["data"]["advisory"], true);
+    assert_eq!(advice["data"]["project_id"], project.id);
+    assert_eq!(
+        client
+            .request(
+                &json!({"method":"resolve_subject","session":session,"selector":{"kind":"root"}})
+            )
+            .unwrap()["data"]["project_id"],
+        "desktop-root"
+    );
+    assert_eq!(client.request(&json!({"method":"resolve_subject","session":session,"selector":{"kind":"project","project_id":project.id,"raw_command":{"password":"not-sent"}}})).unwrap()["error"]["code"],"controller_invalid_request");
+    let rejected=client.request(&json!({"method":"submit","session":session,"project_id":project.id,"idempotency_key":"advice-not-authority","command":{"action":"visit","id":"different-project"}})).unwrap();
+    assert_eq!(rejected["error"]["code"], "actor_subject_mismatch");
+    let forgotten=client.request(&json!({"method":"submit","session":session,"project_id":project.id,"idempotency_key":"forget-after-advice","command":{"action":"forget","id":project.id,"revision":project.revision}})).unwrap();
+    assert_eq!(forgotten["ok"], true);
+    let operation = forgotten["data"]["operation_id"].as_str().unwrap();
+    let until = Instant::now() + Duration::from_secs(5);
+    loop {
+        let status=client.request(&json!({"method":"status","session":session,"project_id":project.id,"operation_id":operation})).unwrap();
+        if status["data"]["state"] == "succeeded" {
+            break;
+        }
+        assert!(Instant::now() < until);
+        thread::sleep(Duration::from_millis(5));
+    }
+    assert_eq!(client.request(&json!({"method":"resolve_subject","session":session,"selector":{"kind":"project","project_id":project.id}})).unwrap()["error"]["code"],"actor_subject_mismatch");
+    let stale=client.request(&json!({"method":"submit","session":session,"project_id":project.id,"idempotency_key":"stale-advice","command":{"action":"visit","id":project.id}})).unwrap();
+    assert_eq!(stale["ok"], true);
+    let operation = stale["data"]["operation_id"].as_str().unwrap();
+    let until = Instant::now() + Duration::from_secs(5);
+    loop {
+        let status=client.request(&json!({"method":"status","session":session,"project_id":project.id,"operation_id":operation})).unwrap();
+        if status["data"]["state"] == "failed" {
+            break;
+        }
+        assert!(Instant::now() < until);
+        thread::sleep(Duration::from_millis(5));
+    }
+    quit(&client, &session, worker);
+}
+
+#[test]
 fn trusted_os_quit_uses_same_persistence_gate_and_stale_handle_cannot_change_later_owner() {
     let root = common::root("df-controller-");
     let secrets = Arc::new(MemorySecrets::default());

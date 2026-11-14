@@ -6,7 +6,7 @@
 use crate::{
     Client, Endpoint, PeerIdentity,
     auth::{DesktopCredential, SessionCredential, SessionInfo},
-    desktop::{AccessRequest, READ_IMAGE_BYTES, READ_TTL, ReadRequest},
+    desktop::{AccessRequest, READ_IMAGE_BYTES, READ_TTL, ReadRequest, SubjectSelector},
     launch::{BootstrappedChild, ReadyChild},
     payload::{CHUNK_BYTES, MAX_COMMAND_BYTES, MAX_SNAPSHOT_BYTES},
 };
@@ -169,7 +169,58 @@ pub struct ReadResult {
     deadline: Instant,
     owner: PeerIdentity,
     root: [u8; 32],
-    read_only: bool,
+    kind: ImageKind,
+}
+#[derive(Clone, Copy)]
+enum ImageKind {
+    Snapshot,
+    Read,
+    Mutation,
+}
+impl ImageKind {
+    fn limit(self) -> usize {
+        match self {
+            Self::Snapshot => MAX_SNAPSHOT_BYTES,
+            Self::Read | Self::Mutation => READ_IMAGE_BYTES,
+        }
+    }
+    fn ttl(self) -> Duration {
+        match self {
+            Self::Snapshot => EXPORT_TTL,
+            Self::Read | Self::Mutation => READ_TTL,
+        }
+    }
+    fn expired(self) -> Error {
+        match self {
+            Self::Snapshot => Error::PayloadResyncRequired,
+            Self::Read => Error::ReadExpired,
+            Self::Mutation => Error::Remote(RemoteCode("actor_result_unavailable".into())),
+        }
+    }
+}
+/// Credential-free incremental global snapshot. Keep it outside the SDK mutex;
+/// only each page step needs the client, just like an owner read image.
+pub struct SnapshotRead {
+    image: ReadResult,
+}
+impl fmt::Debug for SnapshotRead {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("SnapshotRead")
+            .field("received", &self.image.bytes.len())
+            .field("total", &self.image.descriptor.size)
+            .finish_non_exhaustive()
+    }
+}
+impl SnapshotRead {
+    pub fn received_bytes(&self) -> u64 {
+        self.image.received_bytes()
+    }
+    pub fn total_bytes(&self) -> u64 {
+        self.image.total_bytes()
+    }
+    pub fn observed_at(&self) -> u64 {
+        self.image.observed_at()
+    }
 }
 impl fmt::Debug for ReadResult {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -338,12 +389,96 @@ impl NativeClient {
         self.install_session(response?, started, previous_deadline)?;
         self.session_info()
     }
+    /// Backward-compatible blocking convenience wrapper over the incremental
+    /// snapshot codec. Native UI code should yield its SDK mutex between steps.
     pub fn snapshot(&mut self) -> Result<Snapshot> {
+        let mut read = self.begin_snapshot()?;
+        loop {
+            match self.snapshot_step(&mut read) {
+                Ok(ReadProgress::Complete) => return self.finish_snapshot(read),
+                Ok(ReadProgress::More { .. }) => {}
+                Err(error) => {
+                    let _ = self.release_snapshot(read);
+                    return Err(error);
+                }
+            }
+        }
+    }
+    pub fn begin_snapshot(&mut self) -> Result<SnapshotRead> {
         let started = Instant::now();
         let begin: SnapshotBegin = decode(self.authenticated("snapshot_begin", json!({}))?)?;
-        let result = self.collect_snapshot(&begin, started);
-        self.release_snapshot(&begin);
+        let descriptor = ReadDescriptor {
+            snapshot_id: begin.snapshot_id,
+            epoch: begin.epoch,
+            size: begin.size,
+            digest: begin.digest,
+            observed_at: begin.observed_at,
+            cursor: begin.cursor,
+            expires_in_ms: millis(EXPORT_TTL),
+        };
+        match self.prepare_image(descriptor, started, ImageKind::Snapshot) {
+            Ok(image) => Ok(SnapshotRead { image }),
+            Err(error) => Err(error),
+        }
+    }
+    pub fn snapshot_step(&mut self, read: &mut SnapshotRead) -> Result<ReadProgress> {
+        self.read_result_step(&mut read.image)
+    }
+    pub fn finish_snapshot(&mut self, read: SnapshotRead) -> Result<Snapshot> {
+        self.check_read_owner(&read.image)?;
+        let result = (|| {
+            self.validate_complete_image(&read.image)?;
+            let snapshot: Snapshot =
+                serde_json::from_slice(read.image.bytes.as_slice()).map_err(|_| Error::Protocol)?;
+            if snapshot.observed_at != read.image.descriptor.observed_at
+                || !snapshot.snapshot.is_object()
+                || ["projects", "runtimes", "databases", "logs"]
+                    .iter()
+                    .any(|name| !snapshot.snapshot.get(name).is_some_and(Value::is_array))
+            {
+                return Err(Error::Protocol);
+            }
+            Ok(snapshot)
+        })();
+        let _ = self.release_image(
+            &read.image.descriptor.snapshot_id,
+            &read.image.descriptor.epoch,
+        );
         result
+    }
+    pub fn release_snapshot(&mut self, read: SnapshotRead) -> Result<()> {
+        self.release_read_result(read.image)
+    }
+    /// Observe only authenticated nonsecret owner health. No credential/store
+    /// access or implicit launch occurs when there is no running owner.
+    pub fn observe_owner(endpoint: &Endpoint) -> Result<Health> {
+        observe(endpoint).map(|(_, health)| health)
+    }
+    /// New explicit user intent only. Never replace a retained unconfirmed key.
+    pub fn new_intent_id() -> Result<Id> {
+        let mut bytes = Zeroizing::new([0u8; 32]);
+        getrandom::fill(bytes.as_mut()).map_err(|_| Error::ResourceLimit)?;
+        Id::new(hex(bytes.as_ref())).map_err(|_| Error::Protocol)
+    }
+    /// Advisory native namespace only. The shared exhaustive selector copies
+    /// IDs, never raw YAML/HTTP input; admission/dequeue still resolve authority.
+    pub fn resolve_subject(&mut self, command: &Command) -> Result<Id> {
+        self.require_session()?;
+        let selector = SubjectSelector::from_command(command).map_err(|error| {
+            RemoteCode::parse(error.code().to_owned()).map_or(Error::Protocol, Error::Remote)
+        })?;
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct Advice {
+            project_id: Id,
+            advisory: bool,
+        }
+        let advice: Advice =
+            decode(self.authenticated("resolve_subject", json!({"selector":selector}))?)?;
+        if !advice.advisory {
+            return Err(Error::Protocol);
+        }
+        Ok(advice.project_id)
     }
     /// Submit one bounded ephemeral observation. A new poll uses a new key; the
     /// same key identifies the same observation until read expiry/eviction.
@@ -452,11 +587,27 @@ impl NativeClient {
     fn begin_image(&mut self, method: &str, project: &Id, operation: &Id) -> Result<ReadResult> {
         let started = Instant::now();
         let descriptor: ReadDescriptor = decode(self.operation(method, project, operation)?)?;
+        self.prepare_image(
+            descriptor,
+            started,
+            if method == "desktop_read_result" {
+                ImageKind::Read
+            } else {
+                ImageKind::Mutation
+            },
+        )
+    }
+    fn prepare_image(
+        &mut self,
+        descriptor: ReadDescriptor,
+        started: Instant,
+        kind: ImageKind,
+    ) -> Result<ReadResult> {
         let prepared = (|| {
             if descriptor.size == 0
-                || descriptor.size > READ_IMAGE_BYTES as u64
+                || descriptor.size > kind.limit() as u64
                 || descriptor.expires_in_ms == 0
-                || descriptor.expires_in_ms > millis(READ_TTL)
+                || descriptor.expires_in_ms > millis(kind.ttl())
                 || descriptor.cursor.offset != 0
                 || descriptor.cursor.snapshot_id != descriptor.snapshot_id
                 || descriptor.cursor.epoch != descriptor.epoch
@@ -469,7 +620,7 @@ impl NativeClient {
                 .and_then(|d| d.checked_sub(EXPIRY_MARGIN))
                 .ok_or(Error::Protocol)?;
             if Instant::now() >= deadline {
-                return Err(Error::ReadExpired);
+                return Err(kind.expired());
             }
             let mut bytes = Zeroizing::new(Vec::new());
             bytes
@@ -486,7 +637,7 @@ impl NativeClient {
                 deadline,
                 owner: self.peer.clone(),
                 root: self.root,
-                read_only: method == "desktop_read_result",
+                kind,
             }),
             Err(error) => {
                 let _ = self.release_image(&descriptor.snapshot_id, &descriptor.epoch);
@@ -502,11 +653,7 @@ impl NativeClient {
             return Ok(ReadProgress::Complete);
         };
         if Instant::now() >= image.deadline {
-            return Err(if image.read_only {
-                Error::ReadExpired
-            } else {
-                Error::Remote(RemoteCode("actor_result_unavailable".into()))
-            });
+            return Err(image.kind.expired());
         }
         let page: SnapshotPage =
             decode(self.authenticated("snapshot_page", json!({"cursor":cursor}))?)?;
@@ -547,12 +694,7 @@ impl NativeClient {
     pub fn finish_read_result(&mut self, image: ReadResult) -> Result<Value> {
         self.check_read_owner(&image)?;
         let result = (|| {
-            if image.cursor.is_some()
-                || image.bytes.len() as u64 != image.descriptor.size
-                || <[u8; 32]>::from(Sha256::digest(image.bytes.as_slice())) != image.digest
-            {
-                return Err(Error::Protocol);
-            }
+            self.validate_complete_image(&image)?;
             let value: Value =
                 serde_json::from_slice(image.bytes.as_slice()).map_err(|_| Error::Protocol)?;
             data(value)
@@ -563,6 +705,16 @@ impl NativeClient {
     pub fn release_read_result(&mut self, image: ReadResult) -> Result<()> {
         self.check_read_owner(&image)?;
         self.release_image(&image.descriptor.snapshot_id, &image.descriptor.epoch)
+    }
+    fn validate_complete_image(&self, image: &ReadResult) -> Result<()> {
+        self.check_read_owner(image)?;
+        if image.cursor.is_some()
+            || image.bytes.len() as u64 != image.descriptor.size
+            || <[u8; 32]>::from(Sha256::digest(image.bytes.as_slice())) != image.digest
+        {
+            return Err(Error::Protocol);
+        }
+        Ok(())
     }
     fn check_read_owner(&self, image: &ReadResult) -> Result<()> {
         if image.owner != self.peer || image.root != self.root {
@@ -584,71 +736,6 @@ impl NativeClient {
             return Err(Error::Protocol);
         }
         Ok(())
-    }
-    fn collect_snapshot(&mut self, begin: &SnapshotBegin, started: Instant) -> Result<Snapshot> {
-        let size = bounded_size(begin.size)?;
-        let expected_digest = digest_bytes(&begin.digest)?;
-        if begin.cursor.snapshot_id != begin.snapshot_id
-            || begin.cursor.epoch != begin.epoch
-            || begin.cursor.offset != 0
-        {
-            return Err(Error::Protocol);
-        }
-        let mut bytes = Zeroizing::new(Vec::with_capacity(size));
-        let mut cursor = begin.cursor.clone();
-        loop {
-            if started.elapsed() >= EXPORT_TTL {
-                return Err(Error::PayloadResyncRequired);
-            }
-            let page: SnapshotPage =
-                decode(self.authenticated("snapshot_page", json!({"cursor":cursor}))?)?;
-            if page.snapshot_id != begin.snapshot_id
-                || page.epoch != begin.epoch
-                || page.offset != bytes.len() as u64
-            {
-                return Err(Error::Protocol);
-            }
-            let decoded = decode_chunk(&page.data_hex.0)?;
-            if decoded.is_empty() || decoded.len() > size.saturating_sub(bytes.len()) {
-                return Err(Error::Protocol);
-            }
-            bytes.extend_from_slice(&decoded);
-            match page.next_cursor {
-                None if bytes.len() == size => break,
-                Some(next)
-                    if bytes.len() < size
-                        && next.snapshot_id == begin.snapshot_id
-                        && next.epoch == begin.epoch
-                        && next.offset == bytes.len() as u64 =>
-                {
-                    cursor = next
-                }
-                _ => return Err(Error::Protocol),
-            }
-        }
-        if <[u8; 32]>::from(Sha256::digest(bytes.as_slice())) != expected_digest {
-            return Err(Error::Protocol);
-        }
-        // Decode only after complete byte reassembly; UTF-8 may split in a page.
-        let snapshot: Snapshot =
-            serde_json::from_slice(bytes.as_slice()).map_err(|_| Error::Protocol)?;
-        if snapshot.observed_at != begin.observed_at
-            || !snapshot.snapshot.is_object()
-            || ["projects", "runtimes", "databases", "logs"]
-                .iter()
-                .any(|name| !snapshot.snapshot.get(name).is_some_and(Value::is_array))
-        {
-            return Err(Error::Protocol);
-        }
-        Ok(snapshot)
-    }
-    fn release_snapshot(&mut self, begin: &SnapshotBegin) {
-        // Export TTL is fixed/bounded. Preserve the original error or verified
-        // snapshot if best-effort release cannot be delivered; never renew here.
-        let _ = self.authenticated(
-            "snapshot_release",
-            json!({"snapshot_id":begin.snapshot_id,"epoch":begin.epoch}),
-        );
     }
     /// Upload/reassembly is bounded; caller identity/idempotency is explicit.
     /// Finalization is sent once. Ambiguous transport failure never triggers an
@@ -1015,12 +1102,7 @@ fn scrub_request(request: &mut Value) {
 fn millis(duration: Duration) -> u64 {
     u64::try_from(duration.as_millis()).unwrap_or(u64::MAX)
 }
-fn bounded_size(size: u64) -> Result<usize> {
-    if size == 0 || size > MAX_SNAPSHOT_BYTES as u64 {
-        return Err(Error::Protocol);
-    }
-    usize::try_from(size).map_err(|_| Error::Protocol)
-}
+
 fn hex(bytes: &[u8]) -> String {
     const HEX: &[u8; 16] = b"0123456789abcdef";
     let mut text = String::with_capacity(bytes.len() * 2);

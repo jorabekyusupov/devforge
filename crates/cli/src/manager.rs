@@ -2,10 +2,10 @@
 use devforge_manager::{
     Client, Endpoint, LegacyExclusion,
     bootstrap::BootstrapWriter,
-    controller::{Controller, StartIntent, Stores},
+    controller::{Controller, Options, StartIntent},
 };
-use devforge_platform::{APP_IDENTIFIER, NativeSecretStore, app_data_dir};
-use std::{path::Path, sync::Arc};
+use devforge_platform::app_data_dir;
+use std::path::Path;
 
 fn ensure_root(root: &Path) -> Result<(), String> {
     if !root.is_absolute() {
@@ -32,6 +32,14 @@ fn ensure_root(root: &Path) -> Result<(), String> {
 
 pub fn run() -> Result<(), String> {
     let args = std::env::args().skip(2).collect::<Vec<_>>();
+    #[cfg(feature = "e2e")]
+    if args == ["__fixture-root-init", crate::stores::FIXTURE_FLAG] {
+        let root = std::env::var_os("DEVFORGE_DATA_DIR").ok_or("fixture_data_root_required")?;
+        devforge_workspace::testing::FixtureRoot::create_new(std::path::Path::new(&root))
+            .map_err(|_| "fixture_root_invalid")?;
+        println!("{}", serde_json::json!({"initialized":true}));
+        return Ok(());
+    }
     if args == ["--help"] || args == ["-h"] || args.is_empty() {
         println!(
             "{}",
@@ -53,10 +61,12 @@ pub fn run() -> Result<(), String> {
     }
     let mut automatic = false;
     let mut private_bootstrap = false;
+    let mut fixture_store = false;
     for flag in &args[1..] {
         match flag.as_str() {
             "--automatic" if !automatic => automatic = true,
             "--private-desktop-bootstrap" if !private_bootstrap => private_bootstrap = true,
+            crate::stores::FIXTURE_FLAG if !fixture_store => fixture_store = true,
             _ => return Err("manager_invalid_arguments".into()),
         }
     }
@@ -67,13 +77,13 @@ pub fn run() -> Result<(), String> {
     } else {
         None
     };
-    let root = app_data_dir().map_err(|_| "manager_data_root_unavailable")?;
-    ensure_root(&root)?;
-    let stores = Stores {
-        workspace: Arc::new(NativeSecretStore::new(format!("{APP_IDENTIFIER}.projects"))),
-        desktop: Arc::new(NativeSecretStore::new(format!("{APP_IDENTIFIER}.control"))),
-    };
-    let controller = Controller::start(
+    let selection = crate::stores::Selection::select(fixture_store)?;
+    let root = selection.root()?;
+    if !selection.is_fixture() {
+        ensure_root(&root)?;
+    }
+    let stores = selection.manager_stores();
+    let controller = Controller::with_options(
         &root,
         if automatic {
             StartIntent::AutoStart
@@ -81,6 +91,14 @@ pub fn run() -> Result<(), String> {
             StartIntent::ExplicitUserStart
         },
         stores,
+        Options {
+            terminal_arguments: if selection.is_fixture() {
+                vec![crate::stores::FIXTURE_FLAG.into()]
+            } else {
+                Vec::new()
+            },
+            ..Options::default()
+        },
     )
     .map_err(|error| error.to_string())?;
     let quitter = controller.quitter();
@@ -122,6 +140,15 @@ pub fn legacy_guard(top: &str, sub: Option<&str>) -> Result<Option<LegacyExclusi
 pub fn terminal_snapshot_id(args: &[String]) -> Option<&str> {
     match args {
         [top, sub, id] if top == "project" && sub == "shell" && !id.is_empty() => Some(id),
+        #[cfg(feature = "e2e")]
+        [top, sub, id, flag]
+            if top == "project"
+                && sub == "shell"
+                && !id.is_empty()
+                && flag == crate::stores::FIXTURE_FLAG =>
+        {
+            Some(id)
+        }
         _ => None,
     }
 }
@@ -135,6 +162,22 @@ mod terminal_route_tests {
                 .is_some()
         };
         assert!(route(&["project", "shell", "abc"]));
+        #[cfg(feature = "e2e")]
+        {
+            assert!(route(&[
+                "project",
+                "shell",
+                "abc",
+                crate::stores::FIXTURE_FLAG
+            ]));
+            assert!(!route(&[
+                "project",
+                "shell",
+                "abc",
+                crate::stores::FIXTURE_FLAG,
+                "extra"
+            ]));
+        }
         for args in [
             vec!["project", "exec", "abc"],
             vec!["project", "terminal", "abc"],

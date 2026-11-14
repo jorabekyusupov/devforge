@@ -70,6 +70,14 @@ fn main() {
         cold_fixture(Path::new(&args[1]));
         return;
     }
+    if args.first().is_some_and(|v| v == "snapshot") {
+        real_large_snapshot_is_complete_and_unicode_safe();
+        println!(
+            "{}",
+            serde_json::json!({"suite":"native_client_incremental_snapshot","passed":1,"unavailable":0})
+        );
+        return;
+    }
     if args.first().is_some_and(|v| v == "uncertain_access") {
         durable_access_lost_reply_is_reconciled_without_replay();
         println!(
@@ -329,7 +337,21 @@ fn real_large_snapshot_is_complete_and_unicode_safe() {
     drop(projects);
     let (endpoint, worker, _quit) = running(root.path(), store, Options::default());
     let mut client = NativeClient::authenticate_explicit(endpoint, &key).unwrap();
-    let snapshot = client.snapshot().unwrap();
+    let mut read = client.begin_snapshot().unwrap();
+    let mut pages = 0;
+    loop {
+        pages += 1;
+        let progress = client.snapshot_step(&mut read).unwrap();
+        assert_eq!(
+            client.health().unwrap().state,
+            devforge_manager::native_client::OwnerState::Ready
+        );
+        if matches!(progress, ReadProgress::Complete) {
+            break;
+        }
+    }
+    assert!(pages > 1);
+    let snapshot = client.finish_snapshot(read).unwrap();
     assert_eq!(
         snapshot.snapshot["projects"].as_array().unwrap().len(),
         COUNT
@@ -341,6 +363,11 @@ fn real_large_snapshot_is_complete_and_unicode_safe() {
             .unwrap()
             .iter()
             .all(|row| row["project"]["name"].as_str().unwrap().contains("🦀"))
+    );
+    let convenience = client.snapshot().unwrap();
+    assert_eq!(
+        convenience.snapshot["projects"].as_array().unwrap().len(),
+        COUNT
     );
     client.quit().unwrap();
     worker.join().unwrap().unwrap();

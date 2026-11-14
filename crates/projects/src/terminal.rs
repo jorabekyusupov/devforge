@@ -280,6 +280,42 @@ mod windows_tests {
     }
 }
 pub fn open(store: &ProjectStore, id: &str, data_dir: &Path) -> Result<()> {
+    open_with_arguments(store, id, data_dir, &[])
+}
+/// Additional arguments originate only from trusted native composition, never
+/// renderer/RPC command data. The core does not interpret application flags.
+pub fn validate_launch_arguments(arguments: &[std::ffi::OsString]) -> Result<()> {
+    if arguments.len() > 8
+        || arguments.iter().any(|argument| {
+            argument.len() > 256
+                || argument
+                    .to_str()
+                    .is_none_or(|value| value.is_empty() || value.chars().any(char::is_control))
+        })
+    {
+        return Err(E::TerminalUnavailable);
+    }
+    Ok(())
+}
+pub fn shell_arguments(
+    id: &str,
+    arguments: &[std::ffi::OsString],
+) -> Result<Vec<std::ffi::OsString>> {
+    validate_launch_arguments(arguments)?;
+    if id.is_empty() || id.len() > 128 || id.chars().any(char::is_control) {
+        return Err(E::TerminalUnavailable);
+    }
+    let mut result = vec!["project".into(), "shell".into(), id.into()];
+    result.extend_from_slice(arguments);
+    Ok(result)
+}
+pub fn open_with_arguments(
+    store: &ProjectStore,
+    id: &str,
+    data_dir: &Path,
+    arguments: &[std::ffi::OsString],
+) -> Result<()> {
+    let arguments = shell_arguments(id, arguments)?;
     store.get(id)?;
     let executable = std::env::current_exe()?;
     #[cfg(target_os = "macos")]
@@ -289,10 +325,14 @@ pub fn open(store: &ProjectStore, id: &str, data_dir: &Path) -> Result<()> {
         let path = dir.join(format!("{id}.command"));
         use std::io::Write;
         let body = format!(
-            "#!/bin/sh\nexec /usr/bin/env DEVFORGE_DATA_DIR={} {} project shell {}\n",
+            "#!/bin/sh\nexec /usr/bin/env DEVFORGE_DATA_DIR={} {} {}\n",
             quote(data_dir)?,
             quote(&executable)?,
-            quote(Path::new(id))?
+            arguments
+                .iter()
+                .map(|argument| quote(Path::new(argument)))
+                .collect::<Result<Vec<_>>>()?
+                .join(" ")
         );
         let mut f = fs::File::create(&path)?;
         f.write_all(body.as_bytes())?;
@@ -310,7 +350,7 @@ pub fn open(store: &ProjectStore, id: &str, data_dir: &Path) -> Result<()> {
     {
         use std::os::windows::process::CommandExt;
         Command::new(&executable)
-            .args(["project", "shell", id])
+            .args(&arguments)
             .env("DEVFORGE_DATA_DIR", data_dir)
             .creation_flags(0x00000010)
             .spawn()
