@@ -1171,3 +1171,10 @@ shares the existing external_auth test-support module and moves callback_tests
 after production items. Affected manager/workspace lib+tests clippy passed; no
 native/product tests were repeated for these item-order/import changes. New CI
 execution remains separate evidence from the prior native acceptance.
+
+5b05e9 Windows [run43599399837](https://github.com/jorabekyusupov/devforge/actions/runs/43599399837)
+then exposed the same item-order lint in controller's Windows-only replace_marker
+function after service_quit_tests. The test module is now after both platform
+implementations. Selected format/diff checks passed; no product/native tests were
+repeated for this source-order-only correction. macOS/new Windows runtime results
+are reported from CI separately, without treating lint as runtime acceptance.

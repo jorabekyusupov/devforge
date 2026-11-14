@@ -1118,6 +1118,35 @@ fn replace_marker(source: &Path, target: &Path) -> Result<()> {
     fs::rename(source, target).map_err(|_| Error::PersistenceUnavailable)
 }
 
+#[cfg(windows)]
+fn replace_marker(source: &Path, target: &Path) -> Result<()> {
+    use std::os::windows::ffi::OsStrExt;
+    use windows_sys::Win32::Storage::FileSystem::{
+        MOVEFILE_REPLACE_EXISTING, MOVEFILE_WRITE_THROUGH, MoveFileExW,
+    };
+    let source = source
+        .as_os_str()
+        .encode_wide()
+        .chain(Some(0))
+        .collect::<Vec<_>>();
+    let target = target
+        .as_os_str()
+        .encode_wide()
+        .chain(Some(0))
+        .collect::<Vec<_>>();
+    if unsafe {
+        MoveFileExW(
+            source.as_ptr(),
+            target.as_ptr(),
+            MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH,
+        )
+    } == 0
+    {
+        return Err(Error::PersistenceUnavailable);
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 use crate::external_auth::test_support as quit_test_support;
 #[cfg(test)]
@@ -1161,32 +1190,4 @@ mod service_quit_tests {
         assert_eq!(quitting["error"]["code"], "interrupted");
         controller.serve(None).unwrap();
     }
-}
-#[cfg(windows)]
-fn replace_marker(source: &Path, target: &Path) -> Result<()> {
-    use std::os::windows::ffi::OsStrExt;
-    use windows_sys::Win32::Storage::FileSystem::{
-        MOVEFILE_REPLACE_EXISTING, MOVEFILE_WRITE_THROUGH, MoveFileExW,
-    };
-    let source = source
-        .as_os_str()
-        .encode_wide()
-        .chain(Some(0))
-        .collect::<Vec<_>>();
-    let target = target
-        .as_os_str()
-        .encode_wide()
-        .chain(Some(0))
-        .collect::<Vec<_>>();
-    if unsafe {
-        MoveFileExW(
-            source.as_ptr(),
-            target.as_ptr(),
-            MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH,
-        )
-    } == 0
-    {
-        return Err(Error::PersistenceUnavailable);
-    }
-    Ok(())
 }
