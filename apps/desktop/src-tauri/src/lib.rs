@@ -93,18 +93,12 @@ impl AppState {
         }
         let database = lock.as_mut().ok_or(ErrorCode::StorageUnavailable)?;
         database.initialize_project_folder(&self.project_home()?)?;
-        if let Some(patch) = update {
-            let changing_folder = patch.project_folder.is_some();
-            let mut settings = patch.apply(database.load()?);
-            self.registry.validate(&settings)?;
-            if changing_folder {
-                let folder = devforge_platform::resolve_project_folder(
-                    settings.project_folder.as_deref().unwrap_or_default(),
-                    &self.project_home()?,
-                )?;
-                settings.project_folder = Some(folder.to_string_lossy().into_owned());
+        if let Some(mut patch) = update {
+            if let Some(input) = patch.project_folder.as_deref() {
+                let folder = devforge_platform::resolve_project_folder(input, &self.project_home()?)?;
+                patch.project_folder = Some(folder.to_string_lossy().into_owned());
             }
-            database.save(&settings)?;
+            database.patch(patch, &self.registry)?;
         }
         let settings = database.load()?;
         let resolved = self

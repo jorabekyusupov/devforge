@@ -814,3 +814,20 @@ countedasgrantfailures/pass. Existingprojects dependency promoteddev→productio
 withoutversionorlockchange. Noexternalactor/CLI/MCP/GUIgrantissuance livewiring,
 SQLsandbox/executiontrust/review orrunningjobrevocation claim. Windowsnativegate
 andpublicschema/exportadoption remainfuture; notwholeM13.1completion.
+
+
+## M13.1.10 atomic preference field patches
+
+[Settings contract](../architecture/atomic-settings-patches.md): SQLiteimmediate
+readlatest→mergeonlysuppliedfields→commit, unknownJSONfields/savedunsupportedlocale
+preservedonunrelatedpatch. Explicitlanguagevalidation andboundedfoldervalidation;
+GUI normalizes onlysuppliedfolder thenpatches. Initialfolderdefaultsameatomic
+transaction onlyifNone. CompatibilitywholeSettingsRepository.save retained,
+futurecoexistingDiscoveryRoot mustusepatch (architectintegrationinprogress).
+
+Ninefocusedplatformtests passed(newatomic4/discovery2/threeexistingcorrupt-reopen-
+fallback), scopedplatformlib/testsclippy anddesktoplibconsumercheck passedARM64.
+Twoindependentconnections/fieldordering/initializerace tested withoutnativeUI/
+Keychain/globalsettings; Windowsnativeexecution pending. No visual/React/locale
+change orfullsuite rerun. ProtectspreferencesbeforeGUI+managercutover, notactual
+cutoveracceptance oruniversalreplacementofallfuturewriters.

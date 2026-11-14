@@ -1,5 +1,7 @@
 pub mod distribution;
-use devforge_core::{ErrorCode, SecretStore, Settings, SettingsRepository};
+use devforge_core::{
+    ErrorCode, LocaleRegistry, SecretStore, Settings, SettingsPatch, SettingsRepository,
+};
 use rusqlite::{Connection, OptionalExtension};
 use serde::Serialize;
 use std::path::{Path, PathBuf};
@@ -64,17 +66,76 @@ impl SqliteSettings {
     /// Initialization is recorded by saving the resolved path. Later loss of the
     /// directory must remain visible, rather than re-creating it on every launch.
     pub fn initialize_project_folder(&mut self, home: &Path) -> Result<(), ErrorCode> {
-        let mut settings = self.load()?;
+        let transaction = self
+            .connection
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+            .map_err(|_| ErrorCode::StorageUnavailable)?;
+        let (settings, mut record) = read_settings_record(&transaction)?;
         if settings.project_folder.is_none() {
             let path = default_project_folder(home);
-            // Record the first attempt even when the default cannot be created.
-            // Root health is reported by discovery, keeping Settings available so
-            // the user can select an accessible folder. Never recreate on launch.
+            // Only the initializer holding the SQLite write reservation attempts
+            // first creation. Never overwrite a concurrently saved manual folder.
             let _ = std::fs::create_dir(&path);
-            settings.project_folder = Some(path.to_string_lossy().into_owned());
-            self.save(&settings)?;
+            record.insert(
+                "project_folder".into(),
+                path.to_string_lossy().into_owned().into(),
+            );
+            write_settings_record(&transaction, record)?;
         }
-        Ok(())
+        transaction
+            .commit()
+            .map_err(|_| ErrorCode::StorageUnavailable)
+    }
+    /// Merge only supplied fields against the latest persisted record while
+    /// holding a cross-connection SQLite write reservation. Unknown saved fields
+    /// and unsupported saved locale choices survive unrelated field updates.
+    pub fn patch(
+        &mut self,
+        patch: SettingsPatch,
+        registry: &LocaleRegistry,
+    ) -> Result<Settings, ErrorCode> {
+        if let Some(language) = &patch.language
+            && !registry.supports_choice(language)
+        {
+            return Err(ErrorCode::InvalidSettings);
+        }
+        if let Some(folder) = &patch.project_folder
+            && (folder.trim().is_empty()
+                || folder.len() > 32768
+                || folder.chars().any(char::is_control)
+                || !Path::new(folder).is_absolute())
+        {
+            return Err(ErrorCode::InvalidProjectFolder);
+        }
+        let transaction = self
+            .connection
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+            .map_err(|_| ErrorCode::StorageUnavailable)?;
+        let (mut settings, mut record) = read_settings_record(&transaction)?;
+        let changed =
+            patch.language.is_some() || patch.theme.is_some() || patch.project_folder.is_some();
+        if let Some(language) = patch.language {
+            settings.language = language.clone();
+            record.insert("language".into(), language.into());
+        }
+        if let Some(theme) = patch.theme {
+            settings.theme = theme;
+            record.insert(
+                "theme".into(),
+                serde_json::to_value(theme).map_err(|_| ErrorCode::InvalidSettings)?,
+            );
+        }
+        if let Some(folder) = patch.project_folder {
+            settings.project_folder = Some(folder.clone());
+            record.insert("project_folder".into(), folder.into());
+        }
+        if changed {
+            write_settings_record(&transaction, record)?;
+        }
+        transaction
+            .commit()
+            .map_err(|_| ErrorCode::StorageUnavailable)?;
+        Ok(settings)
     }
     pub fn open(directory: &Path) -> Result<Self, ErrorCode> {
         std::fs::create_dir_all(directory).map_err(|_| ErrorCode::StorageUnavailable)?;
@@ -102,16 +163,38 @@ impl SqliteSettings {
         Ok(Self { connection, path })
     }
 }
+fn read_settings_record(
+    connection: &Connection,
+) -> Result<(Settings, serde_json::Map<String, serde_json::Value>), ErrorCode> {
+    let stored: Option<String> = connection
+        .query_row("SELECT value FROM preferences WHERE id=1", [], |r| r.get(0))
+        .optional()
+        .map_err(|_| ErrorCode::StorageUnavailable)?;
+    let value = match stored {
+        Some(value) => serde_json::from_str::<serde_json::Value>(&value)
+            .map_err(|_| ErrorCode::StorageUnavailable)?,
+        None => {
+            serde_json::to_value(Settings::default()).map_err(|_| ErrorCode::StorageUnavailable)?
+        }
+    };
+    let settings = serde_json::from_value::<Settings>(value.clone())
+        .map_err(|_| ErrorCode::StorageUnavailable)?;
+    let serde_json::Value::Object(record) = value else {
+        return Err(ErrorCode::StorageUnavailable);
+    };
+    Ok((settings, record))
+}
+fn write_settings_record(
+    connection: &Connection,
+    record: serde_json::Map<String, serde_json::Value>,
+) -> Result<(), ErrorCode> {
+    let value = serde_json::to_string(&record).map_err(|_| ErrorCode::InvalidSettings)?;
+    connection.execute("INSERT INTO preferences(id,value) VALUES(1,?1) ON CONFLICT(id) DO UPDATE SET value=excluded.value", [value])
+        .map(|_| ()).map_err(|_| ErrorCode::StorageUnavailable)
+}
 impl SettingsRepository for SqliteSettings {
     fn load(&self) -> Result<Settings, ErrorCode> {
-        let stored: Option<String> = self
-            .connection
-            .query_row("SELECT value FROM preferences WHERE id=1", [], |r| r.get(0))
-            .optional()
-            .map_err(|_| ErrorCode::StorageUnavailable)?;
-        stored
-            .map(|value| serde_json::from_str(&value).map_err(|_| ErrorCode::StorageUnavailable))
-            .unwrap_or_else(|| Ok(Settings::default()))
+        read_settings_record(&self.connection).map(|(settings, _)| settings)
     }
     fn save(&mut self, settings: &Settings) -> Result<(), ErrorCode> {
         let value = serde_json::to_string(settings).map_err(|_| ErrorCode::InvalidSettings)?;
@@ -324,6 +407,194 @@ mod discovery_tests {
         assert_eq!(
             resolve_project_folder(file.to_str().unwrap(), home.path()),
             Err(ErrorCode::InvalidProjectFolder)
+        );
+    }
+}
+
+#[cfg(test)]
+mod atomic_settings_tests {
+    use super::*;
+    use devforge_core::Theme;
+    use std::sync::{Arc, Barrier};
+    fn registry() -> LocaleRegistry {
+        LocaleRegistry::from_json(include_str!("../../../shared/locales/registry.json")).unwrap()
+    }
+    #[test]
+    fn stale_gui_snapshot_does_not_overwrite_other_connection_folder_or_language() {
+        let temp = tempfile::tempdir().unwrap();
+        let mut gui = SqliteSettings::open(temp.path()).unwrap();
+        let mut manager = SqliteSettings::open(temp.path()).unwrap();
+        let stale_gui = gui.load().unwrap();
+        let folder = temp.path().join("chosen").to_string_lossy().into_owned();
+        manager
+            .patch(
+                SettingsPatch {
+                    language: Some("ru".into()),
+                    project_folder: Some(folder.clone()),
+                    ..Default::default()
+                },
+                &registry(),
+            )
+            .unwrap();
+        assert_eq!(stale_gui.language, "system");
+        let merged = gui
+            .patch(
+                SettingsPatch {
+                    theme: Some(Theme::Dark),
+                    ..Default::default()
+                },
+                &registry(),
+            )
+            .unwrap();
+        assert_eq!(merged.language, "ru");
+        assert_eq!(merged.project_folder.as_deref(), Some(folder.as_str()));
+        assert_eq!(merged.theme, Theme::Dark);
+        assert_eq!(manager.load().unwrap(), merged);
+    }
+    #[test]
+    fn simultaneous_independent_connections_merge_disjoint_fields() {
+        let temp = tempfile::tempdir().unwrap();
+        let mut gui = SqliteSettings::open(temp.path()).unwrap();
+        let mut manager = SqliteSettings::open(temp.path()).unwrap();
+        let gate = Arc::new(Barrier::new(3));
+        let gui_gate = gate.clone();
+        let a = std::thread::spawn(move || {
+            gui_gate.wait();
+            gui.patch(
+                SettingsPatch {
+                    language: Some("uz-Latn".into()),
+                    ..Default::default()
+                },
+                &registry(),
+            )
+            .unwrap();
+        });
+        let manager_gate = gate.clone();
+        let folder = temp.path().join("manual").to_string_lossy().into_owned();
+        let chosen = folder.clone();
+        let b = std::thread::spawn(move || {
+            manager_gate.wait();
+            manager
+                .patch(
+                    SettingsPatch {
+                        theme: Some(Theme::Light),
+                        project_folder: Some(chosen),
+                        ..Default::default()
+                    },
+                    &registry(),
+                )
+                .unwrap();
+        });
+        gate.wait();
+        a.join().unwrap();
+        b.join().unwrap();
+        let stored = SqliteSettings::open(temp.path()).unwrap().load().unwrap();
+        assert_eq!(stored.language, "uz-Latn");
+        assert_eq!(stored.theme, Theme::Light);
+        assert_eq!(stored.project_folder, Some(folder));
+    }
+    #[test]
+    fn first_folder_initialization_racing_manual_patch_preserves_manual_choice() {
+        let temp = tempfile::tempdir().unwrap();
+        let home = temp.path().join("home");
+        std::fs::create_dir(&home).unwrap();
+        let mut initializer = SqliteSettings::open(&temp.path().join("data")).unwrap();
+        let mut manager = SqliteSettings::open(&temp.path().join("data")).unwrap();
+        let gate = Arc::new(Barrier::new(3));
+        let init_gate = gate.clone();
+        let a = std::thread::spawn(move || {
+            init_gate.wait();
+            initializer.initialize_project_folder(&home).unwrap();
+        });
+        let folder = temp
+            .path()
+            .join("manually-selected")
+            .to_string_lossy()
+            .into_owned();
+        let chosen = folder.clone();
+        let manager_gate = gate.clone();
+        let b = std::thread::spawn(move || {
+            manager_gate.wait();
+            manager
+                .patch(
+                    SettingsPatch {
+                        project_folder: Some(chosen),
+                        language: Some("ru".into()),
+                        theme: Some(Theme::Dark),
+                    },
+                    &registry(),
+                )
+                .unwrap();
+        });
+        gate.wait();
+        a.join().unwrap();
+        b.join().unwrap();
+        let settings = SqliteSettings::open(&temp.path().join("data"))
+            .unwrap()
+            .load()
+            .unwrap();
+        assert_eq!(settings.project_folder, Some(folder));
+        assert_eq!(settings.language, "ru");
+        assert_eq!(settings.theme, Theme::Dark);
+    }
+    #[test]
+    fn unknown_saved_locale_and_future_fields_survive_unrelated_patch_and_initialization() {
+        let temp = tempfile::tempdir().unwrap();
+        let home = temp.path().join("home");
+        std::fs::create_dir(&home).unwrap();
+        let mut db = SqliteSettings::open(&temp.path().join("data")).unwrap();
+        let raw = r#"{"language":"removed-locale","theme":"light","future":{"density":"compact"}}"#;
+        db.connection
+            .execute("INSERT INTO preferences VALUES(1,?1)", [raw])
+            .unwrap();
+        db.initialize_project_folder(&home).unwrap();
+        let settings = db
+            .patch(
+                SettingsPatch {
+                    theme: Some(Theme::Dark),
+                    ..Default::default()
+                },
+                &registry(),
+            )
+            .unwrap();
+        assert_eq!(settings.language, "removed-locale");
+        let stored: String = db
+            .connection
+            .query_row("SELECT value FROM preferences", [], |r| r.get(0))
+            .unwrap();
+        let value: serde_json::Value = serde_json::from_str(&stored).unwrap();
+        assert_eq!(value["future"]["density"], "compact");
+        assert_eq!(
+            value["project_folder"],
+            home.join("Devforge").to_string_lossy().as_ref()
+        );
+        assert_eq!(
+            db.patch(
+                SettingsPatch {
+                    language: Some("removed-locale".into()),
+                    ..Default::default()
+                },
+                &registry()
+            ),
+            Err(ErrorCode::InvalidSettings)
+        );
+        assert_eq!(
+            db.patch(
+                SettingsPatch {
+                    project_folder: Some("relative".into()),
+                    ..Default::default()
+                },
+                &registry()
+            ),
+            Err(ErrorCode::InvalidProjectFolder)
+        );
+        db.patch(SettingsPatch::default(), &registry()).unwrap();
+        assert_eq!(
+            db.connection
+                .query_row("SELECT value FROM preferences", [], |r| r
+                    .get::<_, String>(0))
+                .unwrap(),
+            stored
         );
     }
 }
