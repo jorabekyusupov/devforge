@@ -4,6 +4,8 @@
 
 ## 2026-11-14
 
+- **Windows recovery fixture:** Mac-onlyCLIvariantassumption replacedwithnativephp executablecapability;4affectedhelpertests/clippy/fmt passed, no productionpredicatechange. WindowsnewCIpending; original739failurepreserved. [Execution](execution-status.md).
+
 - **Grant clock fault:** clampedtimebug RED→latcheddeny, additivev2schema, deny-onlycommit onlateproofexpiry; explicitownerrecovery revokesalloldgrants beforebaseline reset.6new+1affectedclockcases/clippy passed, otherfixturesreused/no livegrantschanged. [Contract](../architecture/external-grants.md).
 
 - **Debug manager preparation:** explicitlockednative-targetbuild/exactadjacentCLIhash/fixedmanifest, optionallaunchsameTauri target/buildgate.10mocks+actualARM64prepare-only/hash passed; noCLIexecution/GUI/store/defaultswitch. [Contributor guide](../../CONTRIBUTING.md#debug-desktop-with-the-fixed-adjacent-manager), [execution](execution-status.md).

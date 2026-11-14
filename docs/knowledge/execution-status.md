@@ -975,3 +975,15 @@ observation, nothardware/undetected-clock-manipulation guarantee.
 scopedmanagerlibclippy/diff passed. Otherunchangedgrantfixtures reused. NoNativeStore/
 GUI/externaldispatcher/Windowsexecution and noactualusergrantchanged; onlyisolated
 fixtures. [Updated contract](../architecture/external-grants.md).
+
+
+## Windows recovery-fixture capability selection
+
+73903c8 run43584460329: macOSpassed; Windows managerunit16passed/4failed at
+sharedcreate_fixturePHPlookupbeforetherecoveryassertions. Fixtureassumed
+variant=cli, whileWindowsreviewedcatalogvariant=default exposesphp/php-cgi.
+ChangedONLYfixtureselectiontokind+nativeTarget+php-executablecapability; no
+productionrecoverypredicate/selectorchange. Localfouraffectedrecovery/worktree
+filterspassed, managerlibclippy/fmt/diff passed. RootstagesexactHEAD-basedonehunk,
+keepingunpublishedadvisory/serverchangesseparate. NewactualWindowsCIpending;
+previous8b/d55/24b/739 MacsuccessdoesnotreplaceWindowsacceptance.

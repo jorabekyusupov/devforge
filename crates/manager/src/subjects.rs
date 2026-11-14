@@ -686,7 +686,9 @@ mod tests {
         let php = catalog
             .packages
             .iter()
-            .find(|(_, p)| p.kind == "php" && p.variant == "cli" && p.target == target)
+            .find(|(_, p)| {
+                p.kind == "php" && p.target == target && p.executables.contains_key("php")
+            })
             .unwrap()
             .0
             .clone();
