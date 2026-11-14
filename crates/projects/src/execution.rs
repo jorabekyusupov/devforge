@@ -62,6 +62,86 @@ pub struct Context {
     debug_runtime: Option<devforge_debugger::provider::Runtime>,
     debug_launch: Option<devforge_debugger::session::Launch>,
 }
+/// Only the selected project's metadata, copied during one short read transaction.
+/// No SQLite read lock survives into OS credential access or child execution.
+pub(crate) struct TerminalFacts {
+    project: Project,
+    database: Option<(crate::database::Binding, crate::database::Instance)>,
+    cache: Option<crate::cache::CacheInstance>,
+}
+impl TerminalFacts {
+    pub(crate) fn capture(store: &ProjectStore, id: &str) -> Result<Self> {
+        use rusqlite::OptionalExtension;
+        fn record<T: serde::de::DeserializeOwned>(
+            store: &ProjectStore,
+            table: &str,
+            column: &str,
+            id: &str,
+            active: bool,
+        ) -> Result<Option<T>> {
+            // Identifiers below are fixed internal callers; values stay bound.
+            let sql = format!(
+                "SELECT CASE WHEN octet_length(record)<=262144 THEN record END FROM {table} WHERE {column}=?1{}",
+                if active { " AND active=1" } else { "" }
+            );
+            let raw: Option<Option<String>> = store
+                .connection
+                .query_row(&sql, [id], |r| r.get(0))
+                .optional()?;
+            raw.map(|value| {
+                serde_json::from_str(&value.ok_or(E::StorageUnavailable)?)
+                    .map_err(|_| E::StorageUnavailable)
+            })
+            .transpose()
+        }
+        if id.len() != 32 || !id.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+            return Err(E::InvalidProject);
+        }
+        let transaction = store.connection.unchecked_transaction()?;
+        let project: Project = record(store, "projects", "id", id, true)?.ok_or(E::NotFound)?;
+        if project.id != id {
+            return Err(E::InvalidProject);
+        }
+        let binding: Option<crate::database::Binding> =
+            record(store, "database_bindings", "project_id", id, false)?;
+        let database = binding
+            .map(|binding| {
+                let instance: crate::database::Instance =
+                    record(store, "instances", "id", &binding.instance_id, false)?
+                        .ok_or(E::DatabaseUnavailable)?;
+                if binding.project_id != project.id || instance.id != binding.instance_id {
+                    return Err(E::DatabaseConflict);
+                }
+                Ok((binding, instance))
+            })
+            .transpose()?;
+        let cache = if project.services.uses_redis() {
+            Some(
+                record(
+                    store,
+                    "cache_instances",
+                    "id",
+                    project
+                        .services
+                        .redis_instance
+                        .as_deref()
+                        .ok_or(E::DatabaseUnavailable)?,
+                    false,
+                )?
+                .ok_or(E::DatabaseUnavailable)?,
+            )
+        } else {
+            None
+        };
+        transaction.commit()?;
+        Ok(Self {
+            project,
+            database,
+            cache,
+        })
+    }
+}
+
 impl Context {
     /// Serving owns only these runtime-derived values; no .env write occurs.
     pub fn web_origin(mut self, origin: &str) -> Result<Self> {
@@ -239,11 +319,60 @@ impl Context {
         packages: &PackageStore,
         secrets: &dyn SecretStore,
     ) -> Result<Self> {
+        let config = store.root.join("config").join(&project.id);
+        Self::prepare_in(project, store, catalog, packages, secrets, config, None)
+    }
+    pub(crate) fn resolve_isolated(
+        facts: &TerminalFacts,
+        store: &ProjectStore,
+        catalog: &Catalog,
+        packages: &PackageStore,
+        secrets: &dyn SecretStore,
+        config: PathBuf,
+    ) -> Result<Self> {
+        let project = facts.project.clone();
+        let inspection = inspect(&project.path)?;
+        if inspection.path != project.path {
+            return Err(E::InvalidProject);
+        }
+        if let Some(identity) = &project.filesystem_identity
+            && crate::discovery::identity(&project.path)? != *identity
+        {
+            return Err(E::InvalidProject);
+        }
+        compatible(
+            &inspection,
+            catalog.get(&project.php)?,
+            catalog.get(&project.node)?,
+        )?;
+        Self::prepare_in(
+            project,
+            store,
+            catalog,
+            packages,
+            secrets,
+            config,
+            Some(facts),
+        )
+    }
+    fn prepare_in(
+        project: Project,
+        store: &ProjectStore,
+        catalog: &Catalog,
+        packages: &PackageStore,
+        secrets: &dyn SecretStore,
+        config: PathBuf,
+        frozen: Option<&TerminalFacts>,
+    ) -> Result<Self> {
         let id = project.id.as_str();
         let base = catalog.get(&project.php)?;
         let debug_runtime = if project.debugger.mode != devforge_debugger::Mode::Off {
             Some(
-                devforge_debugger::provider::resolve(
+                (if frozen.is_some() {
+                    devforge_debugger::provider::resolve_existing
+                } else {
+                    devforge_debugger::provider::resolve
+                })(
                     &store.root,
                     project
                         .debugger
@@ -288,7 +417,6 @@ impl Context {
             packages.executable(base, "php")?
         };
         let node = packages.executable(catalog.get(&project.node)?, "node")?;
-        let config = store.root.join("config").join(id);
         private_dir(&config)?;
         private_dir(&config.join("scan"))?;
         private_dir(&config.join("sessions"))?;
@@ -363,27 +491,54 @@ impl Context {
                 .as_os_str()
                 .to_owned(),
         );
+        let tooling = store.root.join("config").join(id);
         for (key, dir) in [
-            ("COMPOSER_HOME", config.join("composer")),
+            ("COMPOSER_HOME", tooling.join("composer")),
             ("COMPOSER_CACHE_DIR", store.root.join("cache/composer")),
-            ("NPM_CONFIG_CACHE", config.join("npm-cache")),
+            ("NPM_CONFIG_CACHE", tooling.join("npm-cache")),
         ] {
             private_dir(&dir)?;
             environment.insert(key.into(), dunce::simplified(&dir).as_os_str().to_owned());
         }
-        let userconfig = config.join("npmrc");
-        if !userconfig.exists() {
-            std::fs::write(&userconfig, b"; DevForge project-local user config\n")?;
+        let userconfig = tooling.join("npmrc");
+        match std::fs::OpenOptions::new()
+            .create_new(true)
+            .write(true)
+            .open(&userconfig)
+        {
+            Ok(mut file) => file.write_all(b"; DevForge project-local user config\n")?,
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
+            Err(error) => return Err(error.into()),
         }
         environment.insert(
             "NPM_CONFIG_USERCONFIG".into(),
             dunce::simplified(&userconfig).as_os_str().to_owned(),
         );
-        if let Some(binding) = store.binding(id)? {
+        let binding = match frozen {
+            Some(facts) => facts.database.as_ref().map(|(binding, _)| binding.clone()),
+            None => store.binding(id)?,
+        };
+        if let Some(binding) = binding {
             if !binding.ready {
                 return Err(E::DatabaseUnavailable);
             }
-            let credentials = store.credentials(id, secrets)?;
+            let credentials = if let Some(facts) = frozen {
+                let (_, instance) = facts.database.as_ref().ok_or(E::DatabaseUnavailable)?;
+                crate::database::Credentials {
+                    engine: instance.engine,
+                    root: store.root.join("databases").join(&instance.id),
+                    binding: binding.clone(),
+                    port: instance.port,
+                    password: zeroize::Zeroizing::new(
+                        secrets
+                            .get(&binding.secret_ref)
+                            .map_err(|_| E::SecretUnavailable)?
+                            .ok_or(E::SecretUnavailable)?,
+                    ),
+                }
+            } else {
+                store.credentials(id, secrets)?
+            };
             sensitive.push(credentials.password.to_string());
             for (key, value) in [
                 ("DB_CONNECTION", credentials.engine.driver().to_owned()),
@@ -398,13 +553,23 @@ impl Context {
                 environment.insert(key.into(), value.into());
             }
         }
-        crate::cache::apply_environment(
-            store,
-            &project,
-            secrets,
-            &mut environment,
-            &mut sensitive,
-        )?;
+        if let Some(facts) = frozen {
+            crate::cache::apply_captured_environment(
+                &project,
+                facts.cache.as_ref(),
+                secrets,
+                &mut environment,
+                &mut sensitive,
+            )?;
+        } else {
+            crate::cache::apply_environment(
+                store,
+                &project,
+                secrets,
+                &mut environment,
+                &mut sensitive,
+            )?;
+        }
         crate::mail::apply(store, &project, secrets, &mut environment, &mut sensitive)?;
         if debug_runtime.is_some() {
             environment.retain(|k, _| {

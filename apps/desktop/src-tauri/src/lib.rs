@@ -472,15 +472,22 @@ pub fn terminal_mode() -> Option<i32> {
         return None;
     }
     let result = (|| {
+        // A terminal is an explicit interactive escape, not a prefix-based
+        // bypass for arbitrary legacy commands or extra arguments.
+        if args.len() != 4 || args[3].is_empty() {
+            return Err(devforge_projects::ProjectError::InvalidProject);
+        }
         let root =
             app_data_dir().map_err(|_| devforge_projects::ProjectError::StorageUnavailable)?;
+        let metadata = std::fs::symlink_metadata(&root)?;
+        if !metadata.is_dir() || metadata.file_type().is_symlink() {
+            return Err(devforge_projects::ProjectError::StorageUnavailable);
+        }
         let _operation = devforge_platform::distribution::OperationLease::acquire(&root)
             .map_err(|_| devforge_projects::ProjectError::StorageUnavailable)?;
-        let store = devforge_projects::project::ProjectStore::open(root.join("projects"))?;
-        let packages = devforge_runtime::package::PackageStore::open(
-            root.join("runtimes"),
-            devforge_runtime::package::Limits::default(),
-        )?;
+        let store =
+            devforge_projects::project::ProjectStore::open_existing_current(root.join("projects"))?;
+        let packages = devforge_projects::terminal::existing_packages(&root.join("runtimes"))?;
         devforge_projects::terminal::shell(
             &store,
             args.get(3)

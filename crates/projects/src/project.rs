@@ -214,6 +214,53 @@ pub struct ProjectStore {
     pub(crate) root: PathBuf,
 }
 impl ProjectStore {
+    /// Existing current-schema metadata only: terminal coexistence must not create
+    /// directories, repair permissions, initialize a store or run migrations.
+    pub fn open_existing_current(root: impl AsRef<Path>) -> Result<Self> {
+        let root = root.as_ref();
+        if !root.is_absolute() {
+            return Err(E::StorageUnavailable);
+        }
+        let metadata = fs::symlink_metadata(root)?;
+        if !metadata.is_dir() || metadata.file_type().is_symlink() {
+            return Err(E::StorageUnavailable);
+        }
+        #[cfg(windows)]
+        {
+            use std::os::windows::fs::MetadataExt;
+            if metadata.file_attributes() & 0x400 != 0 {
+                return Err(E::StorageUnavailable);
+            }
+        }
+        let root = fs::canonicalize(root)?;
+        for name in [".devforge-project-store", "projects.sqlite3"] {
+            let metadata = fs::symlink_metadata(root.join(name))?;
+            if !metadata.is_file() || metadata.file_type().is_symlink() {
+                return Err(E::StorageUnavailable);
+            }
+            #[cfg(windows)]
+            {
+                use std::os::windows::fs::MetadataExt;
+                if metadata.file_attributes() & 0x400 != 0 {
+                    return Err(E::StorageUnavailable);
+                }
+            }
+        }
+        if fs::read(root.join(".devforge-project-store"))? != b"devforge-project-store-v1\n" {
+            return Err(E::StorageUnavailable);
+        }
+        let connection = Connection::open_with_flags(
+            root.join("projects.sqlite3"),
+            rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
+        )?;
+        connection.busy_timeout(Duration::from_secs(3))?;
+        let version: u32 = connection.pragma_query_value(None, "user_version", |row| row.get(0))?;
+        if version != 8 {
+            return Err(E::StorageUnavailable);
+        }
+        connection.pragma_update(None, "query_only", true)?;
+        Ok(Self { connection, root })
+    }
     pub fn open(root: impl AsRef<Path>) -> Result<Self> {
         fs::create_dir_all(root.as_ref())?;
         let root = fs::canonicalize(root)?;

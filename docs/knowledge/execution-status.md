@@ -770,3 +770,28 @@ registrycoverage remainsunknownratherthanabsence. Runtime/nodeversionnormalizati
 matchesManifestresolve butexactpackageevidence unchanged. Secretcanaries/filetree
 invariance/linkedmanifest/replacedroot/byteboundsfixtures passed. Nativeprovider/
 OS/GUI/cross-deviceuseracceptance remains. No wholeproduct rerun forreportonlyslice.
+
+
+## M13.1.8 isolated terminal prerequisite
+
+[Terminal snapshot contract](../architecture/terminal-snapshots.md): exactcurrent
+readonlyProjectStore, shortfrozenselectedproject/DB/cachetransaction beforesecrets,
+uniqueprivateINI/scan/shims+PHP/Node/Composer/debugruntimeleases untilshellexit.
+PersistentComposer/npm/authstate preserved, nomanagercredentialhandoff. Parent
+Workspace no longerwrites sharedINI/shims beforeterminalspawn. ExactCLIshellroute
+coexistswithoutsecondWorkspace/supervisor; desktopterminalhandler sameguards.
+Existingruntimeroot/marker/layout/junction checksbeforePackageStoreopen, nomigration.
+
+Local7snapshotfixturespassed includingtwoimmutablesessions/pins/nativeargvprobe/
+leases/cleanup/sharedsentinels, DB/cache switchwhileSecretStorecallback withSQLbusy0,
+readonlyschema/path/outsidecanaryguards. RelocatedAppleecho fixtureexit137 replaced
+withtest-ownedcompilednativeexecutable; notproductfailure. ExactCLIroute1passed;
+projects/debuggerclippypassed. FinalisolatedstagedCLI+desktopconsumer gate recorded
+below. ActualTerminal.app/Windowsconsole/GUI/realXdebug/minimumOS remainunverified;
+new tests use explicitfixture stores, notOScredentialservice.
+
+Finalterminalgate usedanarchive ofexactstagedtree toexcludeunfinishedparallelmanager
+facadewrites: CLIexact-route1passed anddesktoplibrarycargo check passed. Strict40/
+0errors/0warnings onthatstagedtree. No unrelatedruntime/native/frontendtests
+repeated; temporaryarchivecleanedafterchecks. This verifiesconsumercompilation,
+notnativeTerminal.app/Windowsinteraction.

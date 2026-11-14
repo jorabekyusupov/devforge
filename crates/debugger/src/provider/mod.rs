@@ -129,7 +129,17 @@ fn signature(entry: &Entry, key: &str) -> Result<String> {
         .collect())
 }
 pub fn entries(store: &Path, secrets: &dyn SecretStore) -> Result<Vec<Entry>> {
-    let root = root(store)?;
+    read_entries(root(store)?, secrets)
+}
+fn existing_root(store: &Path) -> Result<PathBuf> {
+    let path = store.join("debug-runtimes");
+    let metadata = fs::symlink_metadata(&path)?;
+    if !metadata.is_dir() || metadata.file_type().is_symlink() || fs::canonicalize(&path)? != path {
+        return Err(Error::Unauthorized);
+    }
+    Ok(path)
+}
+fn read_entries(root: PathBuf, secrets: &dyn SecretStore) -> Result<Vec<Entry>> {
     let mut out = vec![];
     for file in fs::read_dir(&root)? {
         let file = file?;
@@ -167,7 +177,31 @@ pub fn resolve(
     packages: &PackageStore,
     secrets: &dyn SecretStore,
 ) -> Result<Runtime> {
-    let entry = entries(store, secrets)?
+    resolve_entries(entries(store, secrets)?, id, php, packages)
+}
+/// Terminal snapshots may inspect attested runtimes, but never repair/create the
+/// manager-owned provider registry or change its permissions.
+pub fn resolve_existing(
+    store: &Path,
+    id: &str,
+    php: &str,
+    packages: &PackageStore,
+    secrets: &dyn SecretStore,
+) -> Result<Runtime> {
+    resolve_entries(
+        read_entries(existing_root(store)?, secrets)?,
+        id,
+        php,
+        packages,
+    )
+}
+fn resolve_entries(
+    entries: Vec<Entry>,
+    id: &str,
+    php: &str,
+    packages: &PackageStore,
+) -> Result<Runtime> {
+    let entry = entries
         .into_iter()
         .find(|e| e.id == id && e.php == php && Some(e.target) == Target::current().ok())
         .ok_or(Error::RuntimeMissing)?;

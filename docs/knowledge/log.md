@@ -4,6 +4,8 @@
 
 ## 2026-11-14
 
+- **M13.1.8 terminal snapshot:** readonlyschema/frozenmetadata/privateINI+shims/runtimeleases, persistenttoolauth preserved, exactCLI+desktopterminal guards.7focusedfixtures+route1/scopedclippy; finalstagedconsumer gate tracked. RealnativeGUI/Windows/Xdebug unverified. [Contract](../architecture/terminal-snapshots.md).
+
 - **E02.1 environment report:** boundedexpected/registeredmetadata usingexistingofflineevidence, explicitportability/secret/stalePHP unknowns. 6integration+1unit/workspaceclippy pass; QAname/envregistrationfalsematchesfixed. NoCLI/UI/nativeproof. [Contract](../architecture/environment-report.md), [execution](execution-status.md).
 
 - **E06.1 restore drill:** freshDB noactivation, boundedreceipts/ownednamespace/fullserveridentity, ready=false retainedcandidate. Focusedbackup6 +actualPG/MySQLARM64native2/clippy pass; liveSQLcanary/binding/PID/hashpreserved. NotLaravelGUI/cleanupacceptance. [Results](restore-drill-results.md).

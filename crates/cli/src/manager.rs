@@ -116,3 +116,34 @@ pub fn legacy_guard(top: &str, sub: Option<&str>) -> Result<Option<LegacyExclusi
         }
     })
 }
+
+/// Only this exact interactive route can coexist with the manager before M13.2.
+/// It enters a current-schema read-only snapshot path, never the legacy router.
+pub fn terminal_snapshot_id(args: &[String]) -> Option<&str> {
+    match args {
+        [top, sub, id] if top == "project" && sub == "shell" && !id.is_empty() => Some(id),
+        _ => None,
+    }
+}
+
+#[cfg(test)]
+mod terminal_route_tests {
+    #[test]
+    fn only_exact_interactive_shell_shape_bypasses_legacy_owner() {
+        let route = |args: &[&str]| {
+            super::terminal_snapshot_id(&args.iter().map(|v| v.to_string()).collect::<Vec<_>>())
+                .is_some()
+        };
+        assert!(route(&["project", "shell", "abc"]));
+        for args in [
+            vec!["project", "exec", "abc"],
+            vec!["project", "terminal", "abc"],
+            vec!["project", "shell", "abc", "extra"],
+            vec!["project", "shell"],
+            vec!["project", "shell", ""],
+            vec!["projects", "shell", "abc"],
+        ] {
+            assert!(!route(&args));
+        }
+    }
+}

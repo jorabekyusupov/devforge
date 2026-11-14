@@ -1,10 +1,10 @@
 use crate::{
     ProjectError as E, Result,
-    execution::Context,
+    execution::{Context, TerminalFacts},
     project::{Catalog, ProjectStore},
 };
 use devforge_core::SecretStore;
-use devforge_runtime::package::PackageStore;
+use devforge_runtime::package::{PackageStore, VerifiedResource};
 use std::{
     fs,
     path::{Path, PathBuf},
@@ -71,6 +71,136 @@ pub fn prepare(
     );
     Ok(bin)
 }
+/// PackageStore::open can create directories and repair root permissions. A
+/// coexisting terminal must first prove the existing fixed layout is not a link
+/// into another location. This is an ordinary path check, not an openat sandbox.
+pub fn existing_packages(root: &Path) -> Result<PackageStore> {
+    fn checked(path: &Path, directory: bool) -> Result<()> {
+        let metadata = fs::symlink_metadata(path)?;
+        if metadata.file_type().is_symlink()
+            || (if directory {
+                !metadata.is_dir()
+            } else {
+                !metadata.is_file()
+            })
+        {
+            return Err(E::StorageUnavailable);
+        }
+        #[cfg(windows)]
+        {
+            use std::os::windows::fs::MetadataExt;
+            if metadata.file_attributes() & 0x400 != 0 {
+                return Err(E::StorageUnavailable);
+            }
+        }
+        Ok(())
+    }
+    if !root.is_absolute() {
+        return Err(E::StorageUnavailable);
+    }
+    checked(root.parent().ok_or(E::StorageUnavailable)?, true)?;
+    checked(root, true)?;
+    let canonical = fs::canonicalize(root)?;
+    let expected = fs::canonicalize(root.parent().ok_or(E::StorageUnavailable)?)?
+        .join(root.file_name().ok_or(E::StorageUnavailable)?);
+    if canonical != expected {
+        return Err(E::StorageUnavailable);
+    }
+    for name in ["packages", "staging", "leases"] {
+        let path = root.join(name);
+        checked(&path, true)?;
+        if fs::canonicalize(path)? != canonical.join(name) {
+            return Err(E::StorageUnavailable);
+        }
+    }
+    let marker = root.join(".devforge-runtime-store");
+    checked(&marker, false)?;
+    if fs::metadata(&marker)?.len() != b"devforge-runtime-store-v1\n".len() as u64
+        || fs::read(marker)? != b"devforge-runtime-store-v1\n"
+    {
+        return Err(E::RuntimeUnavailable);
+    }
+    PackageStore::open(root, devforge_runtime::package::Limits::default()).map_err(Into::into)
+}
+
+/// A terminal owns its immutable INI/scan/shims and verified runtime leases until
+/// the shell exits. Persistent tool homes stay project-scoped; no auth files are
+/// copied into the session. Existing Xdebug INI material stays private and is
+/// deleted with this directory, never used as a manager credential handoff.
+pub struct Session {
+    context: Context,
+    _composer: VerifiedResource,
+    directory: tempfile::TempDir,
+}
+impl Session {
+    pub fn prepare(
+        store: &ProjectStore,
+        id: &str,
+        catalog: &Catalog,
+        packages: &PackageStore,
+        secrets: &dyn SecretStore,
+    ) -> Result<Self> {
+        // Select the unique private destination before any Context preparation.
+        let directory = tempfile::Builder::new()
+            .prefix(".terminal-")
+            .tempdir_in(store.root())?;
+        crate::private_dir(directory.path())?;
+        let facts = TerminalFacts::capture(store, id)?;
+        let mut context = Context::resolve_isolated(
+            &facts,
+            store,
+            catalog,
+            packages,
+            secrets,
+            directory.path().to_path_buf(),
+        )?;
+        let composer =
+            packages.resource(catalog.composer(&context.project.composer)?, "composer")?;
+        prepare(&mut context, catalog, packages)?;
+        Ok(Self {
+            context,
+            _composer: composer,
+            directory,
+        })
+    }
+    pub fn project(&self) -> &crate::project::Project {
+        self.context.project()
+    }
+    pub fn ini_path(&self) -> &Path {
+        self.context.ini_path()
+    }
+    pub fn directory(&self) -> &Path {
+        self.directory.path()
+    }
+    /// Fixed native probe of this already prepared snapshot. It never rewrites
+    /// shims or resolves the project's latest selection.
+    pub fn probe(&self) -> Result<String> {
+        probe_prepared(&self.context)
+    }
+    pub fn shell(self) -> Result<i32> {
+        #[cfg(windows)]
+        unsafe {
+            windows_sys::Win32::System::Console::AllocConsole();
+        }
+        let mut command = if cfg!(windows) {
+            let root = std::env::var_os("SystemRoot").ok_or(E::TerminalUnavailable)?;
+            let mut c = Command::new(PathBuf::from(root).join("System32").join("cmd.exe"));
+            c.arg("/D");
+            c
+        } else {
+            let mut c = Command::new("/bin/zsh");
+            c.args(["-d", "-f"]);
+            c
+        };
+        let status = command
+            .env_clear()
+            .envs(&self.context.environment)
+            .current_dir(dunce::simplified(&self.context.project.path))
+            .status()
+            .map_err(|_| E::TerminalUnavailable)?;
+        Ok(status.code().unwrap_or(1))
+    }
+}
 pub fn shell(
     store: &ProjectStore,
     id: &str,
@@ -78,36 +208,14 @@ pub fn shell(
     packages: &PackageStore,
     secrets: &dyn SecretStore,
 ) -> Result<i32> {
-    #[cfg(windows)]
-    unsafe {
-        windows_sys::Win32::System::Console::AllocConsole();
-    }
-    let mut context = Context::resolve(store, id, catalog, packages, secrets)?;
-    prepare(&mut context, catalog, packages)?;
-    // Keep both interpreter and Composer leases until the interactive shell exits.
-    let composer = catalog.composer(&context.project.composer)?;
-    let _composer = packages.resource(composer, "composer")?;
-    let mut command = if cfg!(windows) {
-        let root = std::env::var_os("SystemRoot").ok_or(E::TerminalUnavailable)?;
-        let mut c = Command::new(PathBuf::from(root).join("System32").join("cmd.exe"));
-        c.arg("/D");
-        c
-    } else {
-        let mut c = Command::new("/bin/zsh");
-        c.args(["-d", "-f"]);
-        c
-    };
-    let status = command
-        .env_clear()
-        .envs(&context.environment)
-        .current_dir(dunce::simplified(&context.project.path))
-        .status()
-        .map_err(|_| E::TerminalUnavailable)?;
-    Ok(status.code().unwrap_or(1))
+    Session::prepare(store, id, catalog, packages, secrets)?.shell()
 }
 /// Fixed diagnostic program, with no project-supplied shell interpolation.
 pub fn probe(context: &mut Context, catalog: &Catalog, packages: &PackageStore) -> Result<String> {
     prepare(context, catalog, packages)?;
+    probe_prepared(context)
+}
+fn probe_prepared(context: &Context) -> Result<String> {
     let mut command = if cfg!(windows) {
         windows_probe_command("call php --version && node --version")?
     } else {
@@ -236,3 +344,6 @@ fn make_executable(path: &Path) -> Result<()> {
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests;

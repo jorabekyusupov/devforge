@@ -11,6 +11,16 @@ mod site;
 mod workspaces;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let args: Vec<_> = std::env::args().skip(1).collect();
+    if let Some(id) = manager::terminal_snapshot_id(&args) {
+        match project::snapshot_shell(id) {
+            Ok(code) => std::process::exit(code),
+            Err(error) => {
+                eprintln!("{}", serde_json::json!({"error":error}));
+                std::process::exit(1);
+            }
+        }
+    }
     let top = std::env::args().nth(1);
     if top.as_deref() == Some("manager") {
         if let Err(error) = manager::run() {

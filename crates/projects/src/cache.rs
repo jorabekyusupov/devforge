@@ -284,6 +284,29 @@ pub(crate) fn apply_environment(
     environment: &mut BTreeMap<OsString, OsString>,
     sensitive: &mut Vec<String>,
 ) -> Result<()> {
+    let instance = if p.services.uses_redis() {
+        Some(
+            store.cache_instance(
+                p.services
+                    .redis_instance
+                    .as_deref()
+                    .ok_or(E::DatabaseUnavailable)?,
+            )?,
+        )
+    } else {
+        None
+    };
+    apply_captured_environment(p, instance.as_ref(), secrets, environment, sensitive)
+}
+
+/// Apply an already captured cache reference without rereading mutable metadata.
+pub(crate) fn apply_captured_environment(
+    p: &Project,
+    instance: Option<&CacheInstance>,
+    secrets: &dyn SecretStore,
+    environment: &mut BTreeMap<OsString, OsString>,
+    sensitive: &mut Vec<String>,
+) -> Result<()> {
     let s = &p.services;
     let cache = match s.cache {
         CacheDriver::Project => None,
@@ -305,8 +328,8 @@ pub(crate) fn apply_environment(
         environment.insert("QUEUE_CONNECTION".into(), value.into());
     }
     if s.uses_redis() {
-        let i = store.cache_instance(s.redis_instance.as_deref().ok_or(E::DatabaseUnavailable)?)?;
-        if !i.ready || i.project_id != p.id {
+        let i = instance.ok_or(E::DatabaseUnavailable)?;
+        if !i.ready || i.project_id != p.id || Some(i.id.as_str()) != s.redis_instance.as_deref() {
             return Err(E::DatabaseConflict);
         }
         if !p.path.join("vendor/predis/predis/src/Client.php").is_file() {
@@ -323,7 +346,7 @@ pub(crate) fn apply_environment(
             ("REDIS_CLIENT", "predis".into()),
             ("REDIS_HOST", "127.0.0.1".into()),
             ("REDIS_PORT", i.port.to_string()),
-            ("REDIS_USERNAME", i.username),
+            ("REDIS_USERNAME", i.username.clone()),
             ("REDIS_PASSWORD", password.to_string()),
             ("REDIS_DB", "0".into()),
             ("REDIS_CACHE_DB", "1".into()),

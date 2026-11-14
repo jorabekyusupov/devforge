@@ -20,6 +20,22 @@ use std::{
 fn out(value: impl serde::Serialize) {
     println!("{}", serde_json::to_string_pretty(&value).unwrap());
 }
+/// Explicit interactive terminal entrypoint. No metadata migration or shared
+/// Context preparation is allowed on this manager-coexisting path.
+pub fn snapshot_shell(id: &str) -> Result<i32> {
+    let root = app_data_dir().map_err(|_| E::StorageUnavailable)?;
+    let metadata = std::fs::symlink_metadata(&root)?;
+    if !metadata.is_dir() || metadata.file_type().is_symlink() {
+        return Err(E::StorageUnavailable);
+    }
+    let _lease = devforge_platform::distribution::OperationLease::acquire(&root)?;
+    let store = ProjectStore::open_existing_current(root.join("projects"))?;
+    let packages = terminal::existing_packages(&root.join("runtimes"))?;
+    let catalog = Catalog::bundled();
+    let secrets = NativeSecretStore::new(format!("{APP_IDENTIFIER}.projects"));
+    terminal::shell(&store, id, &catalog, &packages, &secrets)
+}
+
 pub fn run() -> Result<i32> {
     let args: Vec<_> = std::env::args().skip(2).collect();
     let arg = |i| args.get(i).map(String::as_str).ok_or(E::InvalidProject);

@@ -1436,14 +1436,8 @@ impl Workspace {
     fn open_target_inner(&self, id: &str, target: &str) -> Result<()> {
         let project = self.projects.get(id)?;
         if target == "terminal" {
-            let mut context = Context::resolve(
-                &self.projects,
-                id,
-                &self.catalog,
-                &self.packages,
-                self.secrets.as_ref(),
-            )?;
-            terminal::prepare(&mut context, &self.catalog, &self.packages)?;
+            // The launched shell resolves its own immutable runtime snapshot.
+            // Do not rewrite the active manager project's INI/shims beforehand.
             return terminal::open(&self.projects, id, &self.root).map_err(Into::into);
         }
         let url = match target {
