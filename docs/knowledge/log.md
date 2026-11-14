@@ -4,6 +4,8 @@
 
 ## 2026-11-14
 
+- **CLI Windowstest imports:**6ab2ca6nativeclippyunusedimports cfg(unix) bilanmoslandi; test-only, scopeclippypass. Rootfailure43570885602saqlandi, no unrelatedtests. [Execution](execution-status.md).
+
 - **E09.1 releasebaseline:**1/10/100real actor metadata harness, sanitizedJSON+binary/sourceprovenance, focusedclippy/argbounds.100projectCPU1ssample5.21%onecore/RSSprocesspeak14.37MB; waitmetricsnotcompute/GUIbudget. ActualWin/GUI/longidle/burstscopeochiq. [Execution](execution-status.md).
 
 - **Private manager CLI entry:** serve/health/help, automaticinhibition, nativeOSQuit, transitionallegacyguard andprivatepipebootstrappath. CLI6focused+actualCLIcoldlifecycle1pass, alltargetsclippy; noNativecredential probe/GUI/alltests rerun. [Guide](../guides/private-manager-cli.md), [execution](execution-status.md).

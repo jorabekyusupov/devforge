@@ -1,4 +1,5 @@
 //! CLI routing tests never touch native credentials or user application data.
+#[cfg(unix)]
 use devforge_manager::{LegacyExclusion, Owner};
 use std::{
     fs,

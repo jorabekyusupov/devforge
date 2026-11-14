@@ -584,3 +584,11 @@ parentwork/harness, binary/output hashes recorded; notcleanGUIbenchmark.
 WindowsCPUcodeGetProcessTimes yozilgan, RSSnull; actualWindows/GUI/process-tree/
 logmailqueryburst/longidle budget laterE09gates. SourceartifactNativeRoot paths yoki
 credential yo'q. Parentunchanged tests/wholeproduct notrerun.
+
+## CLI Windows import-gating fix
+
+6ab2ca6Windowsrun43570885602 clippy testmanager_entry.rsda Unix-only ikkihelper
+importi unused bo'lgani uchun native testsdanoldin to'xtadi. Importlarga cfg(unix)
+qo'shildi, aynan shu platformagated testsga mos; sourcebehavior/JSON/prodflags o'zgarmadi.
+ScopedCLItestclippy passed; unrelatedtest qayta bajarilmadi. WindowsnewCIhopmustverify,
+oldfailurehistorypreserved.
