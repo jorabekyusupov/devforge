@@ -396,6 +396,308 @@ impl BoundServiceClient {
     }
 }
 
+/// Finite runtime installation/selection client. Installation changes the shared
+/// managed cache, never project pins. Selection uses the canonical ConfigureInput
+/// projection; the server guards every preserved non-runtime field.
+pub struct RuntimeClient {
+    inner: ServiceClient,
+}
+impl std::fmt::Debug for RuntimeClient {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RuntimeClient")
+            .field("owner_pid", &self.inner.client.peer.process_id)
+            .finish_non_exhaustive()
+    }
+}
+impl RuntimeClient {
+    pub fn connect(
+        endpoint: Endpoint,
+        credential: ExternalCredential,
+    ) -> std::result::Result<Self, ErrorCode> {
+        Ok(Self {
+            inner: ServiceClient::connect(endpoint, credential)?,
+        })
+    }
+    pub fn selection(
+        &mut self,
+        request_id: Id,
+        project_id: &Id,
+    ) -> std::result::Result<Response<crate::service_control::RuntimeSelection>, ErrorCode> {
+        let reply: Response<crate::service_control::RuntimeSelection> = self.inner.exchange(
+            &request_id,
+            json!({"method":"runtime_selection","request_id":request_id,"project_id":project_id}),
+            false,
+        )?;
+        if reply
+            .data()
+            .is_some_and(|selection| &selection.project_id != project_id)
+        {
+            return Err(ErrorCode::ProjectMismatch);
+        }
+        Ok(reply)
+    }
+    /// Only PHP/Node and limits are supplied by this caller. Other ConfigureInput
+    /// fields come from the manager. The expected revision remains the caller's
+    /// original revision so apply can reconcile a prior exact admitted intent.
+    pub fn select_request(
+        &mut self,
+        request_id: Id,
+        project_id: Id,
+        expected_revision: u64,
+        idempotency_key: Id,
+        pins: (Id, Id),
+        limits: Option<devforge_control::mutations::MutationLimits>,
+    ) -> std::result::Result<Request<MutationInput>, ErrorCode> {
+        let reply = self.selection(request_id.clone(), &project_id)?;
+        let mut input = reply
+            .data()
+            .ok_or_else(|| {
+                reply
+                    .error()
+                    .map(|fault| fault.code)
+                    .unwrap_or(ErrorCode::InvalidInput)
+            })?
+            .input
+            .clone();
+        input.php = pins.0;
+        input.node = pins.1;
+        input.limits = limits;
+        let request = Request {
+            api_version: Default::default(),
+            request_id,
+            project_id,
+            expected_revision: Some(expected_revision),
+            idempotency_key: Some(idempotency_key),
+            input: MutationInput::Configure(input),
+        };
+        runtime_request(&request)?;
+        Ok(request)
+    }
+    pub fn plan(
+        &mut self,
+        request: &Request<MutationInput>,
+    ) -> std::result::Result<Response<PlanReceipt>, ErrorCode> {
+        runtime_request(request)?;
+        let reply: Response<PlanReceipt> = self.inner.exchange(
+            &request.request_id,
+            json!({"method":"runtime_plan","request":request}),
+            false,
+        )?;
+        if reply.data().is_some_and(|plan| {
+            plan.project_id != request.project_id
+                || Some(plan.revision.get()) != request.expected_revision
+        }) {
+            return Err(ErrorCode::InvalidInput);
+        }
+        Ok(reply)
+    }
+    pub fn apply(
+        &mut self,
+        request: &Request<MutationInput>,
+        review: &Digest,
+    ) -> std::result::Result<Response<MutationReceipt>, ErrorCode> {
+        runtime_request(request)?;
+        let reply: Response<MutationReceipt> = self.inner.exchange(
+            &request.request_id,
+            json!({"method":"runtime_apply","request":request,"review":review}),
+            true,
+        )?;
+        if reply.data().is_some_and(|receipt| {
+            receipt.project_id != request.project_id
+                || Some(receipt.revision.get()) != request.expected_revision
+                || reply
+                    .operation_id()
+                    .is_some_and(|id| id != &receipt.operation_id)
+        }) {
+            return Err(ErrorCode::AdmissionUnconfirmed);
+        }
+        Ok(reply)
+    }
+    pub fn lookup(
+        &mut self,
+        request_id: Id,
+        project_id: &Id,
+        idempotency_key: &Id,
+    ) -> std::result::Result<Response<Option<MutationReceipt>>, ErrorCode> {
+        let reply:Response<Option<MutationReceipt>>=self.inner.exchange(&request_id,json!({"method":"runtime_lookup","request_id":request_id,"project_id":project_id,"idempotency_key":idempotency_key}),false)?;
+        if reply
+            .data()
+            .and_then(Option::as_ref)
+            .is_some_and(|receipt| {
+                &receipt.project_id != project_id
+                    || reply
+                        .operation_id()
+                        .is_some_and(|id| id != &receipt.operation_id)
+            })
+        {
+            return Err(ErrorCode::InvalidInput);
+        }
+        Ok(reply)
+    }
+}
+fn runtime_request(request: &Request<MutationInput>) -> std::result::Result<(), ErrorCode> {
+    if !matches!(
+        request.input,
+        MutationInput::RuntimeInstall(_) | MutationInput::Configure(_)
+    ) {
+        return Err(ErrorCode::UnsupportedCapability);
+    }
+    if !request
+        .expected_revision
+        .is_some_and(|revision| revision <= devforge_control::limits::SafeInt::MAX)
+        || request.idempotency_key.is_none()
+    {
+        return Err(ErrorCode::InvalidInput);
+    }
+    Ok(())
+}
+pub struct BoundRuntimeClient {
+    runtime: RuntimeClient,
+    project: Id,
+}
+impl BoundRuntimeClient {
+    pub fn connect(
+        endpoint: Endpoint,
+        loaded: crate::credential_file::LoadedCredential,
+    ) -> std::result::Result<Self, ErrorCode> {
+        let bound = BoundServiceClient::connect(endpoint, loaded)?;
+        Ok(Self {
+            runtime: RuntimeClient {
+                inner: bound.service,
+            },
+            project: bound.project,
+        })
+    }
+    pub fn read(
+        &mut self,
+        request_id: Id,
+        input: ExternalInput,
+    ) -> std::result::Result<ExternalReply, ErrorCode> {
+        bound_read(
+            &mut self.runtime.inner.client,
+            &self.project,
+            request_id,
+            input,
+        )
+    }
+    pub fn select_request(
+        &mut self,
+        request_id: Id,
+        expected_revision: u64,
+        idempotency_key: Id,
+        pins: (Id, Id),
+        limits: Option<devforge_control::mutations::MutationLimits>,
+    ) -> std::result::Result<Request<MutationInput>, ErrorCode> {
+        self.runtime.select_request(
+            request_id,
+            self.project.clone(),
+            expected_revision,
+            idempotency_key,
+            pins,
+            limits,
+        )
+    }
+    pub fn plan(
+        &mut self,
+        request: &Request<MutationInput>,
+    ) -> std::result::Result<Response<PlanReceipt>, ErrorCode> {
+        if request.project_id != self.project {
+            return Err(ErrorCode::ProjectMismatch);
+        }
+        self.runtime.plan(request)
+    }
+    pub fn apply(
+        &mut self,
+        request: &Request<MutationInput>,
+        review: &Digest,
+    ) -> std::result::Result<Response<MutationReceipt>, ErrorCode> {
+        if request.project_id != self.project {
+            return Err(ErrorCode::ProjectMismatch);
+        }
+        self.runtime.apply(request, review)
+    }
+    pub fn lookup(
+        &mut self,
+        request_id: Id,
+        key: &Id,
+    ) -> std::result::Result<Response<Option<MutationReceipt>>, ErrorCode> {
+        self.runtime.lookup(request_id, &self.project, key)
+    }
+}
+/// Explicit combined adapter surface. Each method still delegates to a finite
+/// service/runtime validator; this is not an arbitrary mutation or command gate.
+pub struct BoundActionsClient {
+    bound: BoundRuntimeClient,
+}
+impl BoundActionsClient {
+    pub fn connect(
+        endpoint: Endpoint,
+        loaded: crate::credential_file::LoadedCredential,
+    ) -> std::result::Result<Self, ErrorCode> {
+        Ok(Self {
+            bound: BoundRuntimeClient::connect(endpoint, loaded)?,
+        })
+    }
+    pub fn read(
+        &mut self,
+        id: Id,
+        input: ExternalInput,
+    ) -> std::result::Result<ExternalReply, ErrorCode> {
+        self.bound.read(id, input)
+    }
+    pub fn service_plan(
+        &mut self,
+        request: &Request<MutationInput>,
+    ) -> std::result::Result<Response<PlanReceipt>, ErrorCode> {
+        if request.project_id != self.bound.project {
+            return Err(ErrorCode::ProjectMismatch);
+        }
+        self.bound.runtime.inner.plan(request)
+    }
+    pub fn service_apply(
+        &mut self,
+        request: &Request<MutationInput>,
+        review: &Digest,
+    ) -> std::result::Result<Response<MutationReceipt>, ErrorCode> {
+        if request.project_id != self.bound.project {
+            return Err(ErrorCode::ProjectMismatch);
+        }
+        self.bound.runtime.inner.apply(request, review)
+    }
+    pub fn runtime(&mut self) -> &mut BoundRuntimeClient {
+        &mut self.bound
+    }
+}
+fn bound_read(
+    client: &mut ExternalClient,
+    project: &Id,
+    request_id: Id,
+    input: ExternalInput,
+) -> std::result::Result<ExternalReply, ErrorCode> {
+    match &input {
+        ExternalInput::OperationCancel { .. } => return Err(ErrorCode::UnsupportedCapability),
+        ExternalInput::ProjectGet { project_id }
+        | ExternalInput::OperationStatus { project_id, .. }
+            if project_id != project =>
+        {
+            return Err(ErrorCode::ProjectMismatch);
+        }
+        _ => {}
+    }
+    let reply = client
+        .request(request_id, input, None)
+        .map_err(Error::control_code)?;
+    if let Some(
+        crate::external_control::ExternalOutput::ProjectGet(output)
+        | crate::external_control::ExternalOutput::ProjectList(output),
+    ) = &reply.data
+        && (output.items.len() != 1 || &output.items[0].project_id != project)
+    {
+        return Err(ErrorCode::ProjectMismatch);
+    }
+    Ok(reply)
+}
+
 struct SecretRequest(Value);
 impl Drop for SecretRequest {
     fn drop(&mut self) {

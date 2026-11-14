@@ -507,3 +507,128 @@ fn service_metadata_requires_exact_intent_and_never_treats_flags_as_approval() {
         serde_json::json!(["project_manage"])
     );
 }
+
+#[test]
+fn runtime_metadata_is_finite_and_select_flags_cannot_modify_other_configuration() {
+    for args in [
+        vec!["api", "runtime", "--help"],
+        vec!["api", "runtime", "plan", "--help"],
+        vec!["api", "runtime", "install", "--help"],
+        vec!["api", "runtime", "select", "--help"],
+    ] {
+        let (_, _, output, value) = invoke(&args);
+        assert!(output.status.success());
+        assert_eq!(value["ok"], true);
+    }
+    for args in [
+        vec![
+            "api",
+            "runtime",
+            "remove",
+            "project",
+            "--revision",
+            "1",
+            "--idempotency-key",
+            "key",
+        ],
+        vec![
+            "api",
+            "runtime",
+            "probe",
+            "project",
+            "--revision",
+            "1",
+            "--idempotency-key",
+            "key",
+        ],
+        vec![
+            "api",
+            "runtime",
+            "plan",
+            "install",
+            "project",
+            "--php",
+            "php",
+            "--revision",
+            "1",
+            "--idempotency-key",
+            "key",
+        ],
+        vec![
+            "api",
+            "runtime",
+            "plan",
+            "select",
+            "project",
+            "--php",
+            "php",
+            "--node",
+            "node",
+            "--name",
+            "changed",
+            "--revision",
+            "1",
+            "--idempotency-key",
+            "key",
+        ],
+        vec![
+            "api",
+            "runtime",
+            "plan",
+            "select",
+            "project",
+            "--php",
+            "php",
+            "--node",
+            "node",
+            "--package",
+            "package",
+            "--revision",
+            "1",
+            "--idempotency-key",
+            "key",
+        ],
+        vec![
+            "api",
+            "runtime",
+            "select",
+            "project",
+            "--php",
+            "php",
+            "--node",
+            "node",
+            "--revision",
+            "1",
+            "--idempotency-key",
+            "key",
+        ],
+        vec!["api", "status", "--package", "package"],
+    ] {
+        let (_, _, output, value) = invoke(&args);
+        assert_eq!(output.status.code(), Some(2), "{args:?}");
+        assert_eq!(value["error"]["code"], "invalid_input");
+    }
+    let (_, _, _, capabilities) = invoke(&["api", "capabilities"]);
+    let commands = capabilities["data"]["commands"].as_array().unwrap();
+    let install = commands
+        .iter()
+        .find(|entry| entry["name"] == "runtime install")
+        .unwrap();
+    assert_eq!(
+        install["required_scopes"],
+        serde_json::json!(["project_manage"])
+    );
+    assert_eq!(
+        install["effect"],
+        "reviewed_shared_cache_write_without_pin_switch"
+    );
+    let select = commands
+        .iter()
+        .find(|entry| entry["name"] == "runtime select")
+        .unwrap();
+    assert_eq!(
+        select["required_scopes"],
+        serde_json::json!(["project_manage", "execution_test"])
+    );
+    assert_eq!(select["execution_requires_native_approval"], true);
+}

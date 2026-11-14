@@ -497,6 +497,8 @@ impl ActorHandle {
             MutationInput::Start(_) => MutationOutput::Start(output),
             MutationInput::Stop(_) => MutationOutput::Stop(output),
             MutationInput::Restart(_) => MutationOutput::Restart(output),
+            MutationInput::RuntimeInstall(_) => MutationOutput::RuntimeInstall(output),
+            MutationInput::Configure(_) => MutationOutput::Configure(output),
             _ => return Err(E::UnsupportedCapability),
         })?;
         let transaction = state

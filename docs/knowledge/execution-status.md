@@ -1183,3 +1183,29 @@ are reported from CI separately, without treating lint as runtime acceptance.
 import. It is now fully qualified at its Mac-only use, removing the shared import.
 The correction is isolated from subsequent runtime-install/select test work;
 selected diff checks passed, with no product/native test repetition.
+
+## M13.4 second slice: reviewed runtime install/select
+
+[Contract](../architecture/reviewed-service-actions.md): finite runtime plan/apply/
+lookup reuses the service intent store/native approval/actor/quit gate. Install
+requires ProjectManage and reviews exact catalog descriptor/target/shared-cache
+effect; pins stay unchanged. Select requires ProjectManage+ExecutionTest and
+changes only PHP/Node; the authoritative name/site/HTTPS/Vite/queue/revision are
+preserved and candidate/debugger/cache checks precede stopping. Composer stays
+unchanged. Default MCP remains five reads; explicit runtime flag adds only
+plan/install/select independently of the service flag (5/9/8/12 surfaces).
+
+Five workspace tests/scoped clippy, one manager policy test, two client
+integrations and one runtime metadata/parser case passed; CLI scoped clippy
+passed. Independent QA found no concrete blocker through source review only,
+without duplicate tests/startup. Actual macOS ARM64 native cached flow passed1/1
+in36.08s: PHP8.4.27→8.5.12 HTTP, invalid candidate preserves livePID, original-key
+replay/stablePID, cached install/no pinchange and otherproject/PID/HTTP preserved;
+clean fixture join. [Log](../evidence/m13-runtime-actions/native.log). Cache source
+was read-only; no runtime download/native store/system configuration change.
+Final manager --lib --test service_control clippy passed; nine affected canonical mutation contract
+tests and checked exports passed. These checks did not repeat the native flow.
+
+Fresh network install, native GUI and Windows new runtime-slice execution remain
+unverified by this local flow. Env/YAML, DB and domains/HTTPS are still later
+M13.4 slices; runtime remove/probe and deferred report UI were not added.

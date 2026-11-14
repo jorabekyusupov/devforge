@@ -3886,7 +3886,8 @@
     },
     {
       "effects": [
-        "owned_package_write"
+        "owned_package_write",
+        "shared_cache_write_no_project_pin_change"
       ],
       "input_schema": {
         "additionalProperties": false,
@@ -3978,7 +3979,7 @@
       "required_scopes": [
         "project_manage"
       ],
-      "review_required": false,
+      "review_required": true,
       "schema_status": "typed_mutation",
       "unavailable_error": "unsupported_capability"
     },
@@ -3999,7 +4000,8 @@
     {
       "effects": [
         "owned_package_write",
-        "trusted_project_code_execution"
+        "trusted_project_code_execution",
+        "configuration_may_persist_before_restart_failure"
       ],
       "input_schema": {
         "additionalProperties": false,
@@ -4126,7 +4128,7 @@
         "project_manage",
         "execution_test"
       ],
-      "review_required": false,
+      "review_required": true,
       "schema_status": "typed_mutation",
       "unavailable_error": "unsupported_capability"
     },

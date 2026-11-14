@@ -1,5 +1,5 @@
-//! Reviewed project-service intents. Uses the existing control envelope, native
-//! authority and single actor; no runtime installation or arbitrary commands.
+//! Reviewed finite service/runtime intents. Uses the existing control envelope,
+//! native authority and single actor; no arbitrary command or removal surface.
 use crate::{
     PeerIdentity,
     actor::{ActorHandle, Receipt},
@@ -32,6 +32,17 @@ use zeroize::Zeroizing;
 pub type ServicePlanReply = Response<PlanReceipt>;
 pub type ServiceApplyReply = Response<MutationReceipt>;
 pub type ServiceLookupReply = Response<Option<MutationReceipt>>;
+pub type RuntimePlanReply = Response<PlanReceipt>;
+pub type RuntimeApplyReply = Response<MutationReceipt>;
+pub type RuntimeLookupReply = Response<Option<MutationReceipt>>;
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RuntimeSelection {
+    pub project_id: Id,
+    pub revision: SafeInt,
+    pub input: devforge_control::mutations::ConfigureInput,
+}
+pub type RuntimeSelectionReply = Response<RuntimeSelection>;
 const PLAN_TTL: Duration = Duration::from_secs(300);
 const MAX_PLANS: usize = 128;
 const MAX_PLAN_BYTES: usize = 1_048_576;
@@ -173,6 +184,9 @@ impl ServiceJob {
         if current.root() != self.intent.binding.root() {
             return Err(ErrorCode::ProjectMismatch);
         }
+        if initial {
+            cached_preflight(snapshot, &self.intent.request)?;
+        }
         let backend = if initial {
             state_digest(snapshot, current, &self.intent.request, proof)?
         } else {
@@ -206,7 +220,10 @@ impl ServiceJob {
             .snapshot()
             .map_err(|_| ws_error(ErrorCode::StorageUnavailable))?;
         let current = self.validate(&before, true).map_err(ws_error)?;
-        if !matches!(self.intent.request.input, MutationInput::Stop(_)) {
+        if matches!(
+            self.intent.request.input,
+            MutationInput::Start(_) | MutationInput::Restart(_)
+        ) {
             workspace.service_preflight(current.project_id().as_str())?;
         }
         let proof = self.authorize(&current).map_err(ws_error)?;
@@ -235,12 +252,6 @@ impl ServiceJob {
         else {
             return Err(ws_error(ErrorCode::UnsupportedCapability));
         };
-        let action = match command.as_ref() {
-            devforge_workspace::Command::Start { .. } => "start",
-            devforge_workspace::Command::Stop { .. } => "stop",
-            devforge_workspace::Command::Restart { .. } => "restart",
-            _ => return Err(ws_error(ErrorCode::UnsupportedCapability)),
-        };
         let check = || {
             self.check_basic().map_err(ws_error)?;
             self.authorize(&current).map_err(ws_error)?;
@@ -256,7 +267,22 @@ impl ServiceJob {
             }
             Ok(())
         };
-        workspace.execute_service_action(current.project_id().as_str(), action, &check)
+        match command.as_ref() {
+            devforge_workspace::Command::Start { .. } => {
+                workspace.execute_service_action(current.project_id().as_str(), "start", &check)
+            }
+            devforge_workspace::Command::Stop { .. } => {
+                workspace.execute_service_action(current.project_id().as_str(), "stop", &check)
+            }
+            devforge_workspace::Command::Restart { .. } => {
+                workspace.execute_service_action(current.project_id().as_str(), "restart", &check)
+            }
+            devforge_workspace::Command::Install { .. }
+            | devforge_workspace::Command::Configure { .. } => {
+                workspace.execute_runtime_action(*command, &self.cancellation, &check)
+            }
+            _ => Err(ws_error(ErrorCode::UnsupportedCapability)),
+        }
     }
 }
 impl Services {
@@ -267,7 +293,16 @@ impl Services {
         }
     }
     pub(crate) fn handles(method: &str) -> bool {
-        matches!(method, "service_plan" | "service_apply" | "service_lookup")
+        matches!(
+            method,
+            "service_plan"
+                | "service_apply"
+                | "service_lookup"
+                | "runtime_plan"
+                | "runtime_apply"
+                | "runtime_lookup"
+                | "runtime_selection"
+        )
     }
     pub(crate) fn request(
         self: &Arc<Self>,
@@ -304,9 +339,11 @@ impl Services {
                 request,
             } => respond(
                 id,
-                credential
-                    .parse()
-                    .and_then(|c| self.plan(peer, c, *request, actor)),
+                service_only(&request.input).and_then(|_| {
+                    credential
+                        .parse()
+                        .and_then(|c| self.plan(peer, c, *request, actor))
+                }),
                 None,
             ),
             Wire::Apply {
@@ -314,9 +351,11 @@ impl Services {
                 request,
                 review,
             } => {
-                let result = credential
-                    .parse()
-                    .and_then(|c| self.apply(peer, c, *request, review, actor));
+                let result = service_only(&request.input).and_then(|_| {
+                    credential
+                        .parse()
+                        .and_then(|c| self.apply(peer, c, *request, review, actor))
+                });
                 let op = result.as_ref().ok().map(|r| r.operation_id.clone());
                 respond(id, result, op)
             }
@@ -335,6 +374,57 @@ impl Services {
                     .and_then(|r| r.as_ref().map(|r| r.operation_id.clone()));
                 respond(request_id, result, op)
             }
+            Wire::RuntimePlan {
+                credential,
+                request,
+            } => respond(
+                id,
+                runtime_only(&request.input).and_then(|_| {
+                    credential
+                        .parse()
+                        .and_then(|c| self.plan(peer, c, *request, actor))
+                }),
+                None,
+            ),
+            Wire::RuntimeApply {
+                credential,
+                request,
+                review,
+            } => {
+                let result = runtime_only(&request.input).and_then(|_| {
+                    credential
+                        .parse()
+                        .and_then(|c| self.apply(peer, c, *request, review, actor))
+                });
+                let op = result.as_ref().ok().map(|r| r.operation_id.clone());
+                respond(id, result, op)
+            }
+            Wire::RuntimeLookup {
+                credential,
+                request_id,
+                project_id,
+                idempotency_key,
+            } => {
+                let result = credential
+                    .parse()
+                    .and_then(|c| self.lookup(&peer, &c, &project_id, &idempotency_key, actor));
+                let op = result
+                    .as_ref()
+                    .ok()
+                    .and_then(|r| r.as_ref().map(|r| r.operation_id.clone()));
+                respond(request_id, result, op)
+            }
+            Wire::RuntimeSelection {
+                credential,
+                request_id,
+                project_id,
+            } => respond(
+                request_id,
+                credential
+                    .parse()
+                    .and_then(|c| self.selection(&peer, &c, &project_id, actor)),
+                None,
+            ),
         }
     }
     pub(crate) fn clear(&self) {
@@ -342,6 +432,46 @@ impl Services {
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .clear();
+    }
+    fn selection(
+        &self,
+        peer: &PeerIdentity,
+        credential: &ExternalCredential,
+        project: &Id,
+        actor: &ActorHandle,
+    ) -> Result<RuntimeSelection, ErrorCode> {
+        let view = actor
+            .external_snapshot()
+            .map_err(|_| ErrorCode::StorageUnavailable)?;
+        let binding = project_binding(&view.snapshot, project)?;
+        let mut grants = self
+            .grants
+            .registry
+            .lock()
+            .map_err(|_| ErrorCode::StorageUnavailable)?;
+        let registry = grants.as_mut().ok_or(ErrorCode::Interrupted)?;
+        registry
+            .authorize(
+                peer,
+                credential,
+                &binding,
+                &[Scope::ProjectManage, Scope::ExecutionTest],
+                &[],
+                None,
+            )
+            .map_err(grant_error)?;
+        let selection = selection_projection(&view.snapshot, project)?;
+        registry
+            .authorize(
+                peer,
+                credential,
+                &binding,
+                &[Scope::ProjectManage, Scope::ExecutionTest],
+                &[],
+                Some(selection.revision.get()),
+            )
+            .map_err(grant_error)?;
+        Ok(selection)
     }
     pub(crate) fn revoked(&self, grant: &Id) {
         if let Ok(plans) = self.plans.lock() {
@@ -596,6 +726,8 @@ fn required(input: &MutationInput) -> Result<Vec<Scope>, ErrorCode> {
             Ok(vec![Scope::ProjectManage, Scope::ExecutionTest])
         }
         MutationInput::Stop(_) => Ok(vec![Scope::ProjectManage]),
+        MutationInput::RuntimeInstall(_) => Ok(vec![Scope::ProjectManage]),
+        MutationInput::Configure(_) => Ok(vec![Scope::ProjectManage, Scope::ExecutionTest]),
         _ => Err(ErrorCode::UnsupportedCapability),
     }
 }
@@ -603,14 +735,91 @@ fn cached_preflight(
     snapshot: &Snapshot,
     request: &Request<MutationInput>,
 ) -> Result<(), ErrorCode> {
-    if !matches!(request.input, MutationInput::Stop(_)) {
+    if matches!(
+        request.input,
+        MutationInput::Start(_) | MutationInput::Restart(_)
+    ) {
         devforge_workspace::service_control::cached_preflight(
             snapshot,
             request.project_id.as_str(),
         )
         .map_err(|_| ErrorCode::PreconditionFailed)?;
     }
+    if let MutationInput::RuntimeInstall(input) = &request.input {
+        let catalog = devforge_projects::project::Catalog::bundled();
+        let package = catalog
+            .get(input.package_id.as_str())
+            .map_err(|_| ErrorCode::InvalidInput)?;
+        if package.target
+            != devforge_runtime::package::Target::current()
+                .map_err(|_| ErrorCode::PreconditionFailed)?
+        {
+            return Err(ErrorCode::PreconditionFailed);
+        }
+        package.key().map_err(|_| ErrorCode::InvalidInput)?;
+    }
+    if let MutationInput::Configure(input) = &request.input {
+        let command = devforge_workspace::Command::Configure {
+            id: request.project_id.as_str().into(),
+            revision: request.expected_revision.ok_or(ErrorCode::InvalidInput)?,
+            name: input.name.as_str().into(),
+            php: input.php.as_str().into(),
+            node: input.node.as_str().into(),
+            domain: input.domain.as_str().into(),
+            https: input.https,
+            vite: input.vite,
+            queue: input.queue,
+        };
+        devforge_workspace::runtime_control::validate_selection_snapshot(snapshot, &command)
+            .map_err(|error| match error.code.as_str() {
+                "runtime_selection_fields_changed" => ErrorCode::InvalidInput,
+                "stale_revision" => ErrorCode::RevisionConflict,
+                _ => ErrorCode::PreconditionFailed,
+            })?;
+    }
     Ok(())
+}
+fn service_only(input: &MutationInput) -> Result<(), ErrorCode> {
+    if matches!(
+        input,
+        MutationInput::Start(_) | MutationInput::Stop(_) | MutationInput::Restart(_)
+    ) {
+        Ok(())
+    } else {
+        Err(ErrorCode::UnsupportedCapability)
+    }
+}
+fn runtime_only(input: &MutationInput) -> Result<(), ErrorCode> {
+    if matches!(
+        input,
+        MutationInput::RuntimeInstall(_) | MutationInput::Configure(_)
+    ) {
+        Ok(())
+    } else {
+        Err(ErrorCode::UnsupportedCapability)
+    }
+}
+fn selection_projection(snapshot: &Snapshot, project: &Id) -> Result<RuntimeSelection, ErrorCode> {
+    let row = snapshot
+        .projects
+        .iter()
+        .find(|row| row.project.id == project.as_str())
+        .ok_or(ErrorCode::ProjectMismatch)?;
+    let site = row.site.as_ref().ok_or(ErrorCode::PreconditionFailed)?;
+    Ok(RuntimeSelection {
+        project_id: project.clone(),
+        revision: SafeInt::new(row.project.revision)?,
+        input: devforge_control::mutations::ConfigureInput {
+            name: devforge_control::mutations::ProjectName::new(row.project.name.clone())?,
+            php: Id::new(row.project.php.clone())?,
+            node: Id::new(row.project.node.clone())?,
+            domain: devforge_control::mutations::DomainName::new(site.domain.clone())?,
+            https: site.https,
+            vite: site.vite,
+            queue: row.development.queue,
+            limits: None,
+        },
+    })
 }
 fn project_binding(snapshot: &Snapshot, id: &Id) -> Result<ProjectBinding, ErrorCode> {
     let row = snapshot
@@ -641,7 +850,20 @@ fn state_digest(
         .iter()
         .map(|(id, p)| json!([id, p.pid, p.observed]))
         .collect::<Vec<_>>();
-    sha256(&serde_json::to_vec(&json!({"grant":proof.grant_id(),"client":proof.client_id(),"key":request.idempotency_key,"fingerprint":sha256(&fingerprint_material(request,binding)?)?,"identity":row.project.filesystem_identity,"php":row.project.php,"node":row.project.node,"composer":row.project.composer,"site":row.site,"queue":row.development.queue,"services":row.project.services,"database":row.database.as_ref().map(|b|(&b.instance_id,&b.database,&b.role,b.ready)),"state":row.state,"processes":processes,"queue_state":row.queue_state})).map_err(|_|ErrorCode::InvalidInput)?)
+    let catalog = devforge_projects::project::Catalog::bundled();
+    let runtime_binding = match &request.input {
+        MutationInput::RuntimeInstall(input) => {
+            json!({"package":catalog.get(input.package_id.as_str()).map_err(|_|ErrorCode::InvalidInput)?})
+        }
+        MutationInput::Configure(input) => {
+            let php = catalog
+                .get(input.php.as_str())
+                .map_err(|_| ErrorCode::InvalidInput)?;
+            json!({"php":php,"web":catalog.php_server(php).map_err(|_|ErrorCode::PreconditionFailed)?,"node":catalog.get(input.node.as_str()).map_err(|_|ErrorCode::InvalidInput)?})
+        }
+        _ => Value::Null,
+    };
+    sha256(&serde_json::to_vec(&json!({"grant":proof.grant_id(),"client":proof.client_id(),"key":request.idempotency_key,"fingerprint":sha256(&fingerprint_material(request,binding)?)?,"identity":row.project.filesystem_identity,"php":row.project.php,"node":row.project.node,"composer":row.project.composer,"site":row.site,"queue":row.development.queue,"services":row.project.services,"database":row.database.as_ref().map(|b|(&b.instance_id,&b.database,&b.role,b.ready)),"state":row.state,"processes":processes,"queue_state":row.queue_state,"runtime_catalog":runtime_binding})).map_err(|_|ErrorCode::InvalidInput)?)
 }
 fn plan_receipt(intent: &Intent) -> PlanReceipt {
     PlanReceipt {
@@ -718,6 +940,30 @@ enum Wire {
         request_id: Id,
         project_id: Id,
         idempotency_key: Id,
+    },
+    #[serde(rename = "runtime_plan")]
+    RuntimePlan {
+        credential: Token,
+        request: Box<Request<MutationInput>>,
+    },
+    #[serde(rename = "runtime_apply")]
+    RuntimeApply {
+        credential: Token,
+        request: Box<Request<MutationInput>>,
+        review: Digest,
+    },
+    #[serde(rename = "runtime_lookup")]
+    RuntimeLookup {
+        credential: Token,
+        request_id: Id,
+        project_id: Id,
+        idempotency_key: Id,
+    },
+    #[serde(rename = "runtime_selection")]
+    RuntimeSelection {
+        credential: Token,
+        request_id: Id,
+        project_id: Id,
     },
 }
 fn respond<T: Serialize>(id: Id, result: Result<T, ErrorCode>, operation: Option<Id>) -> Value {

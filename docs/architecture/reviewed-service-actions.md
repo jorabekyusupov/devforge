@@ -1,8 +1,9 @@
 # M13.4 reviewed service lifecycle
 
 This first M13.4 slice exposes only existing project start, stop and restart.
-Runtime installation/selection, environment/YAML, database and HTTPS mutations
-remain later slices. The default MCP surface remains read-only.
+Runtime installation/selection is the second slice described below;
+environment/YAML, database and HTTPS mutations remain later slices. The default
+MCP surface remains read-only.
 
 ## Authority and execution
 
@@ -84,3 +85,48 @@ polling error exposed an active cancellation state-transition bug during cleanup
 both were corrected before the successful final run. The original runtime cache
 was read-only. This is backend/native-process proof, not GUI/native-dialog proof.
 Windows execution of this new service slice remains unverified locally.
+
+## Runtime install/select slice
+
+Install/select reuse the canonical PackageInput and ConfigureInput, the existing
+review store, native approval, actor receipts, original-key reconciliation and
+Quit gate. Separate runtime_plan/apply/lookup routes keep service-only clients
+finite. The independent --allow-runtime-actions MCP surface is opt-in; neither
+runtime nor service flag grants authority.
+
+Install requires ProjectManage and reviews the exact catalog package/target/
+digest plus its shared-cache effect. It does not select the package for a project.
+Select requires ProjectManage and ExecutionTest and changes only PHP/Node.
+Name/domain/HTTPS/Vite/queue must equal the current server configuration;
+Composer has no input field and stays unchanged. A scoped runtime_selection
+projection supplies these preserved fields and revision without native
+credential-store reads.
+Clients retain the original expected revision. If unrelated preserved fields
+later change, a client cannot reconstruct the old canonical selection body from
+the current projection; it must use explicit original-key lookup rather than
+claim body equivalence or generate a replacement key.
+Candidate compatibility/cache/debugger checks precede stopping an active session.
+Persistence/restart failures remain explicit; there is no blanket rollback claim.
+
+Remove/probe and later environment/DB/HTTPS families remain outside this slice.
+
+Focused independent QA inspected the runtime additions and found no demonstrated
+acceptance blocker. It verified descriptor/target binding, pre-stop candidate
+checks, preserved configuration and the existing authority/replay/cancellation
+boundaries in source. QA ran no duplicate tests or native launches.
+
+Verification: five workspace tests and scoped clippy passed. Client checks passed
+for scoped projection/CLI mapping/authority/no-install effect (one integration),
+independent default/service/runtime/both MCP surfaces (5/9/8/12 tools; one
+integration), and runtime metadata/parser (one case). Scoped CLI clippy passed.
+The manager policy case passed, covering exact preserved fields, required scopes,
+cross-project/family denials, missing cache and unapproved install without network.
+
+One actual macOS ARM64 cached native flow passed in 36.08 seconds: verified
+receipt-matching PHP8.4.27/8.5.12 CLI/FPM copies, actual HTTP PHP-version change,
+invalid-candidate refusal preserving the live PID, original-key replay preserving
+the selected PID, PM-only cached install without pin change, and the other
+project's unchanged PID/HTTP. The fixture stopped and joined cleanly. No cache
+source writes, downloads, native credential-store access or global config change.
+This proves cached install reuse and actual PHP selection; fresh network install,
+native GUI and Windows runtime execution are not established by this flow.

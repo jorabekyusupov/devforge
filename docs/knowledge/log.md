@@ -4,6 +4,8 @@
 
 ## 2026-11-14
 
+- **M13.4 runtime install/select:** existing reviewed envelope/actor, finite adapters and independent MCP opt-in; preserved nonselection fields/Composer, pre-stop cache compatibility. Five core/one policy/two client/one parser checks and actual cached PHP-version HTTP flow passed. Fresh network/native GUI/Windows gates remain distinct. [Contract](../architecture/reviewed-service-actions.md), [execution](execution-status.md).
+
 - **M13.4 CI lint follow-up:** single shared test-support module and test-module ordering corrected after actual macOS/Windows lint failures; affected manager/workspace lib+tests clippy passed. Later Windows-only controller ordering and Mac-only PathBuf import were corrected with selected format/diff checks. Native tests not repeated for mechanical changes. [Execution](execution-status.md).
 
 - **M13.4 first service slice:** native-reviewed start/stop/restart through existing actor, CLI and explicit MCP opt-in; original-key recovery and schema2 revision receipts. Focused client/core checks and actual macOS cached HTTP A/B isolation flow passed; Windows/new GUI gates remain separate. No extra mutation family or deferred report UI mounted. [Contract](../architecture/reviewed-service-actions.md), [execution](execution-status.md).

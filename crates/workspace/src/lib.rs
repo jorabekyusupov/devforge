@@ -7,6 +7,7 @@ pub mod discovery;
 pub mod environment_report;
 mod mail;
 pub mod repro;
+pub mod runtime_control;
 pub mod worktrees;
 pub use devforge_inspector::logs::Filter as LogFilter;
 pub mod service_control;

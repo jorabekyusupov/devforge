@@ -463,11 +463,13 @@ struct Mcp {
 }
 impl Mcp {
     fn start(fixture: &Fixture, service: bool) -> Self {
-        let file = fixture.parent.path().join(if service {
-            "service-grant.json"
-        } else {
-            "readonly-grant.json"
-        });
+        Self::with_flags(fixture, service, false)
+    }
+    fn with_flags(fixture: &Fixture, service: bool, runtime: bool) -> Self {
+        let file = fixture
+            .parent
+            .path()
+            .join(format!("grant-service-{service}-runtime-{runtime}.json"));
         let bytes=zeroize::Zeroizing::new(serde_json::to_vec(&json!({"schema":1,"project_id":fixture.project,"credential":fixture.full.credential.expose_secret()})).unwrap());
         common::credential_file(&file, &bytes);
         let mut command = Command::new(env!("CARGO_BIN_EXE_devforge"));
@@ -477,6 +479,9 @@ impl Mcp {
             .arg(&file);
         if service {
             command.arg("--allow-service-actions");
+        }
+        if runtime {
+            command.arg("--allow-runtime-actions");
         }
         let mut child = command
             .stdin(Stdio::piped())
@@ -705,4 +710,226 @@ fn service_sdk_lost_admission_reply_reconciles_original_key_without_hidden_retry
     );
     stop.request();
     relay.join().unwrap().unwrap();
+}
+
+#[test]
+fn runtime_projection_scope_review_and_preserved_field_guards_have_no_install_effect() {
+    use devforge_control::{
+        Request,
+        mutations::{MutationInput, PackageInput, ProjectName},
+    };
+    use devforge_manager::{
+        Endpoint, external_auth::ExternalCredential, external_client::RuntimeClient,
+    };
+    let mut fixture = Fixture::new();
+    let endpoint = Endpoint::existing(&fixture.root).unwrap();
+    let token = |grant: &IssuedGrant| {
+        ExternalCredential::from_wire(grant.credential.expose_secret()).unwrap()
+    };
+    let mut full = RuntimeClient::connect(endpoint.clone(), token(&fixture.full)).unwrap();
+    let project = Id::new(&fixture.project).unwrap();
+    let before = fixture.native.snapshot().unwrap().snapshot["projects"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|row| row["project"]["id"] == fixture.project)
+        .unwrap()["project"]
+        .clone();
+    let selection = full
+        .selection(Id::new("runtime-current").unwrap(), &project)
+        .unwrap();
+    let input = selection.data().unwrap().input.clone();
+    assert_eq!(input.name.as_str(), "Service fixture");
+    assert_eq!(input.domain.as_str(), "m134-service.devforge.test");
+    assert!(!input.https && !input.vite && !input.queue);
+    let revision = fixture.revision.to_string();
+    let (code, cli_plan) = fixture.cli(
+        &[
+            "api",
+            "runtime",
+            "plan",
+            "install",
+            &fixture.project,
+            "--package",
+            input.php.as_str(),
+            "--revision",
+            &revision,
+            "--idempotency-key",
+            "cli-runtime-install",
+            "--credential-stdin",
+        ],
+        &fixture.manage,
+    );
+    assert_eq!(code, 0);
+    assert_eq!(cli_plan["data"]["blocked"], true);
+    let (code, cli_select) = fixture.cli(
+        &[
+            "api",
+            "runtime",
+            "plan",
+            "select",
+            &fixture.project,
+            "--php",
+            input.php.as_str(),
+            "--node",
+            input.node.as_str(),
+            "--revision",
+            &revision,
+            "--idempotency-key",
+            "cli-runtime-select",
+            "--credential-stdin",
+        ],
+        &fixture.full,
+    );
+    assert_eq!(code, 5);
+    assert_eq!(cli_select["error"]["code"], "precondition_failed");
+    let mut request = full
+        .select_request(
+            Id::new("select-plan").unwrap(),
+            project.clone(),
+            fixture.revision,
+            Id::new("select-intent").unwrap(),
+            (input.php.clone(), input.node.clone()),
+            None,
+        )
+        .unwrap();
+    assert!(
+        matches!(&request.input,MutationInput::Configure(selected) if selected.name.as_str()==input.name.as_str()&&selected.domain.as_str()==input.domain.as_str()&&selected.php==input.php&&selected.node==input.node)
+    );
+    let response = full.plan(&request).unwrap();
+    assert_eq!(
+        response.error().unwrap().code,
+        devforge_control::ErrorCode::PreconditionFailed
+    );
+    if let MutationInput::Configure(selected) = &mut request.input {
+        selected.name = ProjectName::new("Not runtime selection".into()).unwrap();
+    }
+    let altered = full.plan(&request).unwrap();
+    assert_eq!(
+        altered.error().unwrap().code,
+        devforge_control::ErrorCode::InvalidInput
+    );
+    let other = full
+        .selection(
+            Id::new("other-current").unwrap(),
+            &Id::new(&fixture.other).unwrap(),
+        )
+        .unwrap();
+    assert_eq!(
+        other.error().unwrap().code,
+        devforge_control::ErrorCode::ProjectMismatch
+    );
+    let mut manage = RuntimeClient::connect(endpoint.clone(), token(&fixture.manage)).unwrap();
+    let mut observer = RuntimeClient::connect(endpoint, token(&fixture.observer)).unwrap();
+    let request = Request {
+        api_version: Default::default(),
+        request_id: Id::new("install-plan").unwrap(),
+        project_id: project,
+        expected_revision: Some(fixture.revision),
+        idempotency_key: Some(Id::new("install-intent").unwrap()),
+        input: MutationInput::RuntimeInstall(PackageInput {
+            package_id: input.php.clone(),
+            limits: None,
+        }),
+    };
+    let denied = observer.plan(&request).unwrap();
+    assert_eq!(
+        denied.error().unwrap().code,
+        devforge_control::ErrorCode::Unauthorized
+    );
+    let preview = manage.plan(&request).unwrap();
+    assert!(preview.data().unwrap().blocked);
+    let digest = preview.data().unwrap().digest.clone();
+    assert_eq!(
+        manage
+            .apply(&request, &digest)
+            .unwrap()
+            .error()
+            .unwrap()
+            .code,
+        devforge_control::ErrorCode::Unauthorized
+    );
+    fixture.native.approve_service_plan(&digest).unwrap();
+    fixture
+        .native
+        .revoke_external_grant(&fixture.manage.record.grant_id)
+        .unwrap();
+    assert_eq!(
+        manage
+            .apply(&request, &digest)
+            .unwrap()
+            .error()
+            .unwrap()
+            .code,
+        devforge_control::ErrorCode::GrantRevoked
+    );
+    let lookup = full
+        .lookup(
+            Id::new("runtime-lookup").unwrap(),
+            &request.project_id,
+            request.idempotency_key.as_ref().unwrap(),
+        )
+        .unwrap();
+    assert!(lookup.data().unwrap().is_none());
+    assert!(
+        fs::read_dir(fixture.root.join("runtimes/packages"))
+            .unwrap()
+            .next()
+            .is_none()
+    );
+    let after = fixture.native.snapshot().unwrap().snapshot["projects"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|row| row["project"]["id"] == fixture.project)
+        .unwrap()["project"]
+        .clone();
+    assert_eq!(before, after);
+}
+
+#[test]
+fn runtime_mcp_opt_in_is_independent_and_only_exposes_install_select() {
+    let mut fixture = Fixture::new();
+    let row = fixture.native.snapshot().unwrap().snapshot["projects"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|row| row["project"]["id"] == fixture.project)
+        .unwrap()["project"]
+        .clone();
+    for (service, runtime, count) in [
+        (false, false, 5),
+        (true, false, 9),
+        (false, true, 8),
+        (true, true, 12),
+    ] {
+        let mut mcp = Mcp::with_flags(&fixture, service, runtime);
+        let tools = mcp.call("tools/list", json!({}));
+        let tools = tools["result"]["tools"].as_array().unwrap();
+        assert_eq!(tools.len(), count);
+        assert!(
+            !tools
+                .iter()
+                .any(|tool| tool["name"] == "runtimes.remove" || tool["name"] == "runtimes.probe")
+        );
+        let plan=mcp.call("tools/call",json!({"name":"runtimes.plan","arguments":{"action":"install","package_id":row["php"],"expected_revision":fixture.revision,"idempotency_key":format!("mcp-install-{service}-{runtime}")}}));
+        if runtime {
+            assert_eq!(plan["result"]["isError"], false);
+            assert_eq!(plan["result"]["structuredContent"]["data"]["blocked"], true);
+            let invalid=mcp.call("tools/call",json!({"name":"runtimes.select","arguments":{"expected_revision":fixture.revision,"idempotency_key":"illegal","review":"a".repeat(64),"php":row["php"],"node":row["node"],"name":"not-runtime"}}));
+            assert_eq!(invalid["error"]["code"], -32602);
+            let lookup=mcp.call("tools/call",json!({"name":"operations.status","arguments":{"idempotency_key":"never-admitted"}}));
+            assert!(lookup["result"]["structuredContent"]["data"].is_null());
+        } else {
+            assert_eq!(plan["error"]["code"], -32602);
+        }
+        mcp.close();
+    }
+    assert!(fixture.native.snapshot().is_ok());
+    assert!(
+        fs::read_dir(fixture.root.join("runtimes/packages"))
+            .unwrap()
+            .next()
+            .is_none()
+    );
 }

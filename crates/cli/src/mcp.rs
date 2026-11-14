@@ -4,10 +4,12 @@ use devforge_control::ErrorCode;
 use devforge_manager::{
     Endpoint,
     credential_file::{CredentialFile, LoadedCredential},
-    external_client::{BoundReadOnlyClient, BoundServiceClient},
+    external_client::{
+        BoundActionsClient, BoundReadOnlyClient, BoundRuntimeClient, BoundServiceClient,
+    },
     mcp_contract::{
-        self, Action, MAX_REQUEST_BYTES, MAX_RESPONSE_BYTES, Protocol, ServiceCall, ServiceInput,
-        ToolCall,
+        self, Action, MAX_REQUEST_BYTES, MAX_RESPONSE_BYTES, Protocol, RuntimeCall, RuntimeInput,
+        ServiceCall, ServiceInput, ToolCall,
     },
 };
 use serde_json::{Value, json};
@@ -44,27 +46,32 @@ struct Job {
 enum QueuedCall {
     Read(ToolCall),
     Service(ServiceCall),
+    Runtime(RuntimeCall),
 }
 impl QueuedCall {
     fn id(&self) -> &Value {
         match self {
             Self::Read(call) => call.jsonrpc_id(),
             Self::Service(call) => call.jsonrpc_id(),
+            Self::Runtime(call) => call.jsonrpc_id(),
         }
     }
     fn failure(self, code: ErrorCode) -> Value {
         match self {
             Self::Read(call) => Protocol::complete(call, Err(code)),
             Self::Service(call) => Protocol::complete_service(call, Err(code)),
+            Self::Runtime(call) => Protocol::complete_runtime(call, Err(code)),
         }
     }
 }
 enum BoundClient {
     Read(BoundReadOnlyClient),
     Service(BoundServiceClient),
+    Runtime(BoundRuntimeClient),
+    Actions(BoundActionsClient),
 }
 impl BoundClient {
-    fn dispatch(&mut self, call: QueuedCall) -> Value {
+    fn dispatch(&mut self, call: QueuedCall, cancelled: &AtomicBool) -> Value {
         match call {
             QueuedCall::Read(call) => {
                 let result = match self {
@@ -74,34 +81,99 @@ impl BoundClient {
                     Self::Service(client) => {
                         client.read(call.request_id.clone(), call.input.clone())
                     }
+                    Self::Runtime(client) => {
+                        client.read(call.request_id.clone(), call.input.clone())
+                    }
+                    Self::Actions(client) => {
+                        client.read(call.request_id.clone(), call.input.clone())
+                    }
                 };
                 Protocol::complete(call, result)
             }
             QueuedCall::Service(call) => {
                 let result = match self {
-                    Self::Read(_) => Err(ErrorCode::UnsupportedCapability),
+                    Self::Read(_) | Self::Runtime(_) => Err(ErrorCode::UnsupportedCapability),
                     Self::Service(client) => match &call.input {
-                        ServiceInput::Plan(request) => client.plan(request).and_then(|reply| {
-                            serde_json::to_value(reply).map_err(|_| ErrorCode::InvalidInput)
-                        }),
+                        ServiceInput::Plan(request) => client.plan(request).and_then(value),
                         ServiceInput::Apply { request, review } => {
-                            client.apply(request, review).and_then(|reply| {
-                                serde_json::to_value(reply)
-                                    .map_err(|_| ErrorCode::AdmissionUnconfirmed)
-                            })
+                            client.apply(request, review).and_then(admitted_value)
                         }
                         ServiceInput::Lookup {
                             idempotency_key, ..
                         } => client
                             .lookup(call.request_id.clone(), idempotency_key)
-                            .and_then(|reply| {
-                                serde_json::to_value(reply).map_err(|_| ErrorCode::InvalidInput)
-                            }),
+                            .and_then(value),
+                    },
+                    Self::Actions(client) => match &call.input {
+                        ServiceInput::Plan(request) => client.service_plan(request).and_then(value),
+                        ServiceInput::Apply { request, review } => client
+                            .service_apply(request, review)
+                            .and_then(admitted_value),
+                        ServiceInput::Lookup {
+                            idempotency_key, ..
+                        } => client
+                            .runtime()
+                            .lookup(call.request_id.clone(), idempotency_key)
+                            .and_then(value),
                     },
                 };
                 Protocol::complete_service(call, result)
             }
+            QueuedCall::Runtime(call) => {
+                let result = match self {
+                    Self::Runtime(client) => runtime_dispatch(client, &call, cancelled),
+                    Self::Actions(client) => runtime_dispatch(client.runtime(), &call, cancelled),
+                    Self::Read(_) | Self::Service(_) => Err(ErrorCode::UnsupportedCapability),
+                };
+                Protocol::complete_runtime(call, result)
+            }
         }
+    }
+}
+fn value<T: serde::Serialize>(reply: T) -> Result<Value, ErrorCode> {
+    serde_json::to_value(reply).map_err(|_| ErrorCode::InvalidInput)
+}
+fn admitted_value<T: serde::Serialize>(reply: T) -> Result<Value, ErrorCode> {
+    serde_json::to_value(reply).map_err(|_| ErrorCode::AdmissionUnconfirmed)
+}
+fn runtime_dispatch(
+    client: &mut BoundRuntimeClient,
+    call: &RuntimeCall,
+    cancelled: &AtomicBool,
+) -> Result<Value, ErrorCode> {
+    match &call.input {
+        RuntimeInput::Install { request, review } => match review {
+            None => client.plan(request).and_then(value),
+            Some(review) => client.apply(request, review).and_then(admitted_value),
+        },
+        RuntimeInput::Select {
+            expected_revision,
+            idempotency_key,
+            php,
+            node,
+            limits,
+            review,
+        } => {
+            let request = client.select_request(
+                call.request_id.clone(),
+                *expected_revision,
+                idempotency_key.clone(),
+                (php.clone(), node.clone()),
+                limits.clone(),
+            )?;
+            // Projection is a read. A cancellation observed before the subsequent
+            // apply must not create a new owner operation.
+            if cancelled.load(Ordering::Acquire) {
+                return Err(ErrorCode::Interrupted);
+            }
+            match review {
+                None => client.plan(&request).and_then(value),
+                Some(review) => client.apply(&request, review).and_then(admitted_value),
+            }
+        }
+        RuntimeInput::Lookup { idempotency_key } => client
+            .lookup(call.request_id.clone(), idempotency_key)
+            .and_then(value),
     }
 }
 struct Completed {
@@ -179,7 +251,7 @@ pub fn run(args: &[String]) -> i32 {
     {
         println!(
             "{}",
-            json!({"usage":"devforge mcp serve --credential-file ABSOLUTE_PATH [--allow-service-actions]","protocol_versions":["2026-07-28","2025-11-25"],"transport":"stdio","default_read_only":true,"service_actions_opt_in":"--allow-service-actions (surface only; grants and native exact-plan approval remain mandatory)","credential":"explicit protected file; never token argv/environment or protocol stdin","owner_autostart":false})
+            json!({"usage":"devforge mcp serve --credential-file ABSOLUTE_PATH [--allow-service-actions] [--allow-runtime-actions]","protocol_versions":["2026-07-28","2025-11-25"],"transport":"stdio","default_read_only":true,"service_actions_opt_in":"--allow-service-actions (surface only; grants and native exact-plan approval remain mandatory)","credential":"explicit protected file; never token argv/environment or protocol stdin","runtime_actions_opt_in":"--allow-runtime-actions (catalog install/PHP-Node select only; native exact-plan approval remains mandatory)","owner_autostart":false})
         );
         return 0;
     }
@@ -192,6 +264,7 @@ pub fn run(args: &[String]) -> i32 {
     }
     let mut path = None;
     let mut service_actions = false;
+    let mut runtime_actions = false;
     let mut index = 0;
     while index < options.len() {
         match options[index].as_str() {
@@ -204,6 +277,7 @@ pub fn run(args: &[String]) -> i32 {
                 }
             }
             "--allow-service-actions" if !service_actions => service_actions = true,
+            "--allow-runtime-actions" if !runtime_actions => runtime_actions = true,
             _ => {
                 eprintln!("mcp_invalid_arguments");
                 return 2;
@@ -222,7 +296,7 @@ pub fn run(args: &[String]) -> i32 {
             return 3;
         }
     };
-    match serve_stdio(loaded, service_actions) {
+    match serve_stdio(loaded, service_actions, runtime_actions) {
         Ok(()) => 0,
         Err(_) => {
             eprintln!("mcp_stdio_unavailable");
@@ -230,12 +304,16 @@ pub fn run(args: &[String]) -> i32 {
         }
     }
 }
-fn serve_stdio(loaded: LoadedCredential, service_actions: bool) -> io::Result<()> {
-    let mut protocol = if service_actions {
-        Protocol::with_service_actions(loaded.project_id().clone())
-    } else {
-        Protocol::new(loaded.project_id().clone())
-    };
+fn serve_stdio(
+    loaded: LoadedCredential,
+    service_actions: bool,
+    runtime_actions: bool,
+) -> io::Result<()> {
+    let mut protocol = Protocol::with_action_surfaces(
+        loaded.project_id().clone(),
+        service_actions,
+        runtime_actions,
+    );
     let (input_tx, input_rx) = mpsc::sync_channel(QUEUE);
     let reader = thread::spawn(move || {
         let stdin = io::stdin();
@@ -254,7 +332,9 @@ fn serve_stdio(loaded: LoadedCredential, service_actions: bool) -> io::Result<()
     });
     let (job_tx, job_rx) = mpsc::sync_channel::<Job>(QUEUE);
     let (done_tx, done_rx) = mpsc::sync_channel::<Completed>(QUEUE);
-    let worker = thread::spawn(move || read_worker(loaded, service_actions, job_rx, done_tx));
+    let worker = thread::spawn(move || {
+        read_worker(loaded, service_actions, runtime_actions, job_rx, done_tx)
+    });
     let mut pending: HashMap<String, Arc<AtomicBool>> = HashMap::new();
     let stdout = io::stdout();
     let mut writer = stdout.lock();
@@ -348,6 +428,7 @@ fn transport_loop(
             }
             Action::Call(call) => enqueue(QueuedCall::Read(call), jobs, pending, writer)?,
             Action::Service(call) => enqueue(QueuedCall::Service(call), jobs, pending, writer)?,
+            Action::Runtime(call) => enqueue(QueuedCall::Runtime(call), jobs, pending, writer)?,
         }
     }
 }
@@ -380,6 +461,7 @@ fn enqueue(
 fn read_worker(
     loaded: LoadedCredential,
     service_actions: bool,
+    runtime_actions: bool,
     jobs: Receiver<Job>,
     done: SyncSender<Completed>,
 ) {
@@ -407,7 +489,11 @@ fn read_worker(
                 })
                 .and_then(|endpoint| {
                     let loaded = loaded.take().expect("single credential consumption");
-                    if service_actions {
+                    if service_actions && runtime_actions {
+                        BoundActionsClient::connect(endpoint, loaded).map(BoundClient::Actions)
+                    } else if runtime_actions {
+                        BoundRuntimeClient::connect(endpoint, loaded).map(BoundClient::Runtime)
+                    } else if service_actions {
                         BoundServiceClient::connect(endpoint, loaded).map(BoundClient::Service)
                     } else {
                         BoundReadOnlyClient::connect(endpoint, loaded).map(BoundClient::Read)
@@ -425,7 +511,7 @@ fn read_worker(
             None
         } else {
             Some(if let Some(client) = client.as_mut() {
-                client.dispatch(job.call)
+                client.dispatch(job.call, &job.cancelled)
             } else {
                 job.call
                     .failure(failure.unwrap_or(ErrorCode::StorageUnavailable))

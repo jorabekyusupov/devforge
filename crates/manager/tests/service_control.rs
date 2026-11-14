@@ -9,7 +9,7 @@ use devforge_manager::{
     auth::{DesktopAuth, Policy, TrustedDesktopAction},
     controller::{Controller, StartIntent, Stores, local_owner_user},
     external_auth::{ExternalCredential, IssuedGrant},
-    external_client::{ExternalClient, ServiceClient},
+    external_client::{ExternalClient, RuntimeClient, ServiceClient},
     external_control::{ExternalInput, ExternalOutput},
     native_client::NativeClient,
 };
@@ -76,11 +76,14 @@ impl Rig {
         Self::setup(cache, false)
     }
     fn setup(cache: Option<&Path>, legacy: bool) -> Self {
+        Self::runtime_setup(cache, legacy, false)
+    }
+    fn runtime_setup(cache: Option<&Path>, legacy: bool, alternative: bool) -> Self {
         let root = common::root("df-service-");
         let catalog = Catalog::bundled();
         let target = Target::current().unwrap();
         if let Some(source) = cache {
-            copy_cache(source, root.path(), &catalog);
+            copy_cache(source, root.path(), &catalog, alternative);
         }
         let select = |kind: &str| {
             catalog
@@ -232,6 +235,51 @@ impl Rig {
             ExternalCredential::from_wire(grant.credential.expose_secret()).unwrap(),
         )
         .unwrap()
+    }
+    fn runtime(&self, grant: &IssuedGrant) -> RuntimeClient {
+        RuntimeClient::connect(
+            self.endpoint.clone(),
+            ExternalCredential::from_wire(grant.credential.expose_secret()).unwrap(),
+        )
+        .unwrap()
+    }
+    fn runtime_metadata(&mut self) {
+        for index in 0..self.projects.len() {
+            let p = &self.projects[index];
+            let receipt = self
+                .native
+                .admit(
+                    &id(&p.id),
+                    &id(&format!("runtime-setup-{index}")),
+                    &devforge_workspace::Command::Configure {
+                        id: p.id.clone(),
+                        revision: p.revision,
+                        name: p.name.clone(),
+                        php: p.php.clone(),
+                        node: p.node.clone(),
+                        domain: format!("{}-runtime.devforge.test", p.name.to_lowercase()),
+                        https: false,
+                        vite: false,
+                        queue: false,
+                    },
+                )
+                .unwrap();
+            let until = Instant::now() + Duration::from_secs(5);
+            loop {
+                let state = self
+                    .native
+                    .status(&id(&p.id), &receipt.operation_id)
+                    .unwrap()
+                    .state;
+                if state.terminal() {
+                    assert_eq!(state, OperationState::Succeeded);
+                    break;
+                }
+                assert!(Instant::now() < until);
+                thread::sleep(Duration::from_millis(10));
+            }
+            self.projects[index].revision += 1;
+        }
     }
     fn external(&self, grant: &IssuedGrant) -> ExternalClient {
         ExternalClient::connect(
@@ -604,8 +652,118 @@ fn schema_one_migration_preserves_old_receipts_and_small_output_budget_never_adm
     );
 }
 
+#[test]
+fn runtime_policy_keeps_nonselection_fields_authoritative_and_requires_native_review() {
+    use devforge_control::{
+        Response,
+        mutations::{MutationLimits, PackageInput},
+    };
+    let mut rig = Rig::new(None);
+    rig.runtime_metadata();
+    let manage = rig.grant(0, false);
+    let full = rig.grant(0, true);
+    let mut pm = rig.runtime(&manage);
+    let mut exec = rig.runtime(&full);
+    assert_eq!(
+        pm.selection(id("no-execution"), &id(&rig.projects[0].id))
+            .unwrap()
+            .error()
+            .unwrap()
+            .code,
+        ErrorCode::Unauthorized
+    );
+    let current = exec
+        .selection(id("selection"), &id(&rig.projects[0].id))
+        .unwrap()
+        .data()
+        .unwrap()
+        .clone();
+    assert_eq!(current.revision.get(), rig.projects[0].revision);
+    let make = |key: &str, input: MutationInput| Request {
+        api_version: Default::default(),
+        request_id: id(key),
+        project_id: current.project_id.clone(),
+        expected_revision: Some(current.revision.get()),
+        idempotency_key: Some(id(key)),
+        input,
+    };
+    let plain = make(
+        "not-cached",
+        MutationInput::Configure(current.input.clone()),
+    );
+    assert_eq!(
+        exec.plan(&plain).unwrap().error().unwrap().code,
+        ErrorCode::PreconditionFailed
+    );
+    for field in ["name", "domain", "https", "vite", "queue"] {
+        let mut input = current.input.clone();
+        match field {
+            "name" => {
+                input.name =
+                    devforge_control::mutations::ProjectName::new("altered".into()).unwrap()
+            }
+            "domain" => {
+                input.domain =
+                    devforge_control::mutations::DomainName::new("altered.devforge.test".into())
+                        .unwrap()
+            }
+            "https" => input.https = !input.https,
+            "vite" => input.vite = !input.vite,
+            _ => input.queue = !input.queue,
+        };
+        let req = make(field, MutationInput::Configure(input));
+        assert_eq!(
+            exec.plan(&req).unwrap().error().unwrap().code,
+            ErrorCode::InvalidInput
+        );
+    }
+    let catalog = Catalog::bundled();
+    let package = catalog
+        .packages
+        .iter()
+        .find(|(_, p)| p.kind == "caddy" && p.target == Target::current().unwrap())
+        .unwrap()
+        .0
+        .clone();
+    let install = make(
+        "install-unapproved",
+        MutationInput::RuntimeInstall(PackageInput {
+            package_id: id(&package),
+            limits: Some(MutationLimits::default()),
+        }),
+    );
+    let plan = pm.plan(&install).unwrap();
+    assert!(plan.is_ok());
+    let digest = plan.data().unwrap().digest.clone();
+    assert_eq!(
+        pm.apply(&install, &digest).unwrap().error().unwrap().code,
+        ErrorCode::Unauthorized
+    );
+    let transport = Client::new(rig.endpoint.clone());
+    let denied=transport.request(&json!({"method":"service_plan","credential":manage.credential.expose_secret(),"request":install})).unwrap();
+    let denied: Response<devforge_control::mutations::PlanReceipt> =
+        serde_json::from_value(denied).unwrap();
+    assert_eq!(
+        denied.error().unwrap().code,
+        ErrorCode::UnsupportedCapability
+    );
+    let foreign = exec
+        .selection(id("foreign"), &id(&rig.projects[1].id))
+        .unwrap();
+    assert_eq!(foreign.error().unwrap().code, ErrorCode::ProjectMismatch);
+    let before = rig.native.snapshot().unwrap();
+    let row = before.snapshot["projects"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|r| r["project"]["id"] == rig.projects[0].id)
+        .unwrap();
+    assert_eq!(row["project"]["php"], rig.projects[0].php);
+    assert_eq!(row["project"]["composer"], rig.projects[0].composer);
+}
+
 #[cfg(target_os = "macos")]
-fn copy_cache(source: &Path, root: &Path, catalog: &Catalog) {
+fn copy_cache(source: &Path, root: &Path, catalog: &Catalog, alternative: bool) {
     fn copy(from: &Path, to: &Path) {
         std::fs::create_dir_all(to).unwrap();
         for entry in std::fs::read_dir(from).unwrap() {
@@ -632,7 +790,9 @@ fn copy_cache(source: &Path, root: &Path, catalog: &Catalog) {
                     .join(p.key().unwrap())
                     .join(".devforge-receipt.json")
                     .is_file()
-                && ((p.kind == "php" && p.version.starts_with("8.4.27"))
+                && ((p.kind == "php"
+                    && (p.version.starts_with("8.4.27")
+                        || (alternative && p.version.starts_with("8.5.12"))))
                     || (p.kind == "node" && p.version.contains("24.22.2"))
                     || (p.kind == "caddy" && p.version.contains("2.11.9"))
                     || (p.kind == "composer" && p.version == "2.11.2"))
@@ -663,7 +823,7 @@ fn copy_cache(source: &Path, root: &Path, catalog: &Catalog) {
     }
 }
 #[cfg(not(target_os = "macos"))]
-fn copy_cache(_: &Path, _: &Path, _: &Catalog) {
+fn copy_cache(_: &Path, _: &Path, _: &Catalog, _: bool) {
     panic!("native cache fixture is macOS only")
 }
 
@@ -755,4 +915,210 @@ fn native_cached_start_http_retry_restart_stop_preserves_the_other_project() {
     action(&mut rig, &mut ca, &a, 0, "stop", "native-stop-a");
     assert_eq!(http(&mut rig, 1, "M13_SERVICE_BRAVO"), other);
     action(&mut rig, &mut cb, &b, 1, "stop", "native-stop-b");
+}
+
+#[cfg(target_os = "macos")]
+#[test]
+#[ignore = "requires an explicitly approved immutable native runtime cache"]
+fn runtime_native_cached_select_http_replay_and_install_preserve_configuration() {
+    use devforge_control::mutations::PackageInput;
+    use std::io::{Read, Write};
+    let source = std::path::PathBuf::from(
+        std::env::var_os("DEVFORGE_SERVICE_CACHE").expect("explicit approved cache required"),
+    );
+    let mut rig = Rig::runtime_setup(Some(&source), false, true);
+    std::fs::write(
+        rig.projects[0].path.join("public/index.php"),
+        "<?php echo 'M13_RUNTIME_ALPHA:'.PHP_VERSION;",
+    )
+    .unwrap();
+    let a = rig.grant(0, true);
+    let b = rig.grant(1, true);
+    let pm = rig.grant(0, false);
+    let mut sa = rig.service(&a);
+    let mut sb = rig.service(&b);
+    let mut runtime = rig.runtime(&a);
+    let mut installer = rig.runtime(&pm);
+    let service = |rig: &mut Rig,
+                   client: &mut ServiceClient,
+                   grant: &IssuedGrant,
+                   index: usize,
+                   action: &str,
+                   key: &str| {
+        let mut req = request(&rig.projects[index].id, action, key);
+        req.expected_revision = Some(rig.projects[index].revision);
+        let plan = client.plan(&req).unwrap();
+        assert!(plan.is_ok(), "service plan denied: {:?}", plan.error());
+        let plan = plan.data().unwrap();
+        rig.native.approve_service_plan(&plan.digest).unwrap();
+        let reply = client.apply(&req, &plan.digest).unwrap();
+        assert!(reply.is_ok(), "service apply denied: {:?}", reply.error());
+        assert_eq!(
+            rig.complete(grant, reply.data().unwrap()),
+            OperationState::Succeeded
+        );
+    };
+    let http = |rig: &mut Rig, index: usize, needle: &str| {
+        let snapshot = rig.native.snapshot().unwrap();
+        let row = snapshot.snapshot["projects"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|r| r["project"]["id"] == rig.projects[index].id)
+            .unwrap();
+        let authority = row["serving"]["http_url"]
+            .as_str()
+            .unwrap()
+            .strip_prefix("http://")
+            .unwrap()
+            .trim_end_matches('/');
+        let port = authority
+            .rsplit_once(':')
+            .map(|(_, p)| p.parse::<u16>().unwrap())
+            .unwrap_or(80);
+        let mut stream = std::net::TcpStream::connect(("127.0.0.1", port)).unwrap();
+        stream
+            .set_read_timeout(Some(Duration::from_secs(5)))
+            .unwrap();
+        write!(
+            stream,
+            "GET / HTTP/1.1\r\nHost: {authority}\r\nConnection: close\r\n\r\n"
+        )
+        .unwrap();
+        let mut response = String::new();
+        stream.read_to_string(&mut response).unwrap();
+        assert!(response.contains("200 OK"));
+        assert!(response.contains(needle));
+        let pid = row["processes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|p| p[0].as_str().is_some_and(|id| id.contains("php-web")))
+            .unwrap()[1]["pid"]
+            .as_u64()
+            .unwrap();
+        (pid, row.clone())
+    };
+    service(&mut rig, &mut sa, &a, 0, "start", "runtime-start-a");
+    service(&mut rig, &mut sb, &b, 1, "start", "runtime-start-b");
+    let (old_pid, before) = http(&mut rig, 0, "M13_RUNTIME_ALPHA:8.4.27");
+    let (other_pid, _) = http(&mut rig, 1, "M13_SERVICE_BRAVO");
+    let selection = runtime
+        .selection(id("runtime-current"), &id(&rig.projects[0].id))
+        .unwrap()
+        .data()
+        .unwrap()
+        .clone();
+    let candidate = Catalog::bundled()
+        .packages
+        .iter()
+        .find(|(_, p)| {
+            p.kind == "php"
+                && p.variant == "cli"
+                && p.target == Target::current().unwrap()
+                && p.version.starts_with("8.5.12")
+                && rig
+                    .root
+                    .path()
+                    .join("runtimes/packages")
+                    .join(p.key().unwrap())
+                    .join(".devforge-receipt.json")
+                    .is_file()
+        })
+        .unwrap()
+        .0
+        .clone();
+    let make = |key: &str, input: MutationInput| Request {
+        api_version: Default::default(),
+        request_id: id(key),
+        project_id: selection.project_id.clone(),
+        expected_revision: Some(selection.revision.get()),
+        idempotency_key: Some(id(key)),
+        input,
+    };
+    let mut bad = selection.input.clone();
+    bad.node = id("uncached-node");
+    let denied = runtime
+        .plan(&make("runtime-invalid-live", MutationInput::Configure(bad)))
+        .unwrap();
+    assert_eq!(denied.error().unwrap().code, ErrorCode::PreconditionFailed);
+    assert_eq!(http(&mut rig, 0, "M13_RUNTIME_ALPHA:8.4.27").0, old_pid);
+    let mut input = selection.input.clone();
+    input.php = id(&candidate);
+    let req = make("runtime-select-a", MutationInput::Configure(input));
+    let plan = runtime.plan(&req).unwrap();
+    assert!(plan.is_ok(), "runtime plan denied: {:?}", plan.error());
+    let plan = plan.data().unwrap().clone();
+    rig.native.approve_service_plan(&plan.digest).unwrap();
+    let applied = runtime.apply(&req, &plan.digest).unwrap();
+    assert!(
+        applied.is_ok(),
+        "runtime apply denied: {:?}",
+        applied.error()
+    );
+    let receipt = applied.data().unwrap().clone();
+    assert_eq!(rig.complete(&a, &receipt), OperationState::Succeeded);
+    let (new_pid, after) = http(&mut rig, 0, "M13_RUNTIME_ALPHA:8.5.12");
+    assert_ne!(new_pid, old_pid);
+    assert_eq!(http(&mut rig, 1, "M13_SERVICE_BRAVO").0, other_pid);
+    for field in ["name", "composer", "node"] {
+        assert_eq!(after["project"][field], before["project"][field]);
+    }
+    assert_eq!(after["site"], before["site"]);
+    assert_eq!(after["development"], before["development"]);
+    let replay = runtime.apply(&req, &plan.digest).unwrap();
+    assert_eq!(replay.data().unwrap().operation_id, receipt.operation_id);
+    assert_eq!(http(&mut rig, 0, "M13_RUNTIME_ALPHA:8.5.12").0, new_pid);
+    let lookup = runtime
+        .lookup(
+            id("runtime-lookup"),
+            &req.project_id,
+            req.idempotency_key.as_ref().unwrap(),
+        )
+        .unwrap();
+    assert_eq!(
+        lookup.data().unwrap().as_ref().unwrap().operation_id,
+        receipt.operation_id
+    );
+    rig.projects[0].revision = after["project"]["revision"].as_u64().unwrap();
+    let package = Catalog::bundled()
+        .packages
+        .iter()
+        .find(|(_, p)| {
+            p.kind == "caddy"
+                && p.target == Target::current().unwrap()
+                && p.version.contains("2.11.9")
+        })
+        .unwrap()
+        .0
+        .clone();
+    let install = Request {
+        api_version: Default::default(),
+        request_id: id("runtime-install-cached"),
+        project_id: id(&rig.projects[0].id),
+        expected_revision: Some(rig.projects[0].revision),
+        idempotency_key: Some(id("runtime-install-cached")),
+        input: MutationInput::RuntimeInstall(PackageInput {
+            package_id: id(&package),
+            limits: None,
+        }),
+    };
+    let plan = installer.plan(&install).unwrap().data().unwrap().clone();
+    rig.native.approve_service_plan(&plan.digest).unwrap();
+    let installed = installer.apply(&install, &plan.digest).unwrap();
+    assert!(
+        installed.is_ok(),
+        "cached install denied: {:?}",
+        installed.error()
+    );
+    assert_eq!(
+        rig.complete(&pm, installed.data().unwrap()),
+        OperationState::Succeeded
+    );
+    let (pid, installed_view) = http(&mut rig, 0, "M13_RUNTIME_ALPHA:8.5.12");
+    assert_eq!(pid, new_pid);
+    assert_eq!(installed_view["project"], after["project"]);
+    assert_eq!(http(&mut rig, 1, "M13_SERVICE_BRAVO").0, other_pid);
+    service(&mut rig, &mut sa, &a, 0, "stop", "runtime-stop-a");
+    service(&mut rig, &mut sb, &b, 1, "stop", "runtime-stop-b");
 }

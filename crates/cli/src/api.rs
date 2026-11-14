@@ -1,7 +1,7 @@
 //! Additive JSON CLI. Metadata is resolved before roots, IPC or credentials.
 use devforge_control::{
     API_VERSION, Digest, ErrorCode, Id, Request, Response,
-    mutations::{MutationInput, ServiceActionInput},
+    mutations::{MutationInput, PackageInput, ServiceActionInput},
 };
 use serde_json::{Value, json};
 use std::io::{self, IsTerminal, Read};
@@ -48,6 +48,18 @@ const COMMANDS: &[(&str, &str)] = &[
         "operation lookup",
         "devforge api operation lookup KEY --project PROJECT_ID --credential-stdin",
     ),
+    (
+        "runtime plan",
+        "devforge api runtime plan install PROJECT_ID --package PACKAGE_ID --revision N --idempotency-key KEY --credential-stdin",
+    ),
+    (
+        "runtime install",
+        "devforge api runtime install PROJECT_ID --package PACKAGE_ID --revision N --idempotency-key KEY --review DIGEST --credential-stdin",
+    ),
+    (
+        "runtime select",
+        "devforge api runtime select PROJECT_ID --php PHP_ID --node NODE_ID --revision N --idempotency-key KEY --review DIGEST --credential-stdin",
+    ),
 ];
 
 #[derive(Debug)]
@@ -59,6 +71,9 @@ struct Invocation {
     revision: Option<u64>,
     idempotency: Option<Id>,
     review: Option<Digest>,
+    package: Option<Id>,
+    php: Option<Id>,
+    node: Option<Id>,
 }
 impl Invocation {
     fn parse(args: &[String], request: Id) -> Result<Self, ErrorCode> {
@@ -70,6 +85,9 @@ impl Invocation {
             revision: None,
             idempotency: None,
             review: None,
+            package: None,
+            php: None,
+            node: None,
         };
         let mut request_seen = false;
         let mut version_seen = false;
@@ -79,7 +97,7 @@ impl Invocation {
             let argument = &args[index];
             match argument.as_str() {
                 "--api-version" | "--request-id" | "--project" | "--revision"
-                | "--idempotency-key" | "--review" => {
+                | "--idempotency-key" | "--review" | "--package" | "--php" | "--node" => {
                     index += 1;
                     let value = args.get(index).ok_or(ErrorCode::InvalidInput)?;
                     match argument.as_str() {
@@ -110,6 +128,15 @@ impl Invocation {
                         }
                         "--review" if invocation.review.is_none() => {
                             invocation.review = Some(Digest::new(value.clone())?)
+                        }
+                        "--package" if invocation.package.is_none() => {
+                            invocation.package = Some(Id::new(value)?)
+                        }
+                        "--php" if invocation.php.is_none() => {
+                            invocation.php = Some(Id::new(value)?)
+                        }
+                        "--node" if invocation.node.is_none() => {
+                            invocation.node = Some(Id::new(value)?)
                         }
                         _ => return Err(ErrorCode::InvalidInput),
                     }
@@ -190,7 +217,7 @@ fn metadata(words: &[String]) -> Result<Option<Value>, ErrorCode> {
         .as_slice()
     {
         ["capabilities"] => Ok(Some(
-            json!({"api_version":API_VERSION,"owner_autostart":false,"native_desktop_authority":false,"external_grant_required":true,"project_visibility":"credential-bound project only","commands":COMMANDS.iter().filter(|(name,_)| !matches!(*name,"schema"|"capabilities")).map(|(name,_)|json!({"name":name,"implemented":true,"requires_connection":true,"requires_grant":*name!="health","required_scopes":match *name {"health"=>vec![],"operation cancel"=>vec!["observer","project_manage"],"service start"|"service restart"=>vec!["project_manage","execution_test"],"service stop"=>vec!["project_manage"],"service plan"=>vec!["project_manage"],_=>vec!["observer"]},"execution_requires_native_approval":name.starts_with("service "),"scope_by_action":if *name=="service plan"{json!({"start":["project_manage","execution_test"],"stop":["project_manage"],"restart":["project_manage","execution_test"]})}else{Value::Null},"partial_effects":if matches!(*name,"service plan"|"service start"|"service restart"){json!(["configured_database_cache_smtp_may_remain_running_after_failure_or_cancel","restart_may_have_stopped_selected_session_before_later_denial"])}else{json!([])},"effect":match *name{"operation cancel"=>"cancel_owned_operation","service start"|"service stop"|"service restart"=>"reviewed_owned_service_lifecycle",_=>"read_only"}})).collect::<Vec<_>>(),"deferred":["general_execution_tools","content_reads","other_project_mutations"],"planning_inventory_is_live":false}),
+            json!({"api_version":API_VERSION,"owner_autostart":false,"native_desktop_authority":false,"external_grant_required":true,"project_visibility":"credential-bound project only","commands":COMMANDS.iter().filter(|(name,_)| !matches!(*name,"schema"|"capabilities")).map(|(name,_)|json!({"name":name,"implemented":true,"requires_connection":true,"requires_grant":*name!="health","required_scopes":match *name {"health"=>vec![],"operation cancel"=>vec!["observer","project_manage"],"service start"|"service restart"|"runtime select"=>vec!["project_manage","execution_test"],"service stop"|"runtime install"=>vec!["project_manage"],"service plan"|"runtime plan"=>vec!["project_manage"],_=>vec!["observer"]},"execution_requires_native_approval":name.starts_with("service ")||name.starts_with("runtime "),"scope_by_action":if *name=="service plan"{json!({"start":["project_manage","execution_test"],"stop":["project_manage"],"restart":["project_manage","execution_test"]})}else if *name=="runtime plan"{json!({"install":["project_manage"],"select":["project_manage","execution_test"]})}else{Value::Null},"partial_effects":if matches!(*name,"service plan"|"service start"|"service restart"){json!(["configured_database_cache_smtp_may_remain_running_after_failure_or_cancel","restart_may_have_stopped_selected_session_before_later_denial"])}else{json!([])},"effect":match *name{"operation cancel"=>"cancel_owned_operation","service start"|"service stop"|"service restart"=>"reviewed_owned_service_lifecycle","runtime install"=>"reviewed_shared_cache_write_without_pin_switch","runtime select"=>"reviewed_php_node_selection_with_possible_session_restart",_=>"read_only"}})).collect::<Vec<_>>(),"deferred":["general_execution_tools","content_reads","other_project_mutations"],"planning_inventory_is_live":false}),
         )),
         ["schema"] => Ok(Some(schema())),
         _ => Ok(None),
@@ -229,7 +256,7 @@ fn schema() -> Value {
             ("request_id".to_owned(),id.clone()),
         ]);
         let mut required = vec!["command"];
-        if *name=="project inspect" || name.starts_with("operation ") || name.starts_with("service ") {
+        if *name=="project inspect" || name.starts_with("operation ") || name.starts_with("service ") || name.starts_with("runtime ") {
             properties.insert("project_id".into(),id.clone());
             required.push("project_id");
         }
@@ -242,10 +269,20 @@ fn schema() -> Value {
             properties.insert("idempotency_key".into(),id.clone());required.extend(["expected_revision","idempotency_key"]);
             if *name=="service plan"{properties.insert("action".into(),json!({"enum":["start","stop","restart"]}));required.push("action");}else{properties.insert("review".into(),json!({"type":"string","pattern":"^[0-9a-f]{64}$"}));required.push("review");}
         }
+        if name.starts_with("runtime ") {
+            properties.insert("expected_revision".into(),json!({"type":"integer","minimum":0,"maximum":devforge_control::limits::SafeInt::MAX}));properties.insert("idempotency_key".into(),id.clone());required.extend(["expected_revision","idempotency_key"]);
+            if *name!="runtime plan"{properties.insert("review".into(),json!({"type":"string","pattern":"^[0-9a-f]{64}$"}));required.push("review");}
+            if *name=="runtime install"{properties.insert("package_id".into(),id.clone());required.push("package_id");}else{
+                properties.insert("php".into(),id.clone());properties.insert("node".into(),id.clone());
+                if *name=="runtime select"{required.extend(["php","node"]);}else{properties.insert("package_id".into(),id.clone());properties.insert("action".into(),json!({"enum":["install","select"]}));required.push("action");}
+            }
+        }
         if *name=="operation lookup"{properties.insert("idempotency_key".into(),id.clone());required.push("idempotency_key");}
-        json!({"type":"object","additionalProperties":false,"properties":properties,"required":required})
+        let mut input=json!({"type":"object","additionalProperties":false,"properties":properties,"required":required});
+        if *name=="runtime plan"{input["oneOf"]=json!([{"properties":{"action":{"const":"install"}},"required":["package_id"],"not":{"anyOf":[{"required":["php"]},{"required":["node"]}]}},{"properties":{"action":{"const":"select"}},"required":["php","node"],"not":{"required":["package_id"]}}]);}
+        input
     }).collect::<Vec<_>>();
-    let mut value = json!({"api_version":API_VERSION,"scope":"implemented JSON CLI and first M13.4 service lifecycle slice; other mutations remain unavailable","response":{"$schema":"https://json-schema.org/draft/2020-12/schema","type":"object","additionalProperties":false,"required":["api_version","request_id","ok","warnings"],"properties":{"api_version":{"const":API_VERSION},"request_id":{"type":"string","pattern":"^[A-Za-z0-9_.:-]+$","minLength":1,"maxLength":128},"operation_id":{"type":"string"},"ok":{"type":"boolean"},"data":{},"error":{"type":"object","additionalProperties":false,"required":["code","retryable"],"properties":{"code":{"enum":devforge_control::export::ERRORS},"retryable":{"type":"boolean"}}},"warnings":{"type":"array","items":{"enum":devforge_control::export::ERRORS}}},"oneOf":[{"properties":{"ok":{"const":true}},"required":["data"],"not":{"required":["error"]}},{"properties":{"ok":{"const":false}},"required":["error"],"not":{"required":["data"]}}]},"commands":COMMANDS.iter().map(|(name,example)|json!({"name":name,"example":example})).collect::<Vec<_>>(),"exit_codes":exit_codes()});
+    let mut value = json!({"api_version":API_VERSION,"scope":"implemented JSON CLI and reviewed service and runtime install/PHP-Node selection slices; other mutations remain unavailable","response":{"$schema":"https://json-schema.org/draft/2020-12/schema","type":"object","additionalProperties":false,"required":["api_version","request_id","ok","warnings"],"properties":{"api_version":{"const":API_VERSION},"request_id":{"type":"string","pattern":"^[A-Za-z0-9_.:-]+$","minLength":1,"maxLength":128},"operation_id":{"type":"string"},"ok":{"type":"boolean"},"data":{},"error":{"type":"object","additionalProperties":false,"required":["code","retryable"],"properties":{"code":{"enum":devforge_control::export::ERRORS},"retryable":{"type":"boolean"}}},"warnings":{"type":"array","items":{"enum":devforge_control::export::ERRORS}}},"oneOf":[{"properties":{"ok":{"const":true}},"required":["data"],"not":{"required":["error"]}},{"properties":{"ok":{"const":false}},"required":["error"],"not":{"required":["data"]}}]},"commands":COMMANDS.iter().map(|(name,example)|json!({"name":name,"example":example})).collect::<Vec<_>>(),"exit_codes":exit_codes()});
     value["input"] = json!({"$schema":"https://json-schema.org/draft/2020-12/schema","description":"Logical CLI arguments; bearer credentials are private stdin transport, never JSON fields.","oneOf":inputs});
     value
 }
@@ -274,7 +311,10 @@ pub fn run(args: &[String]) -> i32 {
                 && !invocation.credential_stdin
                 && invocation.revision.is_none()
                 && invocation.idempotency.is_none()
-                && invocation.review.is_none() =>
+                && invocation.review.is_none()
+                && invocation.package.is_none()
+                && invocation.php.is_none()
+                && invocation.node.is_none() =>
         {
             Ok((
                 serde_json::to_value(Response::success(request.clone(), None, value))
@@ -303,6 +343,86 @@ fn emit(response: Response<Value>) {
         serde_json::to_string(&response).expect("JSON control envelope")
     );
 }
+fn runtime_live(invocation: &Invocation) -> Result<(Value, i32), ErrorCode> {
+    use devforge_manager::{
+        Endpoint, external_auth::ExternalCredential, external_client::RuntimeClient,
+    };
+    if invocation.project.is_some() {
+        return Err(ErrorCode::InvalidInput);
+    }
+    let words = invocation
+        .words
+        .iter()
+        .map(String::as_str)
+        .collect::<Vec<_>>();
+    let (action, project, plan) = match words.as_slice() {
+        ["runtime", "plan", action, project] => (*action, *project, true),
+        ["runtime", action, project] => (*action, *project, false),
+        _ => return Err(ErrorCode::InvalidInput),
+    };
+    let project = Id::new(project)?;
+    let revision = invocation.revision.ok_or(ErrorCode::InvalidInput)?;
+    let key = invocation
+        .idempotency
+        .clone()
+        .ok_or(ErrorCode::InvalidInput)?;
+    enum Pins {
+        Install(Id),
+        Select(Id, Id),
+    }
+    let pins = match action {
+        "install" if invocation.php.is_none() && invocation.node.is_none() => {
+            Pins::Install(invocation.package.clone().ok_or(ErrorCode::InvalidInput)?)
+        }
+        "select" if invocation.package.is_none() => Pins::Select(
+            invocation.php.clone().ok_or(ErrorCode::InvalidInput)?,
+            invocation.node.clone().ok_or(ErrorCode::InvalidInput)?,
+        ),
+        _ => return Err(ErrorCode::InvalidInput),
+    };
+    if plan && invocation.review.is_some() || !plan && invocation.review.is_none() {
+        return Err(ErrorCode::InvalidInput);
+    }
+    if !invocation.credential_stdin {
+        return Err(ErrorCode::Unauthorized);
+    }
+    let credential = credential()?;
+    let credential =
+        ExternalCredential::from_wire(&credential).map_err(|_| ErrorCode::Unauthorized)?;
+    let root = devforge_platform::app_data_dir().map_err(|_| ErrorCode::StorageUnavailable)?;
+    let endpoint = Endpoint::existing(&root).map_err(|_| ErrorCode::StorageUnavailable)?;
+    let mut client = RuntimeClient::connect(endpoint, credential)?;
+    let request = match pins {
+        Pins::Install(package_id) => Request {
+            api_version: Default::default(),
+            request_id: invocation.request.clone(),
+            project_id: project,
+            expected_revision: Some(revision),
+            idempotency_key: Some(key),
+            input: MutationInput::RuntimeInstall(PackageInput {
+                package_id,
+                limits: None,
+            }),
+        },
+        Pins::Select(php, node) => client.select_request(
+            invocation.request.clone(),
+            project,
+            revision,
+            key,
+            (php, node),
+            None,
+        )?,
+    };
+    if plan {
+        service_response(client.plan(&request)?)
+    } else {
+        service_response(client.apply(
+            &request,
+            invocation.review.as_ref().expect("validated review"),
+        )?)
+    }
+}
+
 fn service_live(invocation: &Invocation) -> Result<(Value, i32), ErrorCode> {
     use devforge_manager::{
         Endpoint, external_auth::ExternalCredential, external_client::ServiceClient,
@@ -408,6 +528,12 @@ fn live(invocation: &Invocation) -> Result<(Value, i32), ErrorCode> {
         .iter()
         .map(String::as_str)
         .collect::<Vec<_>>();
+    if words.first() == Some(&"runtime") {
+        return runtime_live(invocation);
+    }
+    if invocation.package.is_some() || invocation.php.is_some() || invocation.node.is_some() {
+        return Err(ErrorCode::InvalidInput);
+    }
     if words.first() == Some(&"service") || matches!(words.as_slice(), ["operation", "lookup", _]) {
         return service_live(invocation);
     }

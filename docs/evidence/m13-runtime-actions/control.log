@@ -1,0 +1,16 @@
+   Compiling devforge-control v0.1.0 (/Users/yusupov/Herd/devforge/crates/control)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.67s
+     Running tests/mutation_contracts.rs (target/debug/deps/mutation_contracts-17f61324d938cadb)
+
+running 9 tests
+test project_name_matches_core_byte_and_trim_constraints ... ok
+test domain_document_and_payload_types_match_the_actual_command_boundary ... ok
+test fingerprint_is_retry_stable_but_binds_target_and_typed_arguments ... ok
+test command_receipts_are_project_tool_and_byte_bound ... ok
+test plan_is_nonmutating_and_unimplemented_actions_remain_unavailable ... ok
+test mutations_reject_missing_key_revision_wrong_project_version_and_bounds ... ok
+test client_confirmation_cannot_replace_server_trust_or_grants ... ok
+test sensitive_review_binds_exact_action_backend_state_arguments_revision_and_expiry ... ok
+test every_initial_command_has_typed_mapping_and_can_be_prepared_without_execution ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
