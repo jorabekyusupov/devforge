@@ -1216,14 +1216,18 @@ dependencies = [
 name = "devforge-manager"
 version = "0.1.0"
 dependencies = [
+ "devforge-core",
  "devforge-platform",
+ "getrandom 0.4.3",
  "libc",
  "serde",
  "serde_json",
  "sha2 0.11.1",
+ "subtle",
  "tempfile",
  "tokio",
  "windows-sys 0.61.2",
+ "zeroize",
 ]
 
 [[package]]

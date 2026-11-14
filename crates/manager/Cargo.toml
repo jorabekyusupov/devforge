@@ -5,6 +5,10 @@ edition.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+devforge-core.workspace = true
+getrandom = "0.4.3"
+zeroize = "1.9.0"
+subtle = "2.6.1"
 devforge-platform.workspace = true
 serde.workspace = true
 serde_json.workspace = true

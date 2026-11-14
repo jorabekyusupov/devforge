@@ -445,3 +445,25 @@ Windows managerfixturef84360b run43562216307 macOS/Windows manager-only selected
 success. Native namedpipe owner/peer/frame/connection process testlari shu Windows
 runnerda o'tdi; rootOwner sourcevalidation yumshatilmagan. Bu minimumWin10/11 yoki
 Workspace/GUI2client/nativekeychain/fulldetachedjob capability umumiy qabuli emas.
+
+# M13.1.2 — Desktop capability/auth policy
+
+[Auth ADR](../architecture/manager-auth.md): constructor filesystem identityni
+tekshiradi, SecretStore'ni probelamaydi. Faqat trusted explicit desktop action key
+provision/rotate/revoke qiladi; authenticate existingkeyni tekshiradi, callerrole/tokenni
+adopt qilib key yaratmaydi. CSPRNG256bit zeroizing credential/session, const-time
+compare, root/kernelpeer (+PID mavjud bo'lsa) binding, bounded8default/32hard cache
+va fixedTTL. External project grants bundan alohida. Nativeprovider/wire/GUI ulanmagan.
+
+Blocking store methods faqat dedicated auth workerda; server eventloopda ishlatilmaydi.
+QA slowstore time bugini topdi: pre-storeguard saqlangan holda post-completioncooldown/
+expiry actualelapsedga bog'landi; denied/unavailable va rotate/delete failure ham
+finalize qilinadi. Crossprocesskeychange keyingi permittedauth yokiTTLdagina
+kuzatilishi mumkin, immediate globalrevoke deyilmaydi. HeldDesktopAuthority ham
+consumptionda check_current bilan expiry tekshiradi.
+
+Original13memory/denystorefixture pass. Timingfixdan keyin2delayedregression+4changed
+fixture qayta o'tdi, old9unaffected qamrov reused; heldproofexpiry1newtest o'tdi.
+Scopedmanagerclippy/diff green; fullsuite/keychain/UI yoki prompt chaqirilmadi.
+In-processmarker policy wiregrant emas; actualcontroller aynan shu chegaralarni
+saqlamaguncha fullDesktopCommand ochilmaydi. Actor/desktoppubRPC integration keyingikesim.

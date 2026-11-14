@@ -58,3 +58,5 @@ impl From<io::Error> for Error {
     }
 }
 pub type Result<T> = std::result::Result<T, Error>;
+
+pub mod auth;
