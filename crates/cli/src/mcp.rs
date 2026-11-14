@@ -4,14 +4,11 @@ use devforge_control::ErrorCode;
 use devforge_manager::{
     Endpoint,
     credential_file::{CredentialFile, LoadedCredential},
-    external_client::{
-        BoundActionsClient, BoundDatabaseActionsClient, BoundDomainActionsClient,
-        BoundEnvActionsClient, BoundReadOnlyClient, BoundRuntimeClient, BoundServiceClient,
-    },
+    external_client::{BoundActionsClient, BoundDiagnosticsActionsClient, BoundRuntimeClient},
     mcp_contract::{
-        self, Action, DatabaseCall, DatabaseInput, DomainCall, DomainInput, EnvCall, EnvInput,
-        MAX_REQUEST_BYTES, MAX_RESPONSE_BYTES, Protocol, RuntimeCall, RuntimeInput, ServiceCall,
-        ServiceInput, ToolCall,
+        self, Action, DatabaseCall, DatabaseInput, DiagnosticsCall, DomainCall, DomainInput,
+        EnvCall, EnvInput, MAX_REQUEST_BYTES, MAX_RESPONSE_BYTES, Protocol, RuntimeCall,
+        RuntimeInput, ServiceCall, ServiceInput, ToolCall,
     },
 };
 use serde_json::{Value, json};
@@ -61,6 +58,7 @@ enum QueuedCall {
     Environment(EnvCall),
     Database(DatabaseCall),
     Domain(DomainCall),
+    Diagnostics(DiagnosticsCall),
 }
 impl QueuedCall {
     fn id(&self) -> &Value {
@@ -71,6 +69,7 @@ impl QueuedCall {
             Self::Environment(call) => call.jsonrpc_id(),
             Self::Database(call) => call.jsonrpc_id(),
             Self::Domain(call) => call.jsonrpc_id(),
+            Self::Diagnostics(call) => call.jsonrpc_id(),
         }
     }
     fn failure(self, code: ErrorCode) -> Value {
@@ -81,138 +80,88 @@ impl QueuedCall {
             Self::Environment(call) => Protocol::complete_environment(call, Err(code)),
             Self::Database(call) => Protocol::complete_database(call, Err(code)),
             Self::Domain(call) => Protocol::complete_domain(call, Err(code)),
+            Self::Diagnostics(call) => Protocol::complete_diagnostics(call, Err(code)),
         }
     }
 }
-enum BoundClient {
-    Read(BoundReadOnlyClient),
-    Service(BoundServiceClient),
-    Runtime(BoundRuntimeClient),
-    Actions(BoundActionsClient),
-    Environment(BoundEnvActionsClient),
-    Database(BoundDatabaseActionsClient),
-    Domain(BoundDomainActionsClient),
+// The default read-only metadata and explicitly selected action surfaces share
+// one pinned credential. Protocol flags select finite methods; no grant or native
+// approval/confirmation is manufactured by this composition.
+struct BoundClient {
+    client: BoundDiagnosticsActionsClient,
 }
 impl BoundClient {
     fn dispatch(&mut self, call: QueuedCall, cancelled: &AtomicBool) -> Value {
         match call {
             QueuedCall::Read(call) => {
-                let result = match self {
-                    Self::Read(client) => {
-                        client.request(call.request_id.clone(), call.input.clone())
-                    }
-                    Self::Service(client) => {
-                        client.read(call.request_id.clone(), call.input.clone())
-                    }
-                    Self::Runtime(client) => {
-                        client.read(call.request_id.clone(), call.input.clone())
-                    }
-                    Self::Actions(client) => {
-                        client.read(call.request_id.clone(), call.input.clone())
-                    }
-                    Self::Environment(client) => client
-                        .environment()
-                        .read(call.request_id.clone(), call.input.clone()),
-                    Self::Database(client) => client
-                        .database()
-                        .read(call.request_id.clone(), call.input.clone()),
-                    Self::Domain(client) => client
-                        .domain()
-                        .read_base(call.request_id.clone(), call.input.clone()),
-                };
+                let result = self
+                    .client
+                    .diagnostics()
+                    .read_base(call.request_id.clone(), call.input.clone());
                 Protocol::complete(call, result)
             }
+            QueuedCall::Diagnostics(call) => {
+                let result = self
+                    .client
+                    .diagnostics()
+                    .read(&call.request)
+                    .and_then(value);
+                Protocol::complete_diagnostics(call, result)
+            }
             QueuedCall::Service(call) => {
-                let result = match self {
-                    Self::Service(client) => match &call.input {
-                        ServiceInput::Plan(request) => client.plan(request).and_then(value),
-                        ServiceInput::Apply { request, review } => {
-                            client.apply(request, review).and_then(admitted_value)
-                        }
-                        ServiceInput::Lookup {
-                            idempotency_key, ..
-                        } => client
-                            .lookup(call.request_id.clone(), idempotency_key)
-                            .and_then(value),
-                    },
-                    Self::Actions(client) => combined_service(client, &call),
-                    Self::Environment(client) => combined_service(client.actions(), &call),
-                    Self::Database(client) => combined_service(client.previous().actions(), &call),
-                    Self::Domain(client) => {
-                        combined_service(client.previous().previous().actions(), &call)
-                    }
-                    _ => Err(ErrorCode::UnsupportedCapability),
-                };
+                let result = combined_service(
+                    self.client.previous().previous().previous().actions(),
+                    &call,
+                );
                 Protocol::complete_service(call, result)
             }
             QueuedCall::Runtime(call) => {
-                let result = match self {
-                    Self::Runtime(client) => runtime_dispatch(client, &call, cancelled),
-                    Self::Actions(client) => runtime_dispatch(client.runtime(), &call, cancelled),
-                    Self::Environment(client) => {
-                        runtime_dispatch(client.actions().runtime(), &call, cancelled)
-                    }
-                    Self::Database(client) => {
-                        runtime_dispatch(client.previous().actions().runtime(), &call, cancelled)
-                    }
-                    Self::Domain(client) => runtime_dispatch(
-                        client.previous().previous().actions().runtime(),
-                        &call,
-                        cancelled,
-                    ),
-                    _ => Err(ErrorCode::UnsupportedCapability),
-                };
+                let result = runtime_dispatch(
+                    self.client
+                        .previous()
+                        .previous()
+                        .previous()
+                        .actions()
+                        .runtime(),
+                    &call,
+                    cancelled,
+                );
                 Protocol::complete_runtime(call, result)
             }
             QueuedCall::Environment(call) => {
-                let result = match self {
-                    Self::Environment(client) => environment_dispatch(client.environment(), &call),
-                    Self::Database(client) => {
-                        environment_dispatch(client.previous().environment(), &call)
-                    }
-                    Self::Domain(client) => {
-                        environment_dispatch(client.previous().previous().environment(), &call)
-                    }
-                    _ => Err(ErrorCode::UnsupportedCapability),
-                };
+                let result = environment_dispatch(
+                    self.client.previous().previous().previous().environment(),
+                    &call,
+                );
                 Protocol::complete_environment(call, result)
             }
             QueuedCall::Database(call) => {
-                let result = match self {
-                    Self::Database(client) => database_dispatch(client.database(), &call),
-                    Self::Domain(client) => database_dispatch(client.previous().database(), &call),
-                    _ => Err(ErrorCode::UnsupportedCapability),
-                };
+                let result = database_dispatch(self.client.previous().previous().database(), &call);
                 Protocol::complete_database(call, result)
             }
             QueuedCall::Domain(call) => {
-                let result = match self {
-                    Self::Domain(client) => match &call.input {
-                        DomainInput::Facts(operation) => client
-                            .domain()
-                            .facts(call.request_id.clone(), *operation)
-                            .and_then(value),
-                        DomainInput::Prepare(kind) => client
-                            .domain()
-                            .prepare(call.request_id.clone(), *kind)
-                            .and_then(value),
-                        DomainInput::Plan(request) => client.domain().plan(request).and_then(value),
-                        DomainInput::Apply { request, review } => client
-                            .domain()
-                            .apply(request, review)
-                            .and_then(admitted_value),
-                        DomainInput::Lookup { idempotency_key } => client
-                            .domain()
-                            .lookup(call.request_id.clone(), idempotency_key)
-                            .and_then(value),
-                    },
-                    _ => Err(ErrorCode::UnsupportedCapability),
+                let client = self.client.previous().domain();
+                let result = match &call.input {
+                    DomainInput::Facts(operation) => client
+                        .facts(call.request_id.clone(), *operation)
+                        .and_then(value),
+                    DomainInput::Prepare(kind) => client
+                        .prepare(call.request_id.clone(), *kind)
+                        .and_then(value),
+                    DomainInput::Plan(request) => client.plan(request).and_then(value),
+                    DomainInput::Apply { request, review } => {
+                        client.apply(request, review).and_then(admitted_value)
+                    }
+                    DomainInput::Lookup { idempotency_key } => client
+                        .lookup(call.request_id.clone(), idempotency_key)
+                        .and_then(value),
                 };
                 Protocol::complete_domain(call, result)
             }
         }
     }
 }
+
 fn database_dispatch(
     client: &mut devforge_manager::external_client::BoundDatabaseClient,
     call: &DatabaseCall,
@@ -463,7 +412,7 @@ fn serve_stdio(loaded: LoadedCredential, surfaces: Surfaces) -> io::Result<()> {
     });
     let (job_tx, job_rx) = mpsc::sync_channel::<Job>(QUEUE);
     let (done_tx, done_rx) = mpsc::sync_channel::<Completed>(QUEUE);
-    let worker = thread::spawn(move || read_worker(loaded, surfaces, job_rx, done_tx));
+    let worker = thread::spawn(move || read_worker(loaded, job_rx, done_tx));
     let mut pending: HashMap<String, Arc<AtomicBool>> = HashMap::new();
     let stdout = io::stdout();
     let mut writer = stdout.lock();
@@ -563,6 +512,9 @@ fn transport_loop(
             }
             Action::Database(call) => enqueue(QueuedCall::Database(call), jobs, pending, writer)?,
             Action::Domain(call) => enqueue(QueuedCall::Domain(call), jobs, pending, writer)?,
+            Action::Diagnostics(call) => {
+                enqueue(QueuedCall::Diagnostics(call), jobs, pending, writer)?
+            }
         }
     }
 }
@@ -592,12 +544,7 @@ fn enqueue(
         }
     }
 }
-fn read_worker(
-    loaded: LoadedCredential,
-    surfaces: Surfaces,
-    jobs: Receiver<Job>,
-    done: SyncSender<Completed>,
-) {
+fn read_worker(loaded: LoadedCredential, jobs: Receiver<Job>, done: SyncSender<Completed>) {
     let mut loaded = Some(loaded);
     let mut client = None;
     let mut failure = None;
@@ -622,23 +569,8 @@ fn read_worker(
                 })
                 .and_then(|endpoint| {
                     let loaded = loaded.take().expect("single credential consumption");
-                    if surfaces.domain {
-                        BoundDomainActionsClient::connect(endpoint, loaded).map(BoundClient::Domain)
-                    } else if surfaces.database {
-                        BoundDatabaseActionsClient::connect(endpoint, loaded)
-                            .map(BoundClient::Database)
-                    } else if surfaces.environment {
-                        BoundEnvActionsClient::connect(endpoint, loaded)
-                            .map(BoundClient::Environment)
-                    } else if surfaces.service && surfaces.runtime {
-                        BoundActionsClient::connect(endpoint, loaded).map(BoundClient::Actions)
-                    } else if surfaces.runtime {
-                        BoundRuntimeClient::connect(endpoint, loaded).map(BoundClient::Runtime)
-                    } else if surfaces.service {
-                        BoundServiceClient::connect(endpoint, loaded).map(BoundClient::Service)
-                    } else {
-                        BoundReadOnlyClient::connect(endpoint, loaded).map(BoundClient::Read)
-                    }
+                    BoundDiagnosticsActionsClient::connect(endpoint, loaded)
+                        .map(|client| BoundClient { client })
                 });
             match connect {
                 Ok(connected) => client = Some(connected),

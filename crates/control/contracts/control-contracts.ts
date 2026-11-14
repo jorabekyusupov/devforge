@@ -2,12 +2,23 @@
 // Projection schemas only; no live handler is installed.
 // observed_at/expires_at: Unix milliseconds; timeout_ms: monotonic duration.
 export type ErrorCode = "invalid_input" | "cursor_expired" | "output_limit_exceeded" | "timed_out" | "unsupported_version" | "unauthorized" | "grant_expired" | "grant_revoked" | "project_mismatch" | "revision_conflict" | "review_expired" | "review_mismatch" | "idempotency_conflict" | "invalid_transition" | "unsupported_capability" | "busy" | "interrupted" | "storage_unavailable" | "admission_unconfirmed" | "precondition_failed" | "idempotency_unverifiable";
-export interface Cursor { project_id: string; tool: string; revision: number; offset: number; expires_at: number; }
+export interface Cursor { project_id: string; tool: string; revision: number; offset: number; expires_at: number; context?: CursorContext | null; }
+export interface CursorContext { client_id: string; grant_id: string; filter: string; source_epoch: string; high_water: number; handle: string; }
 export interface PageRequest { limit: number; max_bytes: number; timeout_ms: number; cursor?: Cursor | null; }
 export interface ProjectionFreshness {
   origin: "live" | "persisted" | "cached";
   observed_at: number;
   revision: number;
+  window?: ProjectionWindow | null;
+}
+export interface ProjectionWindow {
+  epoch: string;
+  high_water: number;
+  low_water: number;
+  row_truncated: boolean;
+  byte_truncated: boolean;
+  bounded: boolean;
+  source_missing: boolean;
 }
 export interface HealthInput {
   page?: PageRequest | null;

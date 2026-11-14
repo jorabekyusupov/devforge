@@ -1,0 +1,11 @@
+test stable_fault_mapping_does_not_include_private_payload_text ... ok
+test serialization_stops_at_byte_budget_without_buffering_the_full_payload ... ok
+test projection_result_cannot_return_another_project_or_requested_resource ... ok
+test prepared_projection_cannot_be_checked_against_another_binding ... ok
+test bounded_outputs_are_typed_and_do_not_conflate_unknown_tls_or_service_state ... ok
+test typed_dispatch_checks_project_grant_revocation_and_operation_owner ... ok
+test typed_payloads_reject_unknown_fields_wrong_types_and_unsafe_numbers ... ok
+test cursor_is_project_tool_revision_and_expiry_bound ... ok
+test every_operation_backed_projection_requires_owner_and_original_grants ... ok
+test all_inventory_operations_have_explicit_schema_availability_and_policy ... ok
+Initial checked-export drift was regenerated; exact rerun is in export-test.log.

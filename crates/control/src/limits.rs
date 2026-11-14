@@ -62,7 +62,7 @@ impl<'de, const MAX: usize> Deserialize<'de> for Text<MAX> {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Cursor {
     pub project_id: Id,
@@ -71,6 +71,20 @@ pub struct Cursor {
     pub offset: SafeInt,
     /// Unix milliseconds, compared to manager clock; never an Instant value.
     pub expires_at: SafeInt,
+    /// Required by live metadata pagination. Older projection-only contracts
+    /// remain parseable, but a live handler never accepts an unbound cursor.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub context: Option<CursorContext>,
+}
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CursorContext {
+    pub client_id: Id,
+    pub grant_id: Id,
+    pub filter: crate::Digest,
+    pub source_epoch: crate::Digest,
+    pub high_water: SafeInt,
+    pub handle: Id,
 }
 impl Cursor {
     /// Cursor is a pagination hint, not an authority token. Replay outside the

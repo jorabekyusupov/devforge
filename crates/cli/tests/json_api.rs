@@ -906,3 +906,64 @@ fn domain_metadata_and_parser_never_accept_confirmation_elevation_or_new_configu
         assert_eq!(entry["native_machine_confirmation_required"], true);
     }
 }
+
+#[test]
+fn diagnostics_cli_metadata_filters_and_page_bounds_reject_before_state_or_io() {
+    for args in [
+        vec!["api", "health", "doctor", "--help"],
+        vec!["api", "logs", "search", "--help"],
+        vec!["api", "inspector", "request", "--help"],
+        vec!["api", "mail", "list", "--help"],
+    ] {
+        let (_, _, output, value) = invoke(&args);
+        assert!(output.status.success());
+        assert_eq!(value["ok"], true);
+    }
+    for args in [
+        vec!["api", "logs", "search", "project", "--query", ""],
+        vec!["api", "mail", "list", "project", "--subject", ""],
+        vec![
+            "api",
+            "mail",
+            "list",
+            "project",
+            "--recipient",
+            "private-filter-canary",
+        ],
+        vec!["api", "logs", "search", "project", "--limit", "0"],
+        vec!["api", "logs", "search", "project", "--limit", "501"],
+        vec!["api", "mail", "list", "project", "--max-bytes", "262145"],
+        vec!["api", "mail", "list", "project", "--timeout-ms", "30001"],
+        vec![
+            "api",
+            "logs",
+            "search",
+            "project",
+            "--cursor",
+            "{\"offset\":1}",
+        ],
+        vec!["api", "health", "--level", "info"],
+        vec!["api", "status", "--limit", "1"],
+    ] {
+        let (_, _, output, value) = invoke(&args);
+        assert_eq!(output.status.code(), Some(2), "{args:?}");
+        assert_eq!(value["error"]["code"], "invalid_input");
+        assert!(
+            !String::from_utf8(output.stdout)
+                .unwrap()
+                .contains("private-filter-canary")
+        );
+    }
+    let (_, _, _, capabilities) = invoke(&["api", "capabilities"]);
+    let commands = capabilities["data"]["commands"].as_array().unwrap();
+    for name in [
+        "health doctor",
+        "logs search",
+        "inspector request",
+        "mail list",
+    ] {
+        let entry = commands.iter().find(|entry| entry["name"] == name).unwrap();
+        assert_eq!(entry["required_scopes"], serde_json::json!(["observer"]));
+        assert_eq!(entry["metadata_only"], true);
+    }
+}

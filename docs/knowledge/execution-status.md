@@ -141,7 +141,7 @@ Parallel agent boshlangan yoki tugagan itemni integrator evidence bilan yangilay
 | M13.2 | validated_local_and_ci | Versioned JSON CLI, restricted grants, focused local and macOS/Windows CI; applicable client/native gates tracked separately. |
 | M13.3 | validated_local_and_ci | Bounded stdio and actual Inspector/Codex/VS Code local clients; Windows backend CI, desktop/client matrix remains M13.9. |
 | M13.4 | implemented_with_gates | Five reviewed service/runtime/env/DB/domain slices; scoped/native evidence below. Real helper/dialog/signing/minimum-OS acceptance remains M13.9/M15. |
-| M13.5 | next_ready | Existing canonical metadata projections first; explicit content rights/cursor freshness/health/mail acceptance follows. |
+| M13.5 | in_progress | First safe metadata/cursor slice integrated; explicit content rights, richer correlation/wait/mail/artifact slices remain. |
 | M13.6 | planned | Execution/debug/workspace kontrakti, actual isolated scenario va preservation. |
 | M13.7 | planned | HTTP auth/origin/revoke/version; remote bridge alohida M14. |
 | M13.8 | planned | Frozen contracts ustiga connection/grants/audit UI, locale/native UX. |
@@ -1344,3 +1344,47 @@ OS hosts/trust writes, minimum OS and new Windows domain runtime remain separate
 M13.9/M15 gates. This phase does not authorize changing system security settings.
 M13.5 metadata diagnostics/Inspector/log/mail is next, then explicit content rights
 and cursor/freshness acceptance. Deferred E UI/retention work remains in queue.
+
+Domain baseline465ec7f [run43611765563](https://github.com/jorabekyusupov/devforge/actions/runs/43611765563)
+passed macOS/Windows tests and builds. Actual Windows Server2025 domain core3,
+manager policy1, no-unrelated-backup callback1 and contract/private-dispatch4
+passed. [Job/test proof](../evidence/m13-domain-actions/ci-465ec7f.json) does not
+claim real helper/elevation/UI/system-write/signing/minimum-OS acceptance.
+
+## M13.5 first slice: safe diagnostic/activity metadata
+
+[Contract](../architecture/metadata-diagnostics.md): diagnostics_read accepts only
+existing Health/Log/Inspector/Mail ToolInput/ToolOutput with prepare_read. Public
+health.doctor alias keeps canonical Health while legacy health.health/api health
+remain unchanged. Four default readonly tools make9/all29. No content right is
+issued; AnySome query/subject/recipient is denied before registration/source IO.
+Only safe scalar/code/ID/time/count fields are projected; no raw native Values.
+Noncreating SQL readers do not bootstrap collector/mailbox/Store/credentials.
+
+Existing Cursor optional context binds exact opaque handle/client/grant/project/
+tool/revision/filter/source epoch/highwater/sequence; no SQL OFFSET/timestamp
+mixing. Safe frozen cache16windows/8MiB/128handles/120s; provenance/truncation is
+explicit. Replaced source or restart expires; same-file native clear can leave
+already observed Cached/original-time metadata until expiry, never called live
+or full history. Native retention caps remain200/256KiB Inspector,4000/24h logs,
+200mail. Prepared old routes omit optional provenance to preserve JSON.
+
+Core5initial+exact51attachment1, manager policy1, consumer/parser3 passed;
+typed tool contracts10+generated-export exact rerun1/default9contract1 and scoped
+manager/CLI clippy passed. QA found native count>50 compatibility gap, fixed only
+reader to nonnegative JS-safe count with regression; writer/schema/part-index
+unchanged and QA narrow closure passed. No broad audit or duplicate producer.
+
+ONE actual copied Laravel13.42.0/PHP8.4.27 FoundationKernel→managed Collector+
+SMTP flow passed: publicObserverSDK4 reads, actualstdioCLI4 aliases and cached
+official MCP Inspector. Private stored log/mail canaries verified but excluded
+from all public outputs; EOF preserved manager and owned cleanup completed.
+[Report](../evidence/m135-metadata/actual.json), [log](../evidence/m135-metadata/actual.log).
+No sourceprojectprocess, downloads, HOME/globalconfig, nativeStore or application
+HTTPserver. First harness attempts failedbeforecapture on longsocket/autoload
+paths; only ownedfixture path/classmap changed, no product guard relaxed.
+
+This closes only metadata-first local acceptance. Windowsnewsource/actualclients,
+content InformationScope issuance and rich reads/filters, before-after/wait,
+controlledmail actions/export, bundle/runbook/artifact flows remain M13.5 work;
+native UI/minimumOS remains M13.9/M15. Existing collectors were not rewritten.

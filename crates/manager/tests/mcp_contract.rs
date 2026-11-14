@@ -134,11 +134,11 @@ fn resources_require_authorized_project_projection_and_reject_foreign_uris_and_c
     );
 }
 #[test]
-fn only_five_read_tools_are_dispatchable_and_notifications_never_mint_authority() {
+fn only_nine_read_tools_are_dispatchable_and_notifications_never_mint_authority() {
     let mut p = Protocol::new(id("project-a"));
     let listed = reply(p.receive(modern(json!(1), "tools/list", json!({}))));
     let tools = listed["result"]["tools"].as_array().unwrap();
-    assert_eq!(tools.len(), 5);
+    assert_eq!(tools.len(), 9);
     assert!(
         tools
             .iter()

@@ -254,6 +254,7 @@ enum Message {
     Environment(Box<crate::environment_control::EnvironmentRead>),
     Database(Box<crate::database_control::DatabaseRead>),
     Domain(Box<crate::domain_control::DomainRead>),
+    Metadata(Box<crate::diagnostics::MetadataRead>),
 }
 
 /// Owns and joins exactly one real Workspace thread. Dropping a Handle does not
@@ -438,6 +439,9 @@ impl ActorHandle {
     }
     pub(crate) fn queue_domain(&self, query: crate::domain_control::DomainRead) -> Result<()> {
         self.queue_private(Message::Domain(Box::new(query)))
+    }
+    pub(crate) fn queue_metadata(&self, query: crate::diagnostics::MetadataRead) -> Result<()> {
+        self.queue_private(Message::Metadata(Box::new(query)))
     }
     fn queue_private(&self, message: Message) -> Result<()> {
         let state = self
@@ -1426,6 +1430,15 @@ fn worker_loop(
                             project_id: None,
                         }));
                     }
+                    Message::Metadata(query) => {
+                        shared.environment_queued.fetch_sub(1, Ordering::AcqRel);
+                        shared.environment_reads.fetch_sub(1, Ordering::AcqRel);
+                        let _ = query.reply.send(Err(devforge_workspace::Error {
+                            scope: "workspace",
+                            code: "interrupted".into(),
+                            project_id: None,
+                        }));
+                    }
                 }
             }
             shared
@@ -1480,6 +1493,13 @@ fn worker_loop(
                 shared.environment_reads.fetch_sub(1, Ordering::AcqRel);
             }
             Message::Domain(query) => {
+                shared.environment_queued.fetch_sub(1, Ordering::AcqRel);
+                shared.active.store(true, Ordering::Release);
+                query.execute(&workspace);
+                shared.active.store(false, Ordering::Release);
+                shared.environment_reads.fetch_sub(1, Ordering::AcqRel);
+            }
+            Message::Metadata(query) => {
                 shared.environment_queued.fetch_sub(1, Ordering::AcqRel);
                 shared.active.store(true, Ordering::Release);
                 query.execute(&workspace);

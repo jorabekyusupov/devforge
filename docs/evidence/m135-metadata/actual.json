@@ -1,0 +1,32 @@
+{
+  "actual_foundation_kernel_collector_and_smtp": true,
+  "actual_stdio_cli_metadata_tools": 4,
+  "application_http_server": false,
+  "cached_official_mcp_inspector": true,
+  "downloads": false,
+  "framework": "13.42.0",
+  "host": {
+    "arch": "aarch64",
+    "os": "macos"
+  },
+  "mcp_eof_preserves_owned_manager": true,
+  "native_credentials": false,
+  "observer_public_diagnostics_sdk_tools": 4,
+  "passed": true,
+  "php": "8.4.27",
+  "public_outputs_exclude_content_canaries": true,
+  "source_project_process_used": false,
+  "stored_private_canaries_verified": true,
+  "framework_lock_version": "v13.42.0",
+  "framework_lock_sha256": "6229b587ba8d659d2d0bce111a6a5fa1f608cc957bbcfb5298ec2c5fe74a5f78",
+  "php_runtime": {
+    "package_id": "php-8.4.27-staticphp20261113-cli-macos-arm64",
+    "version": "8.4.27-staticphp20261113",
+    "sha256": "7ec1902db79c9b5c34da0460b078136e110d0cb478398e13241c83ae48f0c0e7"
+  },
+  "php_fixture_sha256": "f5b3847855f07b2b876e4840fce08b519e80fc20ef2b086a9bce4ff4bede3ed7",
+  "driver_sha256": "78dbeec5e3f029522f5686b2259b2e102ea7279d54bc30e4c1678e05e2ca56e2",
+  "cli_sha256": "04c77df2a7ded331f9e9a62047fd29601253d97f0b2f9b580442d4e5c222b1cf",
+  "copy_scope": "vendor_and_composer_json_lock_only",
+  "global_home_or_config_changed": false
+}

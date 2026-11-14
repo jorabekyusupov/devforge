@@ -1,6 +1,7 @@
 //! Opt-in, authenticated loopback Laravel telemetry. No Tauri or project execution.
 pub mod logs;
 pub mod mail;
+pub mod metadata;
 pub mod profile;
 mod sanitize;
 use axum::{

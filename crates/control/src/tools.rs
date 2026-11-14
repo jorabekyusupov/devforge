@@ -9,10 +9,10 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
 macro_rules! contract {
-    ($name:ident {$($field:ident : $ty:ty),* $(,)?}) => {
+    ($name:ident {$($(#[$field_meta:meta])* $field:ident : $ty:ty),* $(,)?}) => {
         #[derive(Debug,Clone,Serialize,Deserialize)]
         #[serde(deny_unknown_fields)]
-        pub struct $name { $(pub $field:$ty),* }
+        pub struct $name { $($(#[$field_meta])* pub $field:$ty),* }
         impl Wire for $name {
             fn schema()->Value {
                 let mut properties=serde_json::Map::new();
@@ -52,10 +52,21 @@ impl Wire for ServiceState {
     }
 }
 pub(crate) use contract;
+contract!(ProjectionWindow {
+    epoch: Digest,
+    high_water: SafeInt,
+    low_water: SafeInt,
+    row_truncated: bool,
+    byte_truncated: bool,
+    bounded: bool,
+    source_missing: bool
+});
 contract!(ProjectionFreshness {
     origin: Origin,
     observed_at: SafeInt,
-    revision: SafeInt
+    revision: SafeInt,
+    #[serde(default,skip_serializing_if="Option::is_none")]
+    window:Option<ProjectionWindow>
 });
 contract!(HealthInput{page:Option<PageRequest>});
 contract!(ProjectInput{page:Option<PageRequest>});
@@ -386,6 +397,7 @@ pub fn declarations() -> Vec<String> {
     macro_rules! collect {($($t:ty),*)=>{vec![$(<$t as Wire>::declaration().unwrap()),*]};}
     collect!(
         ProjectionFreshness,
+        ProjectionWindow,
         HealthInput,
         ProjectInput,
         RuntimeInput,

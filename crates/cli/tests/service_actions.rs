@@ -585,14 +585,14 @@ fn mcp_service_surface_is_explicit_and_native_review_remains_required() {
             .as_array()
             .unwrap()
             .len(),
-        5
+        9
     );
     let denied=readonly.call("tools/call",json!({"name":"services.stop","arguments":{"expected_revision":fixture.revision,"idempotency_key":"no-optin","review":"a".repeat(64)}}));
     assert_eq!(denied["error"]["code"], -32602);
     readonly.close();
     let mut mcp = Mcp::start(&fixture, true);
     let tools = mcp.call("tools/list", json!({}));
-    assert_eq!(tools["result"]["tools"].as_array().unwrap().len(), 9);
+    assert_eq!(tools["result"]["tools"].as_array().unwrap().len(), 13);
     assert!(
         tools["result"]["tools"]
             .as_array()
@@ -933,10 +933,10 @@ fn runtime_mcp_opt_in_is_independent_and_only_exposes_install_select() {
         .unwrap()["project"]
         .clone();
     for (service, runtime, count) in [
-        (false, false, 5),
-        (true, false, 9),
-        (false, true, 8),
-        (true, true, 12),
+        (false, false, 9),
+        (true, false, 13),
+        (false, true, 12),
+        (true, true, 16),
     ] {
         let mut mcp = Mcp::with_flags(&fixture, service, runtime);
         let tools = mcp.call("tools/list", json!({}));
@@ -1124,9 +1124,9 @@ fn environment_mcp_surface_is_masked_and_flag_never_grants_sensitive_authority()
     let path = PathBuf::from(row["project"]["path"].as_str().unwrap()).join("devforge.yaml");
     fs::write(&path, "schema: [\n# mcp-yaml-private-canary\n").unwrap();
     for (service, runtime, environment, count) in [
-        (false, false, false, 5),
-        (false, false, true, 8),
-        (true, true, true, 15),
+        (false, false, false, 9),
+        (false, false, true, 12),
+        (true, true, true, 19),
     ] {
         let mut mcp = Mcp::with_environment(&fixture, service, runtime, environment);
         let tools = mcp.call("tools/list", json!({}));
@@ -1301,9 +1301,9 @@ fn database_choices_and_mutation_denials_do_not_start_a_database_or_expose_priva
 fn database_mcp_opt_in_only_adds_choices_reviewed_bind_and_restore() {
     let mut fixture = Fixture::new();
     for (service, runtime, environment, database, count) in [
-        (false, false, false, false, 5),
-        (false, false, false, true, 8),
-        (true, true, true, true, 18),
+        (false, false, false, false, 9),
+        (false, false, false, true, 12),
+        (true, true, true, true, 22),
     ] {
         let mut mcp = Mcp::with_database(&fixture, service, runtime, environment, database);
         let listed = mcp.call("tools/list", json!({}));
@@ -1462,9 +1462,9 @@ fn domain_mcp_flag_exposes_exact_seven_operations_without_elevation_or_configure
     let mut fixture = Fixture::new();
     let ca = fixture.root.join("serving/authority");
     for (service, runtime, environment, database, domain, count) in [
-        (false, false, false, false, false, 5),
-        (false, false, false, false, true, 12),
-        (true, true, true, true, true, 25),
+        (false, false, false, false, false, 9),
+        (false, false, false, false, true, 16),
+        (true, true, true, true, true, 29),
     ] {
         let mut mcp = Mcp::with_domain(&fixture, service, runtime, environment, database, domain);
         let listed = mcp.call("tools/list", json!({}));
@@ -1513,5 +1513,150 @@ fn domain_mcp_flag_exposes_exact_seven_operations_without_elevation_or_configure
         mcp.close();
     }
     assert!(!ca.exists());
+    assert!(fixture.native.snapshot().is_ok());
+}
+
+#[test]
+fn diagnostics_sdk_rejects_content_filters_before_any_read_transport() {
+    use devforge_control::{
+        Request,
+        limits::Text,
+        tools::{LogInput, MailInput, ToolInput},
+    };
+    use devforge_manager::{
+        Owner, Server, StopSignal, external_auth::ExternalCredential,
+        external_client::DiagnosticsClient,
+    };
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    let root = common::root("df-diag-guard-");
+    let owner = Owner::acquire(root.path()).unwrap();
+    let endpoint = owner.endpoint().clone();
+    let stop = StopSignal::default();
+    let server_stop = stop.clone();
+    let reads = Arc::new(AtomicUsize::new(0));
+    let server_reads = reads.clone();
+    let server = thread::spawn(move || {
+        Server::new(owner).run(server_stop,move|_,request|{if request["method"]=="health"{Ok(json!({"ok":true,"data":{"api_version":1,"owner_pid":std::process::id(),"state":"ready"}}))}else{server_reads.fetch_add(1,Ordering::SeqCst);Err(devforge_manager::Error::HandlerFailed)}})
+    });
+    let started = Instant::now();
+    while devforge_manager::Client::new(endpoint.clone())
+        .request(&json!({"method":"health"}))
+        .is_err()
+    {
+        assert!(started.elapsed() < Duration::from_secs(5));
+        thread::sleep(Duration::from_millis(10));
+    }
+    let mut client = DiagnosticsClient::connect(
+        endpoint,
+        ExternalCredential::from_wire(&"a".repeat(64)).unwrap(),
+    )
+    .unwrap();
+    for input in [
+        ToolInput::Log(LogInput {
+            page: None,
+            query: Some(Text::new(String::new()).unwrap()),
+            level: None,
+        }),
+        ToolInput::Mail(MailInput {
+            page: None,
+            subject: Some(Text::new(String::new()).unwrap()),
+            recipient: None,
+        }),
+        ToolInput::Mail(MailInput {
+            page: None,
+            subject: None,
+            recipient: Some(Text::new("private-content-filter".into()).unwrap()),
+        }),
+    ] {
+        let request = Request {
+            api_version: Default::default(),
+            request_id: Id::new("local-denial").unwrap(),
+            project_id: Id::new("project").unwrap(),
+            expected_revision: None,
+            idempotency_key: None,
+            input,
+        };
+        assert_eq!(
+            client.read(&request).unwrap_err(),
+            devforge_control::ErrorCode::Unauthorized
+        );
+    }
+    assert_eq!(reads.load(Ordering::SeqCst), 0);
+    stop.request();
+    server.join().unwrap().unwrap();
+}
+
+#[test]
+fn diagnostics_mcp_defaults_are_readonly_metadata_and_legacy_health_is_preserved() {
+    let mut fixture = Fixture::new();
+    let mut mcp = Mcp::start(&fixture, false);
+    let tools = mcp.call("tools/list", json!({}));
+    let tools = tools["result"]["tools"].as_array().unwrap();
+    assert_eq!(tools.len(), 9);
+    for name in [
+        "health.doctor",
+        "logs.search",
+        "inspector.request",
+        "mail.list",
+    ] {
+        let tool = tools.iter().find(|tool| tool["name"] == name).unwrap();
+        assert_eq!(tool["annotations"]["readOnlyHint"], true);
+        for forbidden in ["query", "subject", "recipient"] {
+            assert!(tool["inputSchema"]["properties"].get(forbidden).is_none());
+        }
+    }
+    let doctor = mcp.call("tools/call", json!({"name":"health.doctor","arguments":{}}));
+    assert_eq!(doctor["result"]["isError"], false);
+    assert_eq!(
+        doctor["result"]["structuredContent"]["data"]["tool"],
+        "health.health"
+    );
+    for name in ["logs.search", "inspector.request", "mail.list"] {
+        let reply = mcp.call("tools/call", json!({"name":name,"arguments":{}}));
+        assert_eq!(reply["result"]["isError"], false, "{name}: {reply}");
+        let data = &reply["result"]["structuredContent"]["data"]["data"];
+        assert!(data["items"].as_array().unwrap().is_empty());
+        assert_eq!(data["freshness"]["window"]["source_missing"], true);
+        assert_eq!(data["freshness"]["origin"], "cached");
+    }
+    for (name, args) in [
+        ("logs.search", json!({"query":""})),
+        ("logs.search", json!({"query":null})),
+        ("mail.list", json!({"subject":"private-mail-filter-canary"})),
+        ("mail.list", json!({"recipient":null})),
+    ] {
+        let reply = mcp.call("tools/call", json!({"name":name,"arguments":args}));
+        assert_eq!(reply["error"]["code"], -32602);
+        assert!(!reply.to_string().contains("private-mail-filter-canary"));
+    }
+    let (code, mail) = fixture.cli(
+        &[
+            "api",
+            "mail",
+            "list",
+            &fixture.project,
+            "--limit",
+            "1",
+            "--credential-stdin",
+        ],
+        &fixture.observer,
+    );
+    assert_eq!(code, 0);
+    assert_eq!(mail["data"]["tool"], "mail.list");
+    assert_eq!(
+        mail["data"]["data"]["freshness"]["window"]["source_missing"],
+        true
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_devforge"))
+        .env("DEVFORGE_DATA_DIR", &fixture.root)
+        .args(["api", "health"])
+        .stdin(Stdio::null())
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let owner: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert!(owner["data"].get("owner").is_some());
+    assert!(owner["data"].get("tool").is_none());
+    mcp.close();
     assert!(fixture.native.snapshot().is_ok());
 }

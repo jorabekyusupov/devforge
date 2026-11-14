@@ -1627,6 +1627,62 @@
                               {
                                 "additionalProperties": false,
                                 "properties": {
+                                  "context": {
+                                    "anyOf": [
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "client_id": {
+                                            "maxLength": 128,
+                                            "minLength": 1,
+                                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                                            "type": "string"
+                                          },
+                                          "filter": {
+                                            "maxLength": 64,
+                                            "minLength": 64,
+                                            "pattern": "^[0-9a-f]{64}$",
+                                            "type": "string"
+                                          },
+                                          "grant_id": {
+                                            "maxLength": 128,
+                                            "minLength": 1,
+                                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                                            "type": "string"
+                                          },
+                                          "handle": {
+                                            "maxLength": 128,
+                                            "minLength": 1,
+                                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                                            "type": "string"
+                                          },
+                                          "high_water": {
+                                            "maximum": 9007199254740991,
+                                            "minimum": 0,
+                                            "type": "integer"
+                                          },
+                                          "source_epoch": {
+                                            "maxLength": 64,
+                                            "minLength": 64,
+                                            "pattern": "^[0-9a-f]{64}$",
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "client_id",
+                                          "grant_id",
+                                          "filter",
+                                          "source_epoch",
+                                          "high_water",
+                                          "handle"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
                                   "expires_at": {
                                     "maximum": 9007199254740991,
                                     "minimum": 0,
@@ -1727,6 +1783,62 @@
                               {
                                 "additionalProperties": false,
                                 "properties": {
+                                  "context": {
+                                    "anyOf": [
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "client_id": {
+                                            "maxLength": 128,
+                                            "minLength": 1,
+                                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                                            "type": "string"
+                                          },
+                                          "filter": {
+                                            "maxLength": 64,
+                                            "minLength": 64,
+                                            "pattern": "^[0-9a-f]{64}$",
+                                            "type": "string"
+                                          },
+                                          "grant_id": {
+                                            "maxLength": 128,
+                                            "minLength": 1,
+                                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                                            "type": "string"
+                                          },
+                                          "handle": {
+                                            "maxLength": 128,
+                                            "minLength": 1,
+                                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                                            "type": "string"
+                                          },
+                                          "high_water": {
+                                            "maximum": 9007199254740991,
+                                            "minimum": 0,
+                                            "type": "integer"
+                                          },
+                                          "source_epoch": {
+                                            "maxLength": 64,
+                                            "minLength": 64,
+                                            "pattern": "^[0-9a-f]{64}$",
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "client_id",
+                                          "grant_id",
+                                          "filter",
+                                          "source_epoch",
+                                          "high_water",
+                                          "handle"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
                                   "expires_at": {
                                     "maximum": 9007199254740991,
                                     "minimum": 0,
@@ -1839,6 +1951,62 @@
                               {
                                 "additionalProperties": false,
                                 "properties": {
+                                  "context": {
+                                    "anyOf": [
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "client_id": {
+                                            "maxLength": 128,
+                                            "minLength": 1,
+                                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                                            "type": "string"
+                                          },
+                                          "filter": {
+                                            "maxLength": 64,
+                                            "minLength": 64,
+                                            "pattern": "^[0-9a-f]{64}$",
+                                            "type": "string"
+                                          },
+                                          "grant_id": {
+                                            "maxLength": 128,
+                                            "minLength": 1,
+                                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                                            "type": "string"
+                                          },
+                                          "handle": {
+                                            "maxLength": 128,
+                                            "minLength": 1,
+                                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                                            "type": "string"
+                                          },
+                                          "high_water": {
+                                            "maximum": 9007199254740991,
+                                            "minimum": 0,
+                                            "type": "integer"
+                                          },
+                                          "source_epoch": {
+                                            "maxLength": 64,
+                                            "minLength": 64,
+                                            "pattern": "^[0-9a-f]{64}$",
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "client_id",
+                                          "grant_id",
+                                          "filter",
+                                          "source_epoch",
+                                          "high_water",
+                                          "handle"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
                                   "expires_at": {
                                     "maximum": 9007199254740991,
                                     "minimum": 0,
@@ -1939,6 +2107,62 @@
                               {
                                 "additionalProperties": false,
                                 "properties": {
+                                  "context": {
+                                    "anyOf": [
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "client_id": {
+                                            "maxLength": 128,
+                                            "minLength": 1,
+                                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                                            "type": "string"
+                                          },
+                                          "filter": {
+                                            "maxLength": 64,
+                                            "minLength": 64,
+                                            "pattern": "^[0-9a-f]{64}$",
+                                            "type": "string"
+                                          },
+                                          "grant_id": {
+                                            "maxLength": 128,
+                                            "minLength": 1,
+                                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                                            "type": "string"
+                                          },
+                                          "handle": {
+                                            "maxLength": 128,
+                                            "minLength": 1,
+                                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                                            "type": "string"
+                                          },
+                                          "high_water": {
+                                            "maximum": 9007199254740991,
+                                            "minimum": 0,
+                                            "type": "integer"
+                                          },
+                                          "source_epoch": {
+                                            "maxLength": 64,
+                                            "minLength": 64,
+                                            "pattern": "^[0-9a-f]{64}$",
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "client_id",
+                                          "grant_id",
+                                          "filter",
+                                          "source_epoch",
+                                          "high_water",
+                                          "handle"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
                                   "expires_at": {
                                     "maximum": 9007199254740991,
                                     "minimum": 0,
@@ -2065,6 +2289,62 @@
                               {
                                 "additionalProperties": false,
                                 "properties": {
+                                  "context": {
+                                    "anyOf": [
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "client_id": {
+                                            "maxLength": 128,
+                                            "minLength": 1,
+                                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                                            "type": "string"
+                                          },
+                                          "filter": {
+                                            "maxLength": 64,
+                                            "minLength": 64,
+                                            "pattern": "^[0-9a-f]{64}$",
+                                            "type": "string"
+                                          },
+                                          "grant_id": {
+                                            "maxLength": 128,
+                                            "minLength": 1,
+                                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                                            "type": "string"
+                                          },
+                                          "handle": {
+                                            "maxLength": 128,
+                                            "minLength": 1,
+                                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                                            "type": "string"
+                                          },
+                                          "high_water": {
+                                            "maximum": 9007199254740991,
+                                            "minimum": 0,
+                                            "type": "integer"
+                                          },
+                                          "source_epoch": {
+                                            "maxLength": 64,
+                                            "minLength": 64,
+                                            "pattern": "^[0-9a-f]{64}$",
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "client_id",
+                                          "grant_id",
+                                          "filter",
+                                          "source_epoch",
+                                          "high_water",
+                                          "handle"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
                                   "expires_at": {
                                     "maximum": 9007199254740991,
                                     "minimum": 0,
@@ -2165,6 +2445,62 @@
                               {
                                 "additionalProperties": false,
                                 "properties": {
+                                  "context": {
+                                    "anyOf": [
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "client_id": {
+                                            "maxLength": 128,
+                                            "minLength": 1,
+                                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                                            "type": "string"
+                                          },
+                                          "filter": {
+                                            "maxLength": 64,
+                                            "minLength": 64,
+                                            "pattern": "^[0-9a-f]{64}$",
+                                            "type": "string"
+                                          },
+                                          "grant_id": {
+                                            "maxLength": 128,
+                                            "minLength": 1,
+                                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                                            "type": "string"
+                                          },
+                                          "handle": {
+                                            "maxLength": 128,
+                                            "minLength": 1,
+                                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                                            "type": "string"
+                                          },
+                                          "high_water": {
+                                            "maximum": 9007199254740991,
+                                            "minimum": 0,
+                                            "type": "integer"
+                                          },
+                                          "source_epoch": {
+                                            "maxLength": 64,
+                                            "minLength": 64,
+                                            "pattern": "^[0-9a-f]{64}$",
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "client_id",
+                                          "grant_id",
+                                          "filter",
+                                          "source_epoch",
+                                          "high_water",
+                                          "handle"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
                                   "expires_at": {
                                     "maximum": 9007199254740991,
                                     "minimum": 0,
@@ -2265,6 +2601,62 @@
                               {
                                 "additionalProperties": false,
                                 "properties": {
+                                  "context": {
+                                    "anyOf": [
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "client_id": {
+                                            "maxLength": 128,
+                                            "minLength": 1,
+                                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                                            "type": "string"
+                                          },
+                                          "filter": {
+                                            "maxLength": 64,
+                                            "minLength": 64,
+                                            "pattern": "^[0-9a-f]{64}$",
+                                            "type": "string"
+                                          },
+                                          "grant_id": {
+                                            "maxLength": 128,
+                                            "minLength": 1,
+                                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                                            "type": "string"
+                                          },
+                                          "handle": {
+                                            "maxLength": 128,
+                                            "minLength": 1,
+                                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                                            "type": "string"
+                                          },
+                                          "high_water": {
+                                            "maximum": 9007199254740991,
+                                            "minimum": 0,
+                                            "type": "integer"
+                                          },
+                                          "source_epoch": {
+                                            "maxLength": 64,
+                                            "minLength": 64,
+                                            "pattern": "^[0-9a-f]{64}$",
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "client_id",
+                                          "grant_id",
+                                          "filter",
+                                          "source_epoch",
+                                          "high_water",
+                                          "handle"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
                                   "expires_at": {
                                     "maximum": 9007199254740991,
                                     "minimum": 0,
@@ -2377,6 +2769,62 @@
                               {
                                 "additionalProperties": false,
                                 "properties": {
+                                  "context": {
+                                    "anyOf": [
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "client_id": {
+                                            "maxLength": 128,
+                                            "minLength": 1,
+                                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                                            "type": "string"
+                                          },
+                                          "filter": {
+                                            "maxLength": 64,
+                                            "minLength": 64,
+                                            "pattern": "^[0-9a-f]{64}$",
+                                            "type": "string"
+                                          },
+                                          "grant_id": {
+                                            "maxLength": 128,
+                                            "minLength": 1,
+                                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                                            "type": "string"
+                                          },
+                                          "handle": {
+                                            "maxLength": 128,
+                                            "minLength": 1,
+                                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                                            "type": "string"
+                                          },
+                                          "high_water": {
+                                            "maximum": 9007199254740991,
+                                            "minimum": 0,
+                                            "type": "integer"
+                                          },
+                                          "source_epoch": {
+                                            "maxLength": 64,
+                                            "minLength": 64,
+                                            "pattern": "^[0-9a-f]{64}$",
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "client_id",
+                                          "grant_id",
+                                          "filter",
+                                          "source_epoch",
+                                          "high_water",
+                                          "handle"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
                                   "expires_at": {
                                     "maximum": 9007199254740991,
                                     "minimum": 0,
@@ -2502,6 +2950,62 @@
                               {
                                 "additionalProperties": false,
                                 "properties": {
+                                  "context": {
+                                    "anyOf": [
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "client_id": {
+                                            "maxLength": 128,
+                                            "minLength": 1,
+                                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                                            "type": "string"
+                                          },
+                                          "filter": {
+                                            "maxLength": 64,
+                                            "minLength": 64,
+                                            "pattern": "^[0-9a-f]{64}$",
+                                            "type": "string"
+                                          },
+                                          "grant_id": {
+                                            "maxLength": 128,
+                                            "minLength": 1,
+                                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                                            "type": "string"
+                                          },
+                                          "handle": {
+                                            "maxLength": 128,
+                                            "minLength": 1,
+                                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                                            "type": "string"
+                                          },
+                                          "high_water": {
+                                            "maximum": 9007199254740991,
+                                            "minimum": 0,
+                                            "type": "integer"
+                                          },
+                                          "source_epoch": {
+                                            "maxLength": 64,
+                                            "minLength": 64,
+                                            "pattern": "^[0-9a-f]{64}$",
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "client_id",
+                                          "grant_id",
+                                          "filter",
+                                          "source_epoch",
+                                          "high_water",
+                                          "handle"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
                                   "expires_at": {
                                     "maximum": 9007199254740991,
                                     "minimum": 0,
@@ -2602,6 +3106,62 @@
                               {
                                 "additionalProperties": false,
                                 "properties": {
+                                  "context": {
+                                    "anyOf": [
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "client_id": {
+                                            "maxLength": 128,
+                                            "minLength": 1,
+                                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                                            "type": "string"
+                                          },
+                                          "filter": {
+                                            "maxLength": 64,
+                                            "minLength": 64,
+                                            "pattern": "^[0-9a-f]{64}$",
+                                            "type": "string"
+                                          },
+                                          "grant_id": {
+                                            "maxLength": 128,
+                                            "minLength": 1,
+                                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                                            "type": "string"
+                                          },
+                                          "handle": {
+                                            "maxLength": 128,
+                                            "minLength": 1,
+                                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                                            "type": "string"
+                                          },
+                                          "high_water": {
+                                            "maximum": 9007199254740991,
+                                            "minimum": 0,
+                                            "type": "integer"
+                                          },
+                                          "source_epoch": {
+                                            "maxLength": 64,
+                                            "minLength": 64,
+                                            "pattern": "^[0-9a-f]{64}$",
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "client_id",
+                                          "grant_id",
+                                          "filter",
+                                          "source_epoch",
+                                          "high_water",
+                                          "handle"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
                                   "expires_at": {
                                     "maximum": 9007199254740991,
                                     "minimum": 0,
@@ -2702,6 +3262,62 @@
                               {
                                 "additionalProperties": false,
                                 "properties": {
+                                  "context": {
+                                    "anyOf": [
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "client_id": {
+                                            "maxLength": 128,
+                                            "minLength": 1,
+                                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                                            "type": "string"
+                                          },
+                                          "filter": {
+                                            "maxLength": 64,
+                                            "minLength": 64,
+                                            "pattern": "^[0-9a-f]{64}$",
+                                            "type": "string"
+                                          },
+                                          "grant_id": {
+                                            "maxLength": 128,
+                                            "minLength": 1,
+                                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                                            "type": "string"
+                                          },
+                                          "handle": {
+                                            "maxLength": 128,
+                                            "minLength": 1,
+                                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                                            "type": "string"
+                                          },
+                                          "high_water": {
+                                            "maximum": 9007199254740991,
+                                            "minimum": 0,
+                                            "type": "integer"
+                                          },
+                                          "source_epoch": {
+                                            "maxLength": 64,
+                                            "minLength": 64,
+                                            "pattern": "^[0-9a-f]{64}$",
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "client_id",
+                                          "grant_id",
+                                          "filter",
+                                          "source_epoch",
+                                          "high_water",
+                                          "handle"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
                                   "expires_at": {
                                     "maximum": 9007199254740991,
                                     "minimum": 0,
@@ -2832,6 +3448,62 @@
                               {
                                 "additionalProperties": false,
                                 "properties": {
+                                  "context": {
+                                    "anyOf": [
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "client_id": {
+                                            "maxLength": 128,
+                                            "minLength": 1,
+                                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                                            "type": "string"
+                                          },
+                                          "filter": {
+                                            "maxLength": 64,
+                                            "minLength": 64,
+                                            "pattern": "^[0-9a-f]{64}$",
+                                            "type": "string"
+                                          },
+                                          "grant_id": {
+                                            "maxLength": 128,
+                                            "minLength": 1,
+                                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                                            "type": "string"
+                                          },
+                                          "handle": {
+                                            "maxLength": 128,
+                                            "minLength": 1,
+                                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                                            "type": "string"
+                                          },
+                                          "high_water": {
+                                            "maximum": 9007199254740991,
+                                            "minimum": 0,
+                                            "type": "integer"
+                                          },
+                                          "source_epoch": {
+                                            "maxLength": 64,
+                                            "minLength": 64,
+                                            "pattern": "^[0-9a-f]{64}$",
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "client_id",
+                                          "grant_id",
+                                          "filter",
+                                          "source_epoch",
+                                          "high_water",
+                                          "handle"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
                                   "expires_at": {
                                     "maximum": 9007199254740991,
                                     "minimum": 0,
@@ -2940,6 +3612,62 @@
                               {
                                 "additionalProperties": false,
                                 "properties": {
+                                  "context": {
+                                    "anyOf": [
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "client_id": {
+                                            "maxLength": 128,
+                                            "minLength": 1,
+                                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                                            "type": "string"
+                                          },
+                                          "filter": {
+                                            "maxLength": 64,
+                                            "minLength": 64,
+                                            "pattern": "^[0-9a-f]{64}$",
+                                            "type": "string"
+                                          },
+                                          "grant_id": {
+                                            "maxLength": 128,
+                                            "minLength": 1,
+                                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                                            "type": "string"
+                                          },
+                                          "handle": {
+                                            "maxLength": 128,
+                                            "minLength": 1,
+                                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                                            "type": "string"
+                                          },
+                                          "high_water": {
+                                            "maximum": 9007199254740991,
+                                            "minimum": 0,
+                                            "type": "integer"
+                                          },
+                                          "source_epoch": {
+                                            "maxLength": 64,
+                                            "minLength": 64,
+                                            "pattern": "^[0-9a-f]{64}$",
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "client_id",
+                                          "grant_id",
+                                          "filter",
+                                          "source_epoch",
+                                          "high_water",
+                                          "handle"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
                                   "expires_at": {
                                     "maximum": 9007199254740991,
                                     "minimum": 0,
@@ -3042,6 +3770,62 @@
                               {
                                 "additionalProperties": false,
                                 "properties": {
+                                  "context": {
+                                    "anyOf": [
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "client_id": {
+                                            "maxLength": 128,
+                                            "minLength": 1,
+                                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                                            "type": "string"
+                                          },
+                                          "filter": {
+                                            "maxLength": 64,
+                                            "minLength": 64,
+                                            "pattern": "^[0-9a-f]{64}$",
+                                            "type": "string"
+                                          },
+                                          "grant_id": {
+                                            "maxLength": 128,
+                                            "minLength": 1,
+                                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                                            "type": "string"
+                                          },
+                                          "handle": {
+                                            "maxLength": 128,
+                                            "minLength": 1,
+                                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                                            "type": "string"
+                                          },
+                                          "high_water": {
+                                            "maximum": 9007199254740991,
+                                            "minimum": 0,
+                                            "type": "integer"
+                                          },
+                                          "source_epoch": {
+                                            "maxLength": 64,
+                                            "minLength": 64,
+                                            "pattern": "^[0-9a-f]{64}$",
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "client_id",
+                                          "grant_id",
+                                          "filter",
+                                          "source_epoch",
+                                          "high_water",
+                                          "handle"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
                                   "expires_at": {
                                     "maximum": 9007199254740991,
                                     "minimum": 0,
@@ -3148,6 +3932,62 @@
                               {
                                 "additionalProperties": false,
                                 "properties": {
+                                  "context": {
+                                    "anyOf": [
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "client_id": {
+                                            "maxLength": 128,
+                                            "minLength": 1,
+                                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                                            "type": "string"
+                                          },
+                                          "filter": {
+                                            "maxLength": 64,
+                                            "minLength": 64,
+                                            "pattern": "^[0-9a-f]{64}$",
+                                            "type": "string"
+                                          },
+                                          "grant_id": {
+                                            "maxLength": 128,
+                                            "minLength": 1,
+                                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                                            "type": "string"
+                                          },
+                                          "handle": {
+                                            "maxLength": 128,
+                                            "minLength": 1,
+                                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                                            "type": "string"
+                                          },
+                                          "high_water": {
+                                            "maximum": 9007199254740991,
+                                            "minimum": 0,
+                                            "type": "integer"
+                                          },
+                                          "source_epoch": {
+                                            "maxLength": 64,
+                                            "minLength": 64,
+                                            "pattern": "^[0-9a-f]{64}$",
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "client_id",
+                                          "grant_id",
+                                          "filter",
+                                          "source_epoch",
+                                          "high_water",
+                                          "handle"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
                                   "expires_at": {
                                     "maximum": 9007199254740991,
                                     "minimum": 0,
@@ -3256,6 +4096,62 @@
                               {
                                 "additionalProperties": false,
                                 "properties": {
+                                  "context": {
+                                    "anyOf": [
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "client_id": {
+                                            "maxLength": 128,
+                                            "minLength": 1,
+                                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                                            "type": "string"
+                                          },
+                                          "filter": {
+                                            "maxLength": 64,
+                                            "minLength": 64,
+                                            "pattern": "^[0-9a-f]{64}$",
+                                            "type": "string"
+                                          },
+                                          "grant_id": {
+                                            "maxLength": 128,
+                                            "minLength": 1,
+                                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                                            "type": "string"
+                                          },
+                                          "handle": {
+                                            "maxLength": 128,
+                                            "minLength": 1,
+                                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                                            "type": "string"
+                                          },
+                                          "high_water": {
+                                            "maximum": 9007199254740991,
+                                            "minimum": 0,
+                                            "type": "integer"
+                                          },
+                                          "source_epoch": {
+                                            "maxLength": 64,
+                                            "minLength": 64,
+                                            "pattern": "^[0-9a-f]{64}$",
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "client_id",
+                                          "grant_id",
+                                          "filter",
+                                          "source_epoch",
+                                          "high_water",
+                                          "handle"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
                                   "expires_at": {
                                     "maximum": 9007199254740991,
                                     "minimum": 0,
@@ -3413,6 +4309,62 @@
                       {
                         "additionalProperties": false,
                         "properties": {
+                          "context": {
+                            "anyOf": [
+                              {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "client_id": {
+                                    "maxLength": 128,
+                                    "minLength": 1,
+                                    "pattern": "^[A-Za-z0-9_.:-]+$",
+                                    "type": "string"
+                                  },
+                                  "filter": {
+                                    "maxLength": 64,
+                                    "minLength": 64,
+                                    "pattern": "^[0-9a-f]{64}$",
+                                    "type": "string"
+                                  },
+                                  "grant_id": {
+                                    "maxLength": 128,
+                                    "minLength": 1,
+                                    "pattern": "^[A-Za-z0-9_.:-]+$",
+                                    "type": "string"
+                                  },
+                                  "handle": {
+                                    "maxLength": 128,
+                                    "minLength": 1,
+                                    "pattern": "^[A-Za-z0-9_.:-]+$",
+                                    "type": "string"
+                                  },
+                                  "high_water": {
+                                    "maximum": 9007199254740991,
+                                    "minimum": 0,
+                                    "type": "integer"
+                                  },
+                                  "source_epoch": {
+                                    "maxLength": 64,
+                                    "minLength": 64,
+                                    "pattern": "^[0-9a-f]{64}$",
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "client_id",
+                                  "grant_id",
+                                  "filter",
+                                  "source_epoch",
+                                  "high_water",
+                                  "handle"
+                                ],
+                                "type": "object"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "expires_at": {
                             "maximum": 9007199254740991,
                             "minimum": 0,
@@ -3512,6 +4464,56 @@
                 "maximum": 9007199254740991,
                 "minimum": 0,
                 "type": "integer"
+              },
+              "window": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "bounded": {
+                        "type": "boolean"
+                      },
+                      "byte_truncated": {
+                        "type": "boolean"
+                      },
+                      "epoch": {
+                        "maxLength": 64,
+                        "minLength": 64,
+                        "pattern": "^[0-9a-f]{64}$",
+                        "type": "string"
+                      },
+                      "high_water": {
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "low_water": {
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "row_truncated": {
+                        "type": "boolean"
+                      },
+                      "source_missing": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "epoch",
+                      "high_water",
+                      "low_water",
+                      "row_truncated",
+                      "byte_truncated",
+                      "bounded",
+                      "source_missing"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               }
             },
             "required": [
@@ -3562,6 +4564,62 @@
               {
                 "additionalProperties": false,
                 "properties": {
+                  "context": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "client_id": {
+                            "maxLength": 128,
+                            "minLength": 1,
+                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                            "type": "string"
+                          },
+                          "filter": {
+                            "maxLength": 64,
+                            "minLength": 64,
+                            "pattern": "^[0-9a-f]{64}$",
+                            "type": "string"
+                          },
+                          "grant_id": {
+                            "maxLength": 128,
+                            "minLength": 1,
+                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                            "type": "string"
+                          },
+                          "handle": {
+                            "maxLength": 128,
+                            "minLength": 1,
+                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                            "type": "string"
+                          },
+                          "high_water": {
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "source_epoch": {
+                            "maxLength": 64,
+                            "minLength": 64,
+                            "pattern": "^[0-9a-f]{64}$",
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "client_id",
+                          "grant_id",
+                          "filter",
+                          "source_epoch",
+                          "high_water",
+                          "handle"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "expires_at": {
                     "maximum": 9007199254740991,
                     "minimum": 0,
@@ -3678,6 +4736,62 @@
                       {
                         "additionalProperties": false,
                         "properties": {
+                          "context": {
+                            "anyOf": [
+                              {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "client_id": {
+                                    "maxLength": 128,
+                                    "minLength": 1,
+                                    "pattern": "^[A-Za-z0-9_.:-]+$",
+                                    "type": "string"
+                                  },
+                                  "filter": {
+                                    "maxLength": 64,
+                                    "minLength": 64,
+                                    "pattern": "^[0-9a-f]{64}$",
+                                    "type": "string"
+                                  },
+                                  "grant_id": {
+                                    "maxLength": 128,
+                                    "minLength": 1,
+                                    "pattern": "^[A-Za-z0-9_.:-]+$",
+                                    "type": "string"
+                                  },
+                                  "handle": {
+                                    "maxLength": 128,
+                                    "minLength": 1,
+                                    "pattern": "^[A-Za-z0-9_.:-]+$",
+                                    "type": "string"
+                                  },
+                                  "high_water": {
+                                    "maximum": 9007199254740991,
+                                    "minimum": 0,
+                                    "type": "integer"
+                                  },
+                                  "source_epoch": {
+                                    "maxLength": 64,
+                                    "minLength": 64,
+                                    "pattern": "^[0-9a-f]{64}$",
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "client_id",
+                                  "grant_id",
+                                  "filter",
+                                  "source_epoch",
+                                  "high_water",
+                                  "handle"
+                                ],
+                                "type": "object"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "expires_at": {
                             "maximum": 9007199254740991,
                             "minimum": 0,
@@ -3777,6 +4891,56 @@
                 "maximum": 9007199254740991,
                 "minimum": 0,
                 "type": "integer"
+              },
+              "window": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "bounded": {
+                        "type": "boolean"
+                      },
+                      "byte_truncated": {
+                        "type": "boolean"
+                      },
+                      "epoch": {
+                        "maxLength": 64,
+                        "minLength": 64,
+                        "pattern": "^[0-9a-f]{64}$",
+                        "type": "string"
+                      },
+                      "high_water": {
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "low_water": {
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "row_truncated": {
+                        "type": "boolean"
+                      },
+                      "source_missing": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "epoch",
+                      "high_water",
+                      "low_water",
+                      "row_truncated",
+                      "byte_truncated",
+                      "bounded",
+                      "source_missing"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               }
             },
             "required": [
@@ -3843,6 +5007,62 @@
               {
                 "additionalProperties": false,
                 "properties": {
+                  "context": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "client_id": {
+                            "maxLength": 128,
+                            "minLength": 1,
+                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                            "type": "string"
+                          },
+                          "filter": {
+                            "maxLength": 64,
+                            "minLength": 64,
+                            "pattern": "^[0-9a-f]{64}$",
+                            "type": "string"
+                          },
+                          "grant_id": {
+                            "maxLength": 128,
+                            "minLength": 1,
+                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                            "type": "string"
+                          },
+                          "handle": {
+                            "maxLength": 128,
+                            "minLength": 1,
+                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                            "type": "string"
+                          },
+                          "high_water": {
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "source_epoch": {
+                            "maxLength": 64,
+                            "minLength": 64,
+                            "pattern": "^[0-9a-f]{64}$",
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "client_id",
+                          "grant_id",
+                          "filter",
+                          "source_epoch",
+                          "high_water",
+                          "handle"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "expires_at": {
                     "maximum": 9007199254740991,
                     "minimum": 0,
@@ -4047,6 +5267,62 @@
                       {
                         "additionalProperties": false,
                         "properties": {
+                          "context": {
+                            "anyOf": [
+                              {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "client_id": {
+                                    "maxLength": 128,
+                                    "minLength": 1,
+                                    "pattern": "^[A-Za-z0-9_.:-]+$",
+                                    "type": "string"
+                                  },
+                                  "filter": {
+                                    "maxLength": 64,
+                                    "minLength": 64,
+                                    "pattern": "^[0-9a-f]{64}$",
+                                    "type": "string"
+                                  },
+                                  "grant_id": {
+                                    "maxLength": 128,
+                                    "minLength": 1,
+                                    "pattern": "^[A-Za-z0-9_.:-]+$",
+                                    "type": "string"
+                                  },
+                                  "handle": {
+                                    "maxLength": 128,
+                                    "minLength": 1,
+                                    "pattern": "^[A-Za-z0-9_.:-]+$",
+                                    "type": "string"
+                                  },
+                                  "high_water": {
+                                    "maximum": 9007199254740991,
+                                    "minimum": 0,
+                                    "type": "integer"
+                                  },
+                                  "source_epoch": {
+                                    "maxLength": 64,
+                                    "minLength": 64,
+                                    "pattern": "^[0-9a-f]{64}$",
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "client_id",
+                                  "grant_id",
+                                  "filter",
+                                  "source_epoch",
+                                  "high_water",
+                                  "handle"
+                                ],
+                                "type": "object"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "expires_at": {
                             "maximum": 9007199254740991,
                             "minimum": 0,
@@ -4146,6 +5422,56 @@
                 "maximum": 9007199254740991,
                 "minimum": 0,
                 "type": "integer"
+              },
+              "window": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "bounded": {
+                        "type": "boolean"
+                      },
+                      "byte_truncated": {
+                        "type": "boolean"
+                      },
+                      "epoch": {
+                        "maxLength": 64,
+                        "minLength": 64,
+                        "pattern": "^[0-9a-f]{64}$",
+                        "type": "string"
+                      },
+                      "high_water": {
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "low_water": {
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "row_truncated": {
+                        "type": "boolean"
+                      },
+                      "source_missing": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "epoch",
+                      "high_water",
+                      "low_water",
+                      "row_truncated",
+                      "byte_truncated",
+                      "bounded",
+                      "source_missing"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               }
             },
             "required": [
@@ -4208,6 +5534,62 @@
               {
                 "additionalProperties": false,
                 "properties": {
+                  "context": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "client_id": {
+                            "maxLength": 128,
+                            "minLength": 1,
+                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                            "type": "string"
+                          },
+                          "filter": {
+                            "maxLength": 64,
+                            "minLength": 64,
+                            "pattern": "^[0-9a-f]{64}$",
+                            "type": "string"
+                          },
+                          "grant_id": {
+                            "maxLength": 128,
+                            "minLength": 1,
+                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                            "type": "string"
+                          },
+                          "handle": {
+                            "maxLength": 128,
+                            "minLength": 1,
+                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                            "type": "string"
+                          },
+                          "high_water": {
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "source_epoch": {
+                            "maxLength": 64,
+                            "minLength": 64,
+                            "pattern": "^[0-9a-f]{64}$",
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "client_id",
+                          "grant_id",
+                          "filter",
+                          "source_epoch",
+                          "high_water",
+                          "handle"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "expires_at": {
                     "maximum": 9007199254740991,
                     "minimum": 0,
@@ -4976,6 +6358,62 @@
                       {
                         "additionalProperties": false,
                         "properties": {
+                          "context": {
+                            "anyOf": [
+                              {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "client_id": {
+                                    "maxLength": 128,
+                                    "minLength": 1,
+                                    "pattern": "^[A-Za-z0-9_.:-]+$",
+                                    "type": "string"
+                                  },
+                                  "filter": {
+                                    "maxLength": 64,
+                                    "minLength": 64,
+                                    "pattern": "^[0-9a-f]{64}$",
+                                    "type": "string"
+                                  },
+                                  "grant_id": {
+                                    "maxLength": 128,
+                                    "minLength": 1,
+                                    "pattern": "^[A-Za-z0-9_.:-]+$",
+                                    "type": "string"
+                                  },
+                                  "handle": {
+                                    "maxLength": 128,
+                                    "minLength": 1,
+                                    "pattern": "^[A-Za-z0-9_.:-]+$",
+                                    "type": "string"
+                                  },
+                                  "high_water": {
+                                    "maximum": 9007199254740991,
+                                    "minimum": 0,
+                                    "type": "integer"
+                                  },
+                                  "source_epoch": {
+                                    "maxLength": 64,
+                                    "minLength": 64,
+                                    "pattern": "^[0-9a-f]{64}$",
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "client_id",
+                                  "grant_id",
+                                  "filter",
+                                  "source_epoch",
+                                  "high_water",
+                                  "handle"
+                                ],
+                                "type": "object"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "expires_at": {
                             "maximum": 9007199254740991,
                             "minimum": 0,
@@ -5088,6 +6526,56 @@
                 "maximum": 9007199254740991,
                 "minimum": 0,
                 "type": "integer"
+              },
+              "window": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "bounded": {
+                        "type": "boolean"
+                      },
+                      "byte_truncated": {
+                        "type": "boolean"
+                      },
+                      "epoch": {
+                        "maxLength": 64,
+                        "minLength": 64,
+                        "pattern": "^[0-9a-f]{64}$",
+                        "type": "string"
+                      },
+                      "high_water": {
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "low_water": {
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "row_truncated": {
+                        "type": "boolean"
+                      },
+                      "source_missing": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "epoch",
+                      "high_water",
+                      "low_water",
+                      "row_truncated",
+                      "byte_truncated",
+                      "bounded",
+                      "source_missing"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               }
             },
             "required": [
@@ -5146,6 +6634,62 @@
               {
                 "additionalProperties": false,
                 "properties": {
+                  "context": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "client_id": {
+                            "maxLength": 128,
+                            "minLength": 1,
+                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                            "type": "string"
+                          },
+                          "filter": {
+                            "maxLength": 64,
+                            "minLength": 64,
+                            "pattern": "^[0-9a-f]{64}$",
+                            "type": "string"
+                          },
+                          "grant_id": {
+                            "maxLength": 128,
+                            "minLength": 1,
+                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                            "type": "string"
+                          },
+                          "handle": {
+                            "maxLength": 128,
+                            "minLength": 1,
+                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                            "type": "string"
+                          },
+                          "high_water": {
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "source_epoch": {
+                            "maxLength": 64,
+                            "minLength": 64,
+                            "pattern": "^[0-9a-f]{64}$",
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "client_id",
+                          "grant_id",
+                          "filter",
+                          "source_epoch",
+                          "high_water",
+                          "handle"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "expires_at": {
                     "maximum": 9007199254740991,
                     "minimum": 0,
@@ -5275,6 +6819,62 @@
                       {
                         "additionalProperties": false,
                         "properties": {
+                          "context": {
+                            "anyOf": [
+                              {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "client_id": {
+                                    "maxLength": 128,
+                                    "minLength": 1,
+                                    "pattern": "^[A-Za-z0-9_.:-]+$",
+                                    "type": "string"
+                                  },
+                                  "filter": {
+                                    "maxLength": 64,
+                                    "minLength": 64,
+                                    "pattern": "^[0-9a-f]{64}$",
+                                    "type": "string"
+                                  },
+                                  "grant_id": {
+                                    "maxLength": 128,
+                                    "minLength": 1,
+                                    "pattern": "^[A-Za-z0-9_.:-]+$",
+                                    "type": "string"
+                                  },
+                                  "handle": {
+                                    "maxLength": 128,
+                                    "minLength": 1,
+                                    "pattern": "^[A-Za-z0-9_.:-]+$",
+                                    "type": "string"
+                                  },
+                                  "high_water": {
+                                    "maximum": 9007199254740991,
+                                    "minimum": 0,
+                                    "type": "integer"
+                                  },
+                                  "source_epoch": {
+                                    "maxLength": 64,
+                                    "minLength": 64,
+                                    "pattern": "^[0-9a-f]{64}$",
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "client_id",
+                                  "grant_id",
+                                  "filter",
+                                  "source_epoch",
+                                  "high_water",
+                                  "handle"
+                                ],
+                                "type": "object"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "expires_at": {
                             "maximum": 9007199254740991,
                             "minimum": 0,
@@ -5374,6 +6974,56 @@
                 "maximum": 9007199254740991,
                 "minimum": 0,
                 "type": "integer"
+              },
+              "window": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "bounded": {
+                        "type": "boolean"
+                      },
+                      "byte_truncated": {
+                        "type": "boolean"
+                      },
+                      "epoch": {
+                        "maxLength": 64,
+                        "minLength": 64,
+                        "pattern": "^[0-9a-f]{64}$",
+                        "type": "string"
+                      },
+                      "high_water": {
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "low_water": {
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "row_truncated": {
+                        "type": "boolean"
+                      },
+                      "source_missing": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "epoch",
+                      "high_water",
+                      "low_water",
+                      "row_truncated",
+                      "byte_truncated",
+                      "bounded",
+                      "source_missing"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               }
             },
             "required": [
@@ -5411,6 +7061,62 @@
               {
                 "additionalProperties": false,
                 "properties": {
+                  "context": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "client_id": {
+                            "maxLength": 128,
+                            "minLength": 1,
+                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                            "type": "string"
+                          },
+                          "filter": {
+                            "maxLength": 64,
+                            "minLength": 64,
+                            "pattern": "^[0-9a-f]{64}$",
+                            "type": "string"
+                          },
+                          "grant_id": {
+                            "maxLength": 128,
+                            "minLength": 1,
+                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                            "type": "string"
+                          },
+                          "handle": {
+                            "maxLength": 128,
+                            "minLength": 1,
+                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                            "type": "string"
+                          },
+                          "high_water": {
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "source_epoch": {
+                            "maxLength": 64,
+                            "minLength": 64,
+                            "pattern": "^[0-9a-f]{64}$",
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "client_id",
+                          "grant_id",
+                          "filter",
+                          "source_epoch",
+                          "high_water",
+                          "handle"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "expires_at": {
                     "maximum": 9007199254740991,
                     "minimum": 0,
@@ -5902,6 +7608,62 @@
                       {
                         "additionalProperties": false,
                         "properties": {
+                          "context": {
+                            "anyOf": [
+                              {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "client_id": {
+                                    "maxLength": 128,
+                                    "minLength": 1,
+                                    "pattern": "^[A-Za-z0-9_.:-]+$",
+                                    "type": "string"
+                                  },
+                                  "filter": {
+                                    "maxLength": 64,
+                                    "minLength": 64,
+                                    "pattern": "^[0-9a-f]{64}$",
+                                    "type": "string"
+                                  },
+                                  "grant_id": {
+                                    "maxLength": 128,
+                                    "minLength": 1,
+                                    "pattern": "^[A-Za-z0-9_.:-]+$",
+                                    "type": "string"
+                                  },
+                                  "handle": {
+                                    "maxLength": 128,
+                                    "minLength": 1,
+                                    "pattern": "^[A-Za-z0-9_.:-]+$",
+                                    "type": "string"
+                                  },
+                                  "high_water": {
+                                    "maximum": 9007199254740991,
+                                    "minimum": 0,
+                                    "type": "integer"
+                                  },
+                                  "source_epoch": {
+                                    "maxLength": 64,
+                                    "minLength": 64,
+                                    "pattern": "^[0-9a-f]{64}$",
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "client_id",
+                                  "grant_id",
+                                  "filter",
+                                  "source_epoch",
+                                  "high_water",
+                                  "handle"
+                                ],
+                                "type": "object"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "expires_at": {
                             "maximum": 9007199254740991,
                             "minimum": 0,
@@ -6001,6 +7763,56 @@
                 "maximum": 9007199254740991,
                 "minimum": 0,
                 "type": "integer"
+              },
+              "window": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "bounded": {
+                        "type": "boolean"
+                      },
+                      "byte_truncated": {
+                        "type": "boolean"
+                      },
+                      "epoch": {
+                        "maxLength": 64,
+                        "minLength": 64,
+                        "pattern": "^[0-9a-f]{64}$",
+                        "type": "string"
+                      },
+                      "high_water": {
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "low_water": {
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "row_truncated": {
+                        "type": "boolean"
+                      },
+                      "source_missing": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "epoch",
+                      "high_water",
+                      "low_water",
+                      "row_truncated",
+                      "byte_truncated",
+                      "bounded",
+                      "source_missing"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               }
             },
             "required": [
@@ -6041,6 +7853,62 @@
               {
                 "additionalProperties": false,
                 "properties": {
+                  "context": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "client_id": {
+                            "maxLength": 128,
+                            "minLength": 1,
+                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                            "type": "string"
+                          },
+                          "filter": {
+                            "maxLength": 64,
+                            "minLength": 64,
+                            "pattern": "^[0-9a-f]{64}$",
+                            "type": "string"
+                          },
+                          "grant_id": {
+                            "maxLength": 128,
+                            "minLength": 1,
+                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                            "type": "string"
+                          },
+                          "handle": {
+                            "maxLength": 128,
+                            "minLength": 1,
+                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                            "type": "string"
+                          },
+                          "high_water": {
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "source_epoch": {
+                            "maxLength": 64,
+                            "minLength": 64,
+                            "pattern": "^[0-9a-f]{64}$",
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "client_id",
+                          "grant_id",
+                          "filter",
+                          "source_epoch",
+                          "high_water",
+                          "handle"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "expires_at": {
                     "maximum": 9007199254740991,
                     "minimum": 0,
@@ -6385,6 +8253,62 @@
                       {
                         "additionalProperties": false,
                         "properties": {
+                          "context": {
+                            "anyOf": [
+                              {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "client_id": {
+                                    "maxLength": 128,
+                                    "minLength": 1,
+                                    "pattern": "^[A-Za-z0-9_.:-]+$",
+                                    "type": "string"
+                                  },
+                                  "filter": {
+                                    "maxLength": 64,
+                                    "minLength": 64,
+                                    "pattern": "^[0-9a-f]{64}$",
+                                    "type": "string"
+                                  },
+                                  "grant_id": {
+                                    "maxLength": 128,
+                                    "minLength": 1,
+                                    "pattern": "^[A-Za-z0-9_.:-]+$",
+                                    "type": "string"
+                                  },
+                                  "handle": {
+                                    "maxLength": 128,
+                                    "minLength": 1,
+                                    "pattern": "^[A-Za-z0-9_.:-]+$",
+                                    "type": "string"
+                                  },
+                                  "high_water": {
+                                    "maximum": 9007199254740991,
+                                    "minimum": 0,
+                                    "type": "integer"
+                                  },
+                                  "source_epoch": {
+                                    "maxLength": 64,
+                                    "minLength": 64,
+                                    "pattern": "^[0-9a-f]{64}$",
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "client_id",
+                                  "grant_id",
+                                  "filter",
+                                  "source_epoch",
+                                  "high_water",
+                                  "handle"
+                                ],
+                                "type": "object"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "expires_at": {
                             "maximum": 9007199254740991,
                             "minimum": 0,
@@ -6484,6 +8408,56 @@
                 "maximum": 9007199254740991,
                 "minimum": 0,
                 "type": "integer"
+              },
+              "window": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "bounded": {
+                        "type": "boolean"
+                      },
+                      "byte_truncated": {
+                        "type": "boolean"
+                      },
+                      "epoch": {
+                        "maxLength": 64,
+                        "minLength": 64,
+                        "pattern": "^[0-9a-f]{64}$",
+                        "type": "string"
+                      },
+                      "high_water": {
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "low_water": {
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "row_truncated": {
+                        "type": "boolean"
+                      },
+                      "source_missing": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "epoch",
+                      "high_water",
+                      "low_water",
+                      "row_truncated",
+                      "byte_truncated",
+                      "bounded",
+                      "source_missing"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               }
             },
             "required": [
@@ -6524,6 +8498,62 @@
               {
                 "additionalProperties": false,
                 "properties": {
+                  "context": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "client_id": {
+                            "maxLength": 128,
+                            "minLength": 1,
+                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                            "type": "string"
+                          },
+                          "filter": {
+                            "maxLength": 64,
+                            "minLength": 64,
+                            "pattern": "^[0-9a-f]{64}$",
+                            "type": "string"
+                          },
+                          "grant_id": {
+                            "maxLength": 128,
+                            "minLength": 1,
+                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                            "type": "string"
+                          },
+                          "handle": {
+                            "maxLength": 128,
+                            "minLength": 1,
+                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                            "type": "string"
+                          },
+                          "high_water": {
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "source_epoch": {
+                            "maxLength": 64,
+                            "minLength": 64,
+                            "pattern": "^[0-9a-f]{64}$",
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "client_id",
+                          "grant_id",
+                          "filter",
+                          "source_epoch",
+                          "high_water",
+                          "handle"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "expires_at": {
                     "maximum": 9007199254740991,
                     "minimum": 0,
@@ -7011,6 +9041,62 @@
                       {
                         "additionalProperties": false,
                         "properties": {
+                          "context": {
+                            "anyOf": [
+                              {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "client_id": {
+                                    "maxLength": 128,
+                                    "minLength": 1,
+                                    "pattern": "^[A-Za-z0-9_.:-]+$",
+                                    "type": "string"
+                                  },
+                                  "filter": {
+                                    "maxLength": 64,
+                                    "minLength": 64,
+                                    "pattern": "^[0-9a-f]{64}$",
+                                    "type": "string"
+                                  },
+                                  "grant_id": {
+                                    "maxLength": 128,
+                                    "minLength": 1,
+                                    "pattern": "^[A-Za-z0-9_.:-]+$",
+                                    "type": "string"
+                                  },
+                                  "handle": {
+                                    "maxLength": 128,
+                                    "minLength": 1,
+                                    "pattern": "^[A-Za-z0-9_.:-]+$",
+                                    "type": "string"
+                                  },
+                                  "high_water": {
+                                    "maximum": 9007199254740991,
+                                    "minimum": 0,
+                                    "type": "integer"
+                                  },
+                                  "source_epoch": {
+                                    "maxLength": 64,
+                                    "minLength": 64,
+                                    "pattern": "^[0-9a-f]{64}$",
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "client_id",
+                                  "grant_id",
+                                  "filter",
+                                  "source_epoch",
+                                  "high_water",
+                                  "handle"
+                                ],
+                                "type": "object"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "expires_at": {
                             "maximum": 9007199254740991,
                             "minimum": 0,
@@ -7122,6 +9208,56 @@
                 "maximum": 9007199254740991,
                 "minimum": 0,
                 "type": "integer"
+              },
+              "window": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "bounded": {
+                        "type": "boolean"
+                      },
+                      "byte_truncated": {
+                        "type": "boolean"
+                      },
+                      "epoch": {
+                        "maxLength": 64,
+                        "minLength": 64,
+                        "pattern": "^[0-9a-f]{64}$",
+                        "type": "string"
+                      },
+                      "high_water": {
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "low_water": {
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "row_truncated": {
+                        "type": "boolean"
+                      },
+                      "source_missing": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "epoch",
+                      "high_water",
+                      "low_water",
+                      "row_truncated",
+                      "byte_truncated",
+                      "bounded",
+                      "source_missing"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               }
             },
             "required": [
@@ -7174,6 +9310,62 @@
               {
                 "additionalProperties": false,
                 "properties": {
+                  "context": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "client_id": {
+                            "maxLength": 128,
+                            "minLength": 1,
+                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                            "type": "string"
+                          },
+                          "filter": {
+                            "maxLength": 64,
+                            "minLength": 64,
+                            "pattern": "^[0-9a-f]{64}$",
+                            "type": "string"
+                          },
+                          "grant_id": {
+                            "maxLength": 128,
+                            "minLength": 1,
+                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                            "type": "string"
+                          },
+                          "handle": {
+                            "maxLength": 128,
+                            "minLength": 1,
+                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                            "type": "string"
+                          },
+                          "high_water": {
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "source_epoch": {
+                            "maxLength": 64,
+                            "minLength": 64,
+                            "pattern": "^[0-9a-f]{64}$",
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "client_id",
+                          "grant_id",
+                          "filter",
+                          "source_epoch",
+                          "high_water",
+                          "handle"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "expires_at": {
                     "maximum": 9007199254740991,
                     "minimum": 0,
@@ -7303,6 +9495,62 @@
                       {
                         "additionalProperties": false,
                         "properties": {
+                          "context": {
+                            "anyOf": [
+                              {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "client_id": {
+                                    "maxLength": 128,
+                                    "minLength": 1,
+                                    "pattern": "^[A-Za-z0-9_.:-]+$",
+                                    "type": "string"
+                                  },
+                                  "filter": {
+                                    "maxLength": 64,
+                                    "minLength": 64,
+                                    "pattern": "^[0-9a-f]{64}$",
+                                    "type": "string"
+                                  },
+                                  "grant_id": {
+                                    "maxLength": 128,
+                                    "minLength": 1,
+                                    "pattern": "^[A-Za-z0-9_.:-]+$",
+                                    "type": "string"
+                                  },
+                                  "handle": {
+                                    "maxLength": 128,
+                                    "minLength": 1,
+                                    "pattern": "^[A-Za-z0-9_.:-]+$",
+                                    "type": "string"
+                                  },
+                                  "high_water": {
+                                    "maximum": 9007199254740991,
+                                    "minimum": 0,
+                                    "type": "integer"
+                                  },
+                                  "source_epoch": {
+                                    "maxLength": 64,
+                                    "minLength": 64,
+                                    "pattern": "^[0-9a-f]{64}$",
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "client_id",
+                                  "grant_id",
+                                  "filter",
+                                  "source_epoch",
+                                  "high_water",
+                                  "handle"
+                                ],
+                                "type": "object"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "expires_at": {
                             "maximum": 9007199254740991,
                             "minimum": 0,
@@ -7402,6 +9650,56 @@
                 "maximum": 9007199254740991,
                 "minimum": 0,
                 "type": "integer"
+              },
+              "window": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "bounded": {
+                        "type": "boolean"
+                      },
+                      "byte_truncated": {
+                        "type": "boolean"
+                      },
+                      "epoch": {
+                        "maxLength": 64,
+                        "minLength": 64,
+                        "pattern": "^[0-9a-f]{64}$",
+                        "type": "string"
+                      },
+                      "high_water": {
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "low_water": {
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "row_truncated": {
+                        "type": "boolean"
+                      },
+                      "source_missing": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "epoch",
+                      "high_water",
+                      "low_water",
+                      "row_truncated",
+                      "byte_truncated",
+                      "bounded",
+                      "source_missing"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               }
             },
             "required": [
@@ -7465,6 +9763,62 @@
               {
                 "additionalProperties": false,
                 "properties": {
+                  "context": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "client_id": {
+                            "maxLength": 128,
+                            "minLength": 1,
+                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                            "type": "string"
+                          },
+                          "filter": {
+                            "maxLength": 64,
+                            "minLength": 64,
+                            "pattern": "^[0-9a-f]{64}$",
+                            "type": "string"
+                          },
+                          "grant_id": {
+                            "maxLength": 128,
+                            "minLength": 1,
+                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                            "type": "string"
+                          },
+                          "handle": {
+                            "maxLength": 128,
+                            "minLength": 1,
+                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                            "type": "string"
+                          },
+                          "high_water": {
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "source_epoch": {
+                            "maxLength": 64,
+                            "minLength": 64,
+                            "pattern": "^[0-9a-f]{64}$",
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "client_id",
+                          "grant_id",
+                          "filter",
+                          "source_epoch",
+                          "high_water",
+                          "handle"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "expires_at": {
                     "maximum": 9007199254740991,
                     "minimum": 0,
@@ -7697,6 +10051,62 @@
                       {
                         "additionalProperties": false,
                         "properties": {
+                          "context": {
+                            "anyOf": [
+                              {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "client_id": {
+                                    "maxLength": 128,
+                                    "minLength": 1,
+                                    "pattern": "^[A-Za-z0-9_.:-]+$",
+                                    "type": "string"
+                                  },
+                                  "filter": {
+                                    "maxLength": 64,
+                                    "minLength": 64,
+                                    "pattern": "^[0-9a-f]{64}$",
+                                    "type": "string"
+                                  },
+                                  "grant_id": {
+                                    "maxLength": 128,
+                                    "minLength": 1,
+                                    "pattern": "^[A-Za-z0-9_.:-]+$",
+                                    "type": "string"
+                                  },
+                                  "handle": {
+                                    "maxLength": 128,
+                                    "minLength": 1,
+                                    "pattern": "^[A-Za-z0-9_.:-]+$",
+                                    "type": "string"
+                                  },
+                                  "high_water": {
+                                    "maximum": 9007199254740991,
+                                    "minimum": 0,
+                                    "type": "integer"
+                                  },
+                                  "source_epoch": {
+                                    "maxLength": 64,
+                                    "minLength": 64,
+                                    "pattern": "^[0-9a-f]{64}$",
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "client_id",
+                                  "grant_id",
+                                  "filter",
+                                  "source_epoch",
+                                  "high_water",
+                                  "handle"
+                                ],
+                                "type": "object"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "expires_at": {
                             "maximum": 9007199254740991,
                             "minimum": 0,
@@ -7796,6 +10206,56 @@
                 "maximum": 9007199254740991,
                 "minimum": 0,
                 "type": "integer"
+              },
+              "window": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "bounded": {
+                        "type": "boolean"
+                      },
+                      "byte_truncated": {
+                        "type": "boolean"
+                      },
+                      "epoch": {
+                        "maxLength": 64,
+                        "minLength": 64,
+                        "pattern": "^[0-9a-f]{64}$",
+                        "type": "string"
+                      },
+                      "high_water": {
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "low_water": {
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "row_truncated": {
+                        "type": "boolean"
+                      },
+                      "source_missing": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "epoch",
+                      "high_water",
+                      "low_water",
+                      "row_truncated",
+                      "byte_truncated",
+                      "bounded",
+                      "source_missing"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               }
             },
             "required": [
@@ -7836,6 +10296,62 @@
               {
                 "additionalProperties": false,
                 "properties": {
+                  "context": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "client_id": {
+                            "maxLength": 128,
+                            "minLength": 1,
+                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                            "type": "string"
+                          },
+                          "filter": {
+                            "maxLength": 64,
+                            "minLength": 64,
+                            "pattern": "^[0-9a-f]{64}$",
+                            "type": "string"
+                          },
+                          "grant_id": {
+                            "maxLength": 128,
+                            "minLength": 1,
+                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                            "type": "string"
+                          },
+                          "handle": {
+                            "maxLength": 128,
+                            "minLength": 1,
+                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                            "type": "string"
+                          },
+                          "high_water": {
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "source_epoch": {
+                            "maxLength": 64,
+                            "minLength": 64,
+                            "pattern": "^[0-9a-f]{64}$",
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "client_id",
+                          "grant_id",
+                          "filter",
+                          "source_epoch",
+                          "high_water",
+                          "handle"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "expires_at": {
                     "maximum": 9007199254740991,
                     "minimum": 0,
@@ -8151,6 +10667,62 @@
                       {
                         "additionalProperties": false,
                         "properties": {
+                          "context": {
+                            "anyOf": [
+                              {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "client_id": {
+                                    "maxLength": 128,
+                                    "minLength": 1,
+                                    "pattern": "^[A-Za-z0-9_.:-]+$",
+                                    "type": "string"
+                                  },
+                                  "filter": {
+                                    "maxLength": 64,
+                                    "minLength": 64,
+                                    "pattern": "^[0-9a-f]{64}$",
+                                    "type": "string"
+                                  },
+                                  "grant_id": {
+                                    "maxLength": 128,
+                                    "minLength": 1,
+                                    "pattern": "^[A-Za-z0-9_.:-]+$",
+                                    "type": "string"
+                                  },
+                                  "handle": {
+                                    "maxLength": 128,
+                                    "minLength": 1,
+                                    "pattern": "^[A-Za-z0-9_.:-]+$",
+                                    "type": "string"
+                                  },
+                                  "high_water": {
+                                    "maximum": 9007199254740991,
+                                    "minimum": 0,
+                                    "type": "integer"
+                                  },
+                                  "source_epoch": {
+                                    "maxLength": 64,
+                                    "minLength": 64,
+                                    "pattern": "^[0-9a-f]{64}$",
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "client_id",
+                                  "grant_id",
+                                  "filter",
+                                  "source_epoch",
+                                  "high_water",
+                                  "handle"
+                                ],
+                                "type": "object"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "expires_at": {
                             "maximum": 9007199254740991,
                             "minimum": 0,
@@ -8274,6 +10846,56 @@
                 "maximum": 9007199254740991,
                 "minimum": 0,
                 "type": "integer"
+              },
+              "window": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "bounded": {
+                        "type": "boolean"
+                      },
+                      "byte_truncated": {
+                        "type": "boolean"
+                      },
+                      "epoch": {
+                        "maxLength": 64,
+                        "minLength": 64,
+                        "pattern": "^[0-9a-f]{64}$",
+                        "type": "string"
+                      },
+                      "high_water": {
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "low_water": {
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "row_truncated": {
+                        "type": "boolean"
+                      },
+                      "source_missing": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "epoch",
+                      "high_water",
+                      "low_water",
+                      "row_truncated",
+                      "byte_truncated",
+                      "bounded",
+                      "source_missing"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               }
             },
             "required": [
@@ -8319,6 +10941,62 @@
               {
                 "additionalProperties": false,
                 "properties": {
+                  "context": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "client_id": {
+                            "maxLength": 128,
+                            "minLength": 1,
+                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                            "type": "string"
+                          },
+                          "filter": {
+                            "maxLength": 64,
+                            "minLength": 64,
+                            "pattern": "^[0-9a-f]{64}$",
+                            "type": "string"
+                          },
+                          "grant_id": {
+                            "maxLength": 128,
+                            "minLength": 1,
+                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                            "type": "string"
+                          },
+                          "handle": {
+                            "maxLength": 128,
+                            "minLength": 1,
+                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                            "type": "string"
+                          },
+                          "high_water": {
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "source_epoch": {
+                            "maxLength": 64,
+                            "minLength": 64,
+                            "pattern": "^[0-9a-f]{64}$",
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "client_id",
+                          "grant_id",
+                          "filter",
+                          "source_epoch",
+                          "high_water",
+                          "handle"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "expires_at": {
                     "maximum": 9007199254740991,
                     "minimum": 0,
@@ -8599,6 +11277,62 @@
                       {
                         "additionalProperties": false,
                         "properties": {
+                          "context": {
+                            "anyOf": [
+                              {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "client_id": {
+                                    "maxLength": 128,
+                                    "minLength": 1,
+                                    "pattern": "^[A-Za-z0-9_.:-]+$",
+                                    "type": "string"
+                                  },
+                                  "filter": {
+                                    "maxLength": 64,
+                                    "minLength": 64,
+                                    "pattern": "^[0-9a-f]{64}$",
+                                    "type": "string"
+                                  },
+                                  "grant_id": {
+                                    "maxLength": 128,
+                                    "minLength": 1,
+                                    "pattern": "^[A-Za-z0-9_.:-]+$",
+                                    "type": "string"
+                                  },
+                                  "handle": {
+                                    "maxLength": 128,
+                                    "minLength": 1,
+                                    "pattern": "^[A-Za-z0-9_.:-]+$",
+                                    "type": "string"
+                                  },
+                                  "high_water": {
+                                    "maximum": 9007199254740991,
+                                    "minimum": 0,
+                                    "type": "integer"
+                                  },
+                                  "source_epoch": {
+                                    "maxLength": 64,
+                                    "minLength": 64,
+                                    "pattern": "^[0-9a-f]{64}$",
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "client_id",
+                                  "grant_id",
+                                  "filter",
+                                  "source_epoch",
+                                  "high_water",
+                                  "handle"
+                                ],
+                                "type": "object"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "expires_at": {
                             "maximum": 9007199254740991,
                             "minimum": 0,
@@ -8700,6 +11434,56 @@
                 "maximum": 9007199254740991,
                 "minimum": 0,
                 "type": "integer"
+              },
+              "window": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "bounded": {
+                        "type": "boolean"
+                      },
+                      "byte_truncated": {
+                        "type": "boolean"
+                      },
+                      "epoch": {
+                        "maxLength": 64,
+                        "minLength": 64,
+                        "pattern": "^[0-9a-f]{64}$",
+                        "type": "string"
+                      },
+                      "high_water": {
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "low_water": {
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "row_truncated": {
+                        "type": "boolean"
+                      },
+                      "source_missing": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "epoch",
+                      "high_water",
+                      "low_water",
+                      "row_truncated",
+                      "byte_truncated",
+                      "bounded",
+                      "source_missing"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               }
             },
             "required": [
@@ -8759,6 +11543,62 @@
               {
                 "additionalProperties": false,
                 "properties": {
+                  "context": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "client_id": {
+                            "maxLength": 128,
+                            "minLength": 1,
+                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                            "type": "string"
+                          },
+                          "filter": {
+                            "maxLength": 64,
+                            "minLength": 64,
+                            "pattern": "^[0-9a-f]{64}$",
+                            "type": "string"
+                          },
+                          "grant_id": {
+                            "maxLength": 128,
+                            "minLength": 1,
+                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                            "type": "string"
+                          },
+                          "handle": {
+                            "maxLength": 128,
+                            "minLength": 1,
+                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                            "type": "string"
+                          },
+                          "high_water": {
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "source_epoch": {
+                            "maxLength": 64,
+                            "minLength": 64,
+                            "pattern": "^[0-9a-f]{64}$",
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "client_id",
+                          "grant_id",
+                          "filter",
+                          "source_epoch",
+                          "high_water",
+                          "handle"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "expires_at": {
                     "maximum": 9007199254740991,
                     "minimum": 0,
@@ -8937,6 +11777,62 @@
                       {
                         "additionalProperties": false,
                         "properties": {
+                          "context": {
+                            "anyOf": [
+                              {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "client_id": {
+                                    "maxLength": 128,
+                                    "minLength": 1,
+                                    "pattern": "^[A-Za-z0-9_.:-]+$",
+                                    "type": "string"
+                                  },
+                                  "filter": {
+                                    "maxLength": 64,
+                                    "minLength": 64,
+                                    "pattern": "^[0-9a-f]{64}$",
+                                    "type": "string"
+                                  },
+                                  "grant_id": {
+                                    "maxLength": 128,
+                                    "minLength": 1,
+                                    "pattern": "^[A-Za-z0-9_.:-]+$",
+                                    "type": "string"
+                                  },
+                                  "handle": {
+                                    "maxLength": 128,
+                                    "minLength": 1,
+                                    "pattern": "^[A-Za-z0-9_.:-]+$",
+                                    "type": "string"
+                                  },
+                                  "high_water": {
+                                    "maximum": 9007199254740991,
+                                    "minimum": 0,
+                                    "type": "integer"
+                                  },
+                                  "source_epoch": {
+                                    "maxLength": 64,
+                                    "minLength": 64,
+                                    "pattern": "^[0-9a-f]{64}$",
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "client_id",
+                                  "grant_id",
+                                  "filter",
+                                  "source_epoch",
+                                  "high_water",
+                                  "handle"
+                                ],
+                                "type": "object"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "expires_at": {
                             "maximum": 9007199254740991,
                             "minimum": 0,
@@ -9038,6 +11934,56 @@
                 "maximum": 9007199254740991,
                 "minimum": 0,
                 "type": "integer"
+              },
+              "window": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "bounded": {
+                        "type": "boolean"
+                      },
+                      "byte_truncated": {
+                        "type": "boolean"
+                      },
+                      "epoch": {
+                        "maxLength": 64,
+                        "minLength": 64,
+                        "pattern": "^[0-9a-f]{64}$",
+                        "type": "string"
+                      },
+                      "high_water": {
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "low_water": {
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "row_truncated": {
+                        "type": "boolean"
+                      },
+                      "source_missing": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "epoch",
+                      "high_water",
+                      "low_water",
+                      "row_truncated",
+                      "byte_truncated",
+                      "bounded",
+                      "source_missing"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               }
             },
             "required": [
@@ -9093,6 +12039,62 @@
               {
                 "additionalProperties": false,
                 "properties": {
+                  "context": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "client_id": {
+                            "maxLength": 128,
+                            "minLength": 1,
+                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                            "type": "string"
+                          },
+                          "filter": {
+                            "maxLength": 64,
+                            "minLength": 64,
+                            "pattern": "^[0-9a-f]{64}$",
+                            "type": "string"
+                          },
+                          "grant_id": {
+                            "maxLength": 128,
+                            "minLength": 1,
+                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                            "type": "string"
+                          },
+                          "handle": {
+                            "maxLength": 128,
+                            "minLength": 1,
+                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                            "type": "string"
+                          },
+                          "high_water": {
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "source_epoch": {
+                            "maxLength": 64,
+                            "minLength": 64,
+                            "pattern": "^[0-9a-f]{64}$",
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "client_id",
+                          "grant_id",
+                          "filter",
+                          "source_epoch",
+                          "high_water",
+                          "handle"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "expires_at": {
                     "maximum": 9007199254740991,
                     "minimum": 0,
@@ -9227,6 +12229,62 @@
                       {
                         "additionalProperties": false,
                         "properties": {
+                          "context": {
+                            "anyOf": [
+                              {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "client_id": {
+                                    "maxLength": 128,
+                                    "minLength": 1,
+                                    "pattern": "^[A-Za-z0-9_.:-]+$",
+                                    "type": "string"
+                                  },
+                                  "filter": {
+                                    "maxLength": 64,
+                                    "minLength": 64,
+                                    "pattern": "^[0-9a-f]{64}$",
+                                    "type": "string"
+                                  },
+                                  "grant_id": {
+                                    "maxLength": 128,
+                                    "minLength": 1,
+                                    "pattern": "^[A-Za-z0-9_.:-]+$",
+                                    "type": "string"
+                                  },
+                                  "handle": {
+                                    "maxLength": 128,
+                                    "minLength": 1,
+                                    "pattern": "^[A-Za-z0-9_.:-]+$",
+                                    "type": "string"
+                                  },
+                                  "high_water": {
+                                    "maximum": 9007199254740991,
+                                    "minimum": 0,
+                                    "type": "integer"
+                                  },
+                                  "source_epoch": {
+                                    "maxLength": 64,
+                                    "minLength": 64,
+                                    "pattern": "^[0-9a-f]{64}$",
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "client_id",
+                                  "grant_id",
+                                  "filter",
+                                  "source_epoch",
+                                  "high_water",
+                                  "handle"
+                                ],
+                                "type": "object"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "expires_at": {
                             "maximum": 9007199254740991,
                             "minimum": 0,
@@ -9326,6 +12384,56 @@
                 "maximum": 9007199254740991,
                 "minimum": 0,
                 "type": "integer"
+              },
+              "window": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "bounded": {
+                        "type": "boolean"
+                      },
+                      "byte_truncated": {
+                        "type": "boolean"
+                      },
+                      "epoch": {
+                        "maxLength": 64,
+                        "minLength": 64,
+                        "pattern": "^[0-9a-f]{64}$",
+                        "type": "string"
+                      },
+                      "high_water": {
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "low_water": {
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "row_truncated": {
+                        "type": "boolean"
+                      },
+                      "source_missing": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "epoch",
+                      "high_water",
+                      "low_water",
+                      "row_truncated",
+                      "byte_truncated",
+                      "bounded",
+                      "source_missing"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               }
             },
             "required": [
@@ -9372,6 +12480,62 @@
               {
                 "additionalProperties": false,
                 "properties": {
+                  "context": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "client_id": {
+                            "maxLength": 128,
+                            "minLength": 1,
+                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                            "type": "string"
+                          },
+                          "filter": {
+                            "maxLength": 64,
+                            "minLength": 64,
+                            "pattern": "^[0-9a-f]{64}$",
+                            "type": "string"
+                          },
+                          "grant_id": {
+                            "maxLength": 128,
+                            "minLength": 1,
+                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                            "type": "string"
+                          },
+                          "handle": {
+                            "maxLength": 128,
+                            "minLength": 1,
+                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                            "type": "string"
+                          },
+                          "high_water": {
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "source_epoch": {
+                            "maxLength": 64,
+                            "minLength": 64,
+                            "pattern": "^[0-9a-f]{64}$",
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "client_id",
+                          "grant_id",
+                          "filter",
+                          "source_epoch",
+                          "high_water",
+                          "handle"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "expires_at": {
                     "maximum": 9007199254740991,
                     "minimum": 0,
@@ -9801,6 +12965,62 @@
                       {
                         "additionalProperties": false,
                         "properties": {
+                          "context": {
+                            "anyOf": [
+                              {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "client_id": {
+                                    "maxLength": 128,
+                                    "minLength": 1,
+                                    "pattern": "^[A-Za-z0-9_.:-]+$",
+                                    "type": "string"
+                                  },
+                                  "filter": {
+                                    "maxLength": 64,
+                                    "minLength": 64,
+                                    "pattern": "^[0-9a-f]{64}$",
+                                    "type": "string"
+                                  },
+                                  "grant_id": {
+                                    "maxLength": 128,
+                                    "minLength": 1,
+                                    "pattern": "^[A-Za-z0-9_.:-]+$",
+                                    "type": "string"
+                                  },
+                                  "handle": {
+                                    "maxLength": 128,
+                                    "minLength": 1,
+                                    "pattern": "^[A-Za-z0-9_.:-]+$",
+                                    "type": "string"
+                                  },
+                                  "high_water": {
+                                    "maximum": 9007199254740991,
+                                    "minimum": 0,
+                                    "type": "integer"
+                                  },
+                                  "source_epoch": {
+                                    "maxLength": 64,
+                                    "minLength": 64,
+                                    "pattern": "^[0-9a-f]{64}$",
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "client_id",
+                                  "grant_id",
+                                  "filter",
+                                  "source_epoch",
+                                  "high_water",
+                                  "handle"
+                                ],
+                                "type": "object"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "expires_at": {
                             "maximum": 9007199254740991,
                             "minimum": 0,
@@ -9902,6 +13122,56 @@
                 "maximum": 9007199254740991,
                 "minimum": 0,
                 "type": "integer"
+              },
+              "window": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "bounded": {
+                        "type": "boolean"
+                      },
+                      "byte_truncated": {
+                        "type": "boolean"
+                      },
+                      "epoch": {
+                        "maxLength": 64,
+                        "minLength": 64,
+                        "pattern": "^[0-9a-f]{64}$",
+                        "type": "string"
+                      },
+                      "high_water": {
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "low_water": {
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "row_truncated": {
+                        "type": "boolean"
+                      },
+                      "source_missing": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "epoch",
+                      "high_water",
+                      "low_water",
+                      "row_truncated",
+                      "byte_truncated",
+                      "bounded",
+                      "source_missing"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               }
             },
             "required": [
@@ -9953,6 +13223,62 @@
               {
                 "additionalProperties": false,
                 "properties": {
+                  "context": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "client_id": {
+                            "maxLength": 128,
+                            "minLength": 1,
+                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                            "type": "string"
+                          },
+                          "filter": {
+                            "maxLength": 64,
+                            "minLength": 64,
+                            "pattern": "^[0-9a-f]{64}$",
+                            "type": "string"
+                          },
+                          "grant_id": {
+                            "maxLength": 128,
+                            "minLength": 1,
+                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                            "type": "string"
+                          },
+                          "handle": {
+                            "maxLength": 128,
+                            "minLength": 1,
+                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                            "type": "string"
+                          },
+                          "high_water": {
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "source_epoch": {
+                            "maxLength": 64,
+                            "minLength": 64,
+                            "pattern": "^[0-9a-f]{64}$",
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "client_id",
+                          "grant_id",
+                          "filter",
+                          "source_epoch",
+                          "high_water",
+                          "handle"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "expires_at": {
                     "maximum": 9007199254740991,
                     "minimum": 0,
@@ -10159,6 +13485,62 @@
                       {
                         "additionalProperties": false,
                         "properties": {
+                          "context": {
+                            "anyOf": [
+                              {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "client_id": {
+                                    "maxLength": 128,
+                                    "minLength": 1,
+                                    "pattern": "^[A-Za-z0-9_.:-]+$",
+                                    "type": "string"
+                                  },
+                                  "filter": {
+                                    "maxLength": 64,
+                                    "minLength": 64,
+                                    "pattern": "^[0-9a-f]{64}$",
+                                    "type": "string"
+                                  },
+                                  "grant_id": {
+                                    "maxLength": 128,
+                                    "minLength": 1,
+                                    "pattern": "^[A-Za-z0-9_.:-]+$",
+                                    "type": "string"
+                                  },
+                                  "handle": {
+                                    "maxLength": 128,
+                                    "minLength": 1,
+                                    "pattern": "^[A-Za-z0-9_.:-]+$",
+                                    "type": "string"
+                                  },
+                                  "high_water": {
+                                    "maximum": 9007199254740991,
+                                    "minimum": 0,
+                                    "type": "integer"
+                                  },
+                                  "source_epoch": {
+                                    "maxLength": 64,
+                                    "minLength": 64,
+                                    "pattern": "^[0-9a-f]{64}$",
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "client_id",
+                                  "grant_id",
+                                  "filter",
+                                  "source_epoch",
+                                  "high_water",
+                                  "handle"
+                                ],
+                                "type": "object"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "expires_at": {
                             "maximum": 9007199254740991,
                             "minimum": 0,
@@ -10260,6 +13642,56 @@
                 "maximum": 9007199254740991,
                 "minimum": 0,
                 "type": "integer"
+              },
+              "window": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "bounded": {
+                        "type": "boolean"
+                      },
+                      "byte_truncated": {
+                        "type": "boolean"
+                      },
+                      "epoch": {
+                        "maxLength": 64,
+                        "minLength": 64,
+                        "pattern": "^[0-9a-f]{64}$",
+                        "type": "string"
+                      },
+                      "high_water": {
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "low_water": {
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "row_truncated": {
+                        "type": "boolean"
+                      },
+                      "source_missing": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "epoch",
+                      "high_water",
+                      "low_water",
+                      "row_truncated",
+                      "byte_truncated",
+                      "bounded",
+                      "source_missing"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               }
             },
             "required": [
@@ -10305,6 +13737,62 @@
               {
                 "additionalProperties": false,
                 "properties": {
+                  "context": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "client_id": {
+                            "maxLength": 128,
+                            "minLength": 1,
+                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                            "type": "string"
+                          },
+                          "filter": {
+                            "maxLength": 64,
+                            "minLength": 64,
+                            "pattern": "^[0-9a-f]{64}$",
+                            "type": "string"
+                          },
+                          "grant_id": {
+                            "maxLength": 128,
+                            "minLength": 1,
+                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                            "type": "string"
+                          },
+                          "handle": {
+                            "maxLength": 128,
+                            "minLength": 1,
+                            "pattern": "^[A-Za-z0-9_.:-]+$",
+                            "type": "string"
+                          },
+                          "high_water": {
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "source_epoch": {
+                            "maxLength": 64,
+                            "minLength": 64,
+                            "pattern": "^[0-9a-f]{64}$",
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "client_id",
+                          "grant_id",
+                          "filter",
+                          "source_epoch",
+                          "high_water",
+                          "handle"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "expires_at": {
                     "maximum": 9007199254740991,
                     "minimum": 0,

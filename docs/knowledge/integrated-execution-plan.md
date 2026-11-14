@@ -260,6 +260,11 @@ Owner: Core/adapter sub-agentlar, shared command schema yagona ownerda.
 Kesimlar ketma-ket: start/stop/restart → runtime install/select → env/YAML setup →
 DB bind/clone/restore → domains/HTTPS/system helper. Har kesim oldingi M7–M12 core
 funksiyalarini facade orqali ishlatadi; yangi side effect uchun reviewed plan/grant.
+Source reconciliation: mavjud DB clone faqat WorktreeCreate(database=Clone)
+oqimida bor; uning tashqi adapteri M13.6 workspace kesimida bajariladi. Alohida
+yangi standalone clone semantikasi yaratilmaydi. Barcha oilalardagi qolgan
+planning-only operationlar M13.9 capability reconciliation'da hisobdan tushmaydi;
+beshta reviewed kesimning tugashi barcha inventory endpointlari live degani emas.
 Secrets manager ichida inject qilinadi, admin credential agentga berilmaydi.
 Exit: stale/replayed/revoked apply rad; existing project data/pins va shared service
 saqlanadi; failed/cancelled natija aniqligi. Test: har adapterga mos focused regression;

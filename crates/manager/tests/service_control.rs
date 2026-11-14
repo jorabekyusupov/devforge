@@ -10,7 +10,8 @@ use devforge_manager::{
     controller::{Controller, StartIntent, Stores, local_owner_user},
     external_auth::{ExternalCredential, IssuedGrant},
     external_client::{
-        DatabaseClient, DomainClient, EnvClient, ExternalClient, RuntimeClient, ServiceClient,
+        DatabaseClient, DiagnosticsClient, DomainClient, EnvClient, ExternalClient, RuntimeClient,
+        ServiceClient,
     },
     external_control::{ExternalInput, ExternalOutput},
     native_client::NativeClient,
@@ -261,6 +262,13 @@ impl Rig {
     }
     fn domain(&self, grant: &IssuedGrant) -> DomainClient {
         DomainClient::connect(
+            self.endpoint.clone(),
+            ExternalCredential::from_wire(grant.credential.expose_secret()).unwrap(),
+        )
+        .unwrap()
+    }
+    fn diagnostics(&self, grant: &IssuedGrant) -> DiagnosticsClient {
+        DiagnosticsClient::connect(
             self.endpoint.clone(),
             ExternalCredential::from_wire(grant.credential.expose_secret()).unwrap(),
         )
@@ -1218,6 +1226,227 @@ fn domain_policy_reads_only_own_facts_and_blocks_missing_native_preparation_and_
     let raw=Client::new(rig.endpoint.clone()).request(&json!({"method":"domain_plan","credential":grant.credential.expose_secret(),"request":forged})).unwrap();
     assert_eq!(raw["error"]["code"], "invalid_input");
     assert!(!authority.exists());
+}
+
+#[test]
+fn metadata_policy_masks_payloads_and_binds_sequence_cursors_to_grant_filter_and_epoch() {
+    use devforge_control::{limits::*, tools::*};
+    let mut rig = Rig::new(None);
+    let project = rig.projects[0].clone();
+    let grant = rig
+        .native
+        .issue_external_grant(
+            &id(&project.id),
+            &[Scope::Observer],
+            Duration::from_secs(600),
+        )
+        .unwrap();
+    let mut client = rig.diagnostics(&grant);
+    let page = |cursor| PageRequest {
+        limit: Bounded::new(2).unwrap(),
+        max_bytes: Bounded::new(65536).unwrap(),
+        timeout_ms: Bounded::new(5000).unwrap(),
+        cursor,
+    };
+    let log = |cursor, level| Request {
+        api_version: Default::default(),
+        request_id: id("metadata-log"),
+        project_id: id(&project.id),
+        expected_revision: Some(project.revision),
+        idempotency_key: None,
+        input: ToolInput::Log(LogInput {
+            page: Some(page(cursor)),
+            query: None,
+            level,
+        }),
+    };
+    let missing = client.read(&log(None, None)).unwrap();
+    assert!(missing.is_ok());
+    let ToolOutput::Log(missing) = missing.data().unwrap() else {
+        panic!("logoutput")
+    };
+    assert!(missing.items.is_empty());
+    assert!(missing.freshness.window.as_ref().unwrap().source_missing);
+    assert!(!rig.root.path().join("inspector").exists());
+    let mail_request = Request {
+        api_version: Default::default(),
+        request_id: id("metadata-mail"),
+        project_id: id(&project.id),
+        expected_revision: Some(project.revision),
+        idempotency_key: None,
+        input: ToolInput::Mail(MailInput {
+            page: None,
+            subject: None,
+            recipient: None,
+        }),
+    };
+    let mail = client.read(&mail_request).unwrap();
+    assert!(mail.is_ok());
+    assert!(!rig.root.path().join("mail").exists());
+    let mut forbidden = log(None, None);
+    if let ToolInput::Log(input) = &mut forbidden.input {
+        input.query = Some(Text::new(String::new()).unwrap());
+    }
+    assert!(matches!(
+        client.read(&forbidden),
+        Err(ErrorCode::Unauthorized)
+    ));
+    assert!(!rig.root.path().join("inspector").exists());
+    let directory = rig.root.path().join("inspector");
+    std::fs::create_dir(&directory).unwrap();
+    let path = directory.join("events.sqlite3");
+    let db = rusqlite::Connection::open(&path).unwrap();
+    db.execute_batch("PRAGMA journal_mode=DELETE; CREATE TABLE events(sequence INTEGER PRIMARY KEY AUTOINCREMENT,project TEXT NOT NULL,received INTEGER NOT NULL,body TEXT NOT NULL); PRAGMA user_version=1;").unwrap();
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as i64;
+    for n in 0..4 {
+        let event = json!({"kind":"request","context":format!("{:032x}",n+1),"name":"GET /PRIVATE_URL?token=CANARY","duration_ms":2.2,"data":{"status":201,"query_count":3,"sql":"PRIVATE_SQL_CANARY","headers":{"Authorization":"PRIVATE_HEADER_CANARY"}}});
+        db.execute(
+            "INSERT INTO events(project,received,body) VALUES(?1,?2,?3)",
+            rusqlite::params![project.id, now, event.to_string()],
+        )
+        .unwrap();
+    }
+    for _ in 0..6 {
+        let event = json!({"kind":"log","context":"c".repeat(32),"name":"info","duration_ms":0.0,"data":{"message":"PRIVATE_MESSAGE_CANARY","stack":"PRIVATE_STACK_CANARY"}});
+        db.execute(
+            "INSERT INTO events(project,received,body) VALUES(?1,?2,?3)",
+            rusqlite::params![project.id, now, event.to_string()],
+        )
+        .unwrap();
+    }
+    let event = json!({"kind":"log","context":"d".repeat(32),"name":"info","duration_ms":0.0,"data":{"message":"FOREIGN_CANARY"}});
+    db.execute(
+        "INSERT INTO events(project,received,body) VALUES(?1,?2,?3)",
+        rusqlite::params![rig.projects[1].id, now, event.to_string()],
+    )
+    .unwrap();
+    let first = client.read(&log(None, None)).unwrap();
+    assert!(first.is_ok());
+    let text = serde_json::to_string(&first).unwrap();
+    for canary in ["PRIVATE_", "FOREIGN_CANARY", "Authorization"] {
+        assert!(!text.contains(canary));
+    }
+    let ToolOutput::Log(first) = first.data().unwrap() else {
+        panic!("logoutput")
+    };
+    let cursor = first.next_cursor.clone().unwrap();
+    let observed = first.freshness.observed_at.get();
+    let high = first.freshness.window.as_ref().unwrap().high_water.get();
+    let mut ids = first
+        .items
+        .iter()
+        .map(|i| i.event_id.clone())
+        .collect::<Vec<_>>();
+    let mut tampered = cursor.clone();
+    tampered.offset = SafeInt::new(tampered.offset.get() + 1).unwrap();
+    assert_eq!(
+        client
+            .read(&log(Some(tampered), None))
+            .unwrap()
+            .error()
+            .unwrap()
+            .code,
+        ErrorCode::CursorExpired
+    );
+    assert_eq!(
+        client
+            .read(&log(
+                Some(cursor.clone()),
+                Some(Text::new("error".into()).unwrap())
+            ))
+            .unwrap()
+            .error()
+            .unwrap()
+            .code,
+        ErrorCode::CursorExpired
+    );
+    let second_grant = rig
+        .native
+        .issue_external_grant(
+            &id(&project.id),
+            &[Scope::Observer],
+            Duration::from_secs(600),
+        )
+        .unwrap();
+    let mut other = rig.diagnostics(&second_grant);
+    assert_eq!(
+        other
+            .read(&log(Some(cursor.clone()), None))
+            .unwrap()
+            .error()
+            .unwrap()
+            .code,
+        ErrorCode::CursorExpired
+    );
+    // Clearing/appending the same store cannot change the already observed
+    // frozen window; subsequent pages explicitly remain Cached/original-time.
+    db.execute("DELETE FROM events WHERE project=?1", [project.id.as_str()])
+        .unwrap();
+    db.execute(
+        "INSERT INTO events(project,received,body) VALUES(?1,?2,?3)",
+        rusqlite::params![project.id, now, event.to_string()],
+    )
+    .unwrap();
+    let mut next = Some(cursor.clone());
+    while let Some(current) = next {
+        let response = client.read(&log(Some(current), None)).unwrap();
+        assert!(response.is_ok());
+        let ToolOutput::Log(output) = response.data().unwrap() else {
+            panic!("logoutput")
+        };
+        assert_eq!(output.freshness.origin, devforge_control::Origin::Cached);
+        assert_eq!(output.freshness.observed_at.get(), observed);
+        assert_eq!(
+            output.freshness.window.as_ref().unwrap().high_water.get(),
+            high
+        );
+        ids.extend(output.items.iter().map(|i| i.event_id.clone()));
+        next = output.next_cursor.clone();
+    }
+    assert_eq!(ids.len(), 6);
+    ids.sort_by(|a, b| a.as_str().cmp(b.as_str()));
+    ids.dedup();
+    assert_eq!(ids.len(), 6);
+    drop(db);
+    std::fs::rename(&path, directory.join("old.sqlite3")).unwrap();
+    let replacement = rusqlite::Connection::open(&path).unwrap();
+    replacement.execute_batch("CREATE TABLE events(sequence INTEGER PRIMARY KEY AUTOINCREMENT,project TEXT NOT NULL,received INTEGER NOT NULL,body TEXT NOT NULL); PRAGMA user_version=1;").unwrap();
+    drop(replacement);
+    assert_eq!(
+        client
+            .read(&log(Some(cursor), None))
+            .unwrap()
+            .error()
+            .unwrap()
+            .code,
+        ErrorCode::CursorExpired
+    );
+    let mailbox = rig.root.path().join("mail").join(&project.id);
+    std::fs::create_dir_all(&mailbox).unwrap();
+    std::fs::write(mailbox.join(".devforge-inbox"), b"devforge-inbox-v1\n").unwrap();
+    let db = rusqlite::Connection::open(mailbox.join("inbox.sqlite3")).unwrap();
+    db.execute_batch("CREATE TABLE messages(sequence INTEGER PRIMARY KEY AUTOINCREMENT,id TEXT UNIQUE NOT NULL,received INTEGER NOT NULL,summary TEXT NOT NULL,search TEXT NOT NULL,raw BLOB NOT NULL); PRAGMA user_version=1;").unwrap();
+    let summary = json!({"from":"PRIVATE_FROM_CANARY","subject":"PRIVATE_SUBJECT_CANARY","attachments":1,"attachment_name":"PRIVATE_FILE_CANARY"});
+    db.execute("INSERT INTO messages(id,received,summary,search,raw) VALUES(?1,?2,?3,'PRIVATE_SEARCH_CANARY',X'50524956415445')",rusqlite::params!["e".repeat(32),now,summary.to_string()]).unwrap();
+    drop(db);
+    let mail = client.read(&mail_request).unwrap();
+    assert!(mail.is_ok(), "mail metadata fault: {:?}", mail.error());
+    let serialized = serde_json::to_string(&mail).unwrap();
+    assert!(!serialized.contains("PRIVATE"));
+    let ToolOutput::Mail(mail) = mail.data().unwrap() else {
+        panic!("mailoutput")
+    };
+    assert_eq!(mail.items[0].attachments.get(), 1);
+    rig.native
+        .revoke_external_grant(&grant.record.grant_id)
+        .unwrap();
+    assert_eq!(
+        client.read(&log(None, None)).unwrap().error().unwrap().code,
+        ErrorCode::GrantRevoked
+    );
 }
 
 #[cfg(target_os = "macos")]

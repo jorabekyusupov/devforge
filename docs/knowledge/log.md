@@ -4,6 +4,8 @@
 
 ## 2026-11-14
 
+- **M13.5 metadata first:** four safe readonly projections, noncreating SQL readers, existing cursor strengthened with scoped frozen-window provenance. Policy/privacy/tamper/revoke/cursor checks and one actual Laravel/SMTP→SDK/stdio/official Inspector flow passed. Native51-attachment compatibility guard fixed only in reader. No content rights/collector rewrite; richer M13.5 slices remain. [Contract](../architecture/metadata-diagnostics.md), [execution](execution-status.md).
+
 - **M13.4 domain/HTTPS:** seven scoped operations, noncreating public metadata/opaque SystemPlan, separate one-shot native machine confirmation, safe hosts-only cleanup/shared CA retention. Core/policy/client/contracts/export checks and one owned Caddy/client-CA TLS smoke passed. Scoped auth callback snapshot side effect fixed with exact regression/QA closure. Actual helper/dialog/system writes/minimum OS remain gates; M13.4 implementation reconciled, M13.5 next. [Contract](../architecture/reviewed-service-actions.md), [execution](execution-status.md).
 
 - **M13.4 DB bind/restore:** explicit frozen-state activation fencing, IDs-only choices/native approval, no hidden tool download; five core/policy/contract/client checks and one public native PG+MySQL test passed. Foreign archive ownership gap fixed with targeted regression and QA closure; native import unchanged. Only existing-version MySQL dev edge added for actual canary proof. [Contract](../architecture/reviewed-service-actions.md), [execution](execution-status.md).

@@ -75,6 +75,7 @@ pub(crate) struct Services {
     plans: Mutex<VecDeque<Arc<Intent>>>,
     environment_versions: Mutex<crate::environment_control::Versions>,
     domain_preparations: Mutex<VecDeque<DomainPreparation>>,
+    diagnostics: Arc<crate::diagnostics::Diagnostics>,
 }
 struct DomainPreparation {
     ticket: Digest,
@@ -1274,11 +1275,13 @@ impl Services {
         })
     }
     pub(crate) fn new(grants: Arc<Grants>) -> Self {
+        let diagnostics = Arc::new(crate::diagnostics::Diagnostics::new(grants.clone()));
         Self {
             grants,
             plans: Mutex::new(VecDeque::new()),
             environment_versions: Mutex::new(Default::default()),
             domain_preparations: Mutex::new(VecDeque::new()),
+            diagnostics,
         }
     }
     pub(crate) fn handles(method: &str) -> bool {
@@ -1305,6 +1308,7 @@ impl Services {
                 | "domain_plan"
                 | "domain_apply"
                 | "domain_lookup"
+                | "diagnostics_read"
         )
     }
     pub(crate) fn request(
@@ -1314,6 +1318,9 @@ impl Services {
         actor: &ActorHandle,
         rejected: Option<ErrorCode>,
     ) -> Value {
+        if value.get("method").and_then(Value::as_str) == Some("diagnostics_read") {
+            return self.diagnostics.request(peer, value, actor, rejected);
+        }
         let id = value
             .get("request")
             .and_then(|r| r.get("request_id"))
@@ -1607,6 +1614,7 @@ impl Services {
         }
     }
     pub(crate) fn clear(&self) {
+        self.diagnostics.clear();
         self.plans
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -2226,7 +2234,7 @@ fn domain_only(input: &MutationInput) -> Result<(), ErrorCode> {
         Err(ErrorCode::UnsupportedCapability)
     }
 }
-fn domain_registration_binding(
+pub(crate) fn domain_registration_binding(
     workspace: &Workspace,
     project: &Id,
 ) -> Result<ProjectBinding, ErrorCode> {
@@ -2483,7 +2491,7 @@ fn verify_document(binding: &ProjectBinding, expected: Option<&str>) -> Result<(
         Ok(())
     }
 }
-fn environment_error(error: devforge_workspace::Error) -> ErrorCode {
+pub(crate) fn environment_error(error: devforge_workspace::Error) -> ErrorCode {
     match error.code.as_str() {
         "grant_revoked" => ErrorCode::GrantRevoked,
         "grant_expired" => ErrorCode::GrantExpired,

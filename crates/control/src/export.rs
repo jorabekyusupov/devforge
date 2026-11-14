@@ -144,13 +144,24 @@ impl Wire for OperationState {
 impl Wire for Cursor {
     fn schema() -> Value {
         json!({"type":"object","additionalProperties":false,"required":["project_id","tool","revision","offset","expires_at"],"properties":{
-        "project_id":Id::schema(),"tool":Id::schema(),"revision":SafeInt::schema(),"offset":SafeInt::schema(),"expires_at":SafeInt::schema()}})
+        "project_id":Id::schema(),"tool":Id::schema(),"revision":SafeInt::schema(),"offset":SafeInt::schema(),"expires_at":SafeInt::schema(),"context":Option::<CursorContext>::schema()}})
     }
     fn ts() -> String {
         "Cursor".into()
     }
     fn declaration() -> Option<String> {
-        Some("export interface Cursor { project_id: string; tool: string; revision: number; offset: number; expires_at: number; }\n".into())
+        Some("export interface Cursor { project_id: string; tool: string; revision: number; offset: number; expires_at: number; context?: CursorContext | null; }\n".into())
+    }
+}
+impl Wire for CursorContext {
+    fn schema() -> Value {
+        json!({"type":"object","additionalProperties":false,"required":["client_id","grant_id","filter","source_epoch","high_water","handle"],"properties":{"client_id":Id::schema(),"grant_id":Id::schema(),"filter":Digest::schema(),"source_epoch":Digest::schema(),"high_water":SafeInt::schema(),"handle":Id::schema()}})
+    }
+    fn ts() -> String {
+        "CursorContext".into()
+    }
+    fn declaration() -> Option<String> {
+        Some("export interface CursorContext { client_id: string; grant_id: string; filter: string; source_epoch: string; high_water: number; handle: string; }\n".into())
     }
 }
 impl Wire for PageRequest {
@@ -218,6 +229,7 @@ pub fn typescript() -> String {
     );
     text.push_str(&format!("export type ErrorCode = {};\n", enum_ts(ERRORS)));
     text.push_str(&Cursor::declaration().unwrap());
+    text.push_str(&CursorContext::declaration().unwrap());
     text.push_str(&PageRequest::declaration().unwrap());
     for declaration in tools::declarations()
         .into_iter()

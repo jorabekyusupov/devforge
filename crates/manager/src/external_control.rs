@@ -337,6 +337,7 @@ impl Server {
                 origin: Origin::Cached,
                 observed_at: SafeInt::new(view.observed_at)?,
                 revision: SafeInt::new(binding.revision())?,
+                window: None,
             })
         };
         let output = match wire.request.input {
@@ -431,6 +432,7 @@ impl Server {
                                 .map_err(|_| ErrorCode::StorageUnavailable)?,
                         )?,
                         revision: SafeInt::new(binding.revision())?,
+                        window: None,
                     },
                     items: vec![OperationItem {
                         operation_id,

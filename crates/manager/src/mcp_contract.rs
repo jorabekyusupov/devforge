@@ -53,6 +53,17 @@ pub enum Action {
     Environment(EnvCall),
     Database(DatabaseCall),
     Domain(DomainCall),
+    Diagnostics(DiagnosticsCall),
+}
+pub struct DiagnosticsCall {
+    pub request: Request<devforge_control::tools::ToolInput>,
+    id: Value,
+    version: Version,
+}
+impl DiagnosticsCall {
+    pub fn jsonrpc_id(&self) -> &Value {
+        &self.id
+    }
 }
 #[derive(Clone)]
 pub enum DomainInput {
@@ -438,6 +449,14 @@ impl Protocol {
                 Err(()) => Action::Reply(rpc_error(Some(id), -32602, "Invalid params", None)),
             };
         }
+        if method == "tools/call"
+            && let Some(diagnostics) = self.diagnostics_tool(&params, id.clone(), version)
+        {
+            return match diagnostics {
+                Ok(call) => Action::Diagnostics(call),
+                Err(()) => Action::Reply(rpc_error(Some(id), -32602, "Invalid params", None)),
+            };
+        }
         let result = match method {
             "server/discover" if matches!(version, Version::Modern) => {
                 if keys(&params, &[]) {
@@ -512,6 +531,91 @@ impl Protocol {
             }
             Err(()) => Action::Reply(rpc_error(Some(id), -32602, "Invalid params", None)),
         }
+    }
+    fn diagnostics_tool(
+        &mut self,
+        params: &Value,
+        id: Value,
+        version: Version,
+    ) -> Option<Result<DiagnosticsCall, ()>> {
+        let name = params.get("name").and_then(Value::as_str)?;
+        if !matches!(
+            name,
+            "health.doctor" | "logs.search" | "inspector.request" | "mail.list"
+        ) {
+            return None;
+        }
+        if !keys(params, &["name", "arguments"]) {
+            return Some(Err(()));
+        }
+        let arguments = params
+            .get("arguments")
+            .cloned()
+            .unwrap_or_else(|| json!({}));
+        let allowed: &[&str] = match name {
+            "logs.search" => &["page", "level"],
+            "inspector.request" => &["page", "context_id"],
+            _ => &["page"],
+        };
+        // Presence is rejected even for null/empty content filters, before any
+        // collector work is enqueued. Existing canonical None fields remain internal.
+        if !keys(&arguments, allowed) {
+            return Some(Err(()));
+        }
+        let tool = if name == "health.doctor" {
+            "health.health"
+        } else {
+            name
+        };
+        let input = match serde_json::from_value::<devforge_control::tools::ToolInput>(
+            json!({"tool":tool,"arguments":arguments}),
+        ) {
+            Ok(input) => input,
+            Err(_) => return Some(Err(())),
+        };
+        self.counter = self.counter.wrapping_add(1);
+        let request_id = Id::new(format!("mcp-{}", self.counter)).expect("fixed request ID");
+        Some(Ok(DiagnosticsCall {
+            request: Request {
+                api_version: Default::default(),
+                request_id,
+                project_id: self.project.clone(),
+                expected_revision: None,
+                idempotency_key: None,
+                input,
+            },
+            id,
+            version,
+        }))
+    }
+    pub fn complete_diagnostics(call: DiagnosticsCall, result: Result<Value, ErrorCode>) -> Value {
+        let content = result
+            .and_then(|value| {
+                if value.get("api_version") != Some(&json!(1))
+                    || value.get("request_id") != Some(&json!(call.request.request_id))
+                    || value.get("ok").and_then(Value::as_bool).is_none_or(|ok| {
+                        ok != value.get("data").is_some() || ok == value.get("error").is_some()
+                    })
+                {
+                    Err(ErrorCode::InvalidInput)
+                } else {
+                    Ok(value)
+                }
+            })
+            .unwrap_or_else(|code| {
+                serde_json::to_value(Response::<Value>::failure(
+                    call.request.request_id,
+                    None,
+                    code.fault(),
+                ))
+                .expect("fixed error envelope")
+            });
+        let is_error = content.get("ok") != Some(&Value::Bool(true));
+        rpc_success(
+            call.id,
+            call.version,
+            json!({"content":[{"type":"text","text":content.to_string()}],"structuredContent":content,"isError":is_error}),
+        )
     }
     fn domain_tool(
         &mut self,
@@ -1414,6 +1518,7 @@ fn tool_definitions(
     domain_actions: bool,
 ) -> Vec<Value> {
     let mut definitions = read_tool_definitions();
+    definitions.extend(diagnostics_tool_definitions());
     if service_actions {
         definitions.extend(service_tool_definitions());
     }
@@ -1603,5 +1708,17 @@ fn domain_tool_definitions() -> Vec<Value> {
     ["domains.url","domains.ports","domains.certificate_status","domains.hosts_plan","domains.trust_plan","domains.apply","domains.cleanup"].into_iter().map(|name|{
         let write=matches!(name,"domains.apply"|"domains.cleanup");let schema=if name=="domains.cleanup"{let mut plan=write_schema("plan");plan["required"].as_array_mut().expect("fixed schema").push(json!("action"));json!({"type":"object","oneOf":[{"type":"object","properties":{"action":{"const":"prepare"}},"additionalProperties":false},plan,write_schema("apply")]})}else if write{json!({"type":"object","oneOf":[write_schema("plan"),write_schema("apply")]})}else{json!({"type":"object","properties":{},"additionalProperties":false})};
         json!({"name":name,"description":if !write{"Read only this project's URL/ports/certificate status or prepare opaque hosts/trust plan. Missing CA requires native owner preparation; this route never creates CA, reads its private key or exports global domains/hosts/paths/DER."}else if name=="domains.cleanup"{"Prepare/plan/apply cleanup of only the selected project's owned hosts entries. Other projects and shared CA are preserved. PM+Sensitive, native exact-plan approval AND separate explicit native owner confirmation of the exact machine change are mandatory before helper execution. No agent confirmation/elevation/consent flag is accepted. Preserve original key after uncertainty; no rollback/hard deadline promise."}else{"Plan/apply a prepared hosts or trust ticket. PM+Sensitive, native exact-plan approval AND separate explicit native owner confirmation of the exact machine change are mandatory. Generic approval, grant or tool action never authorizes elevation. No helper path, hosts contents, CA DER/key or owner-wide domains accepted/exported. Preserve original key and reconcile after uncertain admission."},"inputSchema":schema,"annotations":{"readOnlyHint":!write,"destructiveHint":write,"idempotentHint":true,"openWorldHint":false}})
+    }).collect()
+}
+
+fn diagnostics_tool_definitions() -> Vec<Value> {
+    use devforge_control::{
+        export::Wire,
+        tools::{HealthInput, InspectorInput, LogInput, MailInput},
+    };
+    ["health.doctor","logs.search","inspector.request","mail.list"].into_iter().map(|name|{
+        let mut schema=match name{"health.doctor"=>HealthInput::schema(),"logs.search"=>LogInput::schema(),"inspector.request"=>InspectorInput::schema(),_=>MailInput::schema()};
+        let properties=schema["properties"].as_object_mut().expect("fixed schema");for forbidden in ["query","subject","recipient"]{properties.remove(forbidden);}
+        json!({"name":name,"description":"Project-scoped Observer metadata only: classified health/log codes, normalized method/status/count/timing, or received mail IDs/time/attachment count. No raw names/data/stack/SQL/URL/headers/body/subject/recipient/links/artifacts. Content filters are rejected before collection; only log level/Inspector context are allowed. Forward opaque page cursor unchanged; CursorExpired requires a fresh request without cursor. Window epoch/high-water/low-water and row/byte truncation describe bounded source context; never mix mutable offsets or different contexts.","inputSchema":schema,"annotations":{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true,"openWorldHint":false}})
     }).collect()
 }

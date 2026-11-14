@@ -1449,6 +1449,136 @@ impl BoundDomainActionsClient {
     }
 }
 
+/// Metadata-only diagnostics. Health uses the existing canonical Health input
+/// on this RPC; its public MCP/CLI name is health.doctor. No content rights,
+/// collectors, native providers or owner startup are created by the adapter.
+pub struct DiagnosticsClient {
+    inner: ServiceClient,
+}
+impl std::fmt::Debug for DiagnosticsClient {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DiagnosticsClient")
+            .field("owner_pid", &self.inner.client.peer.process_id)
+            .finish_non_exhaustive()
+    }
+}
+impl DiagnosticsClient {
+    pub fn connect(
+        endpoint: Endpoint,
+        credential: ExternalCredential,
+    ) -> std::result::Result<Self, ErrorCode> {
+        Ok(Self {
+            inner: ServiceClient::connect(endpoint, credential)?,
+        })
+    }
+    pub fn read(
+        &mut self,
+        request: &Request<devforge_control::tools::ToolInput>,
+    ) -> std::result::Result<Response<devforge_control::tools::ToolOutput>, ErrorCode> {
+        diagnostics_read(&mut self.inner, request)
+    }
+}
+fn diagnostics_request(
+    request: &Request<devforge_control::tools::ToolInput>,
+) -> std::result::Result<(), ErrorCode> {
+    use devforge_control::tools::ToolInput;
+    match &request.input {
+        ToolInput::Health(_) | ToolInput::Inspector(_) => {}
+        ToolInput::Log(input) => {
+            if input.query.is_some() {
+                return Err(ErrorCode::Unauthorized);
+            }
+        }
+        ToolInput::Mail(input) => {
+            if input.subject.is_some() || input.recipient.is_some() {
+                return Err(ErrorCode::Unauthorized);
+            }
+        }
+        _ => return Err(ErrorCode::UnsupportedCapability),
+    }
+    if request
+        .expected_revision
+        .is_some_and(|revision| revision > devforge_control::limits::SafeInt::MAX)
+    {
+        return Err(ErrorCode::InvalidInput);
+    }
+    Ok(())
+}
+fn diagnostics_read(
+    client: &mut ServiceClient,
+    request: &Request<devforge_control::tools::ToolInput>,
+) -> std::result::Result<Response<devforge_control::tools::ToolOutput>, ErrorCode> {
+    diagnostics_request(request)?;
+    let reply: Response<devforge_control::tools::ToolOutput> = client.exchange(
+        &request.request_id,
+        json!({"method":"diagnostics_read","request":request}),
+        false,
+    )?;
+    if reply.data().is_some_and(|output| {
+        output.tool() != request.input.tool()
+            || output.rows() > request.input.page().limit.get() as usize
+    }) {
+        return Err(ErrorCode::InvalidInput);
+    }
+    Ok(reply)
+}
+pub struct BoundDiagnosticsClient {
+    previous: BoundDomainActionsClient,
+}
+impl BoundDiagnosticsClient {
+    pub fn connect(
+        endpoint: Endpoint,
+        loaded: crate::credential_file::LoadedCredential,
+    ) -> std::result::Result<Self, ErrorCode> {
+        Ok(Self {
+            previous: BoundDomainActionsClient::connect(endpoint, loaded)?,
+        })
+    }
+    fn project(&self) -> &Id {
+        self.previous.domain.project()
+    }
+    fn transport(&mut self) -> &mut ServiceClient {
+        self.previous.domain.transport()
+    }
+    pub fn read_base(
+        &mut self,
+        id: Id,
+        input: ExternalInput,
+    ) -> std::result::Result<ExternalReply, ErrorCode> {
+        self.previous.domain().read_base(id, input)
+    }
+    pub fn read(
+        &mut self,
+        request: &Request<devforge_control::tools::ToolInput>,
+    ) -> std::result::Result<Response<devforge_control::tools::ToolOutput>, ErrorCode> {
+        if &request.project_id != self.project() {
+            return Err(ErrorCode::ProjectMismatch);
+        }
+        diagnostics_read(self.transport(), request)
+    }
+}
+/// Default read-only metadata composition. Existing action-surface selection
+/// remains protocol configuration, not a grant or a generic mutation method.
+pub struct BoundDiagnosticsActionsClient {
+    diagnostics: BoundDiagnosticsClient,
+}
+impl BoundDiagnosticsActionsClient {
+    pub fn connect(
+        endpoint: Endpoint,
+        loaded: crate::credential_file::LoadedCredential,
+    ) -> std::result::Result<Self, ErrorCode> {
+        Ok(Self {
+            diagnostics: BoundDiagnosticsClient::connect(endpoint, loaded)?,
+        })
+    }
+    pub fn diagnostics(&mut self) -> &mut BoundDiagnosticsClient {
+        &mut self.diagnostics
+    }
+    pub fn previous(&mut self) -> &mut BoundDomainActionsClient {
+        &mut self.diagnostics.previous
+    }
+}
+
 struct SecretRequest(Value);
 impl Drop for SecretRequest {
     fn drop(&mut self) {
