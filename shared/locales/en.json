@@ -308,7 +308,13 @@
     "keepEditing": "Keep editing",
     "discard": "Discard changes",
     "installReplacement": "Install updated build",
-    "runtimeSuperseded": "Provider archive replaced; existing pins are preserved."
+    "runtimeSuperseded": "Provider archive replaced; existing pins are preserved.",
+    "managerConnectionRequired": "Reconnect to continue managing your projects.",
+    "managerUnavailable": "The local manager is unavailable. Reopen DevForge.",
+    "connectManager": "Connect",
+    "connectingManager": "Connecting…",
+    "managerOperationUnconfirmed": "The last request has not been confirmed. Check its status before starting it again.",
+    "checkManagerOperation": "Check operation"
   },
   "workspace": {
     "errors": {

@@ -308,7 +308,13 @@
     "keepEditing": "Tahrirlashni davom ettirish",
     "discard": "O‘zgarishlarni bekor qilish",
     "installReplacement": "Yangi buildni o‘rnatish",
-    "runtimeSuperseded": "Provider arxivni almashtirgan; eski tanlovlar saqlanadi."
+    "runtimeSuperseded": "Provider arxivni almashtirgan; eski tanlovlar saqlanadi.",
+    "managerConnectionRequired": "Loyihalarni boshqarishni davom ettirish uchun qayta ulaning.",
+    "managerUnavailable": "Lokal boshqaruvchi mavjud emas. DevForge’ni qayta oching.",
+    "connectManager": "Ulanish",
+    "connectingManager": "Ulanmoqda…",
+    "managerOperationUnconfirmed": "Oxirgi so‘rov tasdiqlanmagan. Qayta boshlashdan oldin holatini tekshiring.",
+    "checkManagerOperation": "Amalni tekshirish"
   },
   "workspace": {
     "errors": {

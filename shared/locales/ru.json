@@ -312,7 +312,13 @@
     "keepEditing": "Продолжить редактирование",
     "discard": "Отменить изменения",
     "installReplacement": "Установить новую сборку",
-    "runtimeSuperseded": "Архив заменён поставщиком; старые привязки сохранены."
+    "runtimeSuperseded": "Архив заменён поставщиком; старые привязки сохранены.",
+    "managerConnectionRequired": "Подключитесь снова, чтобы продолжить работу с проектами.",
+    "managerUnavailable": "Локальный менеджер недоступен. Откройте DevForge заново.",
+    "connectManager": "Подключиться",
+    "connectingManager": "Подключение…",
+    "managerOperationUnconfirmed": "Последний запрос не подтверждён. Проверьте его статус перед повторным запуском.",
+    "checkManagerOperation": "Проверить операцию"
   },
   "workspace": {
     "errors": {

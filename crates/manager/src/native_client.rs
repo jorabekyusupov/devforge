@@ -286,6 +286,7 @@ pub struct NativeClient {
     root: [u8; 32],
     session: Option<Session>,
     launched: Option<ReadyChild>,
+    shutdown_id: Option<String>,
 }
 impl fmt::Debug for NativeClient {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -312,6 +313,7 @@ impl NativeClient {
             peer,
             session: None,
             launched: None,
+            shutdown_id: None,
         };
         let started = Instant::now();
         let response =
@@ -337,6 +339,7 @@ impl NativeClient {
             peer,
             session: None,
             launched: Some(monitor),
+            shutdown_id: None,
         };
         let started = Instant::now();
         let response = client.raw(json!({"method":"redeem_bootstrap", "token":credential.expose_secret(),
@@ -888,13 +891,32 @@ impl NativeClient {
         #[serde(deny_unknown_fields)]
         struct Reply {
             state: String,
+            shutdown_id: String,
         }
         let reply: Reply = decode(self.authenticated("quit", json!({}))?)?;
-        if reply.state != "quitting" {
+        if reply.state != "quitting"
+            || reply.shutdown_id.len() != 64
+            || !reply
+                .shutdown_id
+                .bytes()
+                .all(|value| value.is_ascii_digit() || (b'a'..=b'f').contains(&value))
+        {
             return Err(Error::Protocol);
         }
+        self.shutdown_id = Some(reply.shutdown_id);
         self.session = None;
         Ok(())
+    }
+    /// Confirms this authenticated Quit's outcome after cleanup, without any
+    /// credential access. Internally holds the legacy exclusion while reading;
+    /// a missing/pending/stale record never proves successful cleanup.
+    pub fn confirm_shutdown(&self) -> Result<()> {
+        let owner = self
+            .shutdown_id
+            .as_deref()
+            .ok_or_else(|| Error::Remote(RemoteCode("controller_shutdown_unconfirmed".into())))?;
+        crate::controller::confirm_shutdown(self.transport.endpoint(), owner)
+            .map_err(|error| Error::Remote(RemoteCode(error.code().into())))
     }
     /// Reap only an owned launched child's orderly exit. Never kills/relaunches.
     pub fn wait_for_launched_exit(&mut self) -> Result<Option<ExitStatus>> {

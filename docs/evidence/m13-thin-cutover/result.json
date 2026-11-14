@@ -1,0 +1,244 @@
+{
+  "passed": true,
+  "native_webview": true,
+  "ipc_mocked": false,
+  "platform": "macos-arm64",
+  "checks": [
+    "cold_private_bootstrap_no_control_store_probe",
+    "actual_managed_php_http_service",
+    "real_command_results_and_gui_host_pid",
+    "registered_project_and_favorite",
+    "complete_large_debug_read",
+    "configuration_read_parity",
+    "two_native_clients_same_service_owner",
+    "same_key_retry_same_receipt",
+    "gui_crash_preserves_same_manager",
+    "warm_explicit_connect_no_startup_probe",
+    "no_second_workspace_owner",
+    "close_hides_without_stopping_owner",
+    "quit_waits_matching_successful_cleanup"
+  ],
+  "manager_pid": 15381,
+  "service_processes": [
+    [
+      "caddy",
+      {
+        "desired_running": true,
+        "exit_code": null,
+        "failure": null,
+        "history": [
+          {
+            "sequence": 1,
+            "state": "starting"
+          },
+          {
+            "sequence": 2,
+            "state": "starting"
+          },
+          {
+            "sequence": 3,
+            "state": "starting"
+          },
+          {
+            "sequence": 4,
+            "state": "ready"
+          }
+        ],
+        "observed": "ready",
+        "pid": 15491,
+        "restarts": 0
+      }
+    ],
+    [
+      "exec-3714f737c9d649f7b856f6be36343e05-php-web",
+      {
+        "desired_running": true,
+        "exit_code": null,
+        "failure": null,
+        "history": [
+          {
+            "sequence": 1,
+            "state": "starting"
+          },
+          {
+            "sequence": 2,
+            "state": "starting"
+          },
+          {
+            "sequence": 3,
+            "state": "starting"
+          },
+          {
+            "sequence": 4,
+            "state": "ready"
+          }
+        ],
+        "observed": "ready",
+        "pid": 15403,
+        "restarts": 0
+      }
+    ]
+  ],
+  "native_probes": [
+    {
+      "operation_id": "op-35997182ce5afc818f10c2d3fd656d9fe9b11da6cdd667171df3d9f28d3cfdc4",
+      "owner_pid": 15381,
+      "processes": [
+        [
+          "caddy",
+          {
+            "desired_running": true,
+            "exit_code": null,
+            "failure": null,
+            "history": [
+              {
+                "sequence": 1,
+                "state": "starting"
+              },
+              {
+                "sequence": 2,
+                "state": "starting"
+              },
+              {
+                "sequence": 3,
+                "state": "starting"
+              },
+              {
+                "sequence": 4,
+                "state": "ready"
+              }
+            ],
+            "observed": "ready",
+            "pid": 15491,
+            "restarts": 0
+          }
+        ],
+        [
+          "exec-3714f737c9d649f7b856f6be36343e05-php-web",
+          {
+            "desired_running": true,
+            "exit_code": null,
+            "failure": null,
+            "history": [
+              {
+                "sequence": 1,
+                "state": "starting"
+              },
+              {
+                "sequence": 2,
+                "state": "starting"
+              },
+              {
+                "sequence": 3,
+                "state": "starting"
+              },
+              {
+                "sequence": 4,
+                "state": "ready"
+              }
+            ],
+            "observed": "ready",
+            "pid": 15403,
+            "restarts": 0
+          }
+        ]
+      ],
+      "state": "running"
+    },
+    {
+      "operation_id": "op-35997182ce5afc818f10c2d3fd656d9fe9b11da6cdd667171df3d9f28d3cfdc4",
+      "owner_pid": 15381,
+      "processes": [
+        [
+          "caddy",
+          {
+            "desired_running": true,
+            "exit_code": null,
+            "failure": null,
+            "history": [
+              {
+                "sequence": 1,
+                "state": "starting"
+              },
+              {
+                "sequence": 2,
+                "state": "starting"
+              },
+              {
+                "sequence": 3,
+                "state": "starting"
+              },
+              {
+                "sequence": 4,
+                "state": "ready"
+              }
+            ],
+            "observed": "ready",
+            "pid": 15491,
+            "restarts": 0
+          }
+        ],
+        [
+          "exec-3714f737c9d649f7b856f6be36343e05-php-web",
+          {
+            "desired_running": true,
+            "exit_code": null,
+            "failure": null,
+            "history": [
+              {
+                "sequence": 1,
+                "state": "starting"
+              },
+              {
+                "sequence": 2,
+                "state": "starting"
+              },
+              {
+                "sequence": 3,
+                "state": "starting"
+              },
+              {
+                "sequence": 4,
+                "state": "ready"
+              }
+            ],
+            "observed": "ready",
+            "pid": 15403,
+            "restarts": 0
+          }
+        ]
+      ],
+      "state": "running"
+    }
+  ],
+  "http_verified": true,
+  "cached_receipt_ids": [
+    "php-8.4.27-staticphp20261113-fpm-macos-arm64",
+    "node-v24.22.2-macos-arm64",
+    "caddy-v2.11.9-macos-arm64",
+    "composer-2.11.2-macos-arm64",
+    "php-8.4.27-staticphp20261113-cli-macos-arm64"
+  ],
+  "gui_pid": 15371,
+  "native_store_accessed": false,
+  "os_permissions_changed": false,
+  "source_head": "c5285178133ce540b29197f79c0a6227970fbde5",
+  "source_tree_frozen": false,
+  "evidence_scope": "Actual debug WebView/IPC on an isolated working-tree fixture; not a clean release artifact attestation. Later changes were equivalent lint/test fixes; deferred unused report catalogs are excluded from this publication.",
+  "verification_limits": [
+    "macOS ARM64 only",
+    "No production credential store",
+    "No native terminal/file-dialog acceptance",
+    "No signing/minimum-OS/Windows UI acceptance"
+  ],
+  "binary_sha256": {
+    "target/debug/devforge": "9498f1f6af45c97c01b0075ee18670a7b8d25fafd31761b5fd6d873782bdec54",
+    "target/debug/devforge-desktop": "66ee9909607fd0cbfd7c47104123f83529dde92ce8e8036f22e375d0ca832cc7"
+  },
+  "source_sha256": {
+    "apps/desktop/src-tauri/src/workspace.rs": "64b69fd75b372d655f82bc9878a2f71bf55dc33a13671bd3f2430661cea1c2ba",
+    "apps/desktop/src-tauri/src/native_bridge.rs": "82b27586b39c8786142ae35ad5d048ee94bec1b2e8ba50529656b8be7b8b8c89",
+    "crates/manager/src/controller.rs": "a4d68dabbfb6a79bf7428db097628a66bb6958d2b31758b9bae61816b634bc3f",
+    "crates/manager/src/native_client.rs": "0e4b1feb50a6f2c53c88a364958e37e7e89cfccb7ec6b7df78394263482b1ae0"
+  }
+}

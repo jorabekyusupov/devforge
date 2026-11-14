@@ -66,6 +66,10 @@ impl SecretStore for DenyStore {
 }
 fn main() {
     let args = std::env::args_os().skip(1).collect::<Vec<_>>();
+    if args.first().is_some_and(|v| v == "owner_probe") {
+        owner_probe(Path::new(&args[1]), args[2].to_str().unwrap());
+        return;
+    }
     if args.first().is_some_and(|v| v == "fixture") {
         cold_fixture(Path::new(&args[1]));
         return;
@@ -115,6 +119,62 @@ fn main() {
         serde_json::json!({"suite":"native_client","overall":if unavailable==0{"passed"}else{"partial"},"passed":7-unavailable,"unavailable":unavailable,
         "cases":[{"case":"durable_access_uncertainty","status":"passed"},{"case":"desktop_facade_large_read_access_list","status":"passed"},{"case":"cancellable_admission_boundaries","status":"passed"},{"case":"explicit_auth_operations_large_command","status":"passed"},{"case":"actual_large_snapshot","status":"passed"},{"case":"renewal_absolute_deadline","status":"passed"},
             {"case":"detached_cold_bootstrap_owner_replacement","status":if cold=="passed"{"passed"}else{"unavailable"},"reason":if cold=="passed"{None}else{Some("restricted_ancestor_job")}}]})
+    );
+}
+// Invoked twice as independent processes by the isolated native WebView smoke.
+// Only the explicit disposable fixture store is permitted; stdout is nonsecret.
+fn owner_probe(root: &Path, project: &str) {
+    use devforge_workspace::testing::{FixtureRoot, FixtureSecrets};
+    let fixture = FixtureRoot::validate(root).unwrap();
+    let endpoint = Endpoint::existing(fixture.root()).unwrap();
+    let auth = DesktopAuth::new(
+        endpoint.clone(),
+        local_owner_user().unwrap(),
+        Policy::default(),
+    )
+    .unwrap();
+    let credential = auth
+        .read_if_existing(
+            &TrustedDesktopAction::from_explicit_desktop_action(),
+            &FixtureSecrets::open(fixture.control_store_path()),
+        )
+        .unwrap()
+        .unwrap();
+    let mut client = NativeClient::authenticate_explicit(endpoint, &credential).unwrap();
+    let receipt = client
+        .admit(
+            &id(project),
+            &id("thin-native-owner-retry"),
+            &Command::Favorite {
+                id: project.into(),
+                favorite: true,
+            },
+        )
+        .unwrap();
+    let started = Instant::now();
+    loop {
+        let status = client.status(&id(project), &receipt.operation_id).unwrap();
+        if status.state == OperationState::Succeeded {
+            break;
+        }
+        assert!(matches!(
+            status.state,
+            OperationState::Queued | OperationState::Running
+        ));
+        assert!(started.elapsed() < Duration::from_secs(10));
+        thread::sleep(Duration::from_millis(20));
+    }
+    let snapshot = client.snapshot().unwrap();
+    let row = snapshot.snapshot["projects"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|row| row["project"]["id"] == project)
+        .unwrap();
+    println!(
+        "{}",
+        serde_json::json!({"owner_pid":client.health().unwrap().owner_pid,
+        "operation_id":receipt.operation_id,"processes":row["processes"],"state":row["state"]})
     );
 }
 fn id(value: &str) -> Id {
@@ -908,8 +968,8 @@ fn desktop_facade_large_reads_access_and_operations() {
     assert_eq!(loaded.language, "ru");
     assert_eq!(loaded.theme, Theme::Dark);
     assert_eq!(
-        loaded.project_folder.as_deref(),
-        Some(fs::canonicalize(&scan2).unwrap().to_str().unwrap())
+        fs::canonicalize(loaded.project_folder.as_deref().unwrap()).unwrap(),
+        fs::canonicalize(&scan2).unwrap()
     );
     let first = client.operations(Some(&project_id), None, 1).unwrap();
     assert_eq!(first.items.len(), 1);

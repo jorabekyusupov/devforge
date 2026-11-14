@@ -1034,3 +1034,23 @@ canonicalfilesystempaths, preserving ru/dark/valuechecks. Onlythatcase reran:
 1passedmacOS, scopedrustfmtpassed. Priorattempt didnotexecute because shutdown
 helperwasinflight; retriedonceaftercompilefix. No productionpath behavior changed.
 NewWindowsrun required; no full suite rerunlocal.
+
+
+## M13.1 actual thin GUI cutover
+
+[Native result](native-manager-gui-results.md): desktop now delegates all20old
+handlers through NativeBridge; noWorkspace/Supervisor fallback. Only minimal
+explicitConnect/reconcile UI added. User's strict scope rule applied: reported
+connection/Quit races, pending-folder overwrite, staleauthbanner and reconciliation
+deadends fixed, no optional work opened. ActualmacARM64WebView13/13 passed with
+realPHPHTTP+GUI/twoindependentSDKclients/sameownerPIDs/samekeyreceipt/Close+warm
+survival/finalconfirmedQuit. No downloads/nativeOSstore/securitypermissionchanges.
+
+Rustconsumer3/frontend8/typecheck/locales/scopeddesktop+SDKclippy passed. Shutdown
+completion uses matching per-owner final outcome, not ACK/lease alone:2new+4affected
+checks passed. WindowsrawpathSDKfixture canonicalized,1affectedfacadecase passed.
+Source/binaryprovenance explicitly dirty/unfrozen; no fullnative/regressionrerun.
+WindowsnewUI/minOS/credentials/dialog/terminal/signing gates open. Local M13.1
+functional acceptance validated; remaining target checks do not become falsepass.
+Deferred report components/catalog namespaces remain unstaged until their planned
+integration. No externalCLI/MCP capability claimed.

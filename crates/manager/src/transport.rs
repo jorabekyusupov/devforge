@@ -153,6 +153,9 @@ pub struct Client {
     endpoint: Endpoint,
 }
 impl Client {
+    pub(crate) fn endpoint(&self) -> &Endpoint {
+        &self.endpoint
+    }
     pub fn new(endpoint: Endpoint) -> Self {
         Self { endpoint }
     }

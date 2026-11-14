@@ -368,6 +368,8 @@ pub fn run() {
             save_settings,
             create_project_folder,
             workspace::discovery_scan,
+            workspace::connect_manager,
+            workspace::reconcile_manager_operation,
             workspace::workspace_snapshot,
             workspace::inspector_snapshot,
             workspace::debug_read,
@@ -401,9 +403,8 @@ pub fn run() {
         .setup(|app| {
             // Single-instance detection runs before setup. Keep an independent
             // data-root lease for installer/CLI lifecycle checks.
-            app.manage(devforge_platform::distribution::AppLease::acquire(
-                &app_data_dir()?,
-            )?);
+            // NativeBridge owns the distinct thin-client lease. The manager
+            // retains desktop.lock to exclude legacy Workspace owners.
             #[cfg(feature = "e2e")]
             eprintln!("E2E_PHASE: native window created");
             let bundle: serde_json::Value = serde_json::from_str(BUNDLE)?;
@@ -434,7 +435,7 @@ pub fn run() {
             state
                 .native_synced
                 .store(tray.is_ok() && menus_synced, Ordering::Relaxed);
-            let workspace_state = workspace::State::new(app_data_dir()?);
+            let workspace_state = workspace::State::new(app_data_dir()?)?;
             if let Some(folder) = snapshot
                 .as_ref()
                 .and_then(|s| s.settings.project_folder.as_ref())

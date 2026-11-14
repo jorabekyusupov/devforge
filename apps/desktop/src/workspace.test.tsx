@@ -89,6 +89,31 @@ async function mount(
   return userEvent.setup();
 }
 describe("daily workspace", () => {
+  it("requires an explicit connect action and refreshes only after it succeeds", async () => {
+    const b = backend();
+    b.api.connect = vi.fn(async () => {});
+    vi.mocked(b.api.snapshot).mockRejectedValueOnce({scope:"workspace",code:"native_bridge_authentication_required"});
+    const user = await mount(b.api);
+    await user.click(await screen.findByRole("button", {name:"Connect"}));
+    expect(b.api.connect).toHaveBeenCalledTimes(1);
+    expect(await screen.findByText("Your workspace starts here")).toBeInTheDocument();
+    expect(screen.queryByText("Reconnect to continue managing your projects.")).not.toBeInTheDocument();
+  });
+  it("keeps reconciliation reachable after reconnect while the remote worker is busy", async () => {
+    const b = backend();
+    b.api.connect = vi.fn(async () => { throw {scope:"workspace",code:"native_client_admission_unconfirmed"}; });
+    b.api.reconcile = vi.fn(async () => ({saved:true}));
+    vi.mocked(b.api.snapshot).mockRejectedValueOnce({scope:"workspace",code:"native_bridge_authentication_required"})
+      .mockImplementation(async () => ({snapshot:structuredClone(b.get()),busy:true}));
+    const user = await mount(b.api);
+    await user.click(await screen.findByRole("button",{name:"Connect"}));
+    const reconcile = await screen.findByRole("button",{name:"Check operation"});
+    await waitFor(() => expect(b.api.snapshot).toHaveBeenCalledTimes(2),{timeout:3000});
+    expect(reconcile).toBeEnabled();
+    await user.click(reconcile);
+    expect(b.api.reconcile).toHaveBeenCalledTimes(1);
+    expect(b.api.execute).not.toHaveBeenCalled();
+  });
   it("keeps input and localized error inside the import dialog, then recovers through the real command shape", async () => {
     const b = backend();
     const user = await mount(b.api);

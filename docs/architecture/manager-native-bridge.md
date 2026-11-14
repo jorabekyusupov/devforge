@@ -1,9 +1,9 @@
 # Isolated native bridge prerequisite
 
-Status: compiled native module and focused fixture evidence only. The desktop
-registers the module, not a new invoke handler/app state or default owner mode.
-The old `workspace::State` and all existing handlers remain active. React, native
-menus/windows and the renderer protocol were not migrated by this slice.
+Status: the desktop now uses this thin native bridge. `workspace::State` adapts
+all20 original handlers to the manager and owns no Workspace/Supervisor/watcher.
+Two additive commands provide explicit Connect and read-only operation
+reconciliation. Menus, dialogs, appearance and hide-to-tray remain local.
 
 ## Ownership and connection boundaries
 
@@ -40,12 +40,12 @@ then creates the server-bounded renewable native GUI context. This differs from
 the unchanged core `DesktopAuth::authenticate`, which still creates fixed,
 nonrenewable sessions. No additional role/TTL flag is accepted from a caller.
 
-`renew_connected_context` is separate native lifecycle maintenance. A future
-trusted native timer may call it before expiry; normal SDK polling does not
-silently renew. Maintenance never calls the provider, never resurrects an
+`renew_connected_context` is separate native lifecycle maintenance. The native
+coordinator calls `maintain_connected_context` before expiry; normal SDK polling
+does not silently renew. Maintenance never calls the provider, never resurrects an
 expired/revoked/nonrenewable token, and never extends the hard GUI-context
-deadline. An expired context requires explicit user authentication. The module
-exposes this method but installs no automatic timer or UI in the current slice.
+deadline. An expired context requires explicit user authentication. The timer never obtains or provisions a credential; expired authority requires
+explicit localized Connect.
 
 ## Incremental data and GUI intent state
 
@@ -71,11 +71,11 @@ effect was undone. Durable accesses use the same tracker and keep their original
 key on an uncertain reply. Pure `operation_by_key` reconciliation does not retry
 execution, and None is not proof an older handler cannot still commit.
 
-These are native primitives for a later compatibility adapter. The old actual
-result/domain error, trusted recovery project ID, GUI host_pid, localized errors,
-dialogs/focus, terminal and Close-versus-Quit behavior still need actual handler
-wiring and native acceptance described in
-[the migration design](manager-desktop-migration.md).
+The compatibility adapter now returns actual operation results and domain errors,
+uses trusted recovery metadata and preserves GUI host_pid. Snapshot/read pages
+yield the SDK mutex between RPCs. Unconfirmed durable intents retain their key
+across reconnect and expose Check operation without replay. The migration record
+separates measured acceptance from remaining platform/dialog/terminal gates.
 
 ## Verification and remaining gates
 
@@ -99,10 +99,30 @@ No fixture opened a window, Terminal.app, browser, editor, native credential sto
 or OS permission dialog. The common test helper normalizes only its newly created
 disposable Windows fixture root. No production ACL policy was weakened.
 
-The GUI default remains legacy. A prepared development build path, post-signing
-CLI digest acceptance, complete old-handler result/error adaptation, explicit UI
-authentication/localization, actual native timer/lifecycle and platform UI checks
-remain prerequisites before cutover. Debug E2E GUI/CLI stores must be compile-gated,
-debug-only and isolated. The earlier fixture store's cross-process stale-map/write
-behavior requires its separate shared-storage fix; this module's fixtures use
-Memory/Deny stores and do not substitute native Keychain access for that gate.
+The native GUI default is thin-client. Prepared builds require a compiled fixed
+CLI target/digest; unprepared builds show the connection notice without PATH
+fallback. Debug E2E uses explicit guarded fixture roots and shared cross-process
+FixtureSecrets. Production has no environment-selected fixture store.
+
+## Actual cutover acceptance (macOS ARM64)
+
+`output/native/m13-thin-cutover/result.json` records13 passed checks from a real
+embedded WebView and actual Tauri IPC without invoke mocks. A fresh e2e CLI and
+GUI used only copied cached packages with receipts matching the current catalog.
+An actual managed PHP HTTP response passed; GUI plus two independent SDK processes
+observed identical manager, Caddy and PHP PIDs. Same-key retry returned the same
+operation ID. GUI crash/relaunch and Close preserved those PIDs; a real Connect
+button authenticated the warm GUI, with no control-store read before that action.
+Quit waited for matching successful cleanup and persisted inhibition. Both cold
+and warm screenshots were inspected. No native store, download or permission
+dialog was involved. This proves PHP serving, not Laravel vendor/queue/DB behavior.
+
+Shutdown ACK alone is not completion: the SDK captures an opaque shutdown ID and
+confirms its owner-bound outcome while holding the legacy AppLease after cleanup.
+Failed/stale/missing outcomes keep the GUI open. Every in-flight cold/manual
+connection settles before no-owner success; quitting rejects late connections.
+Three focused consumer checks cover pending-discovery restoration, cold Connect/
+Quit ordering and actual result/large-read/error/host-PID/cleanup compatibility.
+The affected frontend workspace tests passed8/8. Windows native cutover,
+production credential prompts, native terminal/dialog/focus and signed-package
+post-signing CLI digest acceptance remain unverified by this macOS fixture.

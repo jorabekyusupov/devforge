@@ -219,7 +219,9 @@ pipe/controller component can exercise CRT/pipe behavior without proving detache
 survival. It is a test component, never a production fallback. Actual GUI cold/warm
 start, renderer credential isolation, complete M7 control/read compatibility,
 minimum OS, native credential dialogs, installers/signing and HTTP transport remain
-separate gates. No GUI owner mode is enabled by this SDK.
+separate gates. The later desktop adapter now enables thin GUI ownership; see the
+[bridge cutover evidence](manager-native-bridge.md#actual-cutover-acceptance-macos-arm64).
+The SDK itself still installs no UI or credential provider.
 
 The subsequent targeted `native_client -- facade` case passed on macOS ARM64
 against actual Controller/Workspace producers. It checked a source read larger

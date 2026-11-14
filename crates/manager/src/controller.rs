@@ -40,6 +40,8 @@ pub enum Error {
     BootstrapUnavailable,
     Unauthorized,
     PayloadUnavailable,
+    ShutdownFailed,
+    ShutdownUnconfirmed,
 }
 impl Error {
     pub fn code(self) -> &'static str {
@@ -55,6 +57,8 @@ impl Error {
             Self::BootstrapUnavailable => "controller_bootstrap_unavailable",
             Self::Unauthorized => "manager_auth_unauthorized",
             Self::PayloadUnavailable => "controller_payload_unavailable",
+            Self::ShutdownFailed => "controller_shutdown_failed",
+            Self::ShutdownUnconfirmed => "controller_shutdown_unconfirmed",
         }
     }
 }
@@ -112,6 +116,7 @@ struct Context {
     owner_active: AtomicBool,
     payloads: Mutex<crate::payload::Store>,
     stop: StopSignal,
+    shutdown_id: String,
 }
 /// Trusted OS-signal composition, never a wire role or request field. This may
 /// wait for persistence; call it on the signal library's dedicated worker.
@@ -161,6 +166,15 @@ impl Controller {
             StartIntent::ExplicitUserStart => persist_inhibition(&endpoint, false)?,
             _ => {}
         }
+        let mut nonce = [0u8; 32];
+        getrandom::fill(&mut nonce).map_err(|_| Error::PersistenceUnavailable)?;
+        let shutdown_id: String = nonce.iter().map(|byte| format!("{byte:02x}")).collect();
+        let mut lifecycle = read_inhibition(&endpoint)?;
+        lifecycle.shutdown = Some(ShutdownRecord {
+            owner: shutdown_id.clone(),
+            outcome: ShutdownOutcome::Pending,
+        });
+        persist_lifecycle_checked(&endpoint, &lifecycle, || Ok(()))?;
         let auth = DesktopAuth::new(endpoint.clone(), local_owner_user()?, options.auth)
             .map_err(|_| Error::AuthenticationUnavailable)?;
         let actor = WorkspaceActor::start_with_terminal_arguments(
@@ -185,6 +199,7 @@ impl Controller {
             quitting: AtomicBool::new(false),
             owner_active: AtomicBool::new(true),
             stop: StopSignal::default(),
+            shutdown_id,
         });
         Ok(Self {
             server: Some(Server::new(owner)),
@@ -205,12 +220,13 @@ impl Controller {
     /// pipe captured by the launch entrypoint, never from a wire request.
     pub fn serve(mut self, bootstrap: Option<BootstrapWriter>) -> Result<()> {
         if self.context.quitting.load(Ordering::Acquire) {
-            return self
+            let cleanup = self
                 .actor
                 .take()
                 .ok_or(Error::ActorUnavailable)?
                 .shutdown()
                 .map_err(|_| Error::ActorUnavailable);
+            return self.context.finish_shutdown(cleanup);
         }
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
@@ -284,7 +300,7 @@ impl Controller {
         // the event-loop owner on an abandoned OS prompt; no actor lease is held
         // by those tasks and their results are refused after quitting.
         runtime.shutdown_timeout(Duration::from_millis(100));
-        result.and(cleanup)
+        self.context.finish_shutdown(result.and(cleanup))
     }
 }
 impl Drop for Controller {
@@ -306,6 +322,9 @@ impl Drop for Controller {
             .clear();
         if let Some(actor) = self.actor.take() {
             let _ = actor.shutdown();
+            // Dropping without a completed serve is not a successful explicit
+            // shutdown, even if the best-effort service cleanup returned Ok.
+            let _ = self.context.finish_shutdown(Err(Error::ShutdownFailed));
         }
         self.server.take();
     }
@@ -403,6 +422,27 @@ enum Request {
     },
 }
 impl Context {
+    fn finish_shutdown(&self, cleanup: Result<()>) -> Result<()> {
+        let mut lifecycle = read_inhibition(&self.endpoint)?;
+        if lifecycle
+            .shutdown
+            .as_ref()
+            .map(|value| value.owner.as_str())
+            != Some(self.shutdown_id.as_str())
+        {
+            return Err(Error::ShutdownUnconfirmed);
+        }
+        lifecycle.shutdown = Some(ShutdownRecord {
+            owner: self.shutdown_id.clone(),
+            outcome: if cleanup.is_ok() {
+                ShutdownOutcome::Succeeded
+            } else {
+                ShutdownOutcome::Failed
+            },
+        });
+        persist_lifecycle_checked(&self.endpoint, &lifecycle, || Ok(()))?;
+        cleanup
+    }
     // Caller holds quit_gate. Failure changes no live admission/auth/stop state.
     fn commit_quit<F: FnOnce() -> Result<()>>(&self, authorize: F) -> Result<()> {
         if !self.owner_active.load(Ordering::Acquire) {
@@ -411,7 +451,13 @@ impl Context {
         if self.quitting.load(Ordering::Acquire) {
             return Ok(());
         }
-        persist_inhibition_checked(&self.endpoint, true, authorize)?;
+        let mut lifecycle = read_inhibition(&self.endpoint)?;
+        lifecycle.inhibited = true;
+        lifecycle.shutdown = Some(ShutdownRecord {
+            owner: self.shutdown_id.clone(),
+            outcome: ShutdownOutcome::Pending,
+        });
+        persist_lifecycle_checked(&self.endpoint, &lifecycle, authorize)?;
         self.quitting.store(true, Ordering::Release);
         self.payloads
             .lock()
@@ -731,7 +777,7 @@ impl Context {
                     return fault(error.code());
                 }
                 auth.revoke_all();
-                success(json!({"state":"quitting"}))
+                success(json!({"state":"quitting","shutdown_id":self.shutdown_id}))
             }
             _ => fault("controller_invalid_request"),
         }
@@ -798,16 +844,45 @@ fn decode_hex(value: &str) -> Option<[u8; 32]> {
 struct Inhibition {
     schema: u32,
     inhibited: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    shutdown: Option<ShutdownRecord>,
+}
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ShutdownRecord {
+    owner: String,
+    outcome: ShutdownOutcome,
+}
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum ShutdownOutcome {
+    Pending,
+    Succeeded,
+    Failed,
+}
+impl Default for Inhibition {
+    fn default() -> Self {
+        Self {
+            schema: 1,
+            inhibited: false,
+            shutdown: None,
+        }
+    }
 }
 const INHIBITION: &str = "quit-inhibited.json";
 fn inhibition(endpoint: &Endpoint) -> Result<bool> {
+    Ok(read_inhibition(endpoint)?.inhibited)
+}
+fn read_inhibition(endpoint: &Endpoint) -> Result<Inhibition> {
     endpoint
         .validate()
         .map_err(|_| Error::PersistenceUnavailable)?;
     let path = endpoint.directory.join(INHIBITION);
     match fs::symlink_metadata(&path) {
         Ok(metadata) if metadata.is_file() && !metadata.file_type().is_symlink() => {}
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            return Ok(Inhibition::default());
+        }
         _ => return Err(Error::PersistenceUnavailable),
     }
     let mut options = OpenOptions::new();
@@ -815,7 +890,9 @@ fn inhibition(endpoint: &Endpoint) -> Result<bool> {
     crate::transport::os::secure_lock_options(&mut options);
     let file = match options.open(path) {
         Ok(value) => value,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            return Ok(Inhibition::default());
+        }
         Err(_) => return Err(Error::PersistenceUnavailable),
     };
     crate::transport::os::validate_lock(&file).map_err(|_| Error::PersistenceUnavailable)?;
@@ -828,10 +905,39 @@ fn inhibition(endpoint: &Endpoint) -> Result<bool> {
     }
     let state: Inhibition =
         serde_json::from_slice(&bytes).map_err(|_| Error::PersistenceUnavailable)?;
-    if state.schema != 1 {
+    if state.schema != 1
+        || state
+            .shutdown
+            .as_ref()
+            .is_some_and(|value| decode_hex(&value.owner).is_none())
+    {
         return Err(Error::PersistenceUnavailable);
     }
-    Ok(state.inhibited)
+    Ok(state)
+}
+/// The lease is acquired here and retained throughout the read, excluding a
+/// replacement owner until the bounded owner-specific outcome is confirmed.
+pub(crate) fn confirm_shutdown(endpoint: &Endpoint, owner: &str) -> Result<()> {
+    if decode_hex(owner).is_none() {
+        return Err(Error::ShutdownUnconfirmed);
+    }
+    let _lease = AppLease::acquire(endpoint.root()).map_err(|error| {
+        if error.kind() == std::io::ErrorKind::WouldBlock {
+            Error::Busy
+        } else {
+            Error::PersistenceUnavailable
+        }
+    })?;
+    let lifecycle = read_inhibition(endpoint)?;
+    let record = lifecycle.shutdown.ok_or(Error::ShutdownUnconfirmed)?;
+    if record.owner != owner {
+        return Err(Error::ShutdownUnconfirmed);
+    }
+    match record.outcome {
+        ShutdownOutcome::Succeeded => Ok(()),
+        ShutdownOutcome::Failed => Err(Error::ShutdownFailed),
+        ShutdownOutcome::Pending => Err(Error::ShutdownUnconfirmed),
+    }
 }
 fn persist_inhibition(endpoint: &Endpoint, value: bool) -> Result<()> {
     persist_inhibition_checked(endpoint, value, || Ok(()))
@@ -839,6 +945,15 @@ fn persist_inhibition(endpoint: &Endpoint, value: bool) -> Result<()> {
 fn persist_inhibition_checked<F: FnOnce() -> Result<()>>(
     endpoint: &Endpoint,
     value: bool,
+    authorize: F,
+) -> Result<()> {
+    let mut state = read_inhibition(endpoint)?;
+    state.inhibited = value;
+    persist_lifecycle_checked(endpoint, &state, authorize)
+}
+fn persist_lifecycle_checked<F: FnOnce() -> Result<()>>(
+    endpoint: &Endpoint,
+    state: &Inhibition,
     authorize: F,
 ) -> Result<()> {
     endpoint
@@ -863,14 +978,7 @@ fn persist_inhibition_checked<F: FnOnce() -> Result<()>>(
             .open(&temporary)
             .map_err(|_| Error::PersistenceUnavailable)?;
         crate::transport::os::validate_lock(&file).map_err(|_| Error::PersistenceUnavailable)?;
-        serde_json::to_writer(
-            &mut file,
-            &Inhibition {
-                schema: 1,
-                inhibited: value,
-            },
-        )
-        .map_err(|_| Error::PersistenceUnavailable)?;
+        serde_json::to_writer(&mut file, state).map_err(|_| Error::PersistenceUnavailable)?;
         file.sync_all().map_err(|_| Error::PersistenceUnavailable)?;
         drop(file);
         authorize()?;

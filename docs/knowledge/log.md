@@ -4,6 +4,8 @@
 
 ## 2026-11-14
 
+- **M13.1 actual GUI cutover:**20handler thin adapter/noWorkspacefallback, minimalconnect/reconcile, confirmedshutdownidentity; nativeWebView13/13 realPHP/twoclients/samePID/retry/Close/warm/Quit passed.3Rust/8frontend/typecheck/locales/scopedclippy; remainingWindows/native-store/minOSgates explicit. [Result](native-manager-gui-results.md).
+
 - **Windows saved-folder fixture:** canonicalpath equivalence replaces verbatim-string equality;1affectedcase/fmt passed, productionunchanged. NativeCIpending. [Execution](execution-status.md).
 
 - **M13.1 bridge/E2E checkpoint:** staged native bridge/subject advice/report reads and isolated debug CLI/locked fixture prerequisites validated with focused checks; old GUI ownership remains until cutover. User strict no-extra-scope/test rule recorded in plan. [Bridge](../architecture/manager-native-bridge.md), [E2E](../architecture/cli-e2e-fixture-composition.md), [execution](execution-status.md).

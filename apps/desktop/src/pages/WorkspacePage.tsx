@@ -93,11 +93,17 @@ export function WorkspacePage({
     window.addEventListener("hashchange", changed);
     return () => window.removeEventListener("hashchange", changed);
   }, []);
+  const needsReconciliation = api.error?.code === "native_client_admission_unconfirmed";
+  const needsConnection = !!api.error && /^(native_bridge_|native_client_reauthentication_required|manager_auth_)/.test(api.error.code);
   const errorKey = api.error
     ? `${api.error.scope}.errors.${api.error.code}`
     : "";
   const errorMessage = api.error
-    ? i18n.exists(errorKey)
+    ? needsReconciliation
+      ? t("work.managerOperationUnconfirmed")
+      : needsConnection
+      ? t(api.error.code === "native_bridge_artifact_unavailable" ? "work.managerUnavailable" : "work.managerConnectionRequired")
+      : i18n.exists(errorKey)
       ? t(errorKey)
       : api.error.code === "desktop_unavailable"
         ? t("errors.desktop_unavailable")
@@ -143,10 +149,10 @@ export function WorkspacePage({
           <AlertCircle aria-hidden="true" />
           <div>
             <p>{errorMessage}</p>
-            <a href="#runtimes">{t("work.checkRuntimes")}</a>
+            {!needsConnection && !needsReconciliation && <a href="#runtimes">{t("work.checkRuntimes")}</a>}
           </div>
-          <button onClick={() => void api.refresh()} disabled={api.busy}>
-            {t("common.retry")}
+          <button type="button" onClick={() => void (needsReconciliation ? api.reconcile() : needsConnection ? api.connect() : api.refresh())} disabled={needsReconciliation ? api.connecting : api.busy}>
+            {t(needsReconciliation ? "work.checkManagerOperation" : needsConnection ? (api.connecting ? "work.connectingManager" : "work.connectManager") : "common.retry")}
           </button>
           <button aria-label={t("work.dismiss")} onClick={api.clearError}>
             <X aria-hidden="true" />

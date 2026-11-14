@@ -29,7 +29,9 @@ mavzuni tanlang, so'ng faqat tegishli hujjatlar va ularning manbalarini o'qing.
 
 ## Manba va yuritish
 
-- [Native bridge prerequisite](../architecture/manager-native-bridge.md) - Rust-only client state, incremental snapshot va oldingi handlerlarga hali ulanmagan modul.
+- [M13.1 native GUI cutover](native-manager-gui-results.md) - actual WebView13 checks, one owner/two clients, Close/Quit va target gates.
+
+- [Native bridge prerequisite](../architecture/manager-native-bridge.md) - Rust-only client state va incremental snapshot; native handler adoption natijasi alohida qayd etilgan.
 - [Native subject advice](../architecture/manager-subject-advice.md) - IDs-only advisory lookup, admission/execution authority saqlanadi.
 - [Debug E2E composition](../architecture/cli-e2e-fixture-composition.md) - explicit feature/flag, bound fresh fixture root va production fallback yo‘qligi.
 

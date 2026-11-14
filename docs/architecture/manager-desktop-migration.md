@@ -1,10 +1,11 @@
 # Thin native-client desktop migration: design and evidence gates
 
-Status: source-grounded cutover design. The GUI still owns its legacy Workspace;
-this document does not claim that desktop ownership, M7 behavior, native dialogs
-or packaged cold/warm launch have migrated. Manager/SDK facade prerequisites are
-implemented in separate slices and require their own checks before the switch.
-No GUI redesign or technology change is proposed.
+Status: thin-client cutover implemented. The GUI retains local window/dialog/
+appearance responsibilities and adapts all20 original handlers to one manager
+without a local Workspace fallback. Two additive commands provide explicit
+Connect and read-only uncertain-operation reconciliation. The design below
+records preserved contracts and platform gates; current macOS evidence is in
+[the bridge record](manager-native-bridge.md#actual-cutover-acceptance-macos-arm64).
 
 ## Existing contract that must survive
 
@@ -197,6 +198,7 @@ a replacement write would not have established the same guarantee.
   Close versus Quit, three locales and appearance. Source/build/browser checks
   alone cannot establish those results.
 
-The existing NativeClient/manager fixture evidence proves specific backend slices,
-not this complete cutover. No GUI source or default owner mode was changed by this
-design/evidence record.
+The adapter and default owner mode are now switched. Actual macOS WebView
+acceptance covers cold/warm ownership, two native clients, exact retry identity,
+managed PHP HTTP, large reads, Close and confirmed Quit. It does not substitute
+for Windows native, production credential-store, terminal/dialog or signing gates.

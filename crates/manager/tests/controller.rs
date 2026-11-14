@@ -246,6 +246,7 @@ fn failed_quit_persistence_keeps_controller_authenticated_and_usable() {
     let (client, worker) = running(root.path(), secrets);
     let session = authenticate(&client, &key);
     let target = root.path().join("control/quit-inhibited.json");
+    fs::remove_file(&target).unwrap();
     fs::create_dir(&target).unwrap();
     let failed = client
         .request(&json!({"method":"quit","session":session}))
@@ -396,6 +397,7 @@ fn trusted_os_quit_uses_same_persistence_gate_and_stale_handle_cannot_change_lat
         thread::sleep(Duration::from_millis(10));
     }
     let marker = root.path().join("control/quit-inhibited.json");
+    fs::remove_file(&marker).unwrap();
     fs::create_dir(&marker).unwrap();
     assert_eq!(
         signal.request_explicit().unwrap_err(),
@@ -459,6 +461,7 @@ fn quit_rejects_dangling_marker_without_outside_write_or_stopping_actor() {
     let (client, worker) = running(root.path(), secrets);
     let session = authenticate(&client, &key);
     let marker = root.path().join("control/quit-inhibited.json");
+    fs::remove_file(&marker).unwrap();
     symlink(&forbidden, &marker).unwrap();
     assert_eq!(
         client

@@ -210,6 +210,17 @@ impl NativeBridge {
     /// No path, endpoint or role parameter can be supplied by a renderer.
     pub fn from_native_configuration(provider: Arc<dyn NativeCredentialProvider>) -> Result<Self> {
         let root = app_data_dir().map_err(|_| BridgeError::InvalidRoot)?;
+        #[cfg(feature = "e2e")]
+        {
+            let fixture =
+                crate::fixture_root::from_environment().map_err(|_| BridgeError::InvalidRoot)?;
+            if fixture.root()
+                != std::fs::canonicalize(&root).map_err(|_| BridgeError::InvalidRoot)?
+            {
+                return Err(BridgeError::InvalidRoot);
+            }
+        }
+
         let artifact =
             manager_artifact::bundled_launch().map_err(|_| BridgeError::ArtifactUnavailable)?;
         Self::build(root, artifact, provider)
@@ -244,6 +255,13 @@ impl NativeBridge {
                 operation: Mutex::new(None),
             }),
         })
+    }
+    #[cfg(test)]
+    pub(crate) fn from_fixture(
+        root: PathBuf,
+        provider: Arc<dyn NativeCredentialProvider>,
+    ) -> Result<Self> {
+        Self::build(root, None, provider)
     }
     pub fn connection_view(&self) -> ConnectionView {
         self.inner
@@ -314,13 +332,25 @@ impl NativeBridge {
             );
             BridgeError::ArtifactUnavailable
         })?;
+        let arguments = vec![
+            "manager".into(),
+            "serve".into(),
+            "--private-desktop-bootstrap".into(),
+        ];
+        #[cfg(feature = "e2e")]
+        let arguments = {
+            let mut arguments = arguments;
+            let fixture =
+                crate::fixture_root::from_environment().map_err(|_| BridgeError::InvalidRoot)?;
+            if fixture.root() != self.inner.root {
+                return Err(BridgeError::InvalidRoot);
+            }
+            arguments.push("--internal-fixture-store".into());
+            arguments
+        };
         let spec = LaunchSpec {
             executable: artifact.executable.clone(),
-            arguments: vec![
-                "manager".into(),
-                "serve".into(),
-                "--private-desktop-bootstrap".into(),
-            ],
+            arguments,
             data_root: self.inner.root.clone(),
             environment: native_environment(),
         };
@@ -419,9 +449,27 @@ impl NativeBridge {
             }
         }
     }
+    // Owned image buffers cannot be retried after a try_lock failure (the move
+    // would drop them). These worker-only finalizers wait for the bounded RPC
+    // currently holding the client; no native credential prompt holds this lock.
+    fn with_owned_image<T>(
+        &self,
+        f: impl FnOnce(&mut NativeClient) -> native_client::Result<T>,
+    ) -> Result<T> {
+        let mut slot = self.inner.sdk.lock().map_err(|_| BridgeError::Protocol)?;
+        f(slot.as_mut().ok_or(BridgeError::AuthenticationRequired)?).map_err(map_sdk)
+    }
     /// Separate native lifecycle maintenance, e.g. a trusted timer before token
     /// expiry. Never a polling side effect or provider call; the SDK refuses an
     /// expired/revoked/nonrenewable token and preserves the hard context deadline.
+    /// Native lifecycle scheduler only; no provider, no expired resurrection.
+    pub fn maintain_connected_context(&self) -> Result<()> {
+        let info = self.with_sdk(NativeClient::session_info)?;
+        if info.renewable && info.expires_in_ms < 60_000 {
+            self.renew_connected_context()?;
+        }
+        Ok(())
+    }
     pub fn renew_connected_context(&self) -> Result<()> {
         self.with_sdk(|sdk| sdk.renew_explicit().map(|_| ()))
     }
@@ -435,10 +483,10 @@ impl NativeBridge {
         self.with_sdk(|sdk| sdk.snapshot_step(read))
     }
     pub fn finish_snapshot(&self, read: SnapshotRead) -> Result<Snapshot> {
-        self.with_sdk(|sdk| sdk.finish_snapshot(read))
+        self.with_owned_image(|sdk| sdk.finish_snapshot(read))
     }
     pub fn release_snapshot(&self, read: SnapshotRead) -> Result<()> {
-        self.with_sdk(|sdk| sdk.release_snapshot(read))
+        self.with_owned_image(|sdk| sdk.release_snapshot(read))
     }
     pub fn begin_read(&self, key: &Id, request: &ReadRequest) -> Result<Receipt> {
         self.with_sdk(|sdk| sdk.desktop_read(key, request))
@@ -453,10 +501,10 @@ impl NativeBridge {
         self.with_sdk(|sdk| sdk.read_result_step(read))
     }
     pub fn finish_read(&self, read: ReadResult) -> Result<Value> {
-        self.with_sdk(|sdk| sdk.finish_read_result(read))
+        self.with_owned_image(|sdk| sdk.finish_read_result(read))
     }
     pub fn release_read(&self, read: ReadResult) -> Result<()> {
-        self.with_sdk(|sdk| sdk.release_read_result(read))
+        self.with_owned_image(|sdk| sdk.release_read_result(read))
     }
     pub fn access_user_action(&self, key: &Id, request: &AccessRequest) -> Result<Receipt> {
         self.with_sdk(|sdk| sdk.desktop_access(key, request))
@@ -763,6 +811,11 @@ impl NativeBridge {
             }
         }
     }
+    /// Separate post-ACK cleanup confirmation; works after session revocation.
+    /// The SDK checks the matching owner outcome while holding the legacy lease.
+    pub fn confirm_owner_shutdown(&self) -> Result<()> {
+        self.with_sdk(|sdk| sdk.confirm_shutdown())
+    }
 }
 fn native_environment() -> std::collections::BTreeMap<std::ffi::OsString, std::ffi::OsString> {
     // Native process context only; the manager executable is separately fixed
@@ -813,7 +866,7 @@ fn map_sdk(error: native_client::Error) -> BridgeError {
 
 #[cfg(test)]
 #[path = "../../../../crates/manager/tests/common/mod.rs"]
-mod fixture_root;
+pub(crate) mod fixture_root;
 #[cfg(test)]
 mod tests {
     use super::*;

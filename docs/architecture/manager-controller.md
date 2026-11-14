@@ -144,3 +144,14 @@ actor job43567704236's first deadline failure is retained as failure history,
 not treated as a platform pass. Whole-workspace/GUI/minimum-OS checks were not run
 by these focused cases. The separate private-bootstrap/auth tests retain their
 own source/evidence boundary.
+
+
+## Confirmed shutdown completion
+
+The existing inhibition marker now carries a fresh per-start shutdown identity
+and pending/succeeded/failed result. Authenticated Quit ACK returns that identity;
+Controller finalizes outcome only after actor cleanup, before releasing the legacy
+lease. SDK confirmation holds the lease while reading the exact matching result.
+A released lease, stale owner result, unexpected drop or failed cleanup is not a
+success signal. Focused actual success/failure/stale tests2 and affected quit
+regressions4 passed locally; Windows execution remains its separate gate.

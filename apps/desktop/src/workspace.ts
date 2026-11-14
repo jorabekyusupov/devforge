@@ -466,6 +466,8 @@ export interface WorkspaceBackend {
   chooseMailFile?(name: string): Promise<string | null>;
 
   inspector?(id: string, context?: string): Promise<InspectionView>;
+  connect?(): Promise<void>;
+  reconcile?(): Promise<Record<string, unknown>>;
   snapshot(): Promise<{
     snapshot: Snapshot;
     busy: boolean;
@@ -687,6 +689,7 @@ export function useWorkspace(backend?: WorkspaceBackend) {
     [remoteBusy, setRemoteBusy] = useState(false),
     [result, setResult] = useState<Record<string, unknown> | null>(null);
   const [operation, setOperation] = useState<SetupProgress | null>(null);
+  const [connecting, setConnecting] = useState(false);
   const alive = useRef(true),
     working = useRef(false);
   const refresh = useCallback(async () => {
@@ -698,6 +701,7 @@ export function useWorkspace(backend?: WorkspaceBackend) {
       const value = await backend.snapshot();
       if (alive.current) {
         setSnapshot(value.snapshot);
+        setError(previous => previous && /^(native_bridge_|native_client_reauthentication_required|manager_auth_)/.test(previous.code) ? null : previous);
         setRemoteBusy(value.busy);
         setOperation(value.operation ?? null);
       }
@@ -718,6 +722,20 @@ export function useWorkspace(backend?: WorkspaceBackend) {
       clearTimeout(timer);
     };
   }, [refresh]);
+  async function reconcile() {
+    if (!backend?.reconcile || connecting) return;
+    setConnecting(true);
+    try { const value = await backend.reconcile(); if (alive.current) { setResult(value); setError(null); } await refresh(); }
+    catch (error) { if (alive.current) setError(failure(error)); }
+    finally { if (alive.current) setConnecting(false); }
+  }
+  async function connect() {
+    if (!backend?.connect || connecting) return;
+    setConnecting(true);
+    try { await backend.connect(); setError(null); await refresh(); }
+    catch (error) { if (alive.current) setError(failure(error)); }
+    finally { if (alive.current) setConnecting(false); }
+  }
   async function run(
     command: Command,
     onResult?: (value: Record<string, unknown>) => void,
@@ -757,7 +775,10 @@ export function useWorkspace(backend?: WorkspaceBackend) {
     snapshot,
     error,
     pending,
-    busy: !!pending || remoteBusy,
+    busy: !!pending || remoteBusy || connecting,
+    connecting,
+    connect,
+    reconcile,
     result,
     operation,
     refresh,
