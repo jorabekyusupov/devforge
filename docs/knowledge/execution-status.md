@@ -136,7 +136,7 @@ Parallel agent boshlangan yoki tugagan itemni integrator evidence bilan yangilay
 | --- | --- | --- |
 | E00 | integrated | Inventory/decision/test map: strict34/0/0, source push99d6a9e; remote main tasdiqlandi. |
 | M13.0 | in_progress | E00 integratsiyasi; 16 oilaning contract mappingi, schema fixtures va lifecycle ADR. |
-| M13.1 | planned | M13.0; native single-owner/auth/ID/retry/cancel/Quit/headless acceptance. |
+| M13.1 | in_progress | M13.0; native single-owner/auth/ID/retry/cancel/Quit/headless acceptance. |
 | M13.2 | planned | M13.0 schema parallel, live CLI M13.1dan keyin. |
 | M13.3 | planned | M13.0 projection fixture parallel; actual client live owner/CLI contractdan keyin. |
 | M13.4 | planned | Owner/grants/versioned API; adapterlar start/stop→runtime→env→DB→HTTPS reviewed slices. |
@@ -366,3 +366,32 @@ M13.0 toliq freeze hali ochiq: remaining planned tool payloadlari/actualhandler
 mapping qo'shilganda acceptance yangilanadi. M13.1 infrastructure parallel boshlandi;
 GUI/CLI/MCP hali yangi managerga ulanmagan. Native runtime/user data bilan mutation
 bajarilmadi. Existing runtime/package selections saqlandi.
+
+# M13.1.1 — Local owner/IPC infrastructure (2026-11-14)
+
+[Manager lifecycle ADR](../architecture/manager-lifecycle.md): alohida manager.lock,
+lifetime OperationLease, private endpoint, kernel same-user peer auth, bounded
+framing/connection/deadline va dedicated detached launch. Bu generic transport;
+Workspace/GUI/grants/public tool handler ulanmagan. Incoming role/client_id authority emas.
+
+Local macOS real process tests: owner +2client, graceful stop, crash/rebind va
+launcherexitdan keyin owner survival o'tdi; original9test +subprocessfixture1ignored.
+Fixture parent tests tomonidan explicit ishlatilgan, native keychain ignoredtest emas.
+Windows saturation source review17→18transient pipe slot tuzatildi;16active cap
+saqlanadi, ortiqcha client ownerni to'xtatmaydi. Saturation/idle regression actual
+macOSsocketda o'tdi; Windowspipe path actualCI followup bo'ladi.
+
+Independent QA shared OperationLease symlinkni follow qilishini topdi. Root isolated
+fixtureda oldsource uchun3failure reproduce qildi (faqat disposable tmp resources).
+Platform AppLease/OperationLease regular/nlink va nofollow/reparse flags bilan
+himoyalandi, dangling symlink tashqarida fayl yaratmaydi. Platform distribution
+focused8test, clippy o'tdi; managerlevel yangi dangling-link test va tegishli
+owner/installer/unsafe filters qayta o'tdi, othergreen results reused. Existing
+locklarga chmod/repair qilinmadi. libc/windows-sys locked versiyalari qayta ishlatilgan.
+
+Windows compile/runtime yangi CI source bilan alohida tekshiriladi. RestrictedJob
+capability failure detached survival proof emas. Root path/privateACL/peer tests
+source-macOS dalili minimumOS/interactiveGUI/signing acceptancega aylanmaydi.
+M13.1.2 keyingi capability/auth module explicit firstaction va independent grants
+chegarasini qo'shadi; keyin single Workspace actor, durableoperations vaGUI/CLI
+forwarding. Full M13.1 gate hali ochiq.

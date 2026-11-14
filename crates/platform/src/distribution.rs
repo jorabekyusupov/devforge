@@ -13,13 +13,7 @@ pub struct AppLease {
 }
 impl AppLease {
     pub fn acquire(root: &Path) -> std::io::Result<Self> {
-        std::fs::create_dir_all(root)?;
-        let file = OpenOptions::new()
-            .create(true)
-            .truncate(false)
-            .read(true)
-            .write(true)
-            .open(root.join("desktop.lock"))?;
+        let file = lease_file(root, "desktop.lock")?;
         file.try_lock().map_err(|e| match e {
             std::fs::TryLockError::WouldBlock => {
                 std::io::Error::from(std::io::ErrorKind::WouldBlock)
@@ -51,15 +45,64 @@ impl AppLease {
 pub struct OperationLease {
     _file: File,
 }
+fn unsafe_lease() -> std::io::Error {
+    std::io::Error::new(std::io::ErrorKind::InvalidInput, "unsafe lifecycle lease")
+}
 fn lease_file(root: &Path, name: &str) -> std::io::Result<File> {
     std::fs::create_dir_all(root)?;
-    OpenOptions::new()
-        .create(true)
-        .truncate(false)
-        .read(true)
-        .write(true)
-        .open(root.join(name))
+    let path = root.join(name);
+    match std::fs::symlink_metadata(&path) {
+        Ok(meta) if !meta.is_file() || meta.file_type().is_symlink() => return Err(unsafe_lease()),
+        Ok(_) => {}
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+        Err(e) => return Err(e),
+    }
+    let mut options = OpenOptions::new();
+    options.create(true).truncate(false).read(true).write(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options
+            .mode(0o600)
+            .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC | libc::O_NONBLOCK);
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::OpenOptionsExt;
+        options.custom_flags(windows_sys::Win32::Storage::FileSystem::FILE_FLAG_OPEN_REPARSE_POINT);
+    }
+    let file = options.open(path)?;
+    let metadata = file.metadata()?;
+    if !metadata.is_file() {
+        return Err(unsafe_lease());
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        if metadata.nlink() != 1 {
+            return Err(unsafe_lease());
+        }
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::io::AsRawHandle;
+        use windows_sys::Win32::Storage::FileSystem::{
+            BY_HANDLE_FILE_INFORMATION, FILE_ATTRIBUTE_DIRECTORY, FILE_ATTRIBUTE_REPARSE_POINT,
+            GetFileInformationByHandle,
+        };
+        let mut info: BY_HANDLE_FILE_INFORMATION = unsafe { std::mem::zeroed() };
+        if unsafe { GetFileInformationByHandle(file.as_raw_handle() as _, &mut info) } == 0 {
+            return Err(std::io::Error::last_os_error());
+        }
+        if info.dwFileAttributes & (FILE_ATTRIBUTE_REPARSE_POINT | FILE_ATTRIBUTE_DIRECTORY) != 0
+            || info.nNumberOfLinks != 1
+        {
+            return Err(unsafe_lease());
+        }
+    }
+    Ok(file)
 }
+
 impl OperationLease {
     /// Reproducible setup owns configuration across GUI/CLI lifetimes.
     pub fn exclusive(root: &Path) -> std::io::Result<Self> {
@@ -227,5 +270,42 @@ mod tests {
         for v in ["13.4", "12.9", "broken"] {
             assert!(!mac_supported(v));
         }
+    }
+}
+
+#[cfg(test)]
+mod lease_path_regressions {
+    use super::*;
+    #[cfg(unix)]
+    #[test]
+    fn dangling_operation_symlink_never_creates_external_target() {
+        let root = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        let target = outside.path().join("must-not-create");
+        std::os::unix::fs::symlink(&target, root.path().join("operations.lock")).unwrap();
+        assert!(OperationLease::acquire(root.path()).is_err());
+        assert!(!target.exists());
+    }
+    #[test]
+    fn lock_hardlinks_and_directories_are_refused_without_mutation() {
+        let root = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        let target = outside.path().join("owned-fixture");
+        std::fs::write(&target, b"unchanged").unwrap();
+        std::fs::hard_link(&target, root.path().join("operations.lock")).unwrap();
+        assert!(OperationLease::acquire(root.path()).is_err());
+        assert_eq!(std::fs::read(&target).unwrap(), b"unchanged");
+        std::fs::create_dir(root.path().join("desktop.lock")).unwrap();
+        assert!(AppLease::acquire(root.path()).is_err());
+    }
+    #[cfg(unix)]
+    #[test]
+    fn desktop_symlink_cannot_create_or_lock_external_file() {
+        let root = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        let target = outside.path().join("must-not-create");
+        std::os::unix::fs::symlink(&target, root.path().join("desktop.lock")).unwrap();
+        assert!(AppLease::acquire(root.path()).is_err());
+        assert!(!target.exists());
     }
 }

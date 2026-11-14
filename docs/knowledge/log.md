@@ -4,6 +4,8 @@
 
 ## 2026-11-14
 
+- **M13.1.1 owner/IPC infra:** private user-authenticated endpoints, separate ManagerLease/OperationLease, bounded frames/connections/deadlines, dedicated detached launch. MacOS9initial process tests +new lease regression/affectedfilters o'tdi; packageclippy. QA Windows saturation va sharedlease symlink/hardlink issue tuzatildi; platform8focused tests green after3oldsource failures. Windows/native/fullWorkspace actor/grants/GUI gate ochiq. [Execution](execution-status.md).
+
 - **M13.0.3 contracts/adapter:**12typedcommands,155operation mapping, trusted review/fingerprint/project checks; real existing Command mapping without execute.8mutation+11projection va late boundary/nonUTF8/drift scoped checks, root7adaptertests, clippy/TS/strict o'tdi. QA name preflight va nonUTF8 panic guard tuzatildi. Remaining payloads va manager/live integration ochiq. [Execution](execution-status.md).
 
 - **M13.0.2 typed projections:**16read DTO/schema,153operation availability/policy mapping, capped serialization/time/cursor/project/resource/owner guards va checked generated JSON/TS.11focused tool test, scoped clippy, root targeted TS compile va LF attributes check o'tdi; full local suite rerun yo'q. M13.0 remaining mutation schemas/adapter dispatch, manager/MCP/native qabuli ochiq. [Execution](execution-status.md).
