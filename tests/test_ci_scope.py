@@ -78,7 +78,8 @@ class ScopeTests(unittest.TestCase):
             output_path = root / "github-output"
             event_path.write_text(json.dumps({"before": before}), encoding="utf-8")
             env = dict(os.environ, GITHUB_EVENT_NAME="push", GITHUB_EVENT_PATH=str(event_path),
-                       GITHUB_OUTPUT=str(output_path))
+                       GITHUB_OUTPUT=str(output_path), DEVFORGE_CI_BASELINE_READY="true",
+                       DEVFORGE_CI_VALIDATED_BASE=before)
             subprocess.run([sys.executable, str(script)], cwd=root, env=env, check=True,
                            stdout=subprocess.PIPE)
             self.assertEqual(output_path.read_text(encoding="utf-8"), "product=false\n")

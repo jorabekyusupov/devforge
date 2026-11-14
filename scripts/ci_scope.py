@@ -31,7 +31,12 @@ def needs_product_checks(paths: list[str]) -> bool:
     return not paths or not all(is_documentation(path) for path in paths)
 
 
-def comparison_base(event_name: str, event: dict) -> str | None:
+def comparison_base(event_name: str, event: dict, *, validated_base: str | None = None,
+                    baseline_required: bool = False) -> str | None:
+    if event_name not in {"push", "pull_request"}:
+        return None
+    if baseline_required:
+        return validated_base if isinstance(validated_base, str) and _SHA.fullmatch(validated_base) and set(validated_base) != {"0"} else None
     if event_name == "push":
         base = event.get("before")
     elif event_name == "pull_request":
@@ -44,10 +49,12 @@ def comparison_base(event_name: str, event: dict) -> str | None:
 
 
 def select_product_checks(
-    event_name: str, event: dict, diff: Callable[[str], list[str]]
+    event_name: str, event: dict, diff: Callable[[str], list[str]], *,
+    validated_base: str | None = None, baseline_required: bool = False,
 ) -> bool:
     try:
-        base = comparison_base(event_name, event)
+        base = comparison_base(event_name, event, validated_base=validated_base,
+                               baseline_required=baseline_required)
         return True if base is None else needs_product_checks(diff(base))
     except (OSError, ValueError, TypeError, AttributeError, subprocess.SubprocessError):
         return True
@@ -69,7 +76,9 @@ def main() -> None:
     product = True
     try:
         event = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text(encoding="utf-8"))
-        product = select_product_checks(os.environ.get("GITHUB_EVENT_NAME", ""), event, changed_paths)
+        from ci_baseline import validated_base_from_environment
+        product = select_product_checks(os.environ.get("GITHUB_EVENT_NAME", ""), event, changed_paths,
+                                        validated_base=validated_base_from_environment(), baseline_required=True)
     except (OSError, ValueError, KeyError):
         pass
     result = f"product={'true' if product else 'false'}\n"

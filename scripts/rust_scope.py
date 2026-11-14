@@ -82,9 +82,11 @@ def affected_scope(paths: list[str], metadata: dict, root: Path) -> dict:
     return {"mode": "affected", "packages": sorted(selected), "frontend": desktop in selected}
 
 
-def select_scope(event_name: str, event: dict, diff, metadata, root: Path) -> dict:
+def select_scope(event_name: str, event: dict, diff, metadata, root: Path, *,
+                 validated_base: str | None = None, baseline_required: bool = False) -> dict:
     try:
-        base = comparison_base(event_name, event)
+        base = comparison_base(event_name, event, validated_base=validated_base,
+                               baseline_required=baseline_required)
         if base is None:
             return full_scope()
         return affected_scope(diff(base), metadata(), root)
@@ -145,8 +147,10 @@ def main() -> None:
         scope = full_scope()
         try:
             event = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text(encoding="utf-8"))
+            from ci_baseline import validated_base_from_environment
             scope = select_scope(os.environ.get("GITHUB_EVENT_NAME", ""), event,
-                                 changed_paths, workspace_metadata, Path.cwd())
+                                 changed_paths, workspace_metadata, Path.cwd(),
+                                 validated_base=validated_base_from_environment(), baseline_required=True)
         except (OSError, ValueError, KeyError):
             pass
         scope_file.write_text(json.dumps(scope), encoding="utf-8")

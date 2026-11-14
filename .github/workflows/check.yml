@@ -15,8 +15,35 @@ on:
 permissions:
   contents: read
 jobs:
-  check:
+  scope-baseline:
+    permissions:
+      contents: read
+      actions: read
     if: github.event_name != 'workflow_dispatch' || inputs.suite != 'native'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      sha: ${{ steps.baseline.outputs.sha }}
+      available: ${{ steps.baseline.outputs.available }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.13'
+      - name: Find last ancestor validated on both platforms
+        id: baseline
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python scripts/ci_baseline.py
+
+  check:
+    needs: scope-baseline
+    env:
+      DEVFORGE_CI_VALIDATED_BASE: ${{ needs.scope-baseline.outputs.sha }}
+      DEVFORGE_CI_BASELINE_READY: ${{ needs.scope-baseline.outputs.available }}
+    if: ${{ !cancelled() && (github.event_name != 'workflow_dispatch' || inputs.suite != 'native') }}
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -77,7 +104,8 @@ jobs:
       - name: Build native desktop binary with embedded frontend
         if: steps.scope.outputs.product == 'true' && steps.rust_scope.outputs.frontend == 'true'
         run: npm run tauri -- build --debug --no-bundle
-      - run: python -m unittest discover -s tests -p 'test_*scope.py'
+      - run: python -m unittest discover -s tests -p 'test_ci_*.py'
+      - run: python -m unittest discover -s tests -p test_rust_scope.py
       - run: python -m pip install -r scripts/requirements-knowledge.txt
       - run: python scripts/validate_knowledge.py --strict
 

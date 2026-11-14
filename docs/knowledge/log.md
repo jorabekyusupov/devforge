@@ -4,6 +4,8 @@
 
 ## 2026-11-14
 
+- **TP03 accumulatedCI:** bothnativeRuststeps-greenancestor→HEAD baseline, docs-onlyexcluded, boundedAPI/HTTP/historyambiguity FULL notparentdiff.29selectorfixtures+actualreadonlyREST/YAMLreview; firstmigrationFULL/remotegatepending. [Contract](../architecture/ci-validated-baseline.md).
+
 - **CI followup:** preferencesone-lineRustfmtfixed/scopedcheck; Windowsjunctionfixture normalWin32args+boundedredacteddiagnostics, affectedMacguard1/clippy passed. Original9adfmt/5f16fixture failures retained; actualnewWindowsproofpending. ActorCI timingfixturesfixedseparatelywithfacadedependency. [Execution](execution-status.md).
 
 - **M13.1.10 atomicprefs:** immediatetransactionfieldpatch+None-onlyfolderinit, GUIwriteradopted, savedunknownlocale/JSONpreserved.9focusedplatformtests/clippy+desktoplibcheck pass; managerwriterintegration/nativeWindows next. [Contract](../architecture/atomic-settings-patches.md).

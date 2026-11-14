@@ -850,3 +850,20 @@ fixtureseparation underway withnewfacade, productiontimeouts unchanged. E06run
 43576036027 andE02run43576221093 completedmacOS/Windowschecks success; E07/E01/
 artifactruns43575265189/43575299620/43575624364 success. Remainingnewnativegates
 notinferredfromthoseearlierscopes.
+
+
+## TP03 accumulated validated CI baseline
+
+[Baseline contract](../architecture/ci-validated-baseline.md): sharedproducerbounded
+readonlyREST+localancestorvalidation selects samecheck.ymlsuccessfulpush onlywhen
+bothMac/WindowsRustteststeps actuallypassed. Docs-only/skippedRustnotbaseline.
+Selectors comparevalidatedancestor→HEAD, includingfailed/queuedintermediates;
+noimmediateparentfallbackwhenproducer/API/token/history/HTTPmetadata unavailable.
+ThenFULLconservativechecks. Manualfullpolicy/unknownchangedpaths unchanged.
+Job-scopedactions:read; tokenmemoryonly/noURLredirectcredentialforwarding.
+
+29selectorfixtures passed(11baseline/8docs/10Rust), YAMLreview andactualauthenticated
+readonlyREST sample chose5b9930c/run43576221093. No product/native suite rerunlocal.
+FirstTP03workflow/scriptsdiff forcesFULL tovalidatepre-migrationpartialscopes;
+historicalcheckpointnotimmutableartifact attestation. Producerfailures stillallow
+matrixFULL(!cancelled), notskippedchecks. Newpolicyremoteacceptancepending.
