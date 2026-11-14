@@ -247,6 +247,9 @@ impl Grant {
 #[serde(transparent)]
 pub struct Digest(String);
 impl Digest {
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
     /// The hashing implementation belongs to the plan/request producer. This
     /// validates canonical SHA-256 hex, not the authenticity of supplied content.
     pub fn new(value: String) -> Result<Self> {
@@ -470,3 +473,5 @@ impl ErrorCode {
         }
     }
 }
+
+pub mod mutations;

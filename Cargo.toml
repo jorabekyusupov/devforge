@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/control", "crates/debugger", "crates/inspector", "crates/core", "crates/platform", "crates/runtime", "crates/projects", "crates/serving", "crates/workspace", "crates/cli", "apps/desktop/src-tauri"]
+members = ["crates/control-adapter", "crates/control", "crates/debugger", "crates/inspector", "crates/core", "crates/platform", "crates/runtime", "crates/projects", "crates/serving", "crates/workspace", "crates/cli", "apps/desktop/src-tauri"]
 resolver = "2"
 
 [workspace.package]
@@ -8,6 +8,7 @@ edition = "2024"
 rust-version = "1.99"
 
 [workspace.dependencies]
+devforge-control-adapter = { path = "crates/control-adapter" }
 devforge-control = { path = "crates/control" }
 devforge-debugger = { path = "crates/debugger" }
 serde = { version = "1", features = ["derive"] }

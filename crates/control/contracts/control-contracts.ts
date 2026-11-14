@@ -236,6 +236,58 @@ export interface ArtifactOutput {
   items: Array<ArtifactItem>;
   next_cursor?: Cursor | null;
 }
+export interface MutationLimits {
+  timeout_ms: number;
+  max_output_bytes: number;
+}
+export interface ServiceActionInput {
+  limits?: MutationLimits | null;
+}
+export interface PackageInput {
+  package_id: string;
+  limits?: MutationLimits | null;
+}
+export interface ConfigureInput {
+  name: string;
+  php: string;
+  node: string;
+  domain: string;
+  https: boolean;
+  vite: boolean;
+  queue: boolean;
+  limits?: MutationLimits | null;
+}
+export interface EnvironmentPlanInput {
+  write_env: boolean;
+  limits?: MutationLimits | null;
+}
+export interface EnvironmentApplyInput {
+  write_env: boolean;
+  limits?: MutationLimits | null;
+}
+export interface YamlSaveInput {
+  expected?: string | null;
+  text: string;
+  limits?: MutationLimits | null;
+}
+export interface WorkspaceLifecycleInput {
+  workspace_id: string;
+  limits?: MutationLimits | null;
+}
+export interface MutationReceipt {
+  project_id: string;
+  operation_id: string;
+  state: "queued" | "running" | "cancel_requested" | "succeeded" | "failed" | "cancelled" | "interrupted" | "unknown";
+  revision: number;
+}
+export interface PlanReceipt {
+  project_id: string;
+  revision: number;
+  digest: string;
+  request_fingerprint: string;
+  expires_at: number;
+  blocked: boolean;
+}
 export interface ToolInputs {
   "health.health": HealthInput;
   "projects.get": ProjectInput;
@@ -275,3 +327,34 @@ export interface ToolOutputs {
 export type ToolInput = { [K in keyof ToolInputs]: { tool: K; arguments: ToolInputs[K] } }[keyof ToolInputs];
 export interface ReadRequest { api_version: 1; request_id: string; project_id: string; expected_revision?: number | null; idempotency_key?: string | null; input: ToolInput; }
 export type ReadResponse<K extends keyof ToolOutputs> = { api_version: 1; request_id: string; operation_id?: string; warnings: ErrorCode[] } & ({ ok: true; data: { tool: K; data: ToolOutputs[K] }; error?: never } | { ok: false; data?: never; error: { code: ErrorCode; retryable: boolean } });
+export interface MutationInputs {
+  "services.start": ServiceActionInput;
+  "services.stop": ServiceActionInput;
+  "services.restart": ServiceActionInput;
+  "runtimes.install": PackageInput;
+  "runtimes.remove": PackageInput;
+  "runtimes.select": ConfigureInput;
+  "environment.plan": EnvironmentPlanInput;
+  "environment.apply": EnvironmentApplyInput;
+  "environment.yaml_save": YamlSaveInput;
+  "workspaces.archive": WorkspaceLifecycleInput;
+  "workspaces.restore": WorkspaceLifecycleInput;
+  "workspaces.purge": WorkspaceLifecycleInput;
+}
+export interface MutationOutputs {
+  "services.start": MutationReceipt;
+  "services.stop": MutationReceipt;
+  "services.restart": MutationReceipt;
+  "runtimes.install": MutationReceipt;
+  "runtimes.remove": MutationReceipt;
+  "runtimes.select": MutationReceipt;
+  "environment.plan": PlanReceipt;
+  "environment.apply": MutationReceipt;
+  "environment.yaml_save": MutationReceipt;
+  "workspaces.archive": MutationReceipt;
+  "workspaces.restore": MutationReceipt;
+  "workspaces.purge": MutationReceipt;
+}
+export type MutationInput = { [K in keyof MutationInputs]: { tool: K; arguments: MutationInputs[K] } }[keyof MutationInputs];
+export type MutationRequest = { [K in keyof MutationInputs]: { api_version: 1; request_id: string; project_id: string; input: { tool: K; arguments: MutationInputs[K] } } & (K extends "environment.plan" ? { expected_revision?: number | null; idempotency_key?: string | null } : { expected_revision: number; idempotency_key: string }) }[keyof MutationInputs];
+export type MutationResponse<K extends keyof MutationOutputs> = { api_version: 1; request_id: string; operation_id?: string; warnings: ErrorCode[] } & ({ ok: true; data: { tool: K; data: MutationOutputs[K] }; error?: never } | { ok: false; data?: never; error: { code: ErrorCode; retryable: boolean } });

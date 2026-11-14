@@ -1136,6 +1136,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "devforge-control-adapter"
+version = "0.1.0"
+dependencies = [
+ "devforge-control",
+ "devforge-projects",
+ "devforge-workspace",
+ "serde",
+ "serde_json",
+ "sha2 0.11.1",
+ "tempfile",
+]
+
+[[package]]
 name = "devforge-core"
 version = "0.1.0"
 dependencies = [

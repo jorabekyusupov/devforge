@@ -4,6 +4,8 @@
 
 ## 2026-11-14
 
+- **M13.0.3 contracts/adapter:**12typedcommands,155operation mapping, trusted review/fingerprint/project checks; real existing Command mapping without execute.8mutation+11projection va late boundary/nonUTF8/drift scoped checks, root7adaptertests, clippy/TS/strict o'tdi. QA name preflight va nonUTF8 panic guard tuzatildi. Remaining payloads va manager/live integration ochiq. [Execution](execution-status.md).
+
 - **M13.0.2 typed projections:**16read DTO/schema,153operation availability/policy mapping, capped serialization/time/cursor/project/resource/owner guards va checked generated JSON/TS.11focused tool test, scoped clippy, root targeted TS compile va LF attributes check o'tdi; full local suite rerun yo'q. M13.0 remaining mutation schemas/adapter dispatch, manager/MCP/native qabuli ochiq. [Execution](execution-status.md).
 - **Remote CI reconciliation:** ae62902/E03 run43487502800 va5e77a2a/M13.0.1 run43487380006 macOS/Windows core+binary checks success;6940822CI policy success; a2b77c9docs-only success. Actual minimum-OS/credential/interactive gate'lari yopilmadi. Yangi M13.0.2 uchun bu remote pass reuse qilinmaydi.
 

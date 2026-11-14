@@ -330,3 +330,39 @@ M13.0.1 source5e77a2a run43487380006 va TP01 source6940822 run43486608801 ham su
 E04.2 sourcea2b77c9 run43488625057 docs-only success, product steps skipped. Ushbu
 remote natijalar final M13.0.2 kodining CI pass'i deb ko'rsatilmaydi; yangi source
 run'i alohida. Existing broad checks code pushda saqlandi, local suites takrorlanmadi.
+
+# M13.0.3 — Typed commands va domain adapter (2026-11-14)
+
+Initial12command: services start/stop/restart; runtime install/remove/select;
+environment plan/apply/YAML save; workspace archive/restore/purge. Inventory155operation:
+16projection,11mutation,1pure plan; qolganlari planned/unsupported, barcha live_available:false.
+Request fingerprint canonical root/current revision/action/typed args bilan real SHA256
+providerda hisoblanadi; trusted grant/project trust/backend review va exact args
+fingerprint alohida tekshiriladi. Client confirm/consent/trusted fieldlari authority emas.
+
+Yangi devforge-control-adapter prepared requestni mavjud Workspace::Command yoki
+configuration_plan method descriptoriga map qiladi, lekin Workspace ochmaydi va
+amal bajarmaydi. Current project/root/revision va workspace source-owner qayta
+tekshiriladi; backend digest control reviewdan ajratilmaydi. Legacy consent/trusted
+faqat verified receipt asosida synthesize qilinadi. Domain errors stable scope/code
+va bound project bilan qaytadi, foreign IDs/raw messages rad etiladi. Production
+SHA256 helper known vectors bilan tekshirildi.
+
+Independent QA ProjectName trim-empty/200UTF8-byte tafovutini topdi: control va
+adapter core validate_name bilan moslashtirildi. Standard schema maxLength scalar
+count; x-maxUtf8Bytes200 qo'shimcha server cheklovi ekani izohlangan. Preparedname
+invalid bolsa side-effectful Configure command yaratilmaydi. NonUTF8 fingerprint
+root panic emas InvalidInput qaytaradi; APFS invalid directory fixture'ni yaratolmagani
+uchun Unix persisted-PathBuf unit fixture ishlatildi.
+
+Focused checks:8initial mutation tests; lateName boundary1, nonUTF8unit1 va changed
+generated-drift1 pass; projection11passed, o'zgarmagan qamrov reused. Root adapter
+dispatch7passed (12tool mapping, review/current identity/workspaceowner, domain errors,
+name agreement, SHA vectors), scoped control/adapter clippy, targeted generated TS
+compile va strict OKF o'tdi. Root initial test hash formatting compile error fixture
+provider tuzatildi; product runtime failure sifatida ko'rsatilmaydi.
+
+M13.0 toliq freeze hali ochiq: remaining planned tool payloadlari/actualhandler
+mapping qo'shilganda acceptance yangilanadi. M13.1 infrastructure parallel boshlandi;
+GUI/CLI/MCP hali yangi managerga ulanmagan. Native runtime/user data bilan mutation
+bajarilmadi. Existing runtime/package selections saqlandi.

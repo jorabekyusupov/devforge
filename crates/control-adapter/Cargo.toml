@@ -1,0 +1,16 @@
+[package]
+name = "devforge-control-adapter"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+devforge-control.workspace = true
+devforge-workspace.workspace = true
+devforge-projects.workspace = true
+serde.workspace = true
+sha2 = "0.11.1"
+
+[dev-dependencies]
+serde_json.workspace = true
+tempfile = "3.27.0"

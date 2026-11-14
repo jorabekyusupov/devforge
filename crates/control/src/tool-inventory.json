@@ -43,11 +43,11 @@
   {
     "family": "runtimes",
     "existing_core": ["crates/runtime/src/package.rs","crates/projects/src/php_settings.rs"],
-    "new_adapter": ["catalog","install","probe","select","remove_plan","ini","extensions"],
+    "new_adapter": ["catalog","install","probe","select","remove_plan","ini","extensions","remove"],
     "new_operations": ["consumer_projection"],
     "unsupported_operations": ["silent_project_version_upgrade"],
-    "scopes": ["observer","project_manage","execution_test"],
-    "effects": ["read","owned_package_write","verified_runtime_probe","trusted_project_code_execution","review_plan_output"],
+    "scopes": ["observer","project_manage","execution_test","sensitive_operation"],
+    "effects": ["read","owned_package_write","verified_runtime_probe","trusted_project_code_execution","review_plan_output","reviewed_owned_package_remove"],
     "stages": ["M13.3","M13.4"],
     "available": false,
     "operations": [
@@ -59,7 +59,8 @@
       {"name": "ini","core_status": "existing","required_scopes": ["observer"],"effects": ["read"],"policy": "project_grant","review_required": false},
       {"name": "extensions","core_status": "existing","required_scopes": ["observer"],"effects": ["read"],"policy": "project_grant","review_required": false},
       {"name": "consumer_projection","core_status": "new","required_scopes": ["observer"],"effects": ["read"],"policy": "project_grant","review_required": false},
-      {"name": "silent_project_version_upgrade","core_status": "unsupported","required_scopes": ["project_manage"],"effects": ["owned_package_write"],"policy": "project_grant","review_required": false}
+      {"name": "silent_project_version_upgrade","core_status": "unsupported","required_scopes": ["project_manage"],"effects": ["owned_package_write"],"policy": "project_grant","review_required": false},
+      {"name": "remove","core_status": "existing","required_scopes": ["project_manage","sensitive_operation"],"effects": ["reviewed_owned_package_remove"],"policy": "project_grant","review_required": true}
     ]
   },
   {
@@ -85,11 +86,11 @@
   {
     "family": "environment",
     "existing_core": ["crates/workspace/src/repro.rs","crates/workspace/src/configuration.rs","crates/projects/src/env_file.rs"],
-    "new_adapter": ["masked_get","plan","apply","secret_bind","yaml_import","yaml_export","setup","status"],
+    "new_adapter": ["masked_get","plan","apply","secret_bind","yaml_import","yaml_export","setup","status","yaml_save"],
     "new_operations": ["env_example_diff"],
     "unsupported_operations": ["raw_secret_export"],
     "scopes": ["observer","project_manage","sensitive_operation","execution_test"],
-    "effects": ["read","review_plan_output","project_write","trusted_project_code_execution","credential_store_write","owned_database_write","dependency_install"],
+    "effects": ["read","review_plan_output","project_write","trusted_project_code_execution","credential_store_write","owned_database_write","dependency_install","owned_configuration_history_write"],
     "stages": ["M13.4"],
     "available": false,
     "operations": [
@@ -102,7 +103,8 @@
       {"name": "setup","core_status": "existing","required_scopes": ["project_manage","execution_test","sensitive_operation"],"effects": ["project_write","trusted_project_code_execution","credential_store_write","owned_database_write","dependency_install"],"policy": "project_grant","review_required": true},
       {"name": "status","core_status": "existing","required_scopes": ["observer"],"effects": ["read"],"policy": "project_grant","review_required": false},
       {"name": "env_example_diff","core_status": "new","required_scopes": ["observer"],"effects": ["read"],"policy": "project_grant","review_required": false},
-      {"name": "raw_secret_export","core_status": "unsupported","required_scopes": ["project_manage"],"effects": ["project_write"],"policy": "project_grant","review_required": false}
+      {"name": "raw_secret_export","core_status": "unsupported","required_scopes": ["project_manage"],"effects": ["project_write"],"policy": "project_grant","review_required": false},
+      {"name": "yaml_save","core_status": "existing","required_scopes": ["project_manage","sensitive_operation"],"effects": ["project_write","owned_configuration_history_write"],"policy": "project_grant","review_required": true}
     ]
   },
   {

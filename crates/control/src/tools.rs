@@ -51,6 +51,7 @@ impl Wire for ServiceState {
         "\"starting\" | \"running\" | \"ready\" | \"backoff\" | \"stopping\" | \"stopped\" | \"succeeded\" | \"failed\" | \"unknown\"".into()
     }
 }
+pub(crate) use contract;
 contract!(ProjectionFreshness {
     origin: Origin,
     observed_at: SafeInt,
@@ -173,6 +174,8 @@ tool_set! {
 #[serde(rename_all = "snake_case")]
 pub enum SchemaStatus {
     TypedProjection,
+    TypedMutation,
+    TypedPlan,
     Planned,
     Unsupported,
 }
@@ -193,6 +196,7 @@ pub struct ToolContract {
 }
 pub fn contracts() -> Result<Vec<ToolContract>> {
     let typed = typed_specs();
+    let mutations = crate::mutations::typed_specs();
     let mut result = vec![];
     for family in inventory::entries()? {
         let family_name =
@@ -200,11 +204,19 @@ pub fn contracts() -> Result<Vec<ToolContract>> {
         let family_name = family_name.as_str().ok_or(ErrorCode::InvalidInput)?;
         for op in family.operations {
             let name = format!("{family_name}.{}", op.name);
-            let spec = typed.iter().find(|spec| spec.name == name);
+            let read_spec = typed.iter().find(|spec| spec.name == name);
+            let mutation_spec = mutations.iter().find(|spec| spec.name == name);
+            let spec = read_spec.or(mutation_spec);
             let schema_status = if op.core_status == CoreStatus::Unsupported {
                 SchemaStatus::Unsupported
-            } else if spec.is_some() {
+            } else if read_spec.is_some() {
                 SchemaStatus::TypedProjection
+            } else if mutation_spec.is_some() {
+                if name == "environment.plan" {
+                    SchemaStatus::TypedPlan
+                } else {
+                    SchemaStatus::TypedMutation
+                }
             } else {
                 SchemaStatus::Planned
             };

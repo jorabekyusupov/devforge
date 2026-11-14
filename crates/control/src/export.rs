@@ -1,5 +1,5 @@
 //! Deterministic JSON schema and TypeScript export from contract field definitions.
-use crate::{limits::*, tools, *};
+use crate::{limits::*, mutations, tools, *};
 use serde_json::{Value, json};
 
 pub trait Wire {
@@ -15,6 +15,14 @@ pub trait Wire {
 impl Wire for Id {
     fn schema() -> Value {
         json!({"type":"string","minLength":1,"maxLength":128,"pattern":"^[A-Za-z0-9_.:-]+$"})
+    }
+    fn ts() -> String {
+        "string".into()
+    }
+}
+impl Wire for Digest {
+    fn schema() -> Value {
+        json!({"type":"string","minLength":64,"maxLength":64,"pattern":"^[0-9a-f]{64}$"})
     }
     fn ts() -> String {
         "string".into()
@@ -184,8 +192,21 @@ pub fn request_schema() -> Value {
     json!({"$schema":"https://json-schema.org/draft/2020-12/schema","type":"object","additionalProperties":false,"required":["api_version","request_id","project_id","input"],"properties":{
         "api_version":{"const":API_VERSION},"request_id":Id::schema(),"project_id":Id::schema(),"expected_revision":Option::<SafeInt>::schema(),"idempotency_key":Option::<Id>::schema(),"input":{"oneOf":variants}}})
 }
+pub fn mutation_request_schema() -> Value {
+    let variants=mutations::typed_specs().iter().map(|spec|{
+        let mut required=vec!["api_version","request_id","project_id","input"];
+        let mutating=spec.name!="environment.plan";
+        if mutating{required.extend(["expected_revision","idempotency_key"]);}
+        json!({"type":"object","additionalProperties":false,"required":required,"properties":{
+            "api_version":{"const":API_VERSION},"request_id":Id::schema(),"project_id":Id::schema(),
+            "expected_revision":if mutating{SafeInt::schema()}else{Option::<SafeInt>::schema()},
+            "idempotency_key":if mutating{Id::schema()}else{Option::<Id>::schema()},
+            "input":{"type":"object","additionalProperties":false,"required":["tool","arguments"],"properties":{"tool":{"const":spec.name},"arguments":(spec.input_schema)()}}}})
+    }).collect::<Vec<_>>();
+    json!({"$schema":"https://json-schema.org/draft/2020-12/schema","oneOf":variants})
+}
 pub fn json_document() -> Result<String> {
-    serde_json::to_string_pretty(&json!({"api_version":API_VERSION,"live_available":false,"timestamp_unit":"unix_milliseconds","timeout_unit":"monotonic_milliseconds","request_schema":request_schema(),"error_codes":ERRORS,"tools":tools::contracts()?}))
+    serde_json::to_string_pretty(&json!({"api_version":API_VERSION,"live_available":false,"timestamp_unit":"unix_milliseconds","timeout_unit":"monotonic_milliseconds","request_schema":request_schema(),"mutation_request_schema":mutation_request_schema(),"error_codes":ERRORS,"tools":tools::contracts()?}))
         .map(|s|s+"\n").map_err(|_|ErrorCode::InvalidInput)
 }
 pub fn typescript() -> String {
@@ -195,7 +216,10 @@ pub fn typescript() -> String {
     text.push_str(&format!("export type ErrorCode = {};\n", enum_ts(ERRORS)));
     text.push_str(&Cursor::declaration().unwrap());
     text.push_str(&PageRequest::declaration().unwrap());
-    for declaration in tools::declarations() {
+    for declaration in tools::declarations()
+        .into_iter()
+        .chain(mutations::declarations())
+    {
         text.push_str(&declaration);
     }
     for (name, output) in [("ToolInputs", false), ("ToolOutputs", true)] {
@@ -212,5 +236,23 @@ pub fn typescript() -> String {
     text.push_str("export type ToolInput = { [K in keyof ToolInputs]: { tool: K; arguments: ToolInputs[K] } }[keyof ToolInputs];\n");
     text.push_str("export interface ReadRequest { api_version: 1; request_id: string; project_id: string; expected_revision?: number | null; idempotency_key?: string | null; input: ToolInput; }\n");
     text.push_str("export type ReadResponse<K extends keyof ToolOutputs> = { api_version: 1; request_id: string; operation_id?: string; warnings: ErrorCode[] } & ({ ok: true; data: { tool: K; data: ToolOutputs[K] }; error?: never } | { ok: false; data?: never; error: { code: ErrorCode; retryable: boolean } });\n");
+    for (name, output) in [("MutationInputs", false), ("MutationOutputs", true)] {
+        text.push_str(&format!("export interface {name} {{\n"));
+        for spec in mutations::typed_specs() {
+            text.push_str(&format!(
+                "  {:?}: {};\n",
+                spec.name,
+                if output {
+                    spec.output_ts
+                } else {
+                    spec.input_ts
+                }
+            ));
+        }
+        text.push_str("}\n");
+    }
+    text.push_str("export type MutationInput = { [K in keyof MutationInputs]: { tool: K; arguments: MutationInputs[K] } }[keyof MutationInputs];\n");
+    text.push_str("export type MutationRequest = { [K in keyof MutationInputs]: { api_version: 1; request_id: string; project_id: string; input: { tool: K; arguments: MutationInputs[K] } } & (K extends \"environment.plan\" ? { expected_revision?: number | null; idempotency_key?: string | null } : { expected_revision: number; idempotency_key: string }) }[keyof MutationInputs];\n");
+    text.push_str("export type MutationResponse<K extends keyof MutationOutputs> = { api_version: 1; request_id: string; operation_id?: string; warnings: ErrorCode[] } & ({ ok: true; data: { tool: K; data: MutationOutputs[K] }; error?: never } | { ok: false; data?: never; error: { code: ErrorCode; retryable: boolean } });\n");
     text
 }

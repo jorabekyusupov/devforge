@@ -1,4 +1,4 @@
-# M13.0.1–M13.0.2: control-plane contract foundation
+# M13.0.1–M13.0.3: control-plane contract foundation
 
 Decision date: 2026-11-13. Status: working implementation direction; the contract
 library is implemented, a manager process and external agent integration are not.
@@ -113,7 +113,7 @@ Windows evidence. No platform pass is implied by compiling these contracts.
 `tools.rs` defines sixteen concrete input/result pairs using contract-field macros.
 These produce strict Rust serde structures, JSON Schema and TypeScript declarations
 from the same field lists. `export.rs` supplies the bounded primitives/enums/envelope
-schema. The checked JSON document includes all153 operation policies and schema
+schema. The checked JSON document includes all inventoried operation policies and schema
 statuses. The exported TS has precise input/output maps and discriminated success /
 failure shapes. Run `cargo run -p devforge-control --example export_contracts --
 --write` after a contract change, then `--check` verifies byte-for-byte drift. This
@@ -158,3 +158,70 @@ paths; future collectors still own redaction before populating richer DTOs.
 Every tool contract remains live_available:false and prepare_read never executes a
 backend. require_live_handler returns UnsupportedCapability. Typed preparation is
 not an MCP server, authenticated IPC, a secret sandbox or a usable manager.
+
+## M13.0.3 typed command preparation
+
+The initial command surface adds twelve concrete payloads/receipt schemas matching
+existing Workspace commands or its configuration_plan method: services.start,
+services.stop, services.restart, runtimes.install, runtimes.remove, runtimes.select,
+environment.plan, environment.apply, environment.yaml_save, workspaces.archive,
+workspaces.restore and workspaces.purge. The last two use the existing archive
+operation strings; archive itself maps to existing worktree_cleanup, retaining DB,
+branch and credential data according to the existing core contract.
+
+The inventory grows153→155 to name runtime removal and YAML save explicitly;
+all old operations remain accounted for. There are16 typed read projections,
+11 typed mutating commands and1 typed nonmutating plan; all other operations
+remain Planned/Unsupported. Every live_available flag stays false. In particular,
+workspaces.create/merge and generic execution/debug/eval are not enabled by this
+slice. Generated JSON/TS includes both strict request unions and per-tool payload
+and result types. Plan requests do not require an idempotency key; actual mutations
+require non-null expected_revision and idempotency_key.
+
+`prepare_mutation` accepts only a server-derived registry binding, authenticated
+client's grant, and optional trusted ProjectTrust/ReviewApproval records. Clients
+cannot send confirm/trusted/consent fields. Execution-bearing commands additionally
+require recorded project trust tied to the canonical project root. A domain
+configuration contains an owned lowercase .devforge.test domain and nonempty
+bounded project name. YAML documents allow normal newline/tab formatting, reject
+control characters, and remain under the64KiB total request-byte bound. The
+existing backend still validates the manifest schema and expected file hash.
+
+ReviewApproval binds two different digests: the current backend plan digest,
+verified against ReviewedPlan's action/project/revision/expiry; and a fingerprint
+persisted for the exact proposed typed arguments. `fingerprint_material` produces
+deterministic JSON for the canonical registered root, project, current revision,
+tool and all typed arguments including limits. It excludes request ID/idempotency
+key so transport retry does not change operation meaning. A trusted caller hashes
+these bytes using its existing SHA-256 provider. This crate deliberately adds no
+new cryptographic implementation; the request supplies neither a hash nor a consent
+boolean. Review store lookup itself must respect client authorization.
+
+PreparedMutation keeps its request, registered binding, descriptor, computed
+fingerprint, approved backend digest and job limits private with immutable getters.
+`approved_review()` returns the verified BACKEND digest, not the request fingerprint;
+an adapter must compare this with its actual backend review receipt before making
+a reviewed core command. Workspace IDs additionally require trusted receipt/source
+project lookup in the adapter; knowing an arbitrary workspace ID is not authority.
+
+Typed receipts are checked against the same tool/project and a capped serializer
+byte budget. Optional mutation limits bound requested job duration to30min and
+output to256KiB, defaulting5min/64KiB. The manager must actually enforce those
+limits during execution; preparing a descriptor does not start a timer-controlled
+job. Atomic idempotency persistence, fresh grant/review/resource validation at the
+commit boundary, cancellation and manager ownership remain M13.1/M13.4 work.
+require_live_handler still returns UnsupportedCapability.
+
+Focused tests cover all initial command mappings, independent execution grants,
+project trust, client confirmation rejection, missing revision/key, incompatible
+version/limits, changed arguments/backend state/action/revision/expiry, retry-stable
+fingerprints, explicit unavailable operations and scoped/bounded receipts. There is
+no claim of a running manager, authenticated IPC or native command execution.
+
+ProjectName also follows the existing core's validate_name boundary: trim-empty
+names and values over200 UTF-8 bytes are rejected, while valid Unicode is retained.
+Its standard JSON Schema maxLength200 is a character bound; x-maxUtf8Bytes200 and
+the schema description document the additional server byte constraint and trim
+rule. Standard schema validation alone does not establish complete name validity.
+Fingerprint preparation rejects a non-UTF8 registered root with InvalidInput before
+JSON conversion; filesystem metadata cannot trigger a json! serialization panic.
