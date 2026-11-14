@@ -1,0 +1,178 @@
+{
+  "arch": "aarch64",
+  "auth": "in_memory_fixture_not_native_or_transport_acceptance",
+  "cases": [
+    {
+      "actor_start_ms": 18.311458,
+      "cached_snapshot_read": {
+        "max_ms": 0.013917,
+        "min_ms": 0.001083,
+        "p50_ms": 0.0012079999999999999,
+        "p95_ms": 0.0026249999999999997,
+        "samples": 2000
+      },
+      "favorite_end_to_end_including_refresh": {
+        "max_ms": 7.404958,
+        "min_ms": 4.909167,
+        "p50_ms": 6.267458,
+        "p95_ms": 7.378125,
+        "samples": 20
+      },
+      "fixture_cleaned": true,
+      "idle": {
+        "native_resource_api_available": true,
+        "one_core_percent": 0.32160524948683744,
+        "process_cpu_seconds": 0.0032350000000000434,
+        "process_lifetime_peak_rss_bytes": 13107200,
+        "wall_seconds": 1.005891541
+      },
+      "import_end_to_end": {
+        "max_ms": 17.194999999999997,
+        "min_ms": 17.194999999999997,
+        "p50_ms": 17.194999999999997,
+        "p95_ms": 17.194999999999997,
+        "samples": 1
+      },
+      "metadata_invariants": {
+        "no_installed_runtimes": true,
+        "no_running_services": true,
+        "workspace_secret_calls": 0
+      },
+      "periodic_refresh_observation_wait_including_250ms_schedule": {
+        "max_ms": 283.187584,
+        "min_ms": 266.982708,
+        "p50_ms": 280.517083,
+        "p95_ms": 283.187584,
+        "samples": 5
+      },
+      "projects": 1,
+      "registration_wall_ms": 17.70375,
+      "runtime_selection": {
+        "installed": false,
+        "node": "node-v22.23.4-macos-arm64",
+        "php": "php-8.4.27-cli-macos-arm64"
+      },
+      "shutdown_ms": 20.718375
+    },
+    {
+      "actor_start_ms": 17.252166,
+      "cached_snapshot_read": {
+        "max_ms": 0.003334,
+        "min_ms": 0.002291,
+        "p50_ms": 0.0026249999999999997,
+        "p95_ms": 0.002667,
+        "samples": 2000
+      },
+      "favorite_end_to_end_including_refresh": {
+        "max_ms": 9.77975,
+        "min_ms": 6.979375,
+        "p50_ms": 8.34475,
+        "p95_ms": 9.643167,
+        "samples": 20
+      },
+      "fixture_cleaned": true,
+      "idle": {
+        "native_resource_api_available": true,
+        "one_core_percent": 1.0272014487898755,
+        "process_cpu_seconds": 0.010375000000000023,
+        "process_lifetime_peak_rss_bytes": 13500416,
+        "wall_seconds": 1.010025834
+      },
+      "import_end_to_end": {
+        "max_ms": 20.816959,
+        "min_ms": 14.274458000000001,
+        "p50_ms": 16.550167000000002,
+        "p95_ms": 20.816959,
+        "samples": 10
+      },
+      "metadata_invariants": {
+        "no_installed_runtimes": true,
+        "no_running_services": true,
+        "workspace_secret_calls": 0
+      },
+      "periodic_refresh_observation_wait_including_250ms_schedule": {
+        "max_ms": 292.523458,
+        "min_ms": 271.107375,
+        "p50_ms": 279.186334,
+        "p95_ms": 292.523458,
+        "samples": 5
+      },
+      "projects": 10,
+      "registration_wall_ms": 174.709709,
+      "runtime_selection": {
+        "installed": false,
+        "node": "node-v22.23.4-macos-arm64",
+        "php": "php-8.4.27-cli-macos-arm64"
+      },
+      "shutdown_ms": 8.460291999999999
+    },
+    {
+      "actor_start_ms": 16.5765,
+      "cached_snapshot_read": {
+        "max_ms": 0.001583,
+        "min_ms": 0.001083,
+        "p50_ms": 0.0011250000000000001,
+        "p95_ms": 0.001209,
+        "samples": 2000
+      },
+      "favorite_end_to_end_including_refresh": {
+        "max_ms": 14.021958,
+        "min_ms": 7.895208000000001,
+        "p50_ms": 10.918709,
+        "p95_ms": 12.499708,
+        "samples": 20
+      },
+      "fixture_cleaned": true,
+      "idle": {
+        "native_resource_api_available": true,
+        "one_core_percent": 5.20856273393154,
+        "process_cpu_seconds": 0.05223000000000022,
+        "process_lifetime_peak_rss_bytes": 14368768,
+        "wall_seconds": 1.002771833
+      },
+      "import_end_to_end": {
+        "max_ms": 24.796666,
+        "min_ms": 12.897,
+        "p50_ms": 19.095625000000002,
+        "p95_ms": 21.895166,
+        "samples": 100
+      },
+      "metadata_invariants": {
+        "no_installed_runtimes": true,
+        "no_running_services": true,
+        "workspace_secret_calls": 0
+      },
+      "periodic_refresh_observation_wait_including_250ms_schedule": {
+        "max_ms": 309.884584,
+        "min_ms": 277.899458,
+        "p50_ms": 293.555666,
+        "p95_ms": 309.884584,
+        "samples": 5
+      },
+      "projects": 100,
+      "registration_wall_ms": 1940.034542,
+      "runtime_selection": {
+        "installed": false,
+        "node": "node-v22.23.4-macos-arm64",
+        "php": "php-8.4.27-cli-macos-arm64"
+      },
+      "shutdown_ms": 42.138584
+    }
+  ],
+  "limitations": [
+    "no GUI/WebView/IPC benchmark",
+    "no runtime execution/download",
+    "periodic wait is not snapshot compute duration",
+    "sequential cached reads, not contention p95",
+    "idle sample is one second, not sustained idle budget",
+    "no cross-platform or performance budget claim"
+  ],
+  "logical_parallelism": 10,
+  "measurement": "workspace_actor_metadata_only",
+  "os": "macos",
+  "os_version": "27.2.1",
+  "package_version": "0.1.0",
+  "profile": "release",
+  "resource_scope": "current_process_only; peak RSS cumulative across cases; Windows RSS unavailable in this build",
+  "schema": 1
+}

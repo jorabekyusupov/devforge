@@ -569,3 +569,18 @@ passedmacOSARM64. RootusedactualproductionCLI/nativeStoreconstructors, noNativeS
 authcall/request; earlierDenystorepipelineproves coldpathNoProbe. Cli alltargets
 clippy passed; broad frontend/product suites notlocallyrerun. Other target newCLI
 execution CIpending. GUI/publicJSONCLI/MCP forwarding notclaimed.
+
+# E09.1 — Release actor metadata baseline
+
+[Harness guide](../guides/actor-baseline.md), [sanitized JSON](../evidence/actor-baseline/2026-11-14-macos-arm64.json)
+va [provenance](../evidence/actor-baseline/2026-11-14-macos-arm64-provenance.json).
+Realrelease1/10/100metadata workload localmacARM64da o'tdi; noinstalledruntimes/
+services/GUI/NativeStore/workspace-secretcalls va cleanup invariants passed.
+100projects: registration1.94s; Favoriteinclrefreshp95~12.50ms; cachedreadp95~0.00121ms;
+periodicobservationp95~309.89ms SCHEDULINGWAIT (computeemas).1sidleCPU~5.21%onecore;
+processlifetimepeakRSS14.37MB (percaseexclusiveemas). No productSLAchosen.
+Focusedexampleclippypass,3invalidargboundschecks. ReportsourceHEAD2ff0002plusdirty
+parentwork/harness, binary/output hashes recorded; notcleanGUIbenchmark.
+WindowsCPUcodeGetProcessTimes yozilgan, RSSnull; actualWindows/GUI/process-tree/
+logmailqueryburst/longidle budget laterE09gates. SourceartifactNativeRoot paths yoki
+credential yo'q. Parentunchanged tests/wholeproduct notrerun.

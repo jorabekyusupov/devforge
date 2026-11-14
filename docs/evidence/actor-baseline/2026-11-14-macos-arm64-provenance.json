@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "source_head_at_run": "2ff000299089fcaf042b20cbc31d21e5632024ba",
+  "source_tree_clean": false,
+  "source_note": "Working tree included parent CLI/controller work and the new harness; this is not a clean-commit GUI benchmark.",
+  "invocation": "scripts/with_rust.sh cargo run --release -p devforge-manager --example actor_baseline -- 1 10 100",
+  "recorded_output_time_utc": "2026-11-14T07:19:00.555148+00:00",
+  "host": {
+    "os": "macOS27.2.1",
+    "build": "26B131",
+    "model": "Mac16,10",
+    "ram_bytes": 17179869184
+  },
+  "binary_sha256": "47df5f65aa1ef54726eba9a1f6c432b47f0dc185494aa40abb1ba6328e992e90",
+  "harness_sha256": "d36c8b90f5a93034a5cb12352fa540f9b23878ebbb6d1edbd63f71bc7e51970e",
+  "artifact_sha256": "0ce2f7a510a264c882e3a00b678ca9aff3439c68f028923e0e8a76f97eef34c3",
+  "scope": "release actor-only metadata; no GUI, transport, managed runtime or native credential acceptance"
+}

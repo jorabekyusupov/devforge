@@ -4,6 +4,8 @@
 
 ## 2026-11-14
 
+- **E09.1 releasebaseline:**1/10/100real actor metadata harness, sanitizedJSON+binary/sourceprovenance, focusedclippy/argbounds.100projectCPU1ssample5.21%onecore/RSSprocesspeak14.37MB; waitmetricsnotcompute/GUIbudget. ActualWin/GUI/longidle/burstscopeochiq. [Execution](execution-status.md).
+
 - **Private manager CLI entry:** serve/health/help, automaticinhibition, nativeOSQuit, transitionallegacyguard andprivatepipebootstrappath. CLI6focused+actualCLIcoldlifecycle1pass, alltargetsclippy; noNativecredential probe/GUI/alltests rerun. [Guide](../guides/private-manager-cli.md), [execution](execution-status.md).
 
 - **Windows request layout:**425adecWindowsclippy largeenumvariant uchunprivateSubmitCommand Boxqilindi, JSONwireunchanged;controller7/scopedclippygreen. NativeCIpending, failure43569830478saqlandi. [Execution](execution-status.md).
