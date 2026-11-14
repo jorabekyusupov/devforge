@@ -282,46 +282,6 @@ impl Workspace {
     }
 }
 
-#[cfg(test)]
-mod callback_tests {
-    use super::*;
-    use devforge_core::{ErrorCode, SecretStore};
-    struct NoSecrets;
-    impl SecretStore for NoSecrets {
-        fn get(&self, _: &str) -> std::result::Result<Option<String>, ErrorCode> {
-            panic!("denied serving must not read credentials")
-        }
-        fn set(&self, _: &str, _: &str) -> std::result::Result<(), ErrorCode> {
-            panic!("denied serving must not write credentials")
-        }
-        fn delete(&self, _: &str) -> std::result::Result<(), ErrorCode> {
-            panic!("denied serving must not delete credentials")
-        }
-    }
-    #[test]
-    fn serving_adapter_preserves_cancel_and_deadline_codes_before_effects() {
-        let root = tempfile::tempdir().unwrap();
-        let workspace = Workspace::open(root.path().join("data"), Arc::new(NoSecrets)).unwrap();
-        for code in ["cancelled", "timed_out"] {
-            let check = || {
-                Err(Error {
-                    scope: "workspace",
-                    code: code.into(),
-                    project_id: Some("project-a".into()),
-                })
-            };
-            let error = match workspace.start_web_checked("project-a", &check) {
-                Ok(_) => panic!("denied startup succeeded"),
-                Err(error) => error,
-            };
-            assert_eq!(error.code, code);
-            assert_eq!(error.scope, "workspace");
-            assert_eq!(error.project_id.as_deref(), Some("project-a"));
-        }
-        assert!(!root.path().join("data/serving/sessions").exists());
-    }
-}
-
 impl Workspace {
     fn start_web_checked(&self, id: &str, check: &dyn Fn() -> Result<()>) -> Result<Serving> {
         let check_error = RefCell::new(None);
@@ -458,5 +418,45 @@ impl Workspace {
         self.sessions.insert(id.into(), session);
         self.navigation(id, None, true)?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod callback_tests {
+    use super::*;
+    use devforge_core::{ErrorCode, SecretStore};
+    struct NoSecrets;
+    impl SecretStore for NoSecrets {
+        fn get(&self, _: &str) -> std::result::Result<Option<String>, ErrorCode> {
+            panic!("denied serving must not read credentials")
+        }
+        fn set(&self, _: &str, _: &str) -> std::result::Result<(), ErrorCode> {
+            panic!("denied serving must not write credentials")
+        }
+        fn delete(&self, _: &str) -> std::result::Result<(), ErrorCode> {
+            panic!("denied serving must not delete credentials")
+        }
+    }
+    #[test]
+    fn serving_adapter_preserves_cancel_and_deadline_codes_before_effects() {
+        let root = tempfile::tempdir().unwrap();
+        let workspace = Workspace::open(root.path().join("data"), Arc::new(NoSecrets)).unwrap();
+        for code in ["cancelled", "timed_out"] {
+            let check = || {
+                Err(Error {
+                    scope: "workspace",
+                    code: code.into(),
+                    project_id: Some("project-a".into()),
+                })
+            };
+            let error = match workspace.start_web_checked("project-a", &check) {
+                Ok(_) => panic!("denied startup succeeded"),
+                Err(error) => error,
+            };
+            assert_eq!(error.code, code);
+            assert_eq!(error.scope, "workspace");
+            assert_eq!(error.project_id.as_deref(), Some("project-a"));
+        }
+        assert!(!root.path().join("data/serving/sessions").exists());
     }
 }

@@ -2126,8 +2126,7 @@ fn fingerprint(project: &Id, command: &Command) -> Result<(String, usize)> {
 }
 
 #[cfg(test)]
-#[path = "../tests/common/mod.rs"]
-mod test_support;
+use crate::external_auth::test_support;
 #[cfg(test)]
 mod retention_tests {
     use super::*;

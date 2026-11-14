@@ -4,6 +4,8 @@
 
 ## 2026-11-14
 
+- **M13.4 CI lint follow-up:** single shared test-support module and test-module ordering corrected after actual macOS/Windows lint failures; affected manager/workspace lib+tests clippy passed. Native tests not repeated for mechanical changes. [Execution](execution-status.md).
+
 - **M13.4 first service slice:** native-reviewed start/stop/restart through existing actor, CLI and explicit MCP opt-in; original-key recovery and schema2 revision receipts. Focused client/core checks and actual macOS cached HTTP A/B isolation flow passed; Windows/new GUI gates remain separate. No extra mutation family or deferred report UI mounted. [Contract](../architecture/reviewed-service-actions.md), [execution](execution-status.md).
 
 - **Windows junction native proof:** fixedliteralPowerShell creators; exact3/3nativeguardtests passed on26100, sourcehashes/baseverified. Only3testhelpers published, mainworkflow/production unchanged. [Proof](../evidence/windows-junction/43596587450.json).

@@ -1119,8 +1119,7 @@ fn replace_marker(source: &Path, target: &Path) -> Result<()> {
 }
 
 #[cfg(test)]
-#[path = "../tests/common/mod.rs"]
-mod quit_test_support;
+use crate::external_auth::test_support as quit_test_support;
 #[cfg(test)]
 mod service_quit_tests {
     use super::*;

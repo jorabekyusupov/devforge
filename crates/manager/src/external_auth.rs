@@ -862,7 +862,7 @@ fn path_identity(path: &Path) -> Result<String> {
 
 #[cfg(test)]
 #[path = "../tests/common/mod.rs"]
-mod test_support;
+pub(crate) mod test_support;
 
 #[cfg(test)]
 mod tests {

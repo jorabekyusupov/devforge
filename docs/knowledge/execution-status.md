@@ -1161,3 +1161,13 @@ partial shared-dependency effects remain explicit; no rollback guarantee added.
 Windows new-slice execution/native GUI credentials/dialogs remain unverified here.
 Other M13.4 families are not complete: runtime install/select, env/YAML, DB and
 domains/HTTPS follow the agreed order. Deferred E02/E05 UI work is not mounted.
+
+### Service publication CI lint follow-up
+
+8d80197 [run43598898232](https://github.com/jorabekyusupov/devforge/actions/runs/43598898232)
+stopped at lint, before runtime tests: duplicate test-support module loading on
+macOS, and production items after a test module on Windows. The mechanical fix
+shares the existing external_auth test-support module and moves callback_tests
+after production items. Affected manager/workspace lib+tests clippy passed; no
+native/product tests were repeated for these item-order/import changes. New CI
+execution remains separate evidence from the prior native acceptance.
