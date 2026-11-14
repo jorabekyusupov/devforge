@@ -4,6 +4,8 @@
 
 ## 2026-11-14
 
+- **Debug manager preparation:** explicitlockednative-targetbuild/exactadjacentCLIhash/fixedmanifest, optionallaunchsameTauri target/buildgate.10mocks+actualARM64prepare-only/hash passed; noCLIexecution/GUI/store/defaultswitch. [Contributor guide](../../CONTRIBUTING.md#debug-desktop-with-the-fixed-adjacent-manager), [execution](execution-status.md).
+
 - **E05.2 preview:** allregisteredphysicalrefs/read-onlylease observations, unknownblocksreviewcandidate, E06ownedreceiptinventory. QAphysical-key/derivedwebfalsecandidates RED→GREEN2+affected2, unchangedlease1/metadata4/preview5/storage9reused; scopedclippy/fmt. Noapply/delete/GUI. Actor/controllerdocreconciliationincluded. [Results](cleanup-preview-results.md).
 
 - **M13.1.11 privatefacade:** native read/access/discovery/ops-bykey, ephemeralboundedpolls+sharedlargeimages, truthfullargewrites/recovery, volatileknownsecretbodies, finiteDebuggerScope. Scoped6/2/10/7+adapter/subjects/SDKcases/clippy pass; newclientlease15tests, Windowsrawcmdfixturefollowup. GUI/default/NativeStore notflipped. [Facade](../architecture/manager-desktop-facade.md), [migration](../architecture/manager-desktop-migration.md), [execution](execution-status.md).

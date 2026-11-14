@@ -936,3 +936,21 @@ Windows/Intel newlease execution/reviewUI/apply/physicaldrillcleanup/retention r
 Phase reconciliation also updated actor/controller ADRs toalready-published
 nativefacade resource/recovery/ephemeralread/large-result semantics; nonewmanager
 code stagedwiththiscleanupfeature. Existingbody-sensitivepolicyhistory retained.
+
+
+## M13.1.12 debug build-bound CLI preparation
+
+[Contributor commands](../../CONTRIBUTING.md#debug-desktop-with-the-fixed-adjacent-manager)
+and scripts/dev_desktop.py: explicitnativehosttarget/lockedCargo metadata+build,
+exacttarget_directory/host/debug adjacentCLI streamhash→atomicfixedmanifest.
+No copy/presign/runtimePATHselector; unsupported/cross-target/configambiguitydenied.
+Default/prepare-only neverexecutesCLI/manager/GUI/NativeStore/appdata. Optional
+explicitlaunch useslocalTauriCLI2.12.4 withsametarget/lockedCargo/buildgate only.
+Thispreparesauthority, notnativeGUIownership/defaultcutover.
+
+10focusedmockfixtures passed; actualdryrun/nativeARM64prepare-onlycompile/hash
+passed, independentstreamrehash matched f0e3c171e7d545a4b058d7e41e4c82ace9aea42404ac23da9a117664d9858a1f.
+Actualartifactcamefromunfrozenworkingtree, notcleanproductattestation. Generated
+manifest remainsignored; productionpackagehelper/othergeneratednoticesunchanged.
+Windowslayoutmockonly; nolaunch/nativewindow/credential/minOS proof. No version
+changes/newdeps; futureCLIrebuildrequiresnewpreparation beforeGUIcompile.

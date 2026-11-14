@@ -26,6 +26,43 @@ The [integrated execution plan](docs/knowledge/integrated-execution-plan.md)
 contains the current work IDs and dependencies. Read the affected subsystem's
 source before deciding that a planned API or example already exists.
 
+## Debug desktop with the fixed adjacent manager
+
+Ordinary GUI builds intentionally compile no manager launch authority, even if a
+stale generated manifest exists. To prepare the fixed manager executable for local
+desktop development:
+
+```sh
+python3 scripts/dev_desktop.py --dry-run
+python3 scripts/dev_desktop.py --prepare-only
+# Only when you intend to open the desktop window:
+python3 scripts/dev_desktop.py --launch
+```
+
+On Windows use the existing Python interpreter (`py -3` if appropriate). The helper
+uses the repository's existing Rust toolchain and lockfile. It rejects unsupported
+or cross-target inputs and mismatched ambient target/configuration overrides.
+Default/`--prepare-only` builds the CLI but never executes it, starts a manager,
+opens a window, accesses native credentials or changes app data. `--dry-run` only
+queries the compiler/Cargo metadata and prints the planned commands.
+
+The CLI is built for the explicit native host in
+`<cargo metadata target_directory>/<host>/debug/devforge[.exe]`, beside the debug
+GUI executable. The helper stream-hashes that exact file, without a packaging
+copy or production pre-signing, and atomically writes the fixed ignored
+`distribution/generated/manager-artifact.json`. Other generated files are kept.
+`--launch` uses the installed local Tauri CLI's `dev --target <same-host>` with
+`--locked` forwarded to Cargo and the explicit **build** gate
+`DEVFORGE_PACKAGE_MANAGER=1`. The GUI still uses its compiled filename/digest;
+there is no runtime PATH or environment fallback for choosing a manager.
+
+Install the locked Node dependencies before `--launch`. Keep this preparation and
+packaging builds separate because both own the fixed generated manifest. After
+rebuilding/changing the CLI, rerun preparation before launching the GUI; do not
+replace the expected hash at runtime. Preparation proves a file/digest/layout,
+not native GUI, keychain, detached-lifetime or signed-release acceptance. This
+helper does not select or switch the desktop ownership mode.
+
 ## Safe fixtures and data ownership
 
 Use disposable project folders, data roots and database instances. Tests that
