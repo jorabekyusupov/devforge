@@ -4,6 +4,8 @@
 
 ## 2026-11-14
 
+- **Configure preflight:** [Shared validator](configure-preflight-results.md) invalidname/debugPHP-change actual session stop buglarini yopdi;2cached native RED→GREEN, directstore1test va scopedclippy. PID/HTTP/metadata saqlandi, actualXdebug/WinIntel gate ochiq. Windows managerfixturef84360b selectednativeCI43562216307 success, oldredhistorysaqlandi.
+
 - **Windows fixture owner:**968b234nativeprobe rootOwner!=TokenUser va controlhaliyo'q holatini tasdiqladi. Faqat freshlycreatedTempDir owner-only normalization, originalforeignowner negativecase; productionACL/ownercheck o'zgarishsiz. NewnativeCIpending, oldfailurehistorysaqlandi. [Execution](execution-status.md).
 
 - **Windows manager probe:** test-only sanitized root/control owner/ACL diagnostics, original production checks unchanged.79ed2a6 red natija sababini aniqlash uchun; fixture ownership normalization yo'q. Native test source-only qamrov manager paketiga cheklangan. [Execution](execution-status.md).

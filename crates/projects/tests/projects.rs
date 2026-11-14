@@ -573,3 +573,40 @@ fn schema_seven_backfills_historical_composer_without_resetting_record_or_revisi
         8
     );
 }
+
+#[test]
+fn debugger_policy_refuses_direct_store_php_change_without_mutating_record() {
+    let root = tempfile::tempdir().unwrap();
+    let path = root.path().join("Debug policy");
+    project(&path, "^8.3", "*");
+    let catalog = Catalog::bundled();
+    let store = ProjectStore::open(root.path().join("meta")).unwrap();
+    let php = selection(&catalog, "php", "8.4");
+    let other_php = selection(&catalog, "php", "8.5");
+    let node = selection(&catalog, "node", "v22");
+    let p = store
+        .import(&path, "Debug policy", &php, &node, &catalog)
+        .unwrap();
+    store
+        .save_debugger(
+            &p.id,
+            p.revision,
+            devforge_debugger::Settings {
+                mode: devforge_debugger::Mode::Debug,
+                runtime: Some("a".repeat(32)),
+                breakpoints: Vec::new(),
+            },
+        )
+        .unwrap();
+    let before = store.get(&p.id).unwrap();
+    assert_eq!(
+        store
+            .configure(&p.id, before.revision, &p.name, &other_php, &node, &catalog)
+            .err(),
+        Some(ProjectError::DebugRuntimeChange)
+    );
+    let after = store.get(&p.id).unwrap();
+    assert_eq!(after.revision, before.revision);
+    assert_eq!(after.php, before.php);
+    assert_eq!(after.debugger, before.debugger);
+}

@@ -942,12 +942,10 @@ impl Workspace {
                 if p.revision != revision {
                     return Err(devforge_projects::ProjectError::StaleRevision.into());
                 }
+                // Share static policy checks with direct ProjectStore callers;
+                // refusal must not stop or restart already-running children.
+                p.validate_configuration(&name, &php, &node, &self.catalog)?;
                 self.validate_site(&id, &domain)?;
-                compatible(
-                    &inspect(&p.path)?,
-                    self.catalog.get(&php)?,
-                    self.catalog.get(&node)?,
-                )?;
                 let running = self.sessions.contains_key(&id);
                 self.stop(&id)?;
                 self.projects
@@ -1519,3 +1517,6 @@ exit($kernel->handle(new Symfony\Component\Console\Input\ArgvInput(['artisan','q
 "#;
 #[cfg(feature = "test-support")]
 pub mod testing;
+
+#[cfg(test)]
+mod configure_tests;

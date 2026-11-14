@@ -114,6 +114,25 @@ pub struct Inspection {
     pub node_constraint: String,
     pub has_package_json: bool,
 }
+impl Project {
+    /// Shared, side-effect-free validation for callers that must stop or restart
+    /// a live session before persisting a configuration change.
+    pub fn validate_configuration(
+        &self,
+        name: &str,
+        php: &str,
+        node: &str,
+        catalog: &Catalog,
+    ) -> Result<Inspection> {
+        validate_name(name)?;
+        let checked = inspect(&self.path)?;
+        compatible(&checked, catalog.get(php)?, catalog.get(node)?)?;
+        if self.debugger.mode != devforge_debugger::Mode::Off && self.php != php {
+            return Err(E::DebugRuntimeChange);
+        }
+        Ok(checked)
+    }
+}
 pub fn inspect(path: &Path) -> Result<Inspection> {
     let root = fs::canonicalize(path).map_err(|_| E::InvalidProject)?;
     if !root.is_dir() || !root.join("public/index.php").is_file() {
@@ -398,13 +417,8 @@ impl ProjectStore {
         node: &str,
         catalog: &Catalog,
     ) -> Result<Project> {
-        validate_name(name)?;
         let mut p = self.get(id)?;
-        let checked = inspect(&p.path)?;
-        compatible(&checked, catalog.get(php)?, catalog.get(node)?)?;
-        if p.debugger.mode != devforge_debugger::Mode::Off && p.php != php {
-            return Err(E::DebugRuntimeChange);
-        }
+        let checked = p.validate_configuration(name, php, node, catalog)?;
         p.name = name.into();
         p.php = php.into();
         p.node = node.into();

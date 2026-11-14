@@ -29,6 +29,8 @@ mavzuni tanlang, so'ng faqat tegishli hujjatlar va ularning manbalarini o'qing.
 
 ## Manba va yuritish
 
+- [Configure preflight refusal](configure-preflight-results.md) - invalid name/debug PHP-change sessionni stop qilmasligi; actual native red-green va target chegaralari.
+
 - [E03 exact Composer](composer-binding-results.md) - schema8, persisted selection, terminal/YAML/worktree va credential-free tooling; focused test/native chegara.
 
 - [Execution holati va E00 inventari](execution-status.md) - source/platform evidence, barcha work ID holati, scoped test va qoldiq tashqi gate.

@@ -431,3 +431,17 @@ production Owner'da rad etilgani va root bo'sh qolgani negativecase bilan tekshi
 Rootbuilder keyin before/after booleanlarni beradi. NativefixCI hali pending;
 unrelated producttests ishlamasdan TP02manager closure tekshiriladi. Oldred runlar
 43559549217/43561274129/43561300852 saqlanadi, successfulrerun deb almashtirilmaydi.
+
+# Configure shared preflight fix
+
+[Native refusal natijasi](configure-preflight-results.md): raw GUI/core pathdagi
+invalidname va debuggerPHP-change refusal actual running sessionni stop qilgani
+RED; common Project::validate_configuration stopdan oldin ishlagach2GREEN, exactPID/
+HTTP/revision/runtime metadata saqlandi. Directstore1test+scopedclippy green.
+Actual Xdebugactivation yoki Windows/Intel native pass deyilmaydi; user/globaldata
+tegilmadi va boshqa product suites qayta bajarilmadi.
+
+Windows managerfixturef84360b run43562216307 macOS/Windows manager-only selectedCI
+success. Native namedpipe owner/peer/frame/connection process testlari shu Windows
+runnerda o'tdi; rootOwner sourcevalidation yumshatilmagan. Bu minimumWin10/11 yoki
+Workspace/GUI2client/nativekeychain/fulldetachedjob capability umumiy qabuli emas.
