@@ -1,0 +1,115 @@
+{
+  "source_sha": "5c42dbeea44c82fee5d86fa4b1f4838c1fa9794f",
+  "run_id": 43617357177,
+  "url": "https://github.com/jorabekyusupov/devforge/actions/runs/43617357177",
+  "conclusion": "success",
+  "jobs": [
+    {
+      "id": 132515225243,
+      "name": "scope-baseline",
+      "conclusion": "success",
+      "passed_steps": [
+        "Set up job",
+        "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+        "Run actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1",
+        "Find last ancestor validated on both platforms",
+        "Post Run actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1",
+        "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+        "Complete job"
+      ]
+    },
+    {
+      "id": 132515226742,
+      "name": "xdebug-native",
+      "conclusion": "skipped",
+      "passed_steps": []
+    },
+    {
+      "id": 132515275821,
+      "name": "check (windows-latest)",
+      "conclusion": "success",
+      "passed_steps": [
+        "Set up job",
+        "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+        "Run actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1",
+        "Select checks from changed paths",
+        "Prepare toolchain from rust-toolchain.toml",
+        "Select Rust packages and consumers",
+        "Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+        "Run npm ci",
+        "Run python -m unittest scripts/test_distribution.py",
+        "Run npm run check:locales",
+        "Run node --test scripts/check_locales.test.mjs",
+        "Run npm run typecheck",
+        "Run npm test",
+        "Rust fmt for selected scope",
+        "Rust clippy for selected scope",
+        "Rust test for selected scope",
+        "Build native desktop binary with embedded frontend",
+        "Run python -m unittest discover -s tests -p 'test_ci_*.py'",
+        "Run python -m unittest discover -s tests -p test_rust_scope.py",
+        "Run python -m pip install -r scripts/requirements-knowledge.txt",
+        "Run python scripts/validate_knowledge.py --strict",
+        "Post Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+        "Post Run actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1",
+        "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+        "Complete job"
+      ]
+    },
+    {
+      "id": 132515275842,
+      "name": "check (macos-latest)",
+      "conclusion": "success",
+      "passed_steps": [
+        "Set up job",
+        "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+        "Run actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1",
+        "Select checks from changed paths",
+        "Prepare toolchain from rust-toolchain.toml",
+        "Select Rust packages and consumers",
+        "Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+        "Run npm ci",
+        "Run python -m unittest scripts/test_distribution.py",
+        "Run npm run check:locales",
+        "Run node --test scripts/check_locales.test.mjs",
+        "Run npm run typecheck",
+        "Run npm test",
+        "Rust fmt for selected scope",
+        "Rust clippy for selected scope",
+        "Rust test for selected scope",
+        "Build native desktop binary with embedded frontend",
+        "Run python -m unittest discover -s tests -p 'test_ci_*.py'",
+        "Run python -m unittest discover -s tests -p test_rust_scope.py",
+        "Run python -m pip install -r scripts/requirements-knowledge.txt",
+        "Run python scripts/validate_knowledge.py --strict",
+        "Post Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+        "Post Run actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1",
+        "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+        "Complete job"
+      ]
+    }
+  ],
+  "windows_runner_os_log": [
+    "2026-11-14T16:45:54.3357852Z ##[group]Operating System",
+    "2026-11-14T16:45:54.3358456Z Microsoft Windows Server 2025",
+    "2026-11-14T16:45:54.3359041Z 10.0.26100",
+    "2026-11-14T16:45:54.3359501Z Datacenter",
+    "2026-11-14T16:45:54.3359995Z ##[endgroup]"
+  ],
+  "actual_windows_reader_cursor_privacy_51_and_default9_names": [
+    "2026-11-14T16:57:35.8773777Z test metadata::tests::invalid_metadata_filters_and_unsafe_links_fail_without_bootstrap ... ok",
+    "2026-11-14T16:57:36.3511297Z test metadata::tests::actual_sequences_safe_fields_scope_filters_and_epoch_survive_append_and_clear ... ok",
+    "2026-11-14T16:57:36.8297740Z test metadata::tests::missing_is_noncreating_and_existing_mail_projects_only_id_time_attachment_count ... ok",
+    "2026-11-14T16:57:36.9415463Z test metadata::tests::mail_metadata_accepts_fifty_one_attachments_and_rejects_unsafe_counts ... ok",
+    "2026-11-14T16:57:42.6160757Z test metadata::tests::native_prefix_row_byte_limits_and_corruption_are_not_silently_empty ... ok",
+    "2026-11-14T16:59:58.2561704Z test metadata_policy_masks_payloads_and_binds_sequence_cursors_to_grant_filter_and_epoch ... ok",
+    "2026-11-14T16:57:29.7948958Z test cursor_is_project_tool_revision_and_expiry_bound ... ok",
+    "2026-11-14T16:58:58.1043798Z test legacy_handshake_does_not_supply_metadata_to_modern_requests ... ok",
+    "2026-11-14T16:58:58.1049175Z test only_nine_read_tools_are_dispatchable_and_notifications_never_mint_authority ... ok"
+  ],
+  "actual_windows_laravel_inspector_native_flow": "unverified; separate Mac archived evidence is not Windows evidence",
+  "native_ui_signing_minimum_os": "unverified",
+  "actual_windows_mcp_contract_sections": [
+    "2026-11-14T16:58:58.0869420Z      Running tests\\mcp_contract.rs (target\\debug\\deps\\mcp_contract-53bf3b1f791fbc43.exe)\n2026-11-14T16:58:58.0984679Z \n2026-11-14T16:58:58.0985146Z running 4 tests\n2026-11-14T16:58:58.1002288Z test modern_metadata_is_per_request_with_discovery_cache_and_version_errors ... ok\n2026-11-14T16:58:58.1012504Z test resources_require_authorized_project_projection_and_reject_foreign_uris_and_cursors ... ok\n2026-11-14T16:58:58.1043798Z test legacy_handshake_does_not_supply_metadata_to_modern_requests ... ok\n2026-11-14T16:58:58.1049175Z test only_nine_read_tools_are_dispatchable_and_notifications_never_mint_authority ... ok\n2026-11-14T16:58:58.1049750Z \n2026-11-14T16:58:58.1050140Z test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s"
+  ]
+}

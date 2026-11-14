@@ -186,8 +186,20 @@ macOS permissions userning exact tasdigisiz o'zgartirilmaydi.
 # Bajarish navbati va old shartlar
 
 Asosiy dependency: **E00 → M13.0 → M13.1 → M13.2 → M13.3 → M13.4 → M13.5 → M13.6 → M13.7 → M13.8 → M13.9 → M14 → M15.**
-Schema/projection/UI fixture'lari oldin parallel ishlab chiqilishi mumkin; yuqoridagi
-navbat live integratsiya va qabul navbatidir. M13.5 read projection M13.4 bilan
+2026-11-14 user yangi navbatni boshlashni tasdiqladi. Yuqoridagi ID/scope saqlanadi;
+qolgan live delivery navbati dependency va mavjud poydevordan foydalanishga qarab:
+**M13.5 metadata CI → M13.8a minimal connection/grant/config/approval UI →
+M13.6a managed exec/test va zarur test-data isolation → M13.5 qolgan content/
+correlation/mail/artifact kesimlari → M13.6 qolgan debug/workspace/recovery →
+M13.7 HTTP MCP → M13.8b qolgan UX/docs → M13.9 → M14 → M15.**
+Bu yangi imkoniyat yoki qayta implementatsiya emas; M13.6/M13.8 ichki kesimlarga
+ajratiladi. Data-affecting test zarur isolation'siz ishga tushmaydi. Mustaqil
+backend/frontend faqat exact fayl ownership bilan parallel; har kesimda tegishli
+test/evidence, oldingi o'zgarmagan passlar reuse qilinadi. E-qoldiqlar va
+planning-only endpointlar hisobdan tushmaydi; machine confirmation, signing,
+minimum OS va real dialog gate'lari erta UI tufayli yopilgan deb hisoblanmaydi.
+Schema/projection/UI fixture'lari oldin parallel ishlab chiqilishi mumkin; yangilangan
+navbat joriy live integratsiya va qabul navbatidir. M13.5 read projection M13.4 bilan
 mustaqil modullarda parallel bolishi mumkin, lekin har biri o'z old shartini yopadi.
 E01/E02/E04 va compatibility/performance baseline E00'dan keyin parallel; E03 katalog
 kengayishidan oldin; E05–E10 optional ishlar M13ni to'liq kutdiradigan paket emas.

@@ -449,6 +449,20 @@ impl NativeBridge {
             }
         }
     }
+    /// Trusted Rust-only owner boundary. Invoke on a blocking worker; neither
+    /// the SDK/session nor a renderer-provided endpoint is exposed to JavaScript.
+    pub(crate) fn agent_owner_action<T>(
+        &self,
+        f: impl FnOnce(&mut NativeClient) -> native_client::Result<T>,
+    ) -> Result<T> {
+        if self.inner.quitting.load(Ordering::Acquire) {
+            return Err(BridgeError::ShuttingDown);
+        }
+        self.with_sdk(f)
+    }
+    pub(crate) fn agent_native_paths(&self) -> (PathBuf, Option<BundledManager>) {
+        (self.inner.root.clone(), self.inner.artifact.clone())
+    }
     // Owned image buffers cannot be retried after a try_lock failure (the move
     // would drop them). These worker-only finalizers wait for the bounded RPC
     // currently holding the client; no native credential prompt holds this lock.

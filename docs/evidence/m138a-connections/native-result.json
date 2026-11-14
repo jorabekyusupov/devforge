@@ -1,0 +1,115 @@
+{
+  "passed": true,
+  "native_webview": true,
+  "ipc_mocked": false,
+  "checks": [
+    "native_webview_real_ipc_single_manager",
+    "reused_prior_same_fixture_dom_issue_mcp_scope_review_successful_stop_reconcile_status_and_modal_keyboard",
+    "three_representative_native_locale_theme_size_axe_focus_cases",
+    "dom_revoke_invalidates_actual_mcp_grant",
+    "no_services_or_runtime_downloads"
+  ],
+  "captures": [
+    {
+      "case": "agents-en-light-1536x1024",
+      "path": "agents-en-light-1536x1024.png",
+      "viewport": {
+        "dpr": 2,
+        "height": 1024,
+        "width": 1536
+      },
+      "window_rect": {
+        "height": 1056,
+        "width": 1536,
+        "x": 1090,
+        "y": 545
+      }
+    },
+    {
+      "case": "agents-ru-dark-820x620",
+      "path": "agents-ru-dark-820x620.png",
+      "viewport": {
+        "dpr": 2,
+        "height": 620,
+        "width": 820
+      },
+      "window_rect": {
+        "height": 652,
+        "width": 820,
+        "x": 1090,
+        "y": 545
+      }
+    },
+    {
+      "case": "agents-uz-Latn-light-820x620",
+      "path": "agents-uz-Latn-light-820x620.png",
+      "viewport": {
+        "dpr": 2,
+        "height": 620,
+        "width": 820
+      },
+      "window_rect": {
+        "height": 652,
+        "width": 820,
+        "x": 1090,
+        "y": 545
+      }
+    }
+  ],
+  "axe": [
+    {
+      "case": "agents-en-light-1536x1024",
+      "violations": []
+    },
+    {
+      "case": "agents-ru-dark-820x620",
+      "violations": []
+    },
+    {
+      "case": "agents-uz-Latn-light-820x620",
+      "violations": []
+    }
+  ],
+  "keyboard_focus": [
+    {
+      "case": "agents-en-light-1536x1024",
+      "body": false,
+      "contained": true,
+      "tag": "BUTTON",
+      "visible": false,
+      "scope": "synthetic WebDriver focus observation; native OS focus-visible not asserted"
+    },
+    {
+      "case": "agents-ru-dark-820x620",
+      "body": false,
+      "contained": true,
+      "tag": "BUTTON",
+      "visible": false,
+      "scope": "synthetic WebDriver focus observation; native OS focus-visible not asserted"
+    },
+    {
+      "case": "agents-uz-Latn-light-820x620",
+      "body": false,
+      "contained": true,
+      "tag": "BUTTON",
+      "visible": false,
+      "scope": "synthetic WebDriver focus observation; native OS focus-visible not asserted"
+    }
+  ],
+  "manager_pid": 8310,
+  "native_store_provider_used": false,
+  "artifact": {
+    "cli_sha256": "edb47e3c006edadac5775f5102592e52ee28b27b36845fe5d3fd46732c93327e",
+    "gui_sha256": "973309ae015a742d89716bd13dfb07d906475e63c92b1d34271832498c783a6b",
+    "target": "aarch64-apple-darwin",
+    "profile": "debug_e2e_custom_protocol",
+    "source_head": "5c42dbeea44c82fee5d86fa4b1f4838c1fa9794f",
+    "source_dirty": true
+  },
+  "frontend_origin": "tauri://localhost",
+  "os_security_permissions_changed": false,
+  "services_started": false,
+  "runtime_downloads": false,
+  "visual_review": "integrator inspected all 4 actual PNGs; readable scoped panel/dialog, no observed overflow; not a 1:1 redesign claim",
+  "verification_scope": "one owned fixture continued after harness-only failures; passed mutations not repeated; synthetic matrix focus-visible explicitly unverified"
+}

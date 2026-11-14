@@ -1,16 +1,71 @@
 //! Read-only private credential-file composition for stdio. Tokens never share
 //! protocol stdin and are never accepted from argv/environment. No file is made
-//! or repaired by this module; a missing/unsafe file fails closed.
+//! or repaired by the loader; a missing/unsafe file fails closed. Explicit native
+//! export helpers create fresh private leaves only, never repair existing paths.
 use crate::external_auth::ExternalCredential;
 use devforge_control::{ErrorCode, Id};
 use serde::Deserialize;
 use std::{
     fs::{self, OpenOptions},
-    io::Read,
+    io::{Read, Write},
     path::Path,
 };
 use zeroize::Zeroizing;
 pub const MAX_CREDENTIAL_FILE_BYTES: usize = 4096;
+/// Native-selected export location only. The explicit action marker is never
+/// deserialized from renderer or external protocol input.
+pub fn create_new_private_export_dir(
+    path: &Path,
+    _action: &crate::auth::TrustedDesktopAction,
+) -> Result<(), ErrorCode> {
+    let parent = path.parent().ok_or(ErrorCode::InvalidInput)?;
+    if !path.is_absolute() || fs::canonicalize(parent).ok().as_deref() != Some(parent) {
+        return Err(ErrorCode::InvalidInput);
+    }
+    crate::transport::os::validate_root(parent).map_err(|_| ErrorCode::Unauthorized)?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::DirBuilderExt;
+        fs::DirBuilder::new()
+            .mode(0o700)
+            .create(path)
+            .map_err(|_| ErrorCode::StorageUnavailable)?;
+    }
+    #[cfg(windows)]
+    crate::transport::os::create_private_export_dir(path)
+        .map_err(|_| ErrorCode::StorageUnavailable)?;
+    crate::transport::os::validate_private_dir(path).map_err(|_| ErrorCode::Unauthorized)
+}
+pub fn write_new_private_export_file(
+    path: &Path,
+    bytes: &[u8],
+    _action: &crate::auth::TrustedDesktopAction,
+) -> Result<(), ErrorCode> {
+    if bytes.len() > 65_536 {
+        return Err(ErrorCode::OutputLimitExceeded);
+    }
+    let parent = path.parent().ok_or(ErrorCode::InvalidInput)?;
+    if !path.is_absolute() || fs::canonicalize(parent).ok().as_deref() != Some(parent) {
+        return Err(ErrorCode::InvalidInput);
+    }
+    crate::transport::os::validate_private_dir(parent).map_err(|_| ErrorCode::Unauthorized)?;
+    #[cfg(unix)]
+    let mut file = {
+        let mut options = OpenOptions::new();
+        options.read(true).write(true).create_new(true);
+        crate::transport::os::secure_lock_options(&mut options);
+        options
+            .open(path)
+            .map_err(|_| ErrorCode::StorageUnavailable)?
+    };
+    #[cfg(windows)]
+    let mut file = crate::transport::os::create_private_export_file(path)
+        .map_err(|_| ErrorCode::StorageUnavailable)?;
+    crate::transport::os::validate_lock(&file).map_err(|_| ErrorCode::Unauthorized)?;
+    file.write_all(bytes)
+        .and_then(|_| file.sync_all())
+        .map_err(|_| ErrorCode::StorageUnavailable)
+}
 pub struct CredentialFile;
 pub struct LoadedCredential {
     project_id: Id,

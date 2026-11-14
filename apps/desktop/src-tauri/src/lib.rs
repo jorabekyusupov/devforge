@@ -1,5 +1,6 @@
 #[cfg(all(feature = "e2e", not(debug_assertions)))]
 compile_error!("E2E instrumentation is supported only in debug acceptance builds");
+pub mod agent_connections;
 #[cfg(feature = "e2e")]
 mod fixture_root;
 pub mod manager_artifact;
@@ -344,6 +345,7 @@ pub fn run() {
             }
         }))
         .manage(operation_lease)
+        .manage(Arc::new(agent_connections::State::default()))
         .manage(probe)
         .plugin(tauri_plugin_dialog::init());
     #[cfg(feature = "e2e")]
@@ -363,6 +365,7 @@ pub fn run() {
             let _ = payload;
         })
         .invoke_handler(tauri::generate_handler![
+            agent_connections::agent_connections,
             bootstrap,
             startup_ready,
             save_settings,

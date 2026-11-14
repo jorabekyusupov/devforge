@@ -204,6 +204,45 @@ pub(crate) fn ensure_private_dir(path: &Path) -> Result<()> {
     }
     validate_private_dir(path)
 }
+/// Explicit native export creates a fresh leaf; never adopt or repair a path.
+pub(crate) fn create_private_export_dir(path: &Path) -> Result<()> {
+    let sd = descriptor(true)?;
+    let attributes = SECURITY_ATTRIBUTES {
+        nLength: std::mem::size_of::<SECURITY_ATTRIBUTES>() as u32,
+        lpSecurityDescriptor: sd.0,
+        bInheritHandle: 0,
+    };
+    if unsafe { CreateDirectoryW(wide(path.as_os_str()).as_ptr(), &attributes) } == 0 {
+        return Err(io::Error::last_os_error().into());
+    }
+    validate_private_dir(path)
+}
+pub(crate) fn create_private_export_file(path: &Path) -> Result<File> {
+    use std::os::windows::io::FromRawHandle;
+    let sd = descriptor(false)?;
+    let attributes = SECURITY_ATTRIBUTES {
+        nLength: std::mem::size_of::<SECURITY_ATTRIBUTES>() as u32,
+        lpSecurityDescriptor: sd.0,
+        bInheritHandle: 0,
+    };
+    let handle = unsafe {
+        CreateFileW(
+            wide(path.as_os_str()).as_ptr(),
+            GENERIC_READ | GENERIC_WRITE,
+            FILE_SHARE_READ,
+            &attributes,
+            CREATE_NEW,
+            FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OPEN_REPARSE_POINT,
+            std::ptr::null_mut(),
+        )
+    };
+    if handle == INVALID_HANDLE_VALUE {
+        return Err(io::Error::last_os_error().into());
+    }
+    let file = unsafe { File::from_raw_handle(handle) };
+    validate_credential_file(&file)?;
+    Ok(file)
+}
 pub(crate) fn secure_lock_options(options: &mut OpenOptions) {
     options.custom_flags(FILE_FLAG_OPEN_REPARSE_POINT);
 }

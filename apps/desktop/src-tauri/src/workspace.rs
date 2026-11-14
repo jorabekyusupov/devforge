@@ -48,6 +48,15 @@ impl Drop for ConnectionGuard {
     }
 }
 impl State {
+    pub(crate) fn agent_bridge(&self) -> NativeBridge {
+        self.bridge.clone()
+    }
+    pub(crate) fn agent_snapshot(&self) -> Result<View, Error> {
+        self.view()
+    }
+    pub(crate) fn agent_connect(&self) -> Result<(), Error> {
+        self.connect_explicit()
+    }
     pub fn new(root: PathBuf) -> Result<Self, Error> {
         #[cfg(feature = "e2e")]
         let provider = {

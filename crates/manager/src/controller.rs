@@ -446,6 +446,24 @@ enum Request {
         session: WireToken,
         digest: devforge_control::Digest,
     },
+    PendingReviews {
+        session: WireToken,
+    },
+    ExternalOperationStatus {
+        session: WireToken,
+        grant_id: Id,
+        operation_id: Id,
+    },
+    ExternalOperationCancel {
+        session: WireToken,
+        grant_id: Id,
+        operation_id: Id,
+    },
+    ExternalOperationByKey {
+        session: WireToken,
+        grant_id: Id,
+        idempotency_key: Id,
+    },
     ConfirmDomainChange {
         session: WireToken,
         digest: devforge_control::Digest,
@@ -700,6 +718,10 @@ impl Context {
             | Request::ExternalGrantList { session }
             | Request::ExternalGrantRevoke { session, .. }
             | Request::ApproveServicePlan { session, .. }
+            | Request::PendingReviews { session }
+            | Request::ExternalOperationStatus { session, .. }
+            | Request::ExternalOperationCancel { session, .. }
+            | Request::ExternalOperationByKey { session, .. }
             | Request::ConfirmDomainChange { session, .. }
             | Request::Quit { session } => session,
             _ => return fault("controller_invalid_request"),
@@ -717,6 +739,54 @@ impl Context {
             Err(error) => return fault(&error.to_string()),
         };
         match request {
+            Request::PendingReviews { .. } => {
+                match self.services.pending_reviews(&authority, &self.actor) {
+                    Ok(reviews) => bounded_reply(&reviews),
+                    Err(error) => fault(control_code(error)),
+                }
+            }
+            Request::ExternalOperationStatus {
+                grant_id,
+                operation_id,
+                ..
+            } => match self.services.owner_operation_status(
+                &authority,
+                &self.actor,
+                &grant_id,
+                &operation_id,
+            ) {
+                Ok(receipt) => bounded_reply(&receipt),
+                Err(error) => fault(control_code(error)),
+            },
+            Request::ExternalOperationCancel {
+                grant_id,
+                operation_id,
+                ..
+            } => match self.services.owner_operation_cancel(
+                &authority,
+                &self.actor,
+                &grant_id,
+                &operation_id,
+            ) {
+                Ok(value) => success(json!({"cancellation":match value {
+                    crate::actor::CancelOutcome::Requested=>"requested",
+                    crate::actor::CancelOutcome::AlreadyTerminal=>"already_terminal",
+                }})),
+                Err(error) => fault(control_code(error)),
+            },
+            Request::ExternalOperationByKey {
+                grant_id,
+                idempotency_key,
+                ..
+            } => match self.services.owner_operation_by_key(
+                &authority,
+                &self.actor,
+                &grant_id,
+                &idempotency_key,
+            ) {
+                Ok(receipt) => bounded_reply(&receipt),
+                Err(error) => fault(control_code(error)),
+            },
             Request::ConfirmDomainChange { digest, .. } => {
                 match self
                     .services

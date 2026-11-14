@@ -966,6 +966,43 @@ impl NativeClient {
     ) -> Result<devforge_control::mutations::PlanReceipt> {
         decode(self.authenticated("approve_service_plan", json!({"digest":digest}))?)
     }
+    pub fn pending_reviews(&mut self) -> Result<Vec<crate::service_control::PendingReview>> {
+        decode(self.authenticated("pending_reviews", json!({}))?)
+    }
+    /// Native owner administration resolves client/project from the persisted
+    /// grant. Automation never chooses or receives native session authority.
+    pub fn external_operation_status(&mut self, grant: &Id, operation: &Id) -> Result<Receipt> {
+        decode(self.authenticated(
+            "external_operation_status",
+            json!({"grant_id":grant,"operation_id":operation}),
+        )?)
+    }
+    pub fn external_operation_by_key(&mut self, grant: &Id, key: &Id) -> Result<Option<Receipt>> {
+        decode(self.authenticated(
+            "external_operation_by_key",
+            json!({"grant_id":grant,"idempotency_key":key}),
+        )?)
+    }
+    pub fn external_operation_cancel(
+        &mut self,
+        grant: &Id,
+        operation: &Id,
+    ) -> Result<crate::actor::CancelOutcome> {
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct Reply {
+            cancellation: String,
+        }
+        let reply: Reply = decode(self.authenticated(
+            "external_operation_cancel",
+            json!({"grant_id":grant,"operation_id":operation}),
+        )?)?;
+        match reply.cancellation.as_str() {
+            "requested" => Ok(crate::actor::CancelOutcome::Requested),
+            "already_terminal" => Ok(crate::actor::CancelOutcome::AlreadyTerminal),
+            _ => Err(Error::Protocol),
+        }
+    }
     /// Separate explicit native-owner machine-change action. This marker is
     /// never accepted from renderer/automation JSON or an external grant.
     pub fn confirm_domain_change(

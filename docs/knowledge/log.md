@@ -4,6 +4,10 @@
 
 ## 2026-11-14
 
+- **Reordered M13.8a:** minimal native Settings grant/config/approval/operation UI implemented, protected Rust-only token delivery, reviewable semantic/machine details. Focus and Busy compensation blockers fixed with exact regressions. Actual same-fixture WebView flow/4captures/3axe0 passed; source hashes and focus-visible/Windows/OS gates explicit. No extra report/dashboard/content features. [Contract](../architecture/native-agent-connections.md), [execution](execution-status.md).
+
+- **Execution reorder confirmed:** user requested starting the reordered sequence with no extra work; minimal M13.8a grant/config/approval UI precedes managed test feedback, then remaining diagnostics and advanced workspace/debug. IDs/scope/E-backlog/gates preserved, exact-path parallel backend/bridge/frontend. [Plan](integrated-execution-plan.md). Metadata5c42dbe both-platform CI passed after one stale legacy tool-count assertion fix; no product behavior change.
+
 - **M13.5 metadata first:** four safe readonly projections, noncreating SQL readers, existing cursor strengthened with scoped frozen-window provenance. Policy/privacy/tamper/revoke/cursor checks and one actual Laravel/SMTP→SDK/stdio/official Inspector flow passed. Native51-attachment compatibility guard fixed only in reader. No content rights/collector rewrite; richer M13.5 slices remain. [Contract](../architecture/metadata-diagnostics.md), [execution](execution-status.md).
 
 - **M13.4 domain/HTTPS:** seven scoped operations, noncreating public metadata/opaque SystemPlan, separate one-shot native machine confirmation, safe hosts-only cleanup/shared CA retention. Core/policy/client/contracts/export checks and one owned Caddy/client-CA TLS smoke passed. Scoped auth callback snapshot side effect fixed with exact regression/QA closure. Actual helper/dialog/system writes/minimum OS remain gates; M13.4 implementation reconciled, M13.5 next. [Contract](../architecture/reviewed-service-actions.md), [execution](execution-status.md).

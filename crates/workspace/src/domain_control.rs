@@ -5,7 +5,7 @@ use devforge_serving::{
     authority, hosts,
     system::{self, Operation, Plan as SystemPlan},
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeSet,
     time::{Duration, Instant},
@@ -42,6 +42,39 @@ pub struct DomainFacts {
     pub ca_fingerprint: Option<String>,
     pub system_trusted: Option<bool>,
 }
+/// Native-owner review only: retained host names can belong to other projects.
+/// This summary is never an external project-agent projection or authority.
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct NativeDomainReviewSummary {
+    pub steps: Vec<NativeSystemStep>,
+    pub hosts: Option<NativeHostsDelta>,
+    pub ca_fingerprint: String,
+    pub shared_ca_preserved: bool,
+    pub remaining_ms: u64,
+}
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct NativeSystemStep {
+    pub operation: NativeSystemOperation,
+    pub target: NativeSystemTarget,
+}
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum NativeSystemOperation {
+    HostsUpdate,
+    TrustInstall,
+}
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum NativeSystemTarget {
+    SystemHosts,
+    SystemTrustStore,
+}
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct NativeHostsDelta {
+    pub added: Vec<String>,
+    pub removed: Vec<String>,
+    pub retained: Vec<String>,
+}
 /// Manager-private: never serialize raw hosts hashes, owner domains or plan DER.
 #[derive(Clone)]
 pub struct DomainPlan {
@@ -56,6 +89,7 @@ pub struct DomainPlan {
     sites_hash: String,
     ca_hash: String,
     hosts_hash: String,
+    original_hosts: Vec<String>,
     expires: Instant,
 }
 /// Mint only after the separate trusted native owner confirmation. Not a wire
@@ -66,6 +100,42 @@ pub struct MachineConfirmation {
     used: bool,
 }
 impl DomainPlan {
+    pub fn native_review_summary(&self) -> Result<NativeDomainReviewSummary> {
+        self.native.validate(&self.native.digest())?;
+        let (operation, target, hosts) = match &self.native.action {
+            Operation::Hosts { domains, .. } => {
+                let before = self.original_hosts.iter().cloned().collect::<BTreeSet<_>>();
+                let after = domains.iter().cloned().collect::<BTreeSet<_>>();
+                (
+                    NativeSystemOperation::HostsUpdate,
+                    NativeSystemTarget::SystemHosts,
+                    Some(NativeHostsDelta {
+                        added: after.difference(&before).cloned().collect(),
+                        removed: before.difference(&after).cloned().collect(),
+                        retained: before.intersection(&after).cloned().collect(),
+                    }),
+                )
+            }
+            Operation::TrustInstall { .. } => (
+                NativeSystemOperation::TrustInstall,
+                NativeSystemTarget::SystemTrustStore,
+                None,
+            ),
+            Operation::TrustRemove { .. } => {
+                return Err(error("domain_review_summary_unavailable"));
+            }
+        };
+        Ok(NativeDomainReviewSummary {
+            steps: vec![NativeSystemStep { operation, target }],
+            hosts,
+            ca_fingerprint: self.ca_hash.clone(),
+            shared_ca_preserved: true,
+            remaining_ms: self
+                .expires
+                .saturating_duration_since(Instant::now())
+                .as_millis() as u64,
+        })
+    }
     pub fn kind(&self) -> DomainPlanKind {
         self.kind
     }
@@ -238,12 +308,14 @@ impl Workspace {
             .ok_or_else(|| error("setup_site_missing"))?;
         let owner = self.sites.owner()?;
         let ca = existing_ca(self, &owner)?;
+        let mut original_hosts = Vec::new();
         let action = if kind == DomainPlanKind::Trust {
             Operation::TrustInstall {
                 certificate_der: ca.clone(),
             }
         } else {
             let mut names = actual_names(before, &owner)?;
+            original_hosts = names.iter().cloned().collect();
             if kind == DomainPlanKind::Cleanup {
                 names.remove(&site.domain);
                 names.remove(&site.vite_domain());
@@ -276,6 +348,7 @@ impl Workspace {
             sites_hash,
             ca_hash: devforge_serving::hash(&ca),
             hosts_hash: devforge_serving::hash(before),
+            original_hosts,
             expires: Instant::now() + LIFETIME,
         };
         check()?;
@@ -605,5 +678,71 @@ mod tests {
             plan.confirm_native_owner().err().unwrap().code,
             "domain_review_expired"
         );
+    }
+    #[test]
+    fn native_review_summary_exposes_exact_delta_and_fixed_steps_without_private_plan_fields() {
+        let (_root, workspace, id) = fixture(true);
+        let owner = workspace.sites.owner().unwrap();
+        let before = hosts::patch(
+            b"127.0.0.1 localhost\n",
+            &owner,
+            &["b.devforge.test".into(), "stale.devforge.test".into()],
+        )
+        .unwrap();
+        let mut plan = workspace
+            .domain_plan_from_hosts(&id, DomainPlanKind::Hosts, &before, &|| Ok(()))
+            .unwrap();
+        let summary = plan.native_review_summary().unwrap();
+        let hosts = summary.hosts.as_ref().unwrap();
+        assert_eq!(hosts.added, vec!["a.devforge.test", "vite-a.devforge.test"]);
+        assert!(hosts.removed.is_empty());
+        assert_eq!(
+            hosts.retained,
+            vec!["b.devforge.test", "stale.devforge.test"]
+        );
+        assert!(matches!(
+            summary.steps[0].operation,
+            NativeSystemOperation::HostsUpdate
+        ));
+        assert!(matches!(
+            summary.steps[0].target,
+            NativeSystemTarget::SystemHosts
+        ));
+        assert!(
+            summary.shared_ca_preserved
+                && summary.remaining_ms > 0
+                && summary.remaining_ms <= 300_000
+        );
+        let value = serde_json::to_value(&summary).unwrap();
+        let encoded = value.to_string();
+        assert!(!encoded.contains(&plan.native.digest()));
+        assert!(!encoded.contains(&plan.fingerprint().unwrap()));
+        for name in [
+            "owner",
+            "project_root",
+            "hosts_hash",
+            "certificate_der",
+            "private_key",
+        ] {
+            assert!(value.get(name).is_none());
+        }
+        let decoded: NativeDomainReviewSummary = serde_json::from_value(value).unwrap();
+        assert!(decoded == summary);
+        plan.expires = Instant::now() - Duration::from_millis(1);
+        assert_eq!(plan.native_review_summary().unwrap().remaining_ms, 0);
+        let trust = workspace
+            .domain_plan_from_hosts(&id, DomainPlanKind::Trust, &before, &|| Ok(()))
+            .unwrap()
+            .native_review_summary()
+            .unwrap();
+        assert!(trust.hosts.is_none());
+        assert!(matches!(
+            trust.steps[0].operation,
+            NativeSystemOperation::TrustInstall
+        ));
+        assert!(matches!(
+            trust.steps[0].target,
+            NativeSystemTarget::SystemTrustStore
+        ));
     }
 }

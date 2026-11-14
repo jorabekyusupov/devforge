@@ -427,6 +427,121 @@ fn request(project: &str, action: &str, key: &str) -> Request<MutationInput> {
 }
 
 #[test]
+fn native_pending_review_and_grant_scoped_operation_controls_never_accept_external_authority() {
+    use devforge_manager::service_control::{ReviewState, ReviewTarget};
+    let mut rig = Rig::new(None);
+    let grant = rig.grant(0, false);
+    let other = rig.grant(1, false);
+    assert!(grant.record.information.is_empty());
+    let mut client = rig.service(&grant);
+    let req = request(&rig.projects[0].id, "stop", "owner-visible-stop");
+    let plan = client.plan(&req).unwrap().data().unwrap().clone();
+    let summaries = rig.native.pending_reviews().unwrap();
+    let summary = summaries
+        .iter()
+        .find(|summary| summary.digest == plan.digest)
+        .unwrap();
+    assert_eq!(summary.state, ReviewState::Pending);
+    assert_eq!(summary.grant_id, grant.record.grant_id);
+    assert_eq!(summary.client_id, grant.record.client_id);
+    assert_eq!(summary.project_name, rig.projects[0].name);
+    assert_eq!(Path::new(&summary.project_root), rig.projects[0].path);
+    assert!(summary.revalidation_required);
+    assert!(!summary.machine_confirmation_required);
+    assert!(matches!(&summary.target, ReviewTarget::Service { action } if action == "stop"));
+    assert!(!summary.effects.is_empty());
+    let raw = Client::new(rig.endpoint.clone())
+        .request(&json!({
+            "method":"pending_reviews", "session":grant.credential.expose_secret()
+        }))
+        .unwrap();
+    assert_eq!(raw["ok"], false);
+    let raw = Client::new(rig.endpoint.clone())
+        .request(&json!({
+            "method":"external_operation_by_key", "session":grant.credential.expose_secret(),
+            "grant_id":grant.record.grant_id,"idempotency_key":"owner-visible-stop"
+        }))
+        .unwrap();
+    assert_eq!(raw["ok"], false);
+    rig.native.approve_service_plan(&plan.digest).unwrap();
+    assert_eq!(
+        rig.native.pending_reviews().unwrap()[0].state,
+        ReviewState::Approved
+    );
+    let release = rig.block();
+    let receipt = client
+        .apply(&req, &plan.digest)
+        .unwrap()
+        .data()
+        .unwrap()
+        .clone();
+    assert_eq!(
+        rig.native.pending_reviews().unwrap()[0]
+            .operation_id
+            .as_ref(),
+        Some(&receipt.operation_id)
+    );
+    assert_eq!(
+        rig.native
+            .external_operation_by_key(
+                &grant.record.grant_id,
+                req.idempotency_key.as_ref().unwrap()
+            )
+            .unwrap()
+            .unwrap()
+            .operation_id,
+        receipt.operation_id
+    );
+    assert!(
+        rig.native
+            .external_operation_status(&other.record.grant_id, &receipt.operation_id)
+            .is_err()
+    );
+    assert!(
+        rig.native
+            .external_operation_cancel(&other.record.grant_id, &receipt.operation_id)
+            .is_err()
+    );
+    assert!(
+        rig.native
+            .external_operation_by_key(
+                &other.record.grant_id,
+                req.idempotency_key.as_ref().unwrap()
+            )
+            .unwrap()
+            .is_none()
+    );
+    rig.native
+        .revoke_external_grant(&grant.record.grant_id)
+        .unwrap();
+    assert_eq!(
+        rig.native.pending_reviews().unwrap()[0].state,
+        ReviewState::Revoked
+    );
+    assert_eq!(
+        rig.native
+            .external_operation_cancel(&grant.record.grant_id, &receipt.operation_id)
+            .unwrap(),
+        devforge_manager::actor::CancelOutcome::Requested
+    );
+    drop(release);
+    let until = Instant::now() + Duration::from_secs(5);
+    loop {
+        let state = rig
+            .native
+            .external_operation_status(&grant.record.grant_id, &receipt.operation_id)
+            .unwrap()
+            .state;
+        if state.terminal() {
+            assert_eq!(state, OperationState::Cancelled);
+            break;
+        }
+        assert!(Instant::now() < until);
+        thread::sleep(Duration::from_millis(10));
+    }
+}
+
+#[test]
 fn review_is_native_and_exact_and_retry_lookup_never_creates_a_second_effect() {
     let mut rig = Rig::new(None);
     let grant = rig.grant(0, false);
@@ -907,6 +1022,25 @@ fn env_policy_opaque_versions_mask_invalid_yaml_and_keep_sensitive_fingerprints_
     let plan = env.plan(&req).unwrap();
     assert!(plan.is_ok(), "save preview denied: {:?}", plan.error());
     let plan = plan.data().unwrap().receipt.as_ref().unwrap().clone();
+    let reviews = rig.native.pending_reviews().unwrap();
+    let summary = reviews
+        .iter()
+        .find(|summary| summary.digest == plan.digest)
+        .unwrap();
+    assert!(
+        matches!(&summary.target, devforge_manager::service_control::ReviewTarget::YamlSave { summary, .. }
+        if summary.domain.ends_with(".devforge.test") && summary.pin_count > 0)
+    );
+    let safe_summary = serde_json::to_string(summary).unwrap();
+    assert!(!safe_summary.contains("YAML_CANARY"));
+    assert!(!safe_summary.contains("lowentropy"));
+    assert!(
+        !safe_summary.contains(
+            devforge_control_adapter::sha256(text.as_bytes())
+                .unwrap()
+                .as_str()
+        )
+    );
     assert_eq!(
         env.apply(&req, &plan.digest).unwrap().error().unwrap().code,
         ErrorCode::Unauthorized

@@ -247,10 +247,28 @@ pub fn spawn_with_private_bootstrap(
     spec: &LaunchSpec,
     expected_sha256: &[u8; 32],
 ) -> Result<PendingBootstrapChild> {
+    let mut command = prepare_command(spec)?;
+    verify_pinned_executable(&spec.executable, expected_sha256)?;
+    command.stdout(Stdio::piped());
+    let mut child = spawn_command(command)?;
+    let pipe = child.stdout.take().ok_or(Error::InvalidLaunch)?;
+    Ok(PendingBootstrapChild {
+        child,
+        pipe: Some(pipe),
+        root: fs::canonicalize(&spec.data_root)?,
+    })
+}
+/// Verify the native composition's fixed packaged artifact without starting it.
+/// Used before exporting a client configuration; never accepts a renderer/PATH
+/// fallback. The same bounded verifier is used by private bootstrap launch.
+pub fn verify_pinned_executable(path: &Path, expected_sha256: &[u8; 32]) -> Result<()> {
     use sha2::{Digest, Sha256};
     use std::io::Read;
-    let mut command = prepare_command(spec)?;
-    let mut file = fs::File::open(&spec.executable)?;
+    if !path.is_absolute() {
+        return Err(Error::InvalidLaunch);
+    }
+    reject_link(path, false)?;
+    let mut file = fs::File::open(path)?;
     if file.metadata()?.len() > 512 * 1024 * 1024 {
         return Err(Error::InvalidLaunch);
     }
@@ -271,12 +289,5 @@ pub fn spawn_with_private_bootstrap(
     if hash.finalize().as_slice() != expected_sha256 {
         return Err(Error::InvalidLaunch);
     }
-    command.stdout(Stdio::piped());
-    let mut child = spawn_command(command)?;
-    let pipe = child.stdout.take().ok_or(Error::InvalidLaunch)?;
-    Ok(PendingBootstrapChild {
-        child,
-        pipe: Some(pipe),
-        root: fs::canonicalize(&spec.data_root)?,
-    })
+    Ok(())
 }

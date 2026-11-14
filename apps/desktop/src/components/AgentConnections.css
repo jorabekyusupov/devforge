@@ -1,0 +1,146 @@
+.agent-connections {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.agent-connections .agent-toolbar,
+.agent-connections .agent-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-block: 0.8rem;
+}
+.agent-connections .agent-owner {
+  margin-inline-end: auto;
+}
+.agent-connections .agent-form {
+  display: grid;
+  gap: 0.9rem;
+  padding-block: 1rem;
+  border-block: 1px solid var(--border);
+}
+.agent-connections .agent-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+.agent-connections label:not(.agent-check) {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.agent-connections select,
+.agent-connections textarea {
+  width: 100%;
+  min-width: 0;
+  font: inherit;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.6rem;
+  background: var(--surface);
+  color: var(--text);
+}
+.agent-connections textarea {
+  min-height: 9rem;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.8rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  resize: vertical;
+}
+.agent-connections textarea:focus-visible,
+.agent-connections select:focus-visible,
+.agent-connections summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+}
+.agent-connections .agent-scopes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem 1rem;
+}
+.agent-connections .agent-check {
+  display: flex;
+  align-items: start;
+  gap: 0.5rem;
+}
+.agent-connections .agent-check input {
+  margin-block-start: 0.2rem;
+  flex: none;
+}
+.agent-connections ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.agent-connections .agent-entry {
+  padding-block: 0.85rem;
+  border-bottom: 1px solid var(--border);
+}
+.agent-connections .agent-entry:last-child {
+  border-bottom: 0;
+}
+.agent-connections h3 {
+  font-size: 1rem;
+  margin-block: 1rem 0.6rem;
+}
+.agent-connections p {
+  line-height: 1.5;
+}
+.agent-connections .agent-entry p {
+  margin-block: 0.35rem;
+}
+.agent-connections code {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.agent-connections button {
+  max-width: 100%;
+  white-space: normal;
+}
+.agent-connections summary {
+  cursor: pointer;
+}
+.agent-connections .agent-review {
+  background: var(--info);
+  border-radius: 6px;
+  padding: 0.85rem;
+  margin-block: 0.75rem;
+}
+.agent-connections dl {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  gap: 0.5rem 0.8rem;
+}
+.agent-connections dd {
+  margin: 0;
+  text-align: start;
+}
+@media (max-width: 1000px) {
+  .agent-connections .agent-fields,
+  .agent-connections .agent-scopes {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.agent-connections .agent-detail-pair {
+  display: contents;
+}
+.agent-connections label > input:not([type="checkbox"]) {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.6rem;
+  background: var(--surface);
+  color: var(--text);
+}
+.agent-connections .agent-dialog {
+  width: min(90vw, 48rem);
+  max-height: 85vh;
+  overflow: auto;
+  padding: 1.2rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  background: var(--surface);
+}

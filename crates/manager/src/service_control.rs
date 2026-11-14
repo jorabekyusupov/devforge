@@ -32,6 +32,75 @@ use zeroize::Zeroizing;
 pub type ServicePlanReply = Response<PlanReceipt>;
 pub type ServiceApplyReply = Response<MutationReceipt>;
 pub type ServiceLookupReply = Response<Option<MutationReceipt>>;
+/// Native-owner review summaries. Never serialize the retained canonical request:
+/// YAML text, private core plans and external credentials remain manager-owned.
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PendingReview {
+    pub digest: Digest,
+    pub project_id: Id,
+    pub project_name: String,
+    pub project_root: String,
+    pub grant_id: Id,
+    pub client_id: Id,
+    pub tool: String,
+    pub revision: SafeInt,
+    pub expires_at: SafeInt,
+    pub state: ReviewState,
+    pub effects: Vec<String>,
+    pub required_scopes: Vec<Scope>,
+    pub target: ReviewTarget,
+    pub operation_id: Option<Id>,
+    /// Listing checks registration/grant metadata. Approval revalidates the full
+    /// current backend state, including fields which do not increment revision.
+    pub revalidation_required: bool,
+    pub machine_confirmation_required: bool,
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ReviewState {
+    Pending,
+    Approved,
+    Claimed,
+    Expired,
+    Revoked,
+    Stale,
+}
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum ReviewTarget {
+    Service {
+        action: String,
+    },
+    RuntimeInstall {
+        package_id: Id,
+    },
+    RuntimeSelect {
+        php: Id,
+        node: Id,
+    },
+    EnvironmentApply {
+        write_env: bool,
+        package_ids: Vec<Id>,
+        download_ids: Vec<Id>,
+        database_action: String,
+        preparation: devforge_workspace::environment_control::YamlPreparationSummary,
+    },
+    YamlSave {
+        byte_count: u64,
+        summary: devforge_workspace::environment_control::YamlNativeReviewSummary,
+    },
+    DatabaseBind {
+        instance_id: Id,
+    },
+    DatabaseRestore {
+        backup_id: Id,
+    },
+    Domain {
+        action: DomainPlanKind,
+        summary: devforge_workspace::domain_control::NativeDomainReviewSummary,
+    },
+}
 pub type RuntimePlanReply = Response<PlanReceipt>;
 pub type RuntimeApplyReply = Response<MutationReceipt>;
 pub type RuntimeLookupReply = Response<Option<MutationReceipt>>;
@@ -1678,6 +1747,218 @@ impl Services {
                 }
             }
         }
+    }
+    pub(crate) fn pending_reviews(
+        &self,
+        authority: &DesktopAuthority<'_>,
+        actor: &ActorHandle,
+    ) -> Result<Vec<PendingReview>, ErrorCode> {
+        self.check_owner(authority, actor)?;
+        let grants = self.grants.list(authority)?;
+        let view = actor.external_snapshot().map_err(actor_error)?;
+        let plans = self
+            .plans
+            .lock()
+            .map_err(|_| ErrorCode::StorageUnavailable)?;
+        let contracts = devforge_control::tools::contracts()?;
+        let mut summaries = Vec::with_capacity(plans.len());
+        for intent in plans.iter() {
+            let receipt = plan_receipt(intent);
+            let operation_id = intent
+                .claimed
+                .lock()
+                .map_err(|_| ErrorCode::StorageUnavailable)?
+                .clone();
+            let grant = grants.iter().find(|grant| grant.grant_id == intent.grant);
+            let current = project_binding(&view.snapshot, &intent.request.project_id);
+            let state = if Instant::now() >= intent.expires {
+                ReviewState::Expired
+            } else if grant.is_none_or(|grant| grant.revoked || grant.expired) {
+                ReviewState::Revoked
+            } else if current.as_ref().map_or(true, |current| {
+                current.root() != intent.binding.root()
+                    || current.revision() != intent.binding.revision()
+            }) {
+                ReviewState::Stale
+            } else if operation_id.is_some() {
+                ReviewState::Claimed
+            } else if intent.approved.load(Ordering::Acquire) {
+                ReviewState::Approved
+            } else {
+                ReviewState::Pending
+            };
+            let target = match &intent.request.input {
+                MutationInput::Start(_) | MutationInput::Stop(_) | MutationInput::Restart(_) => {
+                    ReviewTarget::Service {
+                        action: intent.request.input.workspace_command().into(),
+                    }
+                }
+                MutationInput::RuntimeInstall(input) => ReviewTarget::RuntimeInstall {
+                    package_id: input.package_id.clone(),
+                },
+                MutationInput::Configure(input) => ReviewTarget::RuntimeSelect {
+                    php: input.php.clone(),
+                    node: input.node.clone(),
+                },
+                MutationInput::EnvironmentApply(input) => {
+                    let plan = intent
+                        .environment
+                        .as_ref()
+                        .and_then(|environment| environment.data.plan.as_ref())
+                        .ok_or(ErrorCode::PreconditionFailed)?;
+                    ReviewTarget::EnvironmentApply {
+                        write_env: input.write_env,
+                        package_ids: plan
+                            .packages
+                            .values()
+                            .map(Id::new)
+                            .collect::<Result<_, _>>()?,
+                        download_ids: plan
+                            .downloads
+                            .iter()
+                            .map(Id::new)
+                            .collect::<Result<_, _>>()?,
+                        database_action: plan.database_action.clone(),
+                        preparation: serde_json::from_value(
+                            plan.settings
+                                .get("setup")
+                                .cloned()
+                                .ok_or(ErrorCode::PreconditionFailed)?,
+                        )
+                        .map_err(|_| ErrorCode::PreconditionFailed)?,
+                    }
+                }
+                MutationInput::YamlSave(input) => ReviewTarget::YamlSave {
+                    byte_count: input.text.as_str().len() as u64,
+                    summary: devforge_workspace::environment_control::yaml_native_review_summary(
+                        input.text.as_str(),
+                    )
+                    .map_err(|_| ErrorCode::PreconditionFailed)?,
+                },
+                MutationInput::DatabaseBind(input) => ReviewTarget::DatabaseBind {
+                    instance_id: input.instance_id.clone(),
+                },
+                MutationInput::DatabaseRestore(input) => ReviewTarget::DatabaseRestore {
+                    backup_id: input.backup_id.clone(),
+                },
+                MutationInput::DomainApply(_) | MutationInput::DomainCleanup(_) => {
+                    ReviewTarget::Domain {
+                        action: intent.domain.as_ref().ok_or(ErrorCode::InvalidInput)?.kind,
+                        summary: intent
+                            .domain
+                            .as_ref()
+                            .ok_or(ErrorCode::InvalidInput)?
+                            .plan
+                            .native_review_summary()
+                            .map_err(|_| ErrorCode::PreconditionFailed)?,
+                    }
+                }
+                _ => return Err(ErrorCode::UnsupportedCapability),
+            };
+            let effects = contracts
+                .iter()
+                .find(|contract| contract.name == intent.request.input.tool())
+                .ok_or(ErrorCode::UnsupportedCapability)?
+                .effects
+                .clone();
+            summaries.push(PendingReview {
+                digest: receipt.digest,
+                project_id: receipt.project_id,
+                project_name: view
+                    .snapshot
+                    .projects
+                    .iter()
+                    .find(|row| row.project.id == intent.request.project_id.as_str())
+                    .map(|row| row.project.name.clone())
+                    .unwrap_or_default(),
+                project_root: intent.binding.root().to_string_lossy().into_owned(),
+                grant_id: intent.grant.clone(),
+                client_id: intent.client.clone(),
+                tool: intent.request.input.tool().into(),
+                revision: receipt.revision,
+                expires_at: receipt.expires_at,
+                state,
+                effects,
+                target,
+                operation_id,
+                required_scopes: required(&intent.request.input)?,
+                revalidation_required: true,
+                machine_confirmation_required: intent.domain.is_some(),
+            });
+        }
+        self.check_owner(authority, actor)?;
+        Ok(summaries)
+    }
+    fn check_owner(
+        &self,
+        authority: &DesktopAuthority<'_>,
+        actor: &ActorHandle,
+    ) -> Result<(), ErrorCode> {
+        authority
+            .check_current(Instant::now())
+            .map_err(|_| ErrorCode::Unauthorized)?;
+        if authority.root() != actor.bootstrap_ready_root().map_err(actor_error)? {
+            return Err(ErrorCode::Unauthorized);
+        }
+        Ok(())
+    }
+    fn owner_grant(
+        &self,
+        authority: &DesktopAuthority<'_>,
+        actor: &ActorHandle,
+        grant: &Id,
+    ) -> Result<crate::external_auth::GrantRecord, ErrorCode> {
+        self.check_owner(authority, actor)?;
+        self.grants
+            .list(authority)?
+            .into_iter()
+            .find(|row| &row.grant_id == grant)
+            .ok_or(ErrorCode::Unauthorized)
+    }
+    pub(crate) fn owner_operation_status(
+        &self,
+        authority: &DesktopAuthority<'_>,
+        actor: &ActorHandle,
+        grant: &Id,
+        operation: &Id,
+    ) -> Result<Receipt, ErrorCode> {
+        let row = self.owner_grant(authority, actor, grant)?;
+        let receipt = actor
+            .external_status(&row.client_id, &row.project_id, operation)
+            .map_err(actor_error)?;
+        self.check_owner(authority, actor)?;
+        Ok(receipt)
+    }
+    pub(crate) fn owner_operation_cancel(
+        &self,
+        authority: &DesktopAuthority<'_>,
+        actor: &ActorHandle,
+        grant: &Id,
+        operation: &Id,
+    ) -> Result<crate::actor::CancelOutcome, ErrorCode> {
+        let row = self.owner_grant(authority, actor, grant)?;
+        actor
+            .external_cancel(&row.client_id, &row.project_id, operation, || {
+                authority
+                    .check_current(Instant::now())
+                    .map_err(|_| crate::actor::ActorError::Unauthorized)
+            })
+            .map_err(actor_error)
+    }
+    pub(crate) fn owner_operation_by_key(
+        &self,
+        authority: &DesktopAuthority<'_>,
+        actor: &ActorHandle,
+        grant: &Id,
+        key: &Id,
+    ) -> Result<Option<Receipt>, ErrorCode> {
+        let row = self.owner_grant(authority, actor, grant)?;
+        let receipt = actor
+            .external_find(&row.client_id, &row.project_id, key)
+            .map_err(actor_error)?
+            .map(|(receipt, _, _)| receipt);
+        self.check_owner(authority, actor)?;
+        Ok(receipt)
     }
     pub(crate) fn approve(
         self: &Arc<Self>,

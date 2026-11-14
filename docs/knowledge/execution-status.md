@@ -144,7 +144,7 @@ Parallel agent boshlangan yoki tugagan itemni integrator evidence bilan yangilay
 | M13.5 | in_progress | First safe metadata/cursor slice integrated; explicit content rights, richer correlation/wait/mail/artifact slices remain. |
 | M13.6 | planned | Execution/debug/workspace kontrakti, actual isolated scenario va preservation. |
 | M13.7 | planned | HTTP auth/origin/revoke/version; remote bridge alohida M14. |
-| M13.8 | planned | Frozen contracts ustiga connection/grants/audit UI, locale/native UX. |
+| M13.8 | minimal_validated_local | Native connection/grant/config/approval UI actual macOS WebView passed; new Windows CI and full audit/docs UX remain. |
 | M13.9 | planned | M13 slice evidence reconciliation va applicable client/OS matrix. |
 | E01 | in_progress | Existing project checklist UI validated by scoped browser/contract checks; actual native/human first-success pilot remains. |
 | E02 | in_progress | Read-only expected/actual backend under implementation; native/UI/live facade acceptance separate. |
@@ -1388,3 +1388,45 @@ This closes only metadata-first local acceptance. Windowsnewsource/actualclients
 content InformationScope issuance and rich reads/filters, before-after/wait,
 controlledmail actions/export, bundle/runbook/artifact flows remain M13.5 work;
 native UI/minimumOS remains M13.9/M15. Existing collectors were not rewritten.
+
+Metadata publication26d2ca4 CI found only the remaining legacy handshake's old
+5-tool assertion; test-only5c42dbe updated it to9 and that exact case passed.
+5c42dbe [run43617357177](https://github.com/jorabekyusupov/devforge/actions/runs/43617357177)
+then passed macOS/Windows tests/builds. Actual Windows metadata reader5 including
+51attachments, privacy/epoch/cursor cases and MCPcontracts4/4 passed.
+[Job/test proof](../evidence/m135-metadata/ci-5c42dbe.json) keeps actual Laravel/
+Inspector Windows/native UI/minimum-OS limits explicit. Current M13.8a work uses
+that validated baseline under the user-confirmed reordered plan.
+
+## Reordered M13.8a: minimal native connection/grant/approval UI
+
+[Contract](../architecture/native-agent-connections.md): Settings panel exposes
+native connect, registered project/four scopes/TTL issue/list/revoke, protected
+config path/snippet, authoritative pending review/approve and separate machine
+confirmation, grant-resolved operation status/cancel/key lookup. No new dashboard,
+content permissions, report mounting, HTTP/provider/LLM or global client overwrite.
+Native session/token stays Rust-only; fixed hashed CLI and fresh private files.
+Safe YAML/machine summaries make changes reviewable without values/refs/raw YAML.
+
+Backend3/semantic2/bridge2 cases passed; QA found lost export compensation on Busy.
+Only that branch now uses bounded idempotent revoke and matching revoked metadata,
+otherwise export_failed_revoke_unconfirmed; exactcase1passed. Frontend11initial+
+3new/affected plan/focus cases passed, earlier App6 reused; typecheck/locales/build,
+scoped clippy/source audit passed. QA focus restoration fixed after pending/DOM
+refresh; machine summary validation matches native step/target strings.
+
+Actual owned macOS WebView/IPC passed: DOM issue/config, real MCP A-only/B denial,
+DOM pending Stop approval/completion, status/reconcile/disabled terminal Cancel,
+revoke invalidates credential, clean Quit. Same fixture resumed after harness-only
+failures; passed mutations were not repeated. EN/light1536×1024, RU/dark820×620,
+UZ/light820×620 and wide review captured atDPR2; integrator inspected4PNG, no
+material overflow/readability blocker observed. Scopedaxe3/0violations. Modal
+Tab/Escape/focus passed; synthetic matrix focus-visible remains unverified.
+[Actual result](../evidence/m138a-connections/native-result.json).
+
+CLI hash pinned before GUI build; embedded e2e/custom-protocol profile/source
+dirty hashes recorded, no signed/cleanrelease claim. Native Store/services/
+downloads/securitypermissions untouched; no real OS helper. Windows native new
+bridge/UI/privatefile and signing/minimumOS gates remain. Deferred report files
+and namespaces preserved outside this delivery. Next is M13.6a managed exec/test
+with necessary isolation, per user-approved order.

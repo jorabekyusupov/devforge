@@ -1,4 +1,5 @@
 import type { WorkspaceBackend } from "./workspace";
+import { agentApi, type AgentApi } from "./agent-api";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 
@@ -24,6 +25,7 @@ export interface Bootstrap {
   };
 }
 export interface Backend {
+  agents?: AgentApi;
   workspace?: WorkspaceBackend;
   createFolder?(path: string): Promise<string>;
   scan?(): Promise<void>;
@@ -37,6 +39,7 @@ const ensureDesktop = () => {
   if (!isTauri()) throw "desktop_unavailable";
 };
 export const desktopBackend: Backend = {
+  agents: agentApi,
   async createFolder(path) {
     ensureDesktop();
     return invoke("create_project_folder", { path });

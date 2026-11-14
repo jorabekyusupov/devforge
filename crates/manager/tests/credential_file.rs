@@ -5,6 +5,52 @@ use serde_json::json;
 use std::path::Path;
 
 #[test]
+fn native_export_creates_only_fresh_private_leaves_and_loads_without_repair() {
+    use devforge_manager::{
+        auth::TrustedDesktopAction,
+        credential_file::{create_new_private_export_dir, write_new_private_export_file},
+    };
+    let root = common::root("df-native-export-");
+    let canonical_root = std::fs::canonicalize(root.path()).unwrap();
+    let dir = canonical_root.join("client");
+    let action = TrustedDesktopAction::from_explicit_desktop_action();
+    create_new_private_export_dir(&dir, &action).unwrap();
+    assert!(create_new_private_export_dir(&dir, &action).is_err());
+    let path = dir.join("credential.json");
+    let bytes = serde_json::to_vec(
+        &json!({"schema":1,"project_id":"project-a","credential":"3".repeat(64)}),
+    )
+    .unwrap();
+    write_new_private_export_file(&path, &bytes, &action).unwrap();
+    assert_eq!(
+        CredentialFile::load(&path).unwrap().project_id().as_str(),
+        "project-a"
+    );
+    assert!(write_new_private_export_file(&path, b"overwrite", &action).is_err());
+    assert_eq!(std::fs::read(&path).unwrap(), bytes);
+    assert!(
+        write_new_private_export_file(&dir.join("oversized"), &vec![0; 65_537], &action).is_err()
+    );
+    assert!(!dir.join("oversized").exists());
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::{PermissionsExt, symlink};
+        assert_eq!(
+            std::fs::metadata(&path).unwrap().permissions().mode() & 0o777,
+            0o600
+        );
+        assert_eq!(
+            std::fs::metadata(&dir).unwrap().permissions().mode() & 0o777,
+            0o700
+        );
+        let alias = root.path().join("alias");
+        symlink(&dir, &alias).unwrap();
+        assert!(write_new_private_export_file(&alias.join("unsafe"), b"secret", &action).is_err());
+        assert!(!dir.join("unsafe").exists());
+    }
+}
+
+#[test]
 fn bounded_private_file_requires_complete_strict_content_and_never_creates_missing_files() {
     let root = common::root("df-mcp-file-");
     let missing = root.path().join("missing");

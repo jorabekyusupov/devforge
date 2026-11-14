@@ -1,3 +1,4 @@
+import { AgentConnections } from "../components/AgentConnections";
 import { ProjectDiscoverySettings } from "../components/ProjectDiscoverySettings";
 import type { Backend } from "../bridge";
 import { useTranslation } from "react-i18next";
@@ -147,6 +148,7 @@ export function SettingsPage({
         backend={backend}
         save={onFolderChange ?? (async () => false)}
       />
+      <AgentConnections api={backend?.agents} />
       <div className="local-storage">
         <Database aria-hidden="true" />
         <div>
