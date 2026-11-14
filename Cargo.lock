@@ -1117,6 +1117,7 @@ dependencies = [
  "devforge-core",
  "devforge-debugger",
  "devforge-inspector",
+ "devforge-manager",
  "devforge-platform",
  "devforge-projects",
  "devforge-runtime",
@@ -1124,6 +1125,8 @@ dependencies = [
  "devforge-workspace",
  "serde",
  "serde_json",
+ "sha2 0.11.1",
+ "tempfile",
  "zeroize",
 ]
 

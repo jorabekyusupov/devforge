@@ -552,3 +552,20 @@ large_enum_variant rad etdi (native tests haliyetmagan). FieldBox<Command> vaact
 forwarding derefga almashtirildi; serdeJSONwire o'zgarmadi. Faqat2linesource,
 controller7targetedtests va scopedmanagerclippy green. NativeWindowsyangihoptasdiq
 kutiladi; bu failurefixture yokiAuthbuzilishi deb qaytatalqinqilinmaydi.
+
+# M13.1.4 CLI composition entry
+
+[Private manager CLI](../guides/private-manager-cli.md): actualcompiledCLI manager
+serve/health/help, explicit/automatic start intent, privatepipeonlybootstrap before
+rootwrites, nativeStoresconstructednostartupquery, OSsignalgracefulQuit. Transitional
+LegacyExclusion preventsnewmanager+oldrawforegroundOwner; metadatareadwhitelist
+retained, configexclusive notselfconflicting. Globalhelp returnscommandJSONbefore
+appdata/credential initialization.
+
+Focused CLI routing6tests pass (no filesystemonhelp/healthmissingowner, invalidflags,
+file/nullbootstraprefusal, rawmutationexclusion/catalogread, exclusiveleasecompat).
+New actualCLIcoldbootstrap→PID/rootverify→health→redeem→Quit→AutoStartinhibited case1
+passedmacOSARM64. RootusedactualproductionCLI/nativeStoreconstructors, noNativeStore
+authcall/request; earlierDenystorepipelineproves coldpathNoProbe. Cli alltargets
+clippy passed; broad frontend/product suites notlocallyrerun. Other target newCLI
+execution CIpending. GUI/publicJSONCLI/MCP forwarding notclaimed.

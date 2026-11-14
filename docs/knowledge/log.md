@@ -4,6 +4,8 @@
 
 ## 2026-11-14
 
+- **Private manager CLI entry:** serve/health/help, automaticinhibition, nativeOSQuit, transitionallegacyguard andprivatepipebootstrappath. CLI6focused+actualCLIcoldlifecycle1pass, alltargetsclippy; noNativecredential probe/GUI/alltests rerun. [Guide](../guides/private-manager-cli.md), [execution](execution-status.md).
+
 - **Windows request layout:**425adecWindowsclippy largeenumvariant uchunprivateSubmitCommand Boxqilindi, JSONwireunchanged;controller7/scopedclippygreen. NativeCIpending, failure43569830478saqlandi. [Execution](execution-status.md).
 
 - **Bootstrap customharness fixture:** Windowsdefaultowner muammosiga plainTempRootqolgan5caseharness common::root bilanmoslandi;5targetedcase/testclippy pass, otherunit/authreused. ProductionACL o'zgarmadi. [Execution](execution-status.md).
