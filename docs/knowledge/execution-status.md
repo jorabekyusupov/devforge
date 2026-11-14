@@ -718,3 +718,18 @@ remainunverified. Freshrootclippy firsthit2otheragentsinflightsourcewarnings,
 reportedownersfixed; exactsamefocusedcommand thenpassed, no productfullrerun.
 5ff658d run43574423326 completedmacOS+Windowschecks successfully; restrictedJob
 capability-unavailable remainsdistinctfromdetachedacceptance.
+
+
+## M13.1.7 cancellable native admission
+
+NativeClient adds explicit native cancellation/progress beforeupload/betweenchunks/
+beforefinalization. Abortedtransientuploads create nooperation; a receipt already
+accepted alwaysreturnsits exactID evenifcancelraces, so bridgecancels thatoperation.
+Ambiguousfinalization remainsunconfirmed, noauto-retry/newkey. TrustedRustcallbacks
+carry no credentials/body/transfersecret; renderer neverreceivessessiontokens.
+
+One new targetedactualControllerSDKcase passed threepre-finalizeboundaries,
+zeroledgeradmissions/unchangedprojectfiles/freeduploadslots, then acceptedreceipt
+race and exactcancel whileanotherjob succeeded. ScopedSDKlib/testclippy passed;
+fourpriorunchangedSDKcases reused, notrerun. NativeGUIbridge/publicautomation and
+newWindowsruntime evidence remainseparate. [SDK contract](../architecture/manager-native-client.md).

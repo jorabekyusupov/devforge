@@ -81,6 +81,22 @@ is `native_client_admission_unconfirmed`; the SDK never invents a successful
 receipt or silently sends a second admission. The original idempotency identity
 is available to the caller for explicit reconciliation/retry.
 
+`admit_cancellable` and `admit_observed` add a separate native cancellation token
+for the admission phase. The SDK checks it before serialization/upload, between
+chunks and immediately before finalization. A cancelled transient upload is
+aborted best-effort and is not represented as an admitted operation. Native-only
+progress exposes byte counts/stages and the accepted receipt, never credentials,
+body content or transfer identifiers. The GUI bridge can keep that small active
+operation state separate from its SDK lock.
+
+Cancellation racing with finalization does not turn a successfully accepted
+receipt into a misleading `AdmissionCancelled` error. The SDK returns the receipt
+and the caller routes cancellation to its exact project/operation IDs. Ambiguous
+finalization remains unconfirmed; no hidden retry or fabricated receipt is added.
+Once admission returns, the bridge must release its SDK mutex between status
+polls so a separate cancel handler can proceed. These APIs do not claim to cancel
+an already executing job merely by setting the admission token.
+
 Snapshot reads use `snapshot_begin`, immutable `snapshot_page` cursors and
 best-effort `snapshot_release`. The complete export is bounded by8MiB and a fixed
 TTL. The SDK checks size, SHA-256, snapshot/epoch identity, offsets and every next
@@ -122,6 +138,16 @@ and disposable roots were used throughout; no OS credential service, GUI, system
 permissions or adjacent application was changed. The SDK and bootstrap harnesses
 report structured `passed`/`unavailable` case counts, so a restricted Windows
 ancestor Job cannot be counted as a successful detached cold-launch test.
+
+The later targeted `native_client -- cancellable` case passed separately. It
+cancelled before upload, after an actual chunk and at the pre-finalization
+boundary against a real Controller. Read-only inspection of the disposable
+operation ledger confirmed zero admissions, and the project/file state stayed
+unchanged. A subsequent accepted receipt survived a cancellation race and routed
+cancel to that exact operation while another operation completed. Success after
+two aborted uploads also verified release of the backend's two-slot upload
+capacity. Only this new case and scoped manager SDK clippy were rerun for that
+slice; the four prior SDK cases were reused, not reported as freshly rerun.
 
 Native Windows/Intel execution of this new SDK slice requires its own pipeline
 evidence. Hosted Windows may forbid detached breakaway; a separate ordinary-child

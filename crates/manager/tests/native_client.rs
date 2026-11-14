@@ -10,10 +10,10 @@ use devforge_manager::{
     bootstrap::{BootstrapError, BootstrapWriter},
     controller::{Controller, Options, StartIntent, Stores, local_owner_user},
     launch::{self, LaunchSpec},
-    native_client::{Cancellation, Error, NativeClient},
+    native_client::{AdmissionProgress, Cancellation, Error, NativeClient},
 };
 use devforge_projects::project::{Catalog, ProjectStore};
-use devforge_runtime::package::Target;
+use devforge_runtime::{Cancellation as AdmissionCancellation, package::Target};
 use devforge_workspace::Command;
 use sha2::{Digest, Sha256};
 use std::{
@@ -67,15 +67,24 @@ fn main() {
         cold_fixture(Path::new(&args[1]));
         return;
     }
+    if args.first().is_some_and(|v| v == "cancellable") {
+        cancellable_admission_boundaries_and_exact_receipt_routing();
+        println!(
+            "{}",
+            serde_json::json!({"suite":"native_client_cancellable","passed":1,"unavailable":0})
+        );
+        return;
+    }
     explicit_auth_operations_and_large_command();
     real_large_snapshot_is_complete_and_unicode_safe();
     explicit_renewal_expires_at_absolute_context_deadline();
+    cancellable_admission_boundaries_and_exact_receipt_routing();
     let cold = cold_bootstrap_and_owner_replacement();
     let unavailable = usize::from(cold != "passed");
     println!(
         "{}",
-        serde_json::json!({"suite":"native_client","overall":if unavailable==0{"passed"}else{"partial"},"passed":4-unavailable,"unavailable":unavailable,
-        "cases":[{"case":"explicit_auth_operations_large_command","status":"passed"},{"case":"actual_large_snapshot","status":"passed"},{"case":"renewal_absolute_deadline","status":"passed"},
+        serde_json::json!({"suite":"native_client","overall":if unavailable==0{"passed"}else{"partial"},"passed":5-unavailable,"unavailable":unavailable,
+        "cases":[{"case":"cancellable_admission_boundaries","status":"passed"},{"case":"explicit_auth_operations_large_command","status":"passed"},{"case":"actual_large_snapshot","status":"passed"},{"case":"renewal_absolute_deadline","status":"passed"},
             {"case":"detached_cold_bootstrap_owner_replacement","status":if cold=="passed"{"passed"}else{"unavailable"},"reason":if cold=="passed"{None}else{Some("restricted_ancestor_job")}}]})
     );
 }
@@ -341,6 +350,153 @@ fn explicit_renewal_expires_at_absolute_context_deadline() {
     );
     assert_eq!(store.gets.load(Ordering::SeqCst), 1);
     quit.request_explicit().unwrap();
+    worker.join().unwrap().unwrap();
+}
+fn cancellable_admission_boundaries_and_exact_receipt_routing() {
+    let root = common::root("df-sdk-cancel-");
+    let store = Arc::new(MemoryStore::default());
+    let key = provision(root.path(), &store);
+    let catalog = Catalog::bundled();
+    let (php, node) = runtime_ids(&catalog);
+    let app = root.path().join("application");
+    laravel(&app);
+    let registry = ProjectStore::open(root.path().join("projects")).unwrap();
+    let project = registry
+        .import(&app, "Cancel fixture", &php, &node, &catalog)
+        .unwrap();
+    drop(registry);
+    let project_id = id(&project.id);
+    let (endpoint, worker, _quit) = running(root.path(), store.clone(), Options::default());
+    let mut client = NativeClient::authenticate_explicit(endpoint, &key).unwrap();
+    let favorite = Command::Favorite {
+        id: project.id.clone(),
+        favorite: true,
+    };
+    let before = AdmissionCancellation::default();
+    before.cancel();
+    assert!(matches!(
+        client.admit_cancellable(&project_id, &id("cancel-before"), &favorite, &before),
+        Err(Error::AdmissionCancelled)
+    ));
+
+    let during = AdmissionCancellation::default();
+    let body = Command::ConfigurationSave {
+        id: project.id.clone(),
+        expected: None,
+        text: "# 🦀 SDK cancellation body\n".repeat(5_000),
+        consent: true,
+    };
+    let mut sent_chunk = false;
+    let result =
+        client.admit_observed(&project_id, &id("cancel-during"), &body, &during, |event| {
+            if let AdmissionProgress::Uploading { sent, total } = event
+                && sent > 0
+                && sent < total
+            {
+                sent_chunk = true;
+                during.cancel();
+            }
+        });
+    assert!(sent_chunk);
+    assert!(matches!(result, Err(Error::AdmissionCancelled)));
+
+    let finalizing = AdmissionCancellation::default();
+    let mut finalizing_seen = false;
+    let result = client.admit_observed(
+        &project_id,
+        &id("cancel-finalizing"),
+        &favorite,
+        &finalizing,
+        |event| {
+            if matches!(event, AdmissionProgress::Finalizing) {
+                finalizing_seen = true;
+                finalizing.cancel();
+            }
+        },
+    );
+    assert!(finalizing_seen);
+    assert!(matches!(result, Err(Error::AdmissionCancelled)));
+    let ledger = rusqlite::Connection::open_with_flags(
+        root.path().join("control/operations.sqlite3"),
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
+    )
+    .unwrap();
+    assert_eq!(
+        ledger
+            .query_row("SELECT COUNT(*) FROM operations", [], |row| row
+                .get::<_, i64>(0))
+            .unwrap(),
+        0
+    );
+    assert_eq!(
+        client.snapshot().unwrap().snapshot["projects"][0]["navigation"]["favorite"],
+        false
+    );
+    assert!(!app.join("devforge.yaml").exists());
+
+    // This is the third begun upload (after two aborted ones); success also
+    // proves abort released the backend's two-slot transient upload capacity.
+    let accepted_cancel = AdmissionCancellation::default();
+    let mut accepted = None;
+    let receipt = client
+        .admit_observed(
+            &project_id,
+            &id("cancel-accepted"),
+            &favorite,
+            &accepted_cancel,
+            |event| {
+                if let AdmissionProgress::Accepted(receipt) = event {
+                    accepted = Some(receipt);
+                    accepted_cancel.cancel();
+                }
+            },
+        )
+        .unwrap();
+    assert!(accepted_cancel.is_cancelled());
+    assert_eq!(accepted.unwrap().operation_id, receipt.operation_id);
+    assert!(matches!(
+        client.cancel(&project_id, &receipt.operation_id).unwrap(),
+        Cancellation::Requested | Cancellation::AlreadyTerminal
+    ));
+    assert!(matches!(
+        complete(&mut client, &project_id, &receipt.operation_id),
+        OperationState::Cancelled | OperationState::Succeeded
+    ));
+    let other = client
+        .admit(
+            &project_id,
+            &id("uncancelled-other"),
+            &Command::Favorite {
+                id: project.id,
+                favorite: false,
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        complete(&mut client, &project_id, &other.operation_id),
+        OperationState::Succeeded
+    );
+    assert_eq!(
+        client.cancel(&project_id, &receipt.operation_id).unwrap(),
+        Cancellation::AlreadyTerminal
+    );
+    assert_eq!(
+        client
+            .status(&project_id, &other.operation_id)
+            .unwrap()
+            .state,
+        OperationState::Succeeded
+    );
+    assert_eq!(
+        ledger
+            .query_row("SELECT COUNT(*) FROM operations", [], |row| row
+                .get::<_, i64>(0))
+            .unwrap(),
+        2
+    );
+    drop(ledger);
+    assert_eq!(store.gets.load(Ordering::SeqCst), 1);
+    client.quit().unwrap();
     worker.join().unwrap().unwrap();
 }
 fn cold_fixture(root: &Path) {

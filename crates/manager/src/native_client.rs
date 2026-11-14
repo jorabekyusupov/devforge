@@ -10,6 +10,7 @@ use crate::{
     payload::{CHUNK_BYTES, MAX_COMMAND_BYTES, MAX_SNAPSHOT_BYTES},
 };
 use devforge_control::{Id, OperationState};
+use devforge_runtime::Cancellation as AdmissionCancellation;
 use devforge_workspace::Command;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -60,6 +61,7 @@ pub enum Error {
     InputLimit,
     PayloadResyncRequired,
     AdmissionUnconfirmed,
+    AdmissionCancelled,
     Remote(RemoteCode),
 }
 impl Error {
@@ -73,6 +75,7 @@ impl Error {
             Self::InputLimit => "native_client_input_limit",
             Self::PayloadResyncRequired => "payload_resync_required",
             Self::AdmissionUnconfirmed => "native_client_admission_unconfirmed",
+            Self::AdmissionCancelled => "native_client_admission_cancelled",
             Self::Remote(code) => code.as_str(),
         }
     }
@@ -107,6 +110,15 @@ pub struct Receipt {
     pub project_id: Id,
     pub state: OperationState,
     pub code: Option<String>,
+}
+/// Native-only progress for cancellation/active-operation handoff. Contains no
+/// body, credential or raw transfer identifier and is never a renderer token.
+#[derive(Clone, Debug)]
+pub enum AdmissionProgress {
+    Preparing,
+    Uploading { sent: u64, total: u64 },
+    Finalizing,
+    Accepted(Receipt),
 }
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -345,13 +357,47 @@ impl NativeClient {
     /// Finalization is sent once. Ambiguous transport failure never triggers an
     /// automatic second admission; the caller retains its idempotency key.
     pub fn admit(&mut self, project: &Id, idempotency: &Id, command: &Command) -> Result<Receipt> {
+        self.admit_cancellable(
+            project,
+            idempotency,
+            command,
+            &AdmissionCancellation::default(),
+        )
+    }
+    /// Cancellation before finalization aborts the transient upload. Once a
+    /// receipt exists it is ALWAYS returned, even if cancellation raced with
+    /// finalization. The caller then cancels that exact project/operation ID.
+    pub fn admit_cancellable(
+        &mut self,
+        project: &Id,
+        idempotency: &Id,
+        command: &Command,
+        cancel: &AdmissionCancellation,
+    ) -> Result<Receipt> {
+        self.admit_observed(project, idempotency, command, cancel, |_| {})
+    }
+    /// The native bridge can update its separate active-operation state without
+    /// keeping a UI thread/SDK mutex blocked for the later job's whole lifetime.
+    /// Progress callbacks are trusted Rust code, not an RPC or credential route.
+    pub fn admit_observed(
+        &mut self,
+        project: &Id,
+        idempotency: &Id,
+        command: &Command,
+        cancel: &AdmissionCancellation,
+        mut progress: impl FnMut(AdmissionProgress),
+    ) -> Result<Receipt> {
         self.require_session()?;
+        check_admission_cancel(cancel)?;
+        progress(AdmissionProgress::Preparing);
+        check_admission_cancel(cancel)?;
         let mut writer = BoundedBytes(Zeroizing::new(Vec::new()));
         serde_json::to_writer(&mut writer, command).map_err(|_| Error::InputLimit)?;
         let bytes = writer.0;
         let digest = hex(&Sha256::digest(bytes.as_slice()));
+        check_admission_cancel(cancel)?;
         let begin: UploadBegin = decode(self.authenticated("upload_begin", json!({"project_id":project,"idempotency_key":idempotency,"size":bytes.len(),"digest":digest}))?)?;
-        let result = self.upload_command(&begin, project, &bytes, &digest);
+        let result = self.upload_command(&begin, project, &bytes, &digest, cancel, &mut progress);
         if result.is_err() {
             self.abort_upload(&begin);
         }
@@ -363,12 +409,19 @@ impl NativeClient {
         project: &Id,
         bytes: &[u8],
         digest: &str,
+        cancel: &AdmissionCancellation,
+        progress: &mut impl FnMut(AdmissionProgress),
     ) -> Result<Receipt> {
         if begin.size != bytes.len() as u64 || begin.digest != digest || begin.next_index != 0 {
             return Err(Error::Protocol);
         }
         let mut received = 0;
+        progress(AdmissionProgress::Uploading {
+            sent: 0,
+            total: bytes.len() as u64,
+        });
         for (index, chunk) in bytes.chunks(CHUNK_BYTES).enumerate() {
+            check_admission_cancel(cancel)?;
             let reply: UploadChunk = decode(self.authenticated("upload_chunk", json!({"upload_id":begin.upload_id,"epoch":begin.epoch,"index":index,"data_hex":hex(chunk)}))?)?;
             received += chunk.len();
             if reply.upload_id != begin.upload_id
@@ -378,7 +431,13 @@ impl NativeClient {
             {
                 return Err(Error::Protocol);
             }
+            progress(AdmissionProgress::Uploading {
+                sent: received as u64,
+                total: bytes.len() as u64,
+            });
         }
+        progress(AdmissionProgress::Finalizing);
+        check_admission_cancel(cancel)?;
         let value = self.authenticated(
             "upload_finalize",
             json!({"upload_id":begin.upload_id,"epoch":begin.epoch}),
@@ -393,6 +452,8 @@ impl NativeClient {
         if &receipt.project_id != project {
             return Err(Error::AdmissionUnconfirmed);
         }
+        // Never translate a post-admission cancellation into "not admitted".
+        progress(AdmissionProgress::Accepted(receipt.clone()));
         Ok(receipt)
     }
     fn abort_upload(&mut self, begin: &UploadBegin) {
@@ -572,6 +633,14 @@ impl NativeClient {
             context_deadline,
             renewable: metadata.renewable,
         });
+        Ok(())
+    }
+}
+
+fn check_admission_cancel(cancel: &AdmissionCancellation) -> Result<()> {
+    if cancel.is_cancelled() {
+        Err(Error::AdmissionCancelled)
+    } else {
         Ok(())
     }
 }

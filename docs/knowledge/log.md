@@ -4,6 +4,8 @@
 
 ## 2026-11-14
 
+- **M13.1.7 cancellable SDK:** nativeprogress/cancel beforefinalize abortsupload; acceptedreceipt retainedforexactcancel, ambiguityunchanged. NewactualControllerfixture1passed+scopedclippy, prior4SDKcasesreused. NoGUI/publicAPIclaim. [SDK](../architecture/manager-native-client.md), [execution](execution-status.md).
+
 - **M13.1.6 CLI packaging trust:** compiledtarget/fixedCLI/SHA, explicitpackagegate; Macpresign→hash→customcopy→actualbundlehash/signature matched. Python16/Rustgated4+ordinary4/finaldesktoplibclippy pass. Postrunreportguardreusesactualartifactwithcaveat; WininstalledCLI/GUI/minOS notclaimed. [Authority](../architecture/bundled-manager-authority.md), [execution](execution-status.md).
 
 - **E01.1 checklist UI:** existingprojectdetail, exactpin/conditionalsteps, freshness/manualHTTPtrace truthfulness;12focusedtests/typecheck/locales, scopedEN/RU/UZbrowser/keyboard/axe passed. Native/humanpilot unverified, agentdesktop unavailable/no permissionchange. [Result](e01-first-success-results.md).
