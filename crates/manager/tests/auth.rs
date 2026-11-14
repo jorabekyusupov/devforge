@@ -4,7 +4,8 @@ use devforge_core::{ErrorCode, SecretStore};
 use devforge_manager::{
     Endpoint, Owner, PeerIdentity,
     auth::{
-        AuthError, DesktopAuth, DesktopCredential, Policy, SessionCredential, TrustedDesktopAction,
+        AuthError, DesktopAuth, DesktopCredential, NativeGuiPolicy, Policy, SessionCredential,
+        TrustedDesktopAction,
     },
 };
 use std::{
@@ -198,6 +199,126 @@ fn held_authority_proof_must_still_be_current_when_consumed() {
         Err(AuthError::Unauthorized)
     );
     assert_eq!(store.gets.get(), 1);
+}
+
+#[test]
+fn ordinary_store_auth_is_not_implicitly_renewable() {
+    let root = make_root();
+    let owner = Owner::acquire(root.path()).unwrap();
+    let store = MemoryStore::default();
+    let mut auth = make_auth(&owner, Policy::default());
+    let now = Instant::now();
+    let key = auth.rotate_desktop_key(&action(), &store, now).unwrap();
+    let session = auth.authenticate(&peer(), &key, &store, now).unwrap();
+    assert_eq!(
+        auth.renew_native_gui(&peer(), &session, now).unwrap_err(),
+        AuthError::Unauthorized
+    );
+    assert!(auth.authorize(&peer(), &session, now).is_ok());
+    assert_eq!(store.gets.get(), 1);
+}
+
+#[test]
+fn explicit_native_gui_renewal_rotates_token_without_store_and_has_absolute_deadline() {
+    let root = make_root();
+    let owner = Owner::acquire(root.path()).unwrap();
+    let store = MemoryStore::default();
+    let mut auth = make_auth(
+        &owner,
+        Policy {
+            session_lifetime: Duration::from_secs(10),
+            ..Policy::default()
+        },
+    );
+    let now = Instant::now();
+    let key = auth.rotate_desktop_key(&action(), &store, now).unwrap();
+    let context = NativeGuiPolicy {
+        context_lifetime: Duration::from_secs(25),
+        ..NativeGuiPolicy::default()
+    };
+    let session = auth
+        .authenticate_native_gui(&peer(), &key, &store, context, now)
+        .unwrap();
+    store.deny.set(true);
+    let mut wrong = peer();
+    wrong.process_id = Some(42);
+    assert_eq!(
+        auth.renew_native_gui(&wrong, &session, now).unwrap_err(),
+        AuthError::Unauthorized
+    );
+    let next = auth
+        .renew_native_gui(&peer(), &session, now + Duration::from_secs(9))
+        .unwrap();
+    assert_ne!(session.expose_secret(), next.expose_secret());
+    assert_eq!(
+        auth.authorize(&peer(), &session, now + Duration::from_secs(9))
+            .unwrap_err(),
+        AuthError::Unauthorized
+    );
+    let last = auth
+        .renew_native_gui(&peer(), &next, now + Duration::from_secs(18))
+        .unwrap();
+    assert!(
+        auth.authorize(&peer(), &last, now + Duration::from_secs(24))
+            .is_ok()
+    );
+    // Renewal near the deadline cannot move it. Use a margin around completion
+    // anchored issuance; no long real sleeps or native store calls are needed.
+    assert_eq!(
+        auth.renew_native_gui(&peer(), &last, now + Duration::from_secs(26))
+            .unwrap_err(),
+        AuthError::Unauthorized
+    );
+    assert_eq!(store.gets.get(), 1);
+}
+
+#[test]
+fn native_context_cannot_renew_after_expiry_or_revoke_and_policy_is_server_bounded() {
+    let root = make_root();
+    let owner = Owner::acquire(root.path()).unwrap();
+    let store = MemoryStore::default();
+    let mut auth = make_auth(
+        &owner,
+        Policy {
+            session_lifetime: Duration::from_secs(10),
+            ..Policy::default()
+        },
+    );
+    let now = Instant::now();
+    let key = auth.rotate_desktop_key(&action(), &store, now).unwrap();
+    let invalid = NativeGuiPolicy {
+        context_lifetime: Duration::from_secs(24 * 3600 + 1),
+        ..NativeGuiPolicy::default()
+    };
+    assert_eq!(
+        auth.authenticate_native_gui(&peer(), &key, &store, invalid, now)
+            .unwrap_err(),
+        AuthError::InvalidPolicy
+    );
+    assert_eq!(store.gets.get(), 0);
+    let session = auth
+        .authenticate_native_gui(&peer(), &key, &store, NativeGuiPolicy::default(), now)
+        .unwrap();
+    assert_eq!(
+        auth.renew_native_gui(&peer(), &session, now + Duration::from_secs(11))
+            .unwrap_err(),
+        AuthError::Unauthorized
+    );
+    let session = auth
+        .authenticate_native_gui(
+            &peer(),
+            &key,
+            &store,
+            NativeGuiPolicy::default(),
+            now + Duration::from_secs(12),
+        )
+        .unwrap();
+    auth.revoke_all();
+    assert_eq!(
+        auth.renew_native_gui(&peer(), &session, now + Duration::from_secs(13))
+            .unwrap_err(),
+        AuthError::Unauthorized
+    );
 }
 
 #[test]

@@ -300,7 +300,11 @@ fn real_sqlite_contention_keeps_cache_and_cancel_fast_with_bounded_admission() {
             },
         )
         .unwrap();
-    let until = Instant::now() + Duration::from_secs(2);
+    // An idle periodic snapshot can begin its real SQLite read just before this
+    // job is dequeued. ProjectStore deliberately waits up to three seconds on
+    // this fixture's exclusive lock. Cover that existing bound plus CI scheduling
+    // before asserting Running; this does not relax cache/cancel latency checks.
+    let until = Instant::now() + Duration::from_secs(6);
     while handle
         .status(&proof, &id(&a), &active.operation_id)
         .unwrap()

@@ -4,6 +4,8 @@
 
 ## 2026-11-14
 
+- **M13.1.4 privatecontroller/bootstrap:** actor/listenerreadiness, privatepipeoneusecapability/exeSHA, nativecontextboundedrenewal, asyncnativeauth+gracefulinhibitedQuit/OSsignal, legacyguardconfigcompat. Controller7/bootstrap5/newauth3/ready2/oldlaunch1/MacPID1/legacy1 va scopedclippy; lateSIDfixture2targeted. GUI/M7largebody/worktreetarget/Discovery gatesochiq. ActorWindowsfixtureobservation2→6s only, no producttimeoutweakening. [Execution](execution-status.md).
+
 - **M13.1.3 Workspace actor:** one-ownerworker/permit, boundedqueue/cache/targetcancel, durableidempotentreceipts/noautoreplay va boundedRAMsuccess/exactfailure.9realmetadata actor+2policy tests/clippy; QA subject/TTL/cacheerror tuzatildi. GUI/M7largebody/worktree target mapping hamda Win/Intel actor gate ochiq. [Execution](execution-status.md).
 
 - **M13.1.2 auth policy:** explicitDesktopcapability, zeroizingsessions/consttime/rootpeerbinding/throttle/TTL/revoke va heldproofexpiry. Original13test, QA slowstorefix2new+4affectedtest, expiry1; scopedclippy/strict. Nativekeychain/GUI/wire yo'q, actualstoreprompt qilinmadi. [Execution](execution-status.md).

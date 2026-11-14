@@ -15,8 +15,10 @@
 //! A key changed by another trusted process is detected at the next permitted
 //! store-backed authentication, invalidating old sessions. Cache-only checks
 //! cannot observe that change earlier; sessions may survive until that check or
-//! their fixed expiry. Immediate cross-process revocation needs owner notification
-//! in the future composition layer and is NOT established here.
+//! their fixed expiry. Explicit renewable native GUI contexts have a separate
+//! absolute deadline (default12h, maximum24h); renewal can extend the unseen-change
+//! window up to that deadline. Immediate cross-process revocation needs an owner
+//! notification and is not established by cache-only verification.
 use crate::{Endpoint, PeerIdentity};
 use devforge_core::SecretStore;
 use sha2::{Digest, Sha256};
@@ -38,6 +40,7 @@ pub enum AuthError {
     EntropyUnavailable,
     RateLimited,
     SessionCapacity,
+    BootstrapUnavailable,
 }
 impl fmt::Display for AuthError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -50,6 +53,7 @@ impl fmt::Display for AuthError {
             Self::EntropyUnavailable => "manager_auth_entropy_unavailable",
             Self::RateLimited => "manager_auth_rate_limited",
             Self::SessionCapacity => "manager_auth_session_capacity",
+            Self::BootstrapUnavailable => "manager_auth_bootstrap_unavailable",
         })
     }
 }
@@ -90,6 +94,77 @@ impl Policy {
         }
         Ok(self)
     }
+}
+
+/// Server-owned policy for explicit native GUI contexts, never request JSON.
+/// Ordinary `authenticate` sessions remain fixed and nonrenewable.
+#[derive(Clone, Copy, Debug)]
+pub struct NativeGuiPolicy {
+    pub bootstrap_lifetime: Duration,
+    pub context_lifetime: Duration,
+}
+impl Default for NativeGuiPolicy {
+    fn default() -> Self {
+        Self {
+            bootstrap_lifetime: Duration::from_secs(30),
+            context_lifetime: Duration::from_secs(12 * 3600),
+        }
+    }
+}
+impl NativeGuiPolicy {
+    fn validate(self) -> Result<Self> {
+        if self.bootstrap_lifetime.is_zero()
+            || self.bootstrap_lifetime > Duration::from_secs(120)
+            || self.context_lifetime.is_zero()
+            || self.context_lifetime > Duration::from_secs(24 * 3600)
+        {
+            return Err(AuthError::InvalidPolicy);
+        }
+        Ok(self)
+    }
+}
+
+/// Private inherited-channel credential, distinct from the native-store key.
+/// No serde/Clone and no token-bearing Debug. Its instance/root fields bind the
+/// one-use capability to this particular newly ready manager, not another owner.
+pub struct BootstrapCredential {
+    pub(crate) token: Zeroizing<String>,
+    pub(crate) root: [u8; 32],
+    pub(crate) instance: [u8; 32],
+}
+impl BootstrapCredential {
+    /// Bounded private authentication adapter only; parsing is not authority.
+    pub fn from_wire(token: &str, root: [u8; 32], instance: [u8; 32]) -> Result<Self> {
+        if !valid_token(token) {
+            return Err(AuthError::Unauthorized);
+        }
+        Ok(Self {
+            token: Zeroizing::new(token.to_owned()),
+            root,
+            instance,
+        })
+    }
+    /// Secret transport boundary only; never normal operation output or logs.
+    pub fn expose_secret(&self) -> &str {
+        &self.token
+    }
+    pub fn manager_instance(&self) -> &[u8; 32] {
+        &self.instance
+    }
+    pub fn root_fingerprint(&self) -> &[u8; 32] {
+        &self.root
+    }
+}
+impl fmt::Debug for BootstrapCredential {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("BootstrapCredential([REDACTED])")
+    }
+}
+struct PendingBootstrap {
+    credential: BootstrapCredential,
+    generation: u64,
+    expires: Instant,
+    context_lifetime: Duration,
 }
 
 // The API permits trusted virtual time in fixtures. Add real monotonic elapsed
@@ -163,6 +238,7 @@ struct Session {
     peer: PeerIdentity,
     generation: u64,
     expires: Instant,
+    native_deadline: Option<Instant>,
 }
 
 /// An in-process proof, created only after verifying a server-issued session.
@@ -208,6 +284,9 @@ pub struct DesktopAuth {
     generation: u64,
     disabled: bool,
     key_fingerprint: Option<Zeroizing<[u8; 32]>>,
+    manager_instance: [u8; 32],
+    pending_bootstrap: Option<PendingBootstrap>,
+    bootstrap_issued: bool,
 }
 impl fmt::Debug for DesktopAuth {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -243,6 +322,8 @@ impl DesktopAuth {
         }
         let root: [u8; 32] = hash.finalize().into();
         let suffix = root.iter().map(|b| format!("{b:02x}")).collect::<String>();
+        let mut manager_instance = [0u8; 32];
+        getrandom::fill(&mut manager_instance).map_err(|_| AuthError::EntropyUnavailable)?;
         Ok(Self {
             endpoint,
             owner_user,
@@ -254,6 +335,9 @@ impl DesktopAuth {
             generation: 0,
             disabled: false,
             key_fingerprint: None,
+            manager_instance,
+            pending_bootstrap: None,
+            bootstrap_issued: false,
         })
     }
     fn cooldown(&mut self, now: Instant, duration: Duration) -> Result<()> {
@@ -373,6 +457,7 @@ impl DesktopAuth {
                 peer: peer.clone(),
                 generation: self.generation,
                 expires,
+                native_deadline: None,
             });
             Ok(SessionCredential(token))
         })();
@@ -385,8 +470,179 @@ impl DesktopAuth {
         result
     }
 
-    /// Nonblocking cache-only check. Peer identity binds PID when the platform
-    /// supplies it; Darwin getpeereid currently binds UID only, not process identity.
+    /// Explicit native-GUI fallback for an existing manager. This invokes the
+    /// normal throttled BLOCKING native-store verification first. Only this
+    /// server-owned route grants a renewable context; ordinary auth stays fixed.
+    pub fn authenticate_native_gui(
+        &mut self,
+        peer: &PeerIdentity,
+        credential: &DesktopCredential,
+        store: &dyn SecretStore,
+        policy: NativeGuiPolicy,
+        now: Instant,
+    ) -> Result<SessionCredential> {
+        let policy = policy.validate()?;
+        let started = Instant::now();
+        let token = self.authenticate(peer, credential, store, now)?;
+        let deadline = completed_at(now, started)?
+            .checked_add(policy.context_lifetime)
+            .ok_or(AuthError::InvalidPolicy)?;
+        let session = self
+            .sessions
+            .iter_mut()
+            .find(|s| bool::from(s.token.as_bytes().ct_eq(token.0.as_bytes())))
+            .ok_or(AuthError::Unauthorized)?;
+        session.native_deadline = Some(deadline);
+        session.expires = session.expires.min(deadline);
+        Ok(token)
+    }
+    /// Only the private new-owner composition path can supply this consumed
+    /// readiness permit. Never expose arbitrary IPC/bootstrap issuance.
+    pub fn issue_private_bootstrap(
+        &mut self,
+        permit: crate::bootstrap::ReadyPermit,
+        policy: NativeGuiPolicy,
+        now: Instant,
+    ) -> Result<BootstrapCredential> {
+        let policy = policy.validate()?;
+        if self.disabled || self.bootstrap_issued || permit.root() != self.endpoint.root() {
+            return Err(AuthError::BootstrapUnavailable);
+        }
+        let started = Instant::now();
+        let credential = BootstrapCredential {
+            token: random_token()?,
+            root: crate::bootstrap::root_fingerprint(self.endpoint.root()),
+            instance: self.manager_instance,
+        };
+        let expires = completed_at(now, started)?
+            .checked_add(policy.bootstrap_lifetime)
+            .ok_or(AuthError::InvalidPolicy)?;
+        self.pending_bootstrap = Some(PendingBootstrap {
+            credential: BootstrapCredential {
+                token: Zeroizing::new(credential.token.to_string()),
+                root: credential.root,
+                instance: credential.instance,
+            },
+            generation: self.generation,
+            expires,
+            context_lifetime: policy.context_lifetime,
+        });
+        self.bootstrap_issued = true;
+        Ok(credential)
+    }
+    /// Redeem a private-channel credential once, after OS peer authentication.
+    /// No native-store access. Invalid peer/root/instance/token never consumes a
+    /// valid pending credential; expiry/revoke makes it permanently unavailable.
+    pub fn redeem_private_bootstrap(
+        &mut self,
+        peer: &PeerIdentity,
+        credential: &BootstrapCredential,
+        now: Instant,
+    ) -> Result<SessionCredential> {
+        let started = Instant::now();
+        if self
+            .pending_bootstrap
+            .as_ref()
+            .is_some_and(|p| now >= p.expires)
+        {
+            self.pending_bootstrap = None;
+        }
+        if self.disabled || peer.user != self.owner_user {
+            return Err(AuthError::Unauthorized);
+        }
+        let pending = self
+            .pending_bootstrap
+            .as_ref()
+            .ok_or(AuthError::BootstrapUnavailable)?;
+        if pending.generation != self.generation
+            || credential.root != pending.credential.root
+            || credential.instance != self.manager_instance
+            || !bool::from(
+                pending
+                    .credential
+                    .token
+                    .as_bytes()
+                    .ct_eq(credential.token.as_bytes()),
+            )
+        {
+            return Err(AuthError::Unauthorized);
+        }
+        self.sessions.retain(|s| now < s.expires);
+        if self.sessions.len() >= self.policy.max_sessions {
+            return Err(AuthError::SessionCapacity);
+        }
+        let pending_expires = pending.expires;
+        let context_lifetime = pending.context_lifetime;
+        let token = random_token()?;
+        let issued = completed_at(now, started)?;
+        if issued >= pending_expires {
+            self.pending_bootstrap = None;
+            return Err(AuthError::BootstrapUnavailable);
+        }
+        let deadline = issued
+            .checked_add(context_lifetime)
+            .ok_or(AuthError::InvalidPolicy)?;
+        let expires = issued
+            .checked_add(self.policy.session_lifetime)
+            .ok_or(AuthError::InvalidPolicy)?
+            .min(deadline);
+        self.sessions.push(Session {
+            token: Zeroizing::new(token.to_string()),
+            root: self.root,
+            peer: peer.clone(),
+            generation: self.generation,
+            expires,
+            native_deadline: Some(deadline),
+        });
+        self.pending_bootstrap = None;
+        Ok(SessionCredential(token))
+    }
+    /// Explicit renewal only, not sliding ordinary usage. The token must still
+    /// be valid for this peer/root/generation and a native context. Rotation is
+    /// atomic after entropy succeeds and never extends the absolute deadline.
+    /// No SecretStore access; external key changes may remain unseen until this
+    /// context's hard deadline unless the owner is explicitly notified.
+    pub fn renew_native_gui(
+        &mut self,
+        peer: &PeerIdentity,
+        credential: &SessionCredential,
+        now: Instant,
+    ) -> Result<SessionCredential> {
+        let started = Instant::now();
+        self.sessions.retain(|s| now < s.expires);
+        if self.disabled || peer.user != self.owner_user {
+            return Err(AuthError::Unauthorized);
+        }
+        let session = self
+            .sessions
+            .iter_mut()
+            .find(|s| {
+                bool::from(s.token.as_bytes().ct_eq(credential.0.as_bytes()))
+                    && s.root == self.root
+                    && s.generation == self.generation
+                    && s.peer == *peer
+            })
+            .ok_or(AuthError::Unauthorized)?;
+        let deadline = session.native_deadline.ok_or(AuthError::Unauthorized)?;
+        if now >= deadline {
+            return Err(AuthError::Unauthorized);
+        }
+        let token = random_token()?;
+        let issued = completed_at(now, started)?;
+        if issued >= session.expires || issued >= deadline {
+            return Err(AuthError::Unauthorized);
+        }
+        let expires = issued
+            .checked_add(self.policy.session_lifetime)
+            .ok_or(AuthError::InvalidPolicy)?
+            .min(deadline);
+        session.token = Zeroizing::new(token.to_string());
+        session.expires = expires;
+        Ok(SessionCredential(token))
+    }
+
+    /// Nonblocking cache-only check. Bind the complete kernel-observed identity;
+    /// current Darwin transport combines getpeereid with LOCAL_PEERPID.
     pub fn authorize<'a>(
         &'a mut self,
         peer: &PeerIdentity,
@@ -431,6 +687,7 @@ impl DesktopAuth {
     }
     pub fn revoke_all(&mut self) {
         self.sessions.clear();
+        self.pending_bootstrap = None;
         self.generation = self.generation.wrapping_add(1);
     }
 }

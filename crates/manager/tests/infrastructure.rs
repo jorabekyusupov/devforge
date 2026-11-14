@@ -73,6 +73,24 @@ fn owner_excludes_second_owner_and_blocks_installer_until_drop() {
     assert!(Owner::acquire(root.path()).is_ok());
 }
 
+#[test]
+fn legacy_exclusion_blocks_manager_without_preempting_config_exclusive_lease() {
+    let root = root();
+    let legacy = devforge_manager::LegacyExclusion::acquire(root.path()).unwrap();
+    assert!(matches!(Owner::acquire(root.path()), Err(Error::Busy)));
+    let original_config_lease =
+        devforge_platform::distribution::OperationLease::exclusive(root.path()).unwrap();
+    drop(original_config_lease);
+    drop(legacy);
+    let owner = common::acquire(root.path()).unwrap();
+    assert!(matches!(
+        devforge_manager::LegacyExclusion::acquire(root.path()),
+        Err(Error::Busy)
+    ));
+    drop(owner);
+    assert!(devforge_manager::LegacyExclusion::acquire(root.path()).is_ok());
+}
+
 #[cfg(unix)]
 #[test]
 fn owner_rejects_dangling_operation_lock_without_outside_write_and_releases_singleton() {
@@ -115,9 +133,14 @@ fn two_process_clients_observe_same_authenticated_owner_and_graceful_shutdown() 
     assert_eq!(b["owner"], owner_pid);
     assert_ne!(a["client"], b["client"]);
     assert_eq!(a["peer_user"], b["peer_user"]);
+    #[cfg(any(target_os = "macos", windows, target_os = "linux"))]
+    {
+        assert_eq!(a["peer_pid"], a["client"]);
+        assert_eq!(b["peer_pid"], b["client"]);
+    }
     let (peer, response) = client.request_with_peer(&json!({"probe":"ping"})).unwrap();
     assert_eq!(response["peer_user"], peer.user);
-    #[cfg(windows)]
+    #[cfg(any(target_os = "macos", windows, target_os = "linux"))]
     assert_eq!(peer.process_id, Some(owner_pid));
     client.request(&json!({"probe":"stop"})).unwrap();
     assert!(owner.0.wait().unwrap().success());
@@ -404,7 +427,7 @@ fn subprocess_fixture() {
         let shutdown = stop.clone();
         Server::new(common::acquire(&root).unwrap()).run(stop, move |peer, input| {
             let stop = input["probe"] == "stop";
-            let response = json!({"owner":std::process::id(),"client":input["client"],"peer_user":peer.user});
+            let response = json!({"owner":std::process::id(),"client":input["client"],"peer_user":peer.user,"peer_pid":peer.process_id});
             if stop { shutdown.request(); }
             Ok(response)
         }).unwrap();

@@ -286,6 +286,24 @@ impl Drop for WorkspaceActor {
 }
 
 impl ActorHandle {
+    /// Bootstrap composition only: this is an actual initialized owner, not a
+    /// caller-supplied ready flag or permission to read project metadata.
+    pub(crate) fn bootstrap_ready_root(&self) -> Result<&Path> {
+        if self.shared.stopping.load(Ordering::Acquire)
+            || self.shared.stopped.load(Ordering::Acquire)
+        {
+            return Err(ActorError::WorkerUnavailable);
+        }
+        let cache = self
+            .shared
+            .cache
+            .lock()
+            .map_err(|_| ActorError::StorageUnavailable)?;
+        if cache.observed_at == 0 || cache.error.is_some() {
+            return Err(ActorError::WorkspaceUnavailable);
+        }
+        Ok(&self.shared.root)
+    }
     fn client(&self, authority: &DesktopAuthority<'_>) -> Result<Id> {
         authority
             .check_current(Instant::now())

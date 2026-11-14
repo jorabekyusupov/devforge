@@ -11,6 +11,9 @@ pub(crate) type Stream = tokio::net::UnixStream;
 pub(crate) struct Listener {
     listener: tokio::net::UnixListener,
 }
+pub(crate) fn current_user() -> Result<String> {
+    Ok(unsafe { libc::geteuid() }.to_string())
+}
 pub(crate) fn validate_root(path: &Path) -> Result<()> {
     let meta = fs::symlink_metadata(path)?;
     if meta.uid() != unsafe { libc::geteuid() } || meta.mode() & 0o022 != 0 {
@@ -87,7 +90,23 @@ pub(crate) fn peer(stream: &Stream, _server: bool) -> Result<PeerIdentity> {
         if unsafe { libc::getpeereid(stream.as_raw_fd(), &mut uid, &mut gid) } != 0 {
             return Err(Error::UnauthorizedPeer);
         }
-        (uid, None)
+        let mut pid: libc::pid_t = 0;
+        let mut length = std::mem::size_of::<libc::pid_t>() as libc::socklen_t;
+        if unsafe {
+            libc::getsockopt(
+                stream.as_raw_fd(),
+                libc::SOL_LOCAL,
+                libc::LOCAL_PEERPID,
+                (&mut pid as *mut libc::pid_t).cast(),
+                &mut length,
+            )
+        } != 0
+            || length as usize != std::mem::size_of::<libc::pid_t>()
+            || pid <= 0
+        {
+            return Err(Error::UnauthorizedPeer);
+        }
+        (uid, Some(pid as u32))
     };
     #[cfg(target_os = "linux")]
     let (user, pid) = {

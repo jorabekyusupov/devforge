@@ -8,7 +8,7 @@ mod framing;
 pub mod launch;
 mod transport;
 
-pub use endpoint::{Endpoint, Owner, WorkspacePermit};
+pub use endpoint::{Endpoint, LegacyExclusion, Owner, WorkspacePermit};
 pub use transport::{Client, PeerIdentity, Server, StopSignal};
 
 use std::{fmt, io};
@@ -62,3 +62,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub mod auth;
 
 pub mod actor;
+
+pub mod bootstrap;
+
+pub mod controller;

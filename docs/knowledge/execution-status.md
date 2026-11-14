@@ -498,3 +498,41 @@ Nativeevidence localmacOSARM64; yangiWindows/Intelactoracceptance CI/targetda al
 No GUI/runtime/download/Keychain yokiuserproject mutation. PrivateIPC64KiB va actor
 256KiBcommand limit existingM7 1MiBHttpbodyga yetmaydi: authenticatedlargebodychannel
 va trustedworktreetargetmapping yopilmaguncha GUImigrationready emas.
+
+# M13.1.4 — Private controller, bootstrap va native renewal
+
+[Controller ADR](../architecture/manager-controller.md) va [bootstrap ADR](../architecture/manager-bootstrap.md):
+realOwner/oneActor/listenerready kombinatsiyasidan private pipe orqali serverissued
+256bitroot/instancebound oneuse token. Actualpipe bo'lmaganTTY/disk/NUL rad; Root
+credentials argv/env/disk/log/resultsga yozilmaydi. Stdoutkeyframedan keyinNULda,
+handleinheritance cheklangan; WindowsUCRTfd1 vaWin32STDOUT birlikda boshqariladi.
+MandatoryexeSHA yangiGUIlaunchAPI, timeoutfaqatknownnewUNreadychild; existing/ready/
+unknownOwner o'ldirilmaydi. Defaultnormalserve credential chiqarmaydi.
+
+NativeGUItokenrenewal explicitvalidsession/peer/root/generation asosida atomikrotate;
+pertokenfixedTTL va immutable12hdefault/24hmaxauthoritycontext. NativeguiAPI keyfallback
+ham renewablecontext, ordinary1.2authfixednonrenewable. Renewablecontextcrossprocess
+revokewindow nextstoreauth/ownernotification yokiabsolutecontextdeadlinegacha bo'lishi
+mumkin; bu yangiworkingpolicyamendment,10mininstantrevoke deb ko'rsatilmaydi.
+
+StrictprivaterouteHealthdan boshqa hammasidaSession; nostartupSecretStoreprobe,
+NativeIOspawn_blockingda, busycachetry_lock. Quitmutex/persistinhibitbeforestop,
+Autostartinhibited, ExplicitUserStarttrustedRustintentclear; OSsignalhandlebir xil
+gatedcommit, persistencefailurealive, stalehandlenewownerga yozmaydi. LegacyAppLease
+exclusion oldGUI/newmanager parallelWorkspace'ni bloklaydi. RawlegacyCLIguard uchun
+LegacyExclusion faqatmanager.lock, configexclusive bilanselfdeadlockyo'q.
+
+Checks: realController7passed; actualprivatebootstrapcustomharness5passed; newGUIauth3,
+actualready/revoke2, olddetach1; lateWindowsunitfixturechange2affectedcase rerun;
+MacUID+kernelLOCAL_PEERPID2clientcase1; LegacyExclusion/configexclusive1; scopedmanager
+clippyalltargets passed. JSONbufferZeroizingadded, generalValueheapcopiesfullyzeroized
+degan claimyo'q. Startup/root tests memory/denystore; realKeychain/GUI ishlatilmadi.
+
+39770f8Windows43567704236:7actorcasespass, contentionfixture2secRunningobservation
+ProjectStore3secidleSnapshotreadbounddanqisqa bo'lgani uchunfail. Faqatobservation6sec
+qilindi, product3sec/500mscachecancel/32queue va finalsuccessassertlar saqlandi.
+TargetedcaseMacpassed; newWindowsnativehopqaroriCI'daalohida, oldfailurehistorysaqlandi.
+
+Stillgates: noactualGUIclientmigration; private64KiB/actor256KiB existingM7largebody
+uchun yetmaydi, worktree/cachetrustedtargets/partialspecificerrors vaDiscoveryowner
+wiring ham yopilmaguncha GUIreadyemas. NoMCP/externalgranttool liveadvertisement.

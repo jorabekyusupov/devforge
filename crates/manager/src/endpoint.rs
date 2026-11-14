@@ -108,6 +108,39 @@ struct OwnerLease {
     _operation: OperationLease,
     workspace_claimed: AtomicBool,
 }
+/// Transitional legacy CLI exclusion only. This is not a manager owner and does
+/// not hold OperationLease: legacy modules retain their original shared/exclusive
+/// policies, including config setup's exclusive lease.
+pub struct LegacyExclusion {
+    _lock: File,
+}
+impl LegacyExclusion {
+    pub fn acquire(root: &Path) -> Result<Self> {
+        let (_, _, lock) = acquire_manager_lock(root)?;
+        Ok(Self { _lock: lock })
+    }
+}
+fn acquire_manager_lock(root: &Path) -> Result<(PathBuf, PathBuf, File)> {
+    let root = root_path(root)?;
+    let directory = root.join("control");
+    crate::transport::os::ensure_private_dir(&directory)?;
+    let mut options = OpenOptions::new();
+    options.create(true).truncate(false).read(true).write(true);
+    crate::transport::os::secure_lock_options(&mut options);
+    let lock_path = directory.join("manager.lock");
+    if let Ok(meta) = fs::symlink_metadata(&lock_path)
+        && (!meta.is_file() || meta.file_type().is_symlink())
+    {
+        return Err(Error::UnsafeEndpoint);
+    }
+    let lock = options.open(lock_path)?;
+    crate::transport::os::validate_lock(&lock)?;
+    lock.try_lock().map_err(|error| match error {
+        std::fs::TryLockError::WouldBlock => Error::Busy,
+        std::fs::TryLockError::Error(error) => Error::Io(error),
+    })?;
+    Ok((root, directory, lock))
+}
 /// One-use in-process authority to construct this owner's Workspace worker.
 /// It cannot be cloned or decoded from wire input. The worker retains its OS
 /// leases until Workspace cleanup finishes, even after the Server/Owner drops.
@@ -125,25 +158,8 @@ impl WorkspacePermit {
 }
 impl Owner {
     pub fn acquire(root: &Path) -> Result<Self> {
-        let root = root_path(root)?;
-        let directory = root.join("control");
-        crate::transport::os::ensure_private_dir(&directory)?;
-        let endpoint = Endpoint::resolved(root.clone(), directory.clone())?;
-        let mut options = OpenOptions::new();
-        options.create(true).truncate(false).read(true).write(true);
-        crate::transport::os::secure_lock_options(&mut options);
-        let lock_path = directory.join("manager.lock");
-        if let Ok(meta) = fs::symlink_metadata(&lock_path)
-            && (!meta.is_file() || meta.file_type().is_symlink())
-        {
-            return Err(Error::UnsafeEndpoint);
-        }
-        let lock = options.open(&lock_path)?;
-        crate::transport::os::validate_lock(&lock)?;
-        lock.try_lock().map_err(|e| match e {
-            std::fs::TryLockError::WouldBlock => Error::Busy,
-            std::fs::TryLockError::Error(e) => Error::Io(e),
-        })?;
+        let (root, directory, lock) = acquire_manager_lock(root)?;
+        let endpoint = Endpoint::resolved(root.clone(), directory)?;
         let operation = OperationLease::acquire(&root).map_err(|e| {
             if e.kind() == std::io::ErrorKind::WouldBlock {
                 Error::Busy

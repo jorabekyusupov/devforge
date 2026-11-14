@@ -94,7 +94,7 @@ fn user_for_process(process: HANDLE) -> Result<String> {
     let user = unsafe { &*bytes.as_ptr().cast::<TOKEN_USER>() };
     sid_string(user.User.Sid)
 }
-fn current_user() -> Result<String> {
+pub(crate) fn current_user() -> Result<String> {
     user_for_process(unsafe { GetCurrentProcess() })
 }
 pub(crate) fn current_user_digest() -> Result<String> {

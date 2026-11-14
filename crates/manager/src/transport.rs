@@ -5,6 +5,7 @@ use crate::{
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::{
+    future::Future,
     sync::{
         Arc,
         atomic::{AtomicBool, Ordering},
@@ -44,6 +45,16 @@ impl StopSignal {
 pub struct Server {
     owner: Owner,
 }
+/// Minted only after the OS listener binds. Readiness of an actual actor is a
+/// separate proof combined by the private bootstrap composition boundary.
+pub(crate) struct ListenerReady {
+    endpoint: Endpoint,
+}
+impl ListenerReady {
+    pub(crate) fn endpoint(&self) -> &Endpoint {
+        &self.endpoint
+    }
+}
 impl Server {
     pub fn new(owner: Owner) -> Self {
         Self { owner }
@@ -61,14 +72,46 @@ impl Server {
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()?;
-        runtime.block_on(self.serve(stop, Arc::new(handler)))
+        let handler = Arc::new(handler);
+        let result = runtime.block_on(self.run_async(stop, move |peer, value| {
+            let handler = handler.clone();
+            async move {
+                tokio::task::spawn_blocking(move || handler(peer, value))
+                    .await
+                    .map_err(|_| Error::HandlerFailed)?
+            }
+        }));
+        runtime.shutdown_timeout(Duration::from_millis(100));
+        result
     }
-    async fn serve<H>(self, stop: StopSignal, handler: Arc<H>) -> Result<()>
+    pub async fn run_async<H, Fut>(self, stop: StopSignal, handler: H) -> Result<()>
     where
-        H: Fn(PeerIdentity, Value) -> Result<Value> + Send + Sync + 'static,
+        H: Fn(PeerIdentity, Value) -> Fut + Send + Sync + 'static,
+        Fut: Future<Output = Result<Value>> + Send + 'static,
+    {
+        self.run_async_ready(stop, |_| Ok(()), handler).await
+    }
+    pub(crate) async fn run_async_ready<H, Fut, F>(
+        self,
+        stop: StopSignal,
+        ready: F,
+        handler: H,
+    ) -> Result<()>
+    where
+        H: Fn(PeerIdentity, Value) -> Fut + Send + Sync + 'static,
+        Fut: Future<Output = Result<Value>> + Send + 'static,
+        F: FnOnce(ListenerReady) -> Result<()>,
     {
         self.endpoint().validate()?;
         let mut listener = os::Listener::bind(self.endpoint())?;
+        if let Err(error) = ready(ListenerReady {
+            endpoint: self.endpoint().clone(),
+        }) {
+            drop(listener);
+            os::cleanup(self.endpoint())?;
+            return Err(error);
+        }
+        let handler = Arc::new(handler);
         let slots = Arc::new(Semaphore::new(MAX_CONNECTIONS));
         let mut connections = JoinSet::new();
         let result = loop {
@@ -86,7 +129,7 @@ impl Server {
                         let peer = os::peer(&stream, false)?;
                         let exchange = async {
                             let input = framing::read(&mut stream, MAX_REQUEST_BYTES).await?;
-                            let response = handler(peer, input)?;
+                            let response = handler(peer, input).await?;
                             framing::write(&mut stream, &response, MAX_RESPONSE_BYTES).await
                         };
                         tokio::time::timeout(IO_TIMEOUT, exchange).await.map_err(|_| Error::TimedOut)?

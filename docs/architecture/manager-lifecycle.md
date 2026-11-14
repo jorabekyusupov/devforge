@@ -35,6 +35,13 @@ permissions and symlink endpoint paths are rejected. Socket paths over Darwin's
 103-byte payload limit return an explicit endpoint error. Linux supports the same
 infrastructure tests with SO_PEERCRED; this does not add Linux product support.
 
+M13.1.4 additionally reads a positive Darwin LOCAL_PEERPID alongside getpeereid,
+on both ends of the actual IPC connection. Sessions can now bind the real peer
+PID, and a launcher can verify its startup child against kernel endpoint identity.
+The original M13.1.1 UID-only checks remain historical evidence rather than a
+retroactive PID claim; the focused two-client process regression establishes the
+new PID behavior. See [controller composition](manager-controller.md).
+
 On Windows, the manager creates `control` with a protected DACL containing only
 the current user's SID, verifies its owner and exact private DACL, rejects reparse
 points, and creates a named pipe with an explicit same-user DACL and

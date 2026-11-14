@@ -1,6 +1,7 @@
 use crate::{Error, Result};
 use serde_json::Value;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use zeroize::Zeroizing;
 
 /// One big-endian u32 length followed by exactly one JSON value. Limits are
 /// applied before allocation; a transport connection carries one request only.
@@ -12,7 +13,7 @@ pub(crate) async fn read<R: AsyncRead + Unpin>(reader: &mut R, limit: usize) -> 
     if size > limit {
         return Err(Error::FrameTooLarge);
     }
-    let mut bytes = vec![0; size];
+    let mut bytes = Zeroizing::new(vec![0; size]);
     reader.read_exact(&mut bytes).await?;
     serde_json::from_slice(&bytes).map_err(|_| Error::InvalidFrame)
 }
@@ -25,7 +26,7 @@ pub(crate) async fn write<W: AsyncWrite + Unpin>(
     // Value already exists in the trusted handler. The counting writer stops
     // serialization at the bound, avoiding a second payload-sized allocation.
     let mut bytes = BoundedBuffer {
-        bytes: Vec::new(),
+        bytes: Zeroizing::new(Vec::new()),
         limit,
         exceeded: false,
     };
@@ -42,7 +43,7 @@ pub(crate) async fn write<W: AsyncWrite + Unpin>(
     Ok(())
 }
 struct BoundedBuffer {
-    bytes: Vec<u8>,
+    bytes: Zeroizing<Vec<u8>>,
     limit: usize,
     exceeded: bool,
 }
