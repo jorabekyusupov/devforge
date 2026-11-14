@@ -93,17 +93,73 @@ impl RunningDatabase {
         project: &str,
         secrets: &dyn SecretStore,
     ) -> Result<Binding> {
-        let instance = match self {
-            Self::Postgresql(s) => &s.instance.id,
-            Self::Mysql(s) => &s.instance.id,
+        let b = store.staged_binding(project, &self.instance().id, secrets)?;
+        let ready = self.provision_prepared_staged(store, project, b, secrets)?;
+        store.retain_binding(&ready)?;
+        Ok(ready)
+    }
+    pub(crate) fn instance(&self) -> &Instance {
+        match self {
+            Self::Postgresql(s) => &s.instance,
+            Self::Mysql(s) => &s.instance,
+        }
+    }
+    pub(crate) fn validate_store_instance(
+        &self,
+        store: &ProjectStore,
+        expected: &Instance,
+    ) -> Result<()> {
+        let actual = self.instance();
+        let owned_root = match self {
+            Self::Postgresql(s) => &s.root,
+            Self::Mysql(s) => &s.root,
         };
-        let b = store.staged_binding(project, instance, secrets)?;
+        if actual.id != expected.id
+            || actual.engine != expected.engine
+            || actual.package != expected.package
+            || actual.port != expected.port
+            || actual.admin != expected.admin
+            || actual.secret_ref != expected.secret_ref
+            || actual.ready != expected.ready
+            || fs::canonicalize(owned_root)?
+                != fs::canonicalize(store.root.join("databases").join(&expected.id))?
+        {
+            return Err(E::DatabaseConflict);
+        }
+        Ok(())
+    }
+    /// A drill records this already-retained candidate before physical creation.
+    /// No caller may supply a foreign or active generation to this boundary.
+    pub(crate) fn provision_prepared_staged(
+        &mut self,
+        store: &ProjectStore,
+        project: &str,
+        b: Binding,
+        secrets: &dyn SecretStore,
+    ) -> Result<Binding> {
         let _lock = store.operation_lock()?;
+        self.validate_store_instance(store, &store.instance(&b.instance_id)?)?;
+        let retained: String = store.connection.query_row(
+            "SELECT record FROM database_binding_history WHERE project_id=?1 AND binding_key=?2 AND octet_length(record)<=16384",
+            params![project, format!("{}/{}", b.instance_id, b.database)],
+            |row| row.get(0),
+        )?;
+        if b.project_id != project
+            || b.instance_id != self.instance().id
+            || b.ready
+            || serde_json::to_value(&b).map_err(|_| E::StorageUnavailable)?
+                != serde_json::from_str::<serde_json::Value>(&retained)
+                    .map_err(|_| E::StorageUnavailable)?
+            || store.binding(project)?.is_some_and(|active| {
+                active.instance_id == b.instance_id && active.database == b.database
+            })
+        {
+            return Err(E::DatabaseConflict);
+        }
         let ready = match self {
             Self::Postgresql(s) => provision_binding(store, &s.instance.id, project, b, secrets)?,
             Self::Mysql(s) => s.provision_binding(store, b, secrets)?,
         };
-        store.retain_binding(&ready)?;
         Ok(ready)
     }
     pub fn stop(&mut self) -> Result<()> {

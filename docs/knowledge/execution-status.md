@@ -150,7 +150,7 @@ Parallel agent boshlangan yoki tugagan itemni integrator evidence bilan yangilay
 | E03 | validated | [Exact Composer source/focused qabul](composer-binding-results.md); native target followup ochiq. |
 | E04 | in_progress | Current-state/tooling/README drift va contributor runbook, product tests talab qilmaydi. |
 | E05 | in_progress | Ownership/resource kontrakti; read-only storage inventari, keyin cleanup preview. |
-| E06 | planned | E05 va staged DB ownership; activation'siz drill, keyin retention/scheduling. |
+| E06 | in_progress | Non-activating restore-drill backend + actual PG/MySQL ARM64 validated; cleanup/retention/UI/provider targets remain. |
 | E07 | in_progress | E07.1 read-only exact-pin offline metadata validated; signed refresh/revocation/bundle/UI/native offline acceptance remains. |
 | E08 | planned | M13.6 execution, real profile talabi; scheduler/Reverb, keyin Horizon. |
 | E09 | in_progress | Release actor 1/10/100 baseline recorded; full GUI/process-tree/burst/native target measurements remain. |
@@ -733,3 +733,23 @@ zeroledgeradmissions/unchangedprojectfiles/freeduploadslots, then acceptedreceip
 race and exactcancel whileanotherjob succeeded. ScopedSDKlib/testclippy passed;
 fourpriorunchangedSDKcases reused, notrerun. NativeGUIbridge/publicautomation and
 newWindowsruntime evidence remainseparate. [SDK contract](../architecture/manager-native-client.md).
+
+
+## E06.1 non-activating restore drill
+
+[Implementation/evidence](restore-drill-results.md): fresh ownedDB restore andnew
+role/DBidentityconnectioncheck, expectedrevision/backupchecksum/exactengineversion,
+fullownedserveridentitycheckedagainunderprovisionlock. Existingrestoreactivation
+reusesextractedprimitive andremains explicit. Durableboundedreceipt records
+passed/failed/cancelled/provisioning, generationready=false, nocredential/rawSQL/
+output/pathpersisted. Newnamespace ordinaryownership/markers/linkreparse guards.
+Cleanupretained_requires_review, no automaticDROP/backupdelete/replay/activation.
+
+Focusedbackup6passed; finalnative2passed(PostgreSQL18.6.0/MySQL8.4.11) onsamehost
+macOSARM64. Backupcanary701 restoredwhilelive902/binding/serverPID/hashpreserved;
+wrongserver/metadatarefusal, failed/cancelledreceipt andlegacyactivationchecked.
+ActualDBserver+SQLfixture, notrunningLaravel/WebViewproject acceptance. Scoped
+clippy/fmt passed; QA directorylink/fullidentityfindingsfixed andfocusedregressions
+passed. Guardschangedexecutionpath soonlythose2nativecases rerun, nowider matrix.
+Windows/Intel/GUI/nativecredentials, E05receiptpresentation andphysicalcleanup/
+retentionpreview/scheduling remain. Dirtysourcehash provenance explicit.

@@ -21,6 +21,7 @@ use std::{
     time::{Duration, Instant},
 };
 use zeroize::Zeroizing;
+pub mod drill;
 pub mod remote;
 const LIMIT: u64 = 1024 * 1024 * 1024;
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -410,6 +411,7 @@ impl ProjectStore {
         let (manifest, mut archive) = inspect(&self.backup_path(project, id)?)?;
         let active = self.binding(project)?.ok_or(E::DatabaseUnavailable)?;
         let instance = self.instance(&active.instance_id)?;
+        server.validate_store_instance(self, &instance)?;
         if instance.engine != manifest.engine
             || catalog.get(&instance.package)?.version != manifest.version
         {
@@ -431,6 +433,30 @@ impl ProjectStore {
         let mut pending = staged.clone();
         pending.ready = false;
         self.retain_binding(&pending)?;
+        self.restore_staged_payload(
+            &staged, &instance, &payload, catalog, packages, secrets, cancel,
+        )?;
+        self.retain_binding(&staged)?;
+        self.activate_binding(project, Some(&staged))?;
+        Ok(staged)
+    }
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "Existing bounded restore process boundary"
+    )]
+    fn restore_staged_payload(
+        &self,
+        staged: &Binding,
+        instance: &crate::database::Instance,
+        payload: &Path,
+        catalog: &Catalog,
+        packages: &PackageStore,
+        secrets: &dyn SecretStore,
+        cancel: &Cancellation,
+    ) -> Result<()> {
+        if cancel.is_cancelled() {
+            return Err(E::ExecutionFailed);
+        }
         let c = self.credentials_for(staged.clone(), secrets)?;
         if c.engine == Engine::Postgresql {
             run(
@@ -442,12 +468,12 @@ impl ProjectStore {
                     "--no-owner".into(),
                     "--no-privileges".into(),
                     "--exit-on-error".into(),
-                    dunce::simplified(&payload).as_os_str().to_owned(),
+                    dunce::simplified(payload).as_os_str().to_owned(),
                 ],
                 None,
                 catalog,
                 packages,
-                dir.path(),
+                payload.parent().ok_or(E::InvalidBackup)?,
                 cancel,
             )?;
         } else {
@@ -461,19 +487,17 @@ impl ProjectStore {
                     "--local-infile=0".into(),
                     staged.database.clone().into(),
                 ],
-                Some(payload),
+                Some(payload.to_owned()),
                 catalog,
                 packages,
-                dir.path(),
+                payload.parent().ok_or(E::InvalidBackup)?,
                 cancel,
             )?;
         }
         if cancel.is_cancelled() || !c.connection_test()? {
             return Err(E::ExecutionFailed);
         }
-        self.retain_binding(&staged)?;
-        self.activate_binding(project, Some(&staged))?;
-        Ok(staged)
+        Ok(())
     }
 }
 fn inspect_header(path: &Path) -> Result<(Manifest, zip::ZipArchive<File>)> {

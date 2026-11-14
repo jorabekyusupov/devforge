@@ -1,0 +1,63 @@
+{
+  "schema": 1,
+  "platform": {
+    "os": "27.2.1",
+    "architecture": "arm64"
+  },
+  "source_head": "cd6ba86087bc97e975e3fce562616ee757bf7009",
+  "dirty_build": true,
+  "scope": "owned restore-drill source hashes; not a complete clean artifact attestation",
+  "source_sha256": {
+    "crates/projects/src/backup.rs": "2aa18b48b9fd7b5291d9f9eb140abc147f31761058c837bf0c1f96d3cf396df6",
+    "crates/projects/src/backup/drill.rs": "c1b6584247de15e46a019658f012d719035ed85d23e5004277d65c154fc03e16",
+    "crates/projects/src/database.rs": "c5215abab3ec0450b4c0d6d81d3b2921d0cb79d097d6d2e12f1e1f77b1329053",
+    "crates/projects/src/mysql_service.rs": "c578c97913f964f0ed46c41867e740711a15bd9a20a3b62756e3274fb0bc0151",
+    "runtime/catalog.json": "28b43c7652b9c8a2d6bc626edcca2784951902e38f5a880a5ce801f313b5a9c4",
+    "Cargo.lock": "95f9068004c61c78146bba39889c26cce35976df3d4fbe891f1e57ea2a299228",
+    "rust-toolchain.toml": "f715f440167e20fd8ea9afa0498c3d1ab80174cfcb8cbc895f106a34d907a1e1"
+  },
+  "checks": {
+    "focused_backup_tests": {
+      "passed": 6,
+      "native_ignored_by_default": 2
+    },
+    "explicit_native_cases": [
+      {
+        "active_binding_and_live_canary_preserved": true,
+        "backup_hash_preserved": true,
+        "cleanup": "retained_requires_review_in_disposable_instance",
+        "engine": "mysql",
+        "failed_and_cancelled_receipts": true,
+        "legacy_restore_activation": true,
+        "native_credentials": false,
+        "passed_restore_verified": true,
+        "server_pid_unchanged": true,
+        "suite": "restore_drill",
+        "target": "macos-arm64",
+        "version": "8.4.11",
+        "wrong_server_refused_before_staging": true
+      },
+      {
+        "active_binding_and_live_canary_preserved": true,
+        "backup_hash_preserved": true,
+        "cleanup": "retained_requires_review_in_disposable_instance",
+        "engine": "postgresql",
+        "failed_and_cancelled_receipts": true,
+        "legacy_restore_activation": true,
+        "native_credentials": false,
+        "passed_restore_verified": true,
+        "server_pid_unchanged": true,
+        "suite": "restore_drill",
+        "target": "macos-arm64",
+        "version": "18.6.0",
+        "wrong_server_refused_before_staging": true
+      }
+    ],
+    "projects_library_test_clippy": "passed",
+    "drifted_instance_metadata_refusal": "asserted in both native cases",
+    "automatic_cleanup": "not_implemented_retained_requires_review",
+    "native_credentials": "not_accessed",
+    "windows_intel": "unverified"
+  },
+  "fixture": "copies of reviewed catalog-matching cached packages; disposable DB roots and unique ports; no downloads"
+}
