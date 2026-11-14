@@ -1,0 +1,29 @@
+{
+  "source_sha": "6bd138268ba2f8e313c49b346272c156c0ccb625",
+  "base_sha": "b244a2ad13617363f9aa56052562d7f8136ef86b",
+  "platform": "Windows-2025Server-10.0.26100-SP0",
+  "test_source_git_blob_sha256": "4ef3b64621ec7cf6971f26777281adacc817e90a45a3f5bf4e56ff34828334ec",
+  "test_source_windows_sha256": "5df69fe7a1445445d621dc95b168f477749598c0b9a22b0da352275eb3bee772",
+  "name": "policy_denial_inside_dependency_poll_stops_owned_child_and_preserves_policy_error",
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "-p",
+    "devforge-projects",
+    "--test",
+    "checked_execution",
+    "policy_denial_inside_dependency_poll_stops_owned_child_and_preserves_policy_error",
+    "--",
+    "--exact",
+    "--nocapture"
+  ],
+  "exit_code": 0,
+  "exactly_one_test_passed": true,
+  "run_id": 43607061157,
+  "job_id": 132483872023,
+  "url": "https://github.com/jorabekyusupov/devforge/actions/runs/43607061157",
+  "runtime_assertion": "same 5s ready-to-policy-denial bound; original error/started/incomplete assertions retained",
+  "duplicate_core_run": 43607061006,
+  "duplicate_core_conclusion": "cancelled after exact owned branch/SHA/workflow identity check; not pass"
+}

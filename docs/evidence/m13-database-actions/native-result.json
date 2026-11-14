@@ -1,0 +1,40 @@
+{
+  "test": "public_reviewed_database_bind_restore_replay_cancel_preserves_other_project",
+  "target": "macos-arm64",
+  "one_test_two_engines": [
+    {
+      "backup_hash_preserved": true,
+      "bind_retained_reuse": true,
+      "cancel_before_activation_preserves_binding": true,
+      "downloads": false,
+      "engine": "postgresql",
+      "live_canary_and_old_generation_preserved": true,
+      "native_credentials": false,
+      "other_project_connection_preserved": true,
+      "replay_lookup_one_effect": true,
+      "restore_fresh_generation": true,
+      "suite": "public_database_control",
+      "target": "macos-arm64",
+      "version": "18.6.0"
+    },
+    {
+      "backup_hash_preserved": true,
+      "bind_retained_reuse": true,
+      "cancel_before_activation_preserves_binding": true,
+      "downloads": false,
+      "engine": "mysql",
+      "live_canary_and_old_generation_preserved": true,
+      "native_credentials": false,
+      "other_project_connection_preserved": true,
+      "replay_lookup_one_effect": true,
+      "restore_fresh_generation": true,
+      "suite": "public_database_control",
+      "target": "macos-arm64",
+      "version": "8.4.11"
+    }
+  ],
+  "result": "1 passed; 0 failed; 0 ignored; 58.99s",
+  "positive_run_reused_after_guarded_foreign_project_denial_fix": true,
+  "foreign_project_regression": "separate focused core test; guarded-only native import/clone unchanged",
+  "windows_intel_native_db": "unverified"
+}

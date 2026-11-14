@@ -15,6 +15,28 @@ fn hash(v: &[u8]) -> devforge_control::Result<Digest> {
 fn digest() -> Digest {
     Digest::new("a".repeat(64)).unwrap()
 }
+#[test]
+fn reviewed_database_actions_map_only_owned_ids_and_synthesize_consent() {
+    let fixture = Fixture::new();
+    let binding = fixture.binding("p1", 4);
+    let backend = digest();
+    let context = BackendContext::reviewed(&backend);
+    let bind = fixture.prepare("database.bind", json!({"instance_id":"instance-a"}));
+    let Dispatch::Command(command) = map_mutation(&bind, &binding, &context).unwrap() else {
+        panic!("commandexpected")
+    };
+    assert!(
+        matches!(*command,Command::SwitchDatabase{id,instance,consent:true}if id=="p1"&&instance=="instance-a")
+    );
+    let restore = fixture.prepare("database.restore", json!({"backup_id":"backup-a"}));
+    let Dispatch::Command(command) = map_mutation(&restore, &binding, &context).unwrap() else {
+        panic!("commandexpected")
+    };
+    assert!(
+        matches!(*command,Command::RestoreBackup{id,backup,consent:true}if id=="p1"&&backup=="backup-a")
+    );
+    assert!(map_mutation(&restore, &binding, &BackendContext::default()).is_err());
+}
 struct Fixture {
     temp: tempfile::TempDir,
 }

@@ -947,6 +947,241 @@ impl BoundEnvActionsClient {
     }
 }
 
+/// Finite reviewed DB binding/restoration client. Public inputs contain only
+/// opaque instance/backup IDs; credentials, paths and backup checksums stay at
+/// the manager/native-plan boundary.
+pub struct DatabaseClient {
+    inner: ServiceClient,
+}
+impl std::fmt::Debug for DatabaseClient {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DatabaseClient")
+            .field("owner_pid", &self.inner.client.peer.process_id)
+            .finish_non_exhaustive()
+    }
+}
+impl DatabaseClient {
+    pub fn connect(
+        endpoint: Endpoint,
+        credential: ExternalCredential,
+    ) -> std::result::Result<Self, ErrorCode> {
+        Ok(Self {
+            inner: ServiceClient::connect(endpoint, credential)?,
+        })
+    }
+    pub fn choices(
+        &mut self,
+        id: Id,
+        project: &Id,
+    ) -> std::result::Result<Response<crate::service_control::DatabaseChoices>, ErrorCode> {
+        database_choices(&mut self.inner, id, project)
+    }
+    pub fn plan(
+        &mut self,
+        request: &Request<MutationInput>,
+    ) -> std::result::Result<Response<PlanReceipt>, ErrorCode> {
+        database_plan(&mut self.inner, request)
+    }
+    pub fn apply(
+        &mut self,
+        request: &Request<MutationInput>,
+        review: &Digest,
+    ) -> std::result::Result<Response<MutationReceipt>, ErrorCode> {
+        database_apply(&mut self.inner, request, review)
+    }
+    pub fn lookup(
+        &mut self,
+        id: Id,
+        project: &Id,
+        key: &Id,
+    ) -> std::result::Result<Response<Option<MutationReceipt>>, ErrorCode> {
+        database_lookup(&mut self.inner, id, project, key)
+    }
+}
+fn database_request(request: &Request<MutationInput>) -> std::result::Result<(), ErrorCode> {
+    if !matches!(
+        request.input,
+        MutationInput::DatabaseBind(_) | MutationInput::DatabaseRestore(_)
+    ) {
+        return Err(ErrorCode::UnsupportedCapability);
+    }
+    if !request
+        .expected_revision
+        .is_some_and(|revision| revision <= devforge_control::limits::SafeInt::MAX)
+        || request.idempotency_key.is_none()
+    {
+        return Err(ErrorCode::InvalidInput);
+    }
+    Ok(())
+}
+fn database_choices(
+    client: &mut ServiceClient,
+    id: Id,
+    project: &Id,
+) -> std::result::Result<Response<crate::service_control::DatabaseChoices>, ErrorCode> {
+    let reply: Response<crate::service_control::DatabaseChoices> = client.exchange(
+        &id,
+        json!({"method":"db_choices","request_id":id,"project_id":project}),
+        false,
+    )?;
+    if reply.data().is_some_and(|choices| {
+        &choices.project_id != project
+            || choices
+                .current_instance_id
+                .as_ref()
+                .is_some_and(|current| !choices.instance_ids.contains(current))
+    }) {
+        return Err(ErrorCode::InvalidInput);
+    }
+    Ok(reply)
+}
+fn database_plan(
+    client: &mut ServiceClient,
+    request: &Request<MutationInput>,
+) -> std::result::Result<Response<PlanReceipt>, ErrorCode> {
+    database_request(request)?;
+    let reply: Response<PlanReceipt> = client.exchange(
+        &request.request_id,
+        json!({"method":"db_plan","request":request}),
+        false,
+    )?;
+    if reply.data().is_some_and(|plan| {
+        plan.project_id != request.project_id
+            || Some(plan.revision.get()) != request.expected_revision
+    }) {
+        return Err(ErrorCode::InvalidInput);
+    }
+    Ok(reply)
+}
+fn database_apply(
+    client: &mut ServiceClient,
+    request: &Request<MutationInput>,
+    review: &Digest,
+) -> std::result::Result<Response<MutationReceipt>, ErrorCode> {
+    database_request(request)?;
+    let reply: Response<MutationReceipt> = client.exchange(
+        &request.request_id,
+        json!({"method":"db_apply","request":request,"review":review}),
+        true,
+    )?;
+    if reply.data().is_some_and(|receipt| {
+        receipt.project_id != request.project_id
+            || Some(receipt.revision.get()) != request.expected_revision
+            || reply
+                .operation_id()
+                .is_some_and(|id| id != &receipt.operation_id)
+    }) {
+        return Err(ErrorCode::AdmissionUnconfirmed);
+    }
+    Ok(reply)
+}
+fn database_lookup(
+    client: &mut ServiceClient,
+    id: Id,
+    project: &Id,
+    key: &Id,
+) -> std::result::Result<Response<Option<MutationReceipt>>, ErrorCode> {
+    let reply: Response<Option<MutationReceipt>> = client.exchange(
+        &id,
+        json!({"method":"db_lookup","request_id":id,"project_id":project,"idempotency_key":key}),
+        false,
+    )?;
+    if reply
+        .data()
+        .and_then(Option::as_ref)
+        .is_some_and(|receipt| {
+            &receipt.project_id != project
+                || reply
+                    .operation_id()
+                    .is_some_and(|id| id != &receipt.operation_id)
+        })
+    {
+        return Err(ErrorCode::InvalidInput);
+    }
+    Ok(reply)
+}
+pub struct BoundDatabaseClient {
+    previous: BoundEnvActionsClient,
+}
+impl BoundDatabaseClient {
+    pub fn connect(
+        endpoint: Endpoint,
+        loaded: crate::credential_file::LoadedCredential,
+    ) -> std::result::Result<Self, ErrorCode> {
+        Ok(Self {
+            previous: BoundEnvActionsClient::connect(endpoint, loaded)?,
+        })
+    }
+    fn project(&self) -> &Id {
+        self.previous.env.project()
+    }
+    fn transport(&mut self) -> &mut ServiceClient {
+        self.previous.env.transport()
+    }
+    pub fn read(
+        &mut self,
+        id: Id,
+        input: ExternalInput,
+    ) -> std::result::Result<ExternalReply, ErrorCode> {
+        self.previous.environment().read(id, input)
+    }
+    pub fn choices(
+        &mut self,
+        id: Id,
+    ) -> std::result::Result<Response<crate::service_control::DatabaseChoices>, ErrorCode> {
+        let project = self.project().clone();
+        database_choices(self.transport(), id, &project)
+    }
+    pub fn plan(
+        &mut self,
+        request: &Request<MutationInput>,
+    ) -> std::result::Result<Response<PlanReceipt>, ErrorCode> {
+        if &request.project_id != self.project() {
+            return Err(ErrorCode::ProjectMismatch);
+        }
+        database_plan(self.transport(), request)
+    }
+    pub fn apply(
+        &mut self,
+        request: &Request<MutationInput>,
+        review: &Digest,
+    ) -> std::result::Result<Response<MutationReceipt>, ErrorCode> {
+        if &request.project_id != self.project() {
+            return Err(ErrorCode::ProjectMismatch);
+        }
+        database_apply(self.transport(), request, review)
+    }
+    pub fn lookup(
+        &mut self,
+        id: Id,
+        key: &Id,
+    ) -> std::result::Result<Response<Option<MutationReceipt>>, ErrorCode> {
+        let project = self.project().clone();
+        database_lookup(self.transport(), id, &project, key)
+    }
+}
+/// Explicit composition for independently selected MCP surfaces. Existing
+/// service/runtime/environment/read-only wrappers retain their finite APIs.
+pub struct BoundDatabaseActionsClient {
+    database: BoundDatabaseClient,
+}
+impl BoundDatabaseActionsClient {
+    pub fn connect(
+        endpoint: Endpoint,
+        loaded: crate::credential_file::LoadedCredential,
+    ) -> std::result::Result<Self, ErrorCode> {
+        Ok(Self {
+            database: BoundDatabaseClient::connect(endpoint, loaded)?,
+        })
+    }
+    pub fn database(&mut self) -> &mut BoundDatabaseClient {
+        &mut self.database
+    }
+    pub fn previous(&mut self) -> &mut BoundEnvActionsClient {
+        &mut self.database.previous
+    }
+}
+
 struct SecretRequest(Value);
 impl Drop for SecretRequest {
     fn drop(&mut self) {

@@ -474,8 +474,17 @@ impl Mcp {
         runtime: bool,
         environment: bool,
     ) -> Self {
+        Self::with_database(fixture, service, runtime, environment, false)
+    }
+    fn with_database(
+        fixture: &Fixture,
+        service: bool,
+        runtime: bool,
+        environment: bool,
+        database: bool,
+    ) -> Self {
         let file = fixture.parent.path().join(format!(
-            "grant-service-{service}-runtime-{runtime}-environment-{environment}.json"
+            "grant-service-{service}-runtime-{runtime}-environment-{environment}-database-{database}.json"
         ));
         let bytes=zeroize::Zeroizing::new(serde_json::to_vec(&json!({"schema":1,"project_id":fixture.project,"credential":fixture.full.credential.expose_secret()})).unwrap());
         common::credential_file(&file, &bytes);
@@ -492,6 +501,9 @@ impl Mcp {
         }
         if environment {
             command.arg("--allow-environment-actions");
+        }
+        if database {
+            command.arg("--allow-database-actions");
         }
         let mut child = command
             .stdin(Stdio::piped())
@@ -1145,4 +1157,179 @@ fn environment_mcp_surface_is_masked_and_flag_never_grants_sensitive_authority()
             .unwrap()
             .contains("mcp-yaml-private-canary")
     );
+}
+
+#[test]
+fn database_choices_and_mutation_denials_do_not_start_a_database_or_expose_private_parameters() {
+    use devforge_control::{
+        Request,
+        mutations::{DatabaseBindInput, DatabaseRestoreInput, MutationInput},
+    };
+    use devforge_manager::{
+        Endpoint, external_auth::ExternalCredential, external_client::DatabaseClient,
+    };
+    let mut fixture = Fixture::new();
+    let endpoint = Endpoint::existing(&fixture.root).unwrap();
+    let project = Id::new(&fixture.project).unwrap();
+    let token = |grant: &IssuedGrant| {
+        ExternalCredential::from_wire(grant.credential.expose_secret()).unwrap()
+    };
+    let mut observer = DatabaseClient::connect(endpoint.clone(), token(&fixture.observer)).unwrap();
+    let choices = observer
+        .choices(Id::new("db-choices").unwrap(), &project)
+        .unwrap();
+    let data = choices.data().unwrap();
+    assert!(data.stopped);
+    assert!(
+        data.current_instance_id.is_none()
+            && data.instance_ids.is_empty()
+            && data.backup_ids.is_empty()
+    );
+    let value = serde_json::to_value(&choices).unwrap();
+    let keys = value["data"]
+        .as_object()
+        .unwrap()
+        .keys()
+        .map(String::as_str)
+        .collect::<Vec<_>>();
+    assert_eq!(
+        keys,
+        vec![
+            "backup_ids",
+            "current_instance_id",
+            "instance_ids",
+            "project_id",
+            "revision",
+            "stopped"
+        ]
+    );
+    assert!(!value.to_string().contains(fixture.root.to_str().unwrap()));
+    let (code, cli) = fixture.cli(
+        &[
+            "api",
+            "database",
+            "plan",
+            &fixture.project,
+            "--credential-stdin",
+        ],
+        &fixture.observer,
+    );
+    assert_eq!(code, 0);
+    assert_eq!(cli["data"]["stopped"], true);
+    let request = Request {
+        api_version: Default::default(),
+        request_id: Id::new("bind-plan").unwrap(),
+        project_id: project.clone(),
+        expected_revision: Some(fixture.revision),
+        idempotency_key: Some(Id::new("bind-denied").unwrap()),
+        input: MutationInput::DatabaseBind(DatabaseBindInput {
+            instance_id: Id::new("not-owned-instance").unwrap(),
+            limits: None,
+        }),
+    };
+    let denied = observer.plan(&request).unwrap();
+    assert_eq!(
+        denied.error().unwrap().code,
+        devforge_control::ErrorCode::Unauthorized
+    );
+    let mut manage = DatabaseClient::connect(endpoint.clone(), token(&fixture.manage)).unwrap();
+    assert_eq!(
+        manage.plan(&request).unwrap().error().unwrap().code,
+        devforge_control::ErrorCode::Unauthorized
+    );
+    let grant = fixture
+        .native
+        .issue_external_grant(
+            &project,
+            &[
+                Scope::Observer,
+                Scope::ProjectManage,
+                Scope::SensitiveOperation,
+            ],
+            Duration::from_secs(300),
+        )
+        .unwrap();
+    let mut scoped = DatabaseClient::connect(endpoint, token(&grant)).unwrap();
+    let unknown = scoped.plan(&request).unwrap();
+    assert!(!unknown.is_ok());
+    let mut restore = request.clone();
+    restore.input = MutationInput::DatabaseRestore(DatabaseRestoreInput {
+        backup_id: Id::new("not-owned-backup").unwrap(),
+        limits: None,
+    });
+    assert!(!scoped.plan(&restore).unwrap().is_ok());
+    let lookup = scoped
+        .lookup(
+            Id::new("db-lookup").unwrap(),
+            &project,
+            request.idempotency_key.as_ref().unwrap(),
+        )
+        .unwrap();
+    assert!(lookup.data().unwrap().is_none());
+    let foreign = observer
+        .choices(
+            Id::new("db-foreign").unwrap(),
+            &Id::new(&fixture.other).unwrap(),
+        )
+        .unwrap();
+    assert_eq!(
+        foreign.error().unwrap().code,
+        devforge_control::ErrorCode::ProjectMismatch
+    );
+    assert!(
+        fixture.native.snapshot().unwrap().snapshot["projects"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|row| row["processes"].as_array().unwrap().is_empty())
+    );
+}
+#[test]
+fn database_mcp_opt_in_only_adds_choices_reviewed_bind_and_restore() {
+    let mut fixture = Fixture::new();
+    for (service, runtime, environment, database, count) in [
+        (false, false, false, false, 5),
+        (false, false, false, true, 8),
+        (true, true, true, true, 18),
+    ] {
+        let mut mcp = Mcp::with_database(&fixture, service, runtime, environment, database);
+        let listed = mcp.call("tools/list", json!({}));
+        let tools = listed["result"]["tools"].as_array().unwrap();
+        assert_eq!(tools.len(), count);
+        assert!(!tools.iter().any(|tool| {
+            [
+                "database.query",
+                "database.clone",
+                "database.import",
+                "database.export",
+                "db_choices",
+            ]
+            .iter()
+            .any(|name| tool["name"] == *name)
+        }));
+        let choices = mcp.call("tools/call", json!({"name":"database.plan","arguments":{}}));
+        if database {
+            assert_eq!(choices["result"]["isError"], false);
+            assert!(
+                choices["result"]["structuredContent"]["data"]["instance_ids"]
+                    .as_array()
+                    .unwrap()
+                    .is_empty()
+            );
+            let denied=mcp.call("tools/call",json!({"name":"database.plan","arguments":{"action":"bind","instance_id":"not-owned","expected_revision":fixture.revision,"idempotency_key":"db-no-sensitive"}}));
+            assert_eq!(
+                denied["result"]["structuredContent"]["error"]["code"],
+                "unauthorized"
+            );
+            let invalid=mcp.call("tools/call",json!({"name":"database.restore","arguments":{"backup_id":"id","expected_revision":fixture.revision,"idempotency_key":"bad-restore","review":"a".repeat(64),"path":"/tmp/not-accepted","sql":"private-sql-canary","consent":true}}));
+            assert_eq!(invalid["error"]["code"], -32602);
+            assert!(!invalid.to_string().contains("private-sql-canary"));
+            let clone=mcp.call("tools/call",json!({"name":"database.plan","arguments":{"action":"clone","expected_revision":fixture.revision,"idempotency_key":"no-clone"}}));
+            assert_eq!(clone["error"]["code"], -32602);
+        } else {
+            assert_eq!(choices["error"]["code"], -32602);
+        }
+        mcp.close();
+    }
+    assert!(fixture.native.snapshot().is_ok());
 }

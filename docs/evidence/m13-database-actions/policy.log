@@ -1,0 +1,13 @@
+   Compiling devforge-projects v0.1.0 (/Users/yusupov/Herd/devforge/crates/projects)
+   Compiling devforge-control v0.1.0 (/Users/yusupov/Herd/devforge/crates/control)
+   Compiling devforge-serving v0.1.0 (/Users/yusupov/Herd/devforge/crates/serving)
+   Compiling devforge-workspace v0.1.0 (/Users/yusupov/Herd/devforge/crates/workspace)
+   Compiling devforge-control-adapter v0.1.0 (/Users/yusupov/Herd/devforge/crates/control-adapter)
+   Compiling devforge-manager v0.1.0 (/Users/yusupov/Herd/devforge/crates/manager)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 10.43s
+     Running tests/service_control.rs (target/debug/deps/service_control-b32833356aaaa9fa)
+
+running 1 test
+test database_policy_requires_sensitive_scope_and_keeps_choices_project_scoped_without_startup ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.18s

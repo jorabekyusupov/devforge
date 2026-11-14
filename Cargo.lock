@@ -1234,6 +1234,7 @@ dependencies = [
  "devforge-workspace",
  "getrandom 0.4.3",
  "libc",
+ "mysql",
  "rusqlite",
  "serde",
  "serde_json",

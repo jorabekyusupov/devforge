@@ -44,6 +44,8 @@ fn args(name: &str) -> Value {
             json!({"name":"Demo","php":"php-8.5-arm64","node":"node24-arm64","domain":"demo.devforge.test","https":true,"vite":true,"queue":false})
         }
         "environment.plan" | "environment.apply" => json!({"write_env":true}),
+        "database.bind" => json!({"instance_id":"instance-a"}),
+        "database.restore" => json!({"backup_id":"backup-a"}),
         "environment.yaml_save" => {
             json!({"expected":null,"text":"version: 1\nproject:\n  name: Demo\n"})
         }
@@ -88,13 +90,13 @@ fn every_initial_command_has_typed_mapping_and_can_be_prepared_without_execution
     let grant = all_grants();
     let backend = state_digest();
     let contracts = tools::contracts().unwrap();
-    assert_eq!(contracts.len(), 155);
+    assert_eq!(contracts.len(), 156);
     assert_eq!(
         contracts
             .iter()
             .filter(|c| c.schema_status == SchemaStatus::TypedMutation)
             .count(),
-        11
+        13
     );
     assert_eq!(
         contracts

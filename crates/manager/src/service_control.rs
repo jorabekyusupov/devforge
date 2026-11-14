@@ -47,6 +47,20 @@ pub use crate::environment_control::{EnvDocumentState, EnvPreview, MAX_EXTERNAL_
 pub type EnvPreviewReply = Response<EnvPreview>;
 pub type EnvApplyReply = Response<MutationReceipt>;
 pub type EnvLookupReply = Response<Option<MutationReceipt>>;
+pub type DatabasePlanReply = Response<PlanReceipt>;
+pub type DatabaseApplyReply = Response<MutationReceipt>;
+pub type DatabaseLookupReply = Response<Option<MutationReceipt>>;
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DatabaseChoices {
+    pub project_id: Id,
+    pub revision: SafeInt,
+    pub stopped: bool,
+    pub current_instance_id: Option<Id>,
+    pub instance_ids: Vec<Id>,
+    pub backup_ids: Vec<Id>,
+}
+pub type DatabaseChoicesReply = Response<DatabaseChoices>;
 const PLAN_TTL: Duration = Duration::from_secs(300);
 const MAX_PLANS: usize = 128;
 const MAX_PLAN_BYTES: usize = 1_048_576;
@@ -74,6 +88,7 @@ struct Intent {
     environment: Option<crate::environment_control::EnvironmentIntent>,
     public_digest: Option<Digest>,
     public_fingerprint: Option<Digest>,
+    database: Option<crate::database_control::DatabaseReadResult>,
 }
 pub(crate) struct ServiceJob {
     intent: Arc<Intent>,
@@ -198,7 +213,13 @@ impl ServiceJob {
         if initial {
             cached_preflight(snapshot, &self.intent.request)?;
         }
-        let backend = if let Some(environment) = &self.intent.environment {
+        let backend = if let Some(database) = &self.intent.database {
+            if database_snapshot_digest(snapshot, &self.intent.request)? != database.snapshot_digest
+            {
+                return Err(ErrorCode::ReviewMismatch);
+            }
+            self.intent.backend.clone()
+        } else if let Some(environment) = &self.intent.environment {
             verify_document(current, environment.data.document_sha.as_deref())?;
             self.intent.backend.clone()
         } else if initial {
@@ -349,11 +370,239 @@ impl ServiceJob {
                 }
                 workspace.execute_environment_action(command, &self.cancellation, &check)
             }
+            devforge_workspace::Command::SwitchDatabase { .. }
+            | devforge_workspace::Command::RestoreBackup { .. } => {
+                let expected = self
+                    .intent
+                    .database
+                    .as_ref()
+                    .ok_or_else(|| ws_error(ErrorCode::Unauthorized))?;
+                let live = workspace.database_action_state(&command, &check)?;
+                if live.fingerprint()? != expected.state.fingerprint()? {
+                    return Err(ws_error(ErrorCode::ReviewMismatch));
+                }
+                workspace.database_action_preflight(&command)?;
+                let _private = workspace.execute_database_action(
+                    *command,
+                    &expected.state,
+                    &self.cancellation,
+                    &check,
+                )?;
+                Ok(json!({"applied":true}))
+            }
             _ => Err(ws_error(ErrorCode::UnsupportedCapability)),
         }
     }
 }
 impl Services {
+    fn database_choices(
+        &self,
+        peer: &PeerIdentity,
+        credential: &ExternalCredential,
+        project: &Id,
+        actor: &ActorHandle,
+    ) -> Result<DatabaseChoices, ErrorCode> {
+        let view = actor.external_snapshot().map_err(actor_error)?;
+        let binding = project_binding(&view.snapshot, project)?;
+        let mut lock = self
+            .grants
+            .registry
+            .lock()
+            .map_err(|_| ErrorCode::StorageUnavailable)?;
+        let registry = lock.as_mut().ok_or(ErrorCode::Interrupted)?;
+        registry
+            .authorize(peer, credential, &binding, &[Scope::Observer], &[], None)
+            .map_err(grant_error)?;
+        let row = view
+            .snapshot
+            .projects
+            .iter()
+            .find(|row| row.project.id == project.as_str())
+            .ok_or(ErrorCode::ProjectMismatch)?;
+        let current_instance_id = row
+            .database
+            .as_ref()
+            .filter(|b| b.project_id == project.as_str())
+            .map(|b| Id::new(&b.instance_id))
+            .transpose()?;
+        let mut instance_ids = row
+            .database_history
+            .iter()
+            .filter(|b| b.project_id == project.as_str())
+            .map(|b| Id::new(&b.instance_id))
+            .collect::<Result<Vec<_>, _>>()?;
+        if let Some(id) = &current_instance_id {
+            instance_ids.push(id.clone());
+        }
+        instance_ids.sort_by(|a, b| a.as_str().cmp(b.as_str()));
+        instance_ids.dedup();
+        let backup_ids = row
+            .backups
+            .iter()
+            .filter(|b| b.project == project.as_str())
+            .map(|b| Id::new(&b.id))
+            .collect::<Result<Vec<_>, _>>()?;
+        if instance_ids.len() > 128 || backup_ids.len() > 128 {
+            return Err(ErrorCode::OutputLimitExceeded);
+        }
+        registry
+            .authorize(
+                peer,
+                credential,
+                &binding,
+                &[Scope::Observer],
+                &[],
+                Some(binding.revision()),
+            )
+            .map_err(grant_error)?;
+        Ok(DatabaseChoices {
+            project_id: project.clone(),
+            revision: SafeInt::new(binding.revision())?,
+            stopped: row.state == "stopped",
+            current_instance_id,
+            instance_ids,
+            backup_ids,
+        })
+    }
+    fn read_database(
+        self: &Arc<Self>,
+        actor: &ActorHandle,
+        peer: &PeerIdentity,
+        credential: &ExternalCredential,
+        request: &Request<MutationInput>,
+    ) -> Result<crate::database_control::DatabaseReadResult, ErrorCode> {
+        database_only(&request.input)?;
+        let policy = self.clone();
+        let peer = peer.clone();
+        let credential =
+            ExternalCredential::from_wire(credential.expose_secret()).map_err(grant_error)?;
+        let project = request.project_id.clone();
+        let revision = request.expected_revision;
+        let check = Box::new(move |workspace: &Workspace| {
+            let snapshot = workspace.snapshot()?;
+            let binding = project_binding(&snapshot, &project).map_err(ws_error)?;
+            policy
+                .grants
+                .registry
+                .lock()
+                .map_err(|_| ws_error(ErrorCode::StorageUnavailable))?
+                .as_mut()
+                .ok_or_else(|| ws_error(ErrorCode::Interrupted))?
+                .authorize(
+                    &peer,
+                    &credential,
+                    &binding,
+                    &[Scope::ProjectManage, Scope::SensitiveOperation],
+                    &[],
+                    revision,
+                )
+                .map_err(|e| ws_error(grant_error(e)))?;
+            Ok(())
+        });
+        let (reply, receiver) = std::sync::mpsc::sync_channel(1);
+        let cancelled = Arc::new(AtomicBool::new(false));
+        actor
+            .queue_database(crate::database_control::DatabaseRead {
+                request: request.clone(),
+                command: database_command(request)?,
+                check,
+                cancelled: cancelled.clone(),
+                reply,
+            })
+            .map_err(actor_error)?;
+        match receiver.recv_timeout(Duration::from_secs(5)) {
+            Ok(result) => {
+                let data = result.map_err(environment_error)?;
+                check_private_serialized_size(&data.state)?;
+                Ok(data)
+            }
+            Err(_) => {
+                cancelled.store(true, Ordering::Release);
+                Err(ErrorCode::TimedOut)
+            }
+        }
+    }
+    fn database_plan(
+        self: &Arc<Self>,
+        peer: PeerIdentity,
+        credential: ExternalCredential,
+        request: Request<MutationInput>,
+        actor: &ActorHandle,
+    ) -> Result<PlanReceipt, ErrorCode> {
+        let data = self.read_database(actor, &peer, &credential, &request)?;
+        let view = actor.external_snapshot().map_err(actor_error)?;
+        let binding = project_binding(&view.snapshot, &request.project_id)?;
+        request.validate(&binding, true)?;
+        cached_preflight(&view.snapshot, &request)?;
+        let proof = self.authorize(
+            &peer,
+            &credential,
+            &binding,
+            &request.input,
+            request.expected_revision,
+        )?;
+        let fingerprint = sha256(&fingerprint_material(&request, &binding)?)?;
+        let backend = database_backend(&view.snapshot, &binding, &request, &proof, &data)?;
+        let mut plans = self
+            .plans
+            .lock()
+            .map_err(|_| ErrorCode::StorageUnavailable)?;
+        plans.retain(|p| Instant::now() < p.expires);
+        if let Some(existing) = plans.iter().find(|p| {
+            p.database.is_some()
+                && p.client == *proof.client_id()
+                && p.grant == *proof.grant_id()
+                && p.request.idempotency_key == request.idempotency_key
+                && p.fingerprint == fingerprint
+                && p.backend == backend
+        }) {
+            return Ok(plan_receipt(existing));
+        }
+        let bytes = binding
+            .root()
+            .as_os_str()
+            .as_encoded_bytes()
+            .len()
+            .saturating_mul(4)
+            .saturating_add(131072);
+        if plans.len() >= MAX_PLANS
+            || bytes > MAX_PLAN_BYTES.saturating_sub(plans.iter().map(|p| p.bytes).sum())
+        {
+            return Err(ErrorCode::Busy);
+        }
+        let expires_at = proof.observed_at() + PLAN_TTL.as_millis() as u64;
+        SafeInt::new(expires_at)?;
+        let review = ReviewedPlan::record(
+            &binding,
+            Id::new(request.input.tool())?,
+            backend.clone(),
+            expires_at,
+        )?;
+        let intent = Arc::new(Intent {
+            request,
+            binding,
+            fingerprint,
+            backend,
+            review,
+            client: proof.client_id().clone(),
+            grant: proof.grant_id().clone(),
+            peer,
+            credential,
+            expires_at,
+            expires: Instant::now() + PLAN_TTL,
+            approved: AtomicBool::new(false),
+            claimed: Mutex::new(None),
+            cancellation: Mutex::new(None),
+            bytes,
+            environment: None,
+            public_digest: Some(crate::environment_control::opaque()?),
+            public_fingerprint: None,
+            database: Some(data),
+        });
+        let receipt = plan_receipt(&intent);
+        plans.push_back(intent);
+        Ok(receipt)
+    }
     fn read_environment(
         self: &Arc<Self>,
         actor: &ActorHandle,
@@ -641,6 +890,7 @@ impl Services {
             environment: Some(crate::environment_control::EnvironmentIntent { data, expected_sha }),
             public_digest: Some(crate::environment_control::opaque()?),
             public_fingerprint: Some(crate::environment_control::opaque()?),
+            database: None,
         });
         let receipt = plan_receipt(&intent);
         plans.push_back(intent);
@@ -676,6 +926,10 @@ impl Services {
                 | "env_plan"
                 | "env_apply"
                 | "env_lookup"
+                | "db_choices"
+                | "db_plan"
+                | "db_apply"
+                | "db_lookup"
         )
     }
     pub(crate) fn request(
@@ -708,6 +962,57 @@ impl Services {
             Err(_) => return respond::<PlanReceipt>(id, Err(ErrorCode::InvalidInput), None),
         };
         match wire {
+            Wire::DatabaseChoices {
+                credential,
+                request_id,
+                project_id,
+            } => respond(
+                request_id,
+                credential
+                    .parse()
+                    .and_then(|c| self.database_choices(&peer, &c, &project_id, actor)),
+                None,
+            ),
+            Wire::DatabasePlan {
+                credential,
+                request,
+            } => respond(
+                id,
+                database_only(&request.input).and_then(|_| {
+                    credential
+                        .parse()
+                        .and_then(|c| self.database_plan(peer, c, *request, actor))
+                }),
+                None,
+            ),
+            Wire::DatabaseApply {
+                credential,
+                request,
+                review,
+            } => {
+                let result = database_only(&request.input).and_then(|_| {
+                    credential
+                        .parse()
+                        .and_then(|c| self.apply(peer, c, *request, review, actor))
+                });
+                let op = result.as_ref().ok().map(|r| r.operation_id.clone());
+                respond(id, result, op)
+            }
+            Wire::DatabaseLookup {
+                credential,
+                request_id,
+                project_id,
+                idempotency_key,
+            } => {
+                let result = credential
+                    .parse()
+                    .and_then(|c| self.lookup(&peer, &c, &project_id, &idempotency_key, actor));
+                let op = result
+                    .as_ref()
+                    .ok()
+                    .and_then(|r| r.as_ref().map(|r| r.operation_id.clone()));
+                respond(request_id, result, op)
+            }
             Wire::EnvDocument {
                 credential,
                 request_id,
@@ -951,7 +1256,11 @@ impl Services {
             &intent.request.input,
             intent.request.expected_revision,
         )?;
-        let current_digest = if intent.environment.is_some() {
+        let current_digest = if intent.database.is_some() {
+            let data =
+                self.read_database(actor, &intent.peer, &intent.credential, &intent.request)?;
+            database_backend(&view.snapshot, &current, &intent.request, &proof, &data)?
+        } else if intent.environment.is_some() {
             let data = self.read_environment(
                 actor,
                 &intent.peer,
@@ -1086,6 +1395,7 @@ impl Services {
             environment: None,
             public_digest: None,
             public_fingerprint: None,
+            database: None,
         });
         let receipt = plan_receipt(&intent);
         plans.push_back(intent);
@@ -1141,6 +1451,14 @@ impl Services {
             return mutation_receipt(receipt, revision);
         }
         let intent = self.intent(&review)?;
+        if intent.database.is_some() {
+            let data = self.read_database(actor, &peer, &credential, &request)?;
+            if database_backend(&view.snapshot, &current, &request, &proof, &data)?
+                != intent.backend
+            {
+                return Err(ErrorCode::ReviewMismatch);
+            }
+        }
         cached_preflight(&view.snapshot, &request)?;
         if intent.client != *proof.client_id()
             || intent.grant != *proof.grant_id()
@@ -1211,6 +1529,9 @@ fn required(input: &MutationInput) -> Result<Vec<Scope>, ErrorCode> {
             Scope::ExecutionTest,
         ]),
         MutationInput::YamlSave(_) => Ok(vec![Scope::ProjectManage, Scope::SensitiveOperation]),
+        MutationInput::DatabaseBind(_) | MutationInput::DatabaseRestore(_) => {
+            Ok(vec![Scope::ProjectManage, Scope::SensitiveOperation])
+        }
         _ => Err(ErrorCode::UnsupportedCapability),
     }
 }
@@ -1261,6 +1582,19 @@ fn cached_preflight(
             })?;
     }
     check_yaml_size(&request.input)?;
+    if matches!(
+        request.input,
+        MutationInput::DatabaseBind(_) | MutationInput::DatabaseRestore(_)
+    ) {
+        if snapshot
+            .projects
+            .iter()
+            .any(|row| row.project.id == request.project_id.as_str() && row.state != "stopped")
+        {
+            return Err(ErrorCode::PreconditionFailed);
+        }
+        database_snapshot_digest(snapshot, request)?;
+    }
     if matches!(
         request.input,
         MutationInput::EnvironmentApply(_) | MutationInput::YamlSave(_)
@@ -1394,6 +1728,72 @@ fn actor_error(error: crate::actor::ActorError) -> ErrorCode {
         _ => ErrorCode::StorageUnavailable,
     }
 }
+fn database_only(input: &MutationInput) -> Result<(), ErrorCode> {
+    if matches!(
+        input,
+        MutationInput::DatabaseBind(_) | MutationInput::DatabaseRestore(_)
+    ) {
+        Ok(())
+    } else {
+        Err(ErrorCode::UnsupportedCapability)
+    }
+}
+fn database_command(
+    request: &Request<MutationInput>,
+) -> Result<devforge_workspace::Command, ErrorCode> {
+    match &request.input {
+        MutationInput::DatabaseBind(input) => Ok(devforge_workspace::Command::SwitchDatabase {
+            id: request.project_id.as_str().into(),
+            instance: input.instance_id.as_str().into(),
+            consent: true,
+        }),
+        MutationInput::DatabaseRestore(input) => Ok(devforge_workspace::Command::RestoreBackup {
+            id: request.project_id.as_str().into(),
+            backup: input.backup_id.as_str().into(),
+            consent: true,
+        }),
+        _ => Err(ErrorCode::UnsupportedCapability),
+    }
+}
+pub(crate) fn database_snapshot_digest(
+    snapshot: &Snapshot,
+    request: &Request<MutationInput>,
+) -> Result<Digest, ErrorCode> {
+    if let MutationInput::DatabaseRestore(input) = &request.input
+        && !snapshot
+            .projects
+            .iter()
+            .find(|row| row.project.id == request.project_id.as_str())
+            .is_some_and(|row| {
+                row.backups.iter().any(|backup| {
+                    backup.id == input.backup_id.as_str()
+                        && backup.project == request.project_id.as_str()
+                })
+            })
+    {
+        return Err(ErrorCode::ProjectMismatch);
+    }
+    Digest::new(
+        devforge_workspace::database_control::database_snapshot_fingerprint(
+            snapshot,
+            &database_command(request)?,
+        )
+        .map_err(environment_error)?,
+    )
+}
+fn database_backend(
+    snapshot: &Snapshot,
+    binding: &ProjectBinding,
+    request: &Request<MutationInput>,
+    proof: &AuthorizedExternal,
+    data: &crate::database_control::DatabaseReadResult,
+) -> Result<Digest, ErrorCode> {
+    if database_snapshot_digest(snapshot, request)? != data.snapshot_digest {
+        return Err(ErrorCode::ReviewMismatch);
+    }
+    let private = data.state.fingerprint().map_err(environment_error)?;
+    sha256(&serde_json::to_vec(&json!({"metadata":state_digest(snapshot,binding,request,proof)?,"database":private,"snapshot":data.snapshot_digest})).map_err(|_|ErrorCode::InvalidInput)?)
+}
 fn environment_only(input: &MutationInput) -> Result<(), ErrorCode> {
     if matches!(
         input,
@@ -1457,6 +1857,12 @@ fn environment_summary(
 fn check_private_environment_size(
     data: &crate::environment_control::PrivateEnvironment,
 ) -> Result<(), ErrorCode> {
+    if let Some(plan) = &data.plan {
+        check_private_serialized_size(plan)?;
+    }
+    Ok(())
+}
+fn check_private_serialized_size(value: &impl Serialize) -> Result<(), ErrorCode> {
     struct Count(usize);
     impl std::io::Write for Count {
         fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
@@ -1470,9 +1876,7 @@ fn check_private_environment_size(
             Ok(())
         }
     }
-    if let Some(plan) = &data.plan {
-        serde_json::to_writer(Count(0), plan).map_err(|_| ErrorCode::OutputLimitExceeded)?;
-    }
+    serde_json::to_writer(Count(0), value).map_err(|_| ErrorCode::OutputLimitExceeded)?;
     Ok(())
 }
 fn environment_backend(
@@ -1526,7 +1930,7 @@ fn environment_error(error: devforge_workspace::Error) -> ErrorCode {
         _ => ErrorCode::PreconditionFailed,
     }
 }
-fn ws_error(code: ErrorCode) -> devforge_workspace::Error {
+pub(crate) fn ws_error(code: ErrorCode) -> devforge_workspace::Error {
     let code = if code == ErrorCode::Interrupted {
         "cancelled".into()
     } else {
@@ -1559,6 +1963,30 @@ impl<'de> Deserialize<'de> for Token {
 #[derive(Deserialize)]
 #[serde(tag = "method", rename_all = "snake_case", deny_unknown_fields)]
 enum Wire {
+    #[serde(rename = "db_choices")]
+    DatabaseChoices {
+        credential: Token,
+        request_id: Id,
+        project_id: Id,
+    },
+    #[serde(rename = "db_plan")]
+    DatabasePlan {
+        credential: Token,
+        request: Box<Request<MutationInput>>,
+    },
+    #[serde(rename = "db_apply")]
+    DatabaseApply {
+        credential: Token,
+        request: Box<Request<MutationInput>>,
+        review: Digest,
+    },
+    #[serde(rename = "db_lookup")]
+    DatabaseLookup {
+        credential: Token,
+        request_id: Id,
+        project_id: Id,
+        idempotency_key: Id,
+    },
     #[serde(rename = "env_document_state")]
     EnvDocument {
         credential: Token,

@@ -127,6 +127,8 @@ contract!(EnvironmentPlanInput{write_env:bool,limits:Option<MutationLimits>});
 contract!(EnvironmentApplyInput{write_env:bool,limits:Option<MutationLimits>});
 contract!(YamlSaveInput{expected:Option<Digest>,text:YamlText,limits:Option<MutationLimits>});
 contract!(WorkspaceLifecycleInput{workspace_id:Id,limits:Option<MutationLimits>});
+contract!(DatabaseBindInput{instance_id:Id,limits:Option<MutationLimits>});
+contract!(DatabaseRestoreInput{backup_id:Id,limits:Option<MutationLimits>});
 contract!(MutationReceipt {
     project_id: Id,
     operation_id: Id,
@@ -173,6 +175,8 @@ mutation_set! {
     EnvironmentPlan("environment.plan",EnvironmentPlanInput,PlanReceipt,"configuration_plan"),
     EnvironmentApply("environment.apply",EnvironmentApplyInput,MutationReceipt,"configuration_apply"),
     YamlSave("environment.yaml_save",YamlSaveInput,MutationReceipt,"configuration_save"),
+    DatabaseBind("database.bind",DatabaseBindInput,MutationReceipt,"switch_database"),
+    DatabaseRestore("database.restore",DatabaseRestoreInput,MutationReceipt,"restore_backup"),
     WorkspaceArchive("workspaces.archive",WorkspaceLifecycleInput,MutationReceipt,"worktree_cleanup"),
     WorkspaceRestore("workspaces.restore",WorkspaceLifecycleInput,MutationReceipt,"worktree_archive.restore"),
     WorkspacePurge("workspaces.purge",WorkspaceLifecycleInput,MutationReceipt,"worktree_archive.purge"),
@@ -381,6 +385,8 @@ pub fn declarations() -> Vec<String> {
         EnvironmentApplyInput,
         YamlSaveInput,
         WorkspaceLifecycleInput,
+        DatabaseBindInput,
+        DatabaseRestoreInput,
         MutationReceipt,
         PlanReceipt
     )

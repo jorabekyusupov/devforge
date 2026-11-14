@@ -122,9 +122,13 @@ impl Workspace {
         }
         self.ensure_database(instance)?;
         let binding = if let Some(b) = self.projects.retained_binding(id, instance)? {
-            self.projects
+            if !self
+                .projects
                 .credentials_for(b.clone(), self.secrets.as_ref())?
-                .connection_test()?;
+                .connection_test()?
+            {
+                return Err(error("database_unbound"));
+            }
             b
         } else {
             self.databases.get_mut(instance).unwrap().provision_staged(

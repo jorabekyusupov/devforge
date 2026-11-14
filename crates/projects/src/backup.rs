@@ -107,7 +107,7 @@ fn run_connection(
     c: &Credentials,
     package: &str,
     tool: &str,
-    mut args: Vec<std::ffi::OsString>,
+    args: Vec<std::ffi::OsString>,
     input: Option<PathBuf>,
     catalog: &Catalog,
     packages: &PackageStore,
@@ -115,6 +115,38 @@ fn run_connection(
     cancel: &Cancellation,
     source: Option<&remote::Source>,
 ) -> Result<()> {
+    run_connection_checked(
+        c,
+        package,
+        tool,
+        args,
+        input,
+        catalog,
+        packages,
+        dir,
+        cancel,
+        source,
+        &|| Ok(()),
+    )
+}
+#[allow(
+    clippy::too_many_arguments,
+    reason = "Existing bounded backup process plus a trusted cooperative checkpoint"
+)]
+fn run_connection_checked(
+    c: &Credentials,
+    package: &str,
+    tool: &str,
+    mut args: Vec<std::ffi::OsString>,
+    input: Option<PathBuf>,
+    catalog: &Catalog,
+    packages: &PackageStore,
+    dir: &Path,
+    cancel: &Cancellation,
+    source: Option<&remote::Source>,
+    check: &dyn Fn() -> Result<()>,
+) -> Result<()> {
+    check()?;
     let descriptor = if c.engine == Engine::Postgresql {
         catalog
             .packages
@@ -185,6 +217,7 @@ fn run_connection(
         }
     }
     let mut supervisor = Supervisor::open(dir.join("logs"))?;
+    check()?;
     supervisor.start_redacted(
         ProcessSpec {
             input,
@@ -206,6 +239,10 @@ fn run_connection(
     )?;
     let until = Instant::now() + Duration::from_secs(310);
     loop {
+        if let Err(error) = check() {
+            let _ = supervisor.stop("backup-tool");
+            return Err(error);
+        }
         let state = supervisor.snapshot("backup-tool")?;
         match state.observed {
             Observed::Succeeded => {
@@ -232,6 +269,54 @@ impl ProjectStore {
         let dir = self.root.join("backups").join(project);
         crate::private_dir(&dir)?;
         Ok(dir)
+    }
+    /// Existing owned backup headers only, with a hard directory-entry bound.
+    /// Unlike backup_path/backups, this does not create or chmod namespaces.
+    pub fn backup_metadata_bounded(&self, project: &str, limit: usize) -> Result<Vec<Manifest>> {
+        self.get(project)?;
+        if !valid_id(project) || limit == 0 || limit > 256 {
+            return Err(E::InvalidBackup);
+        }
+        let mut root = self.root.clone();
+        for part in ["backups", project] {
+            root.push(part);
+            let meta = match fs::symlink_metadata(&root) {
+                Ok(meta) => meta,
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(vec![]),
+                Err(_) => return Err(E::StorageUnavailable),
+            };
+            if !meta.is_dir() || meta.file_type().is_symlink() {
+                return Err(E::InvalidBackup);
+            }
+            #[cfg(windows)]
+            {
+                use std::os::windows::fs::MetadataExt;
+                if meta.file_attributes() & 0x400 != 0 {
+                    return Err(E::InvalidBackup);
+                }
+            }
+        }
+        let mut items = Vec::new();
+        for (index, entry) in fs::read_dir(root)?.enumerate() {
+            if index >= limit {
+                return Err(E::StorageUnavailable);
+            }
+            let path = entry?.path();
+            let id = path
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or_default();
+            if path.extension().and_then(|s| s.to_str()) != Some("dfbackup") || !valid_id(id) {
+                continue;
+            }
+            let (manifest, _) = inspect_header(&path)?;
+            if manifest.id != id {
+                return Err(E::InvalidBackup);
+            }
+            items.push(manifest);
+        }
+        items.sort_by(|a, b| a.id.cmp(&b.id));
+        Ok(items)
     }
     pub fn backups(&self, project: &str) -> Result<Vec<Manifest>> {
         let root = self.backup_root(project)?;
@@ -408,6 +493,35 @@ impl ProjectStore {
         secrets: &dyn SecretStore,
         cancel: &Cancellation,
     ) -> Result<Binding> {
+        self.restore_backup_checked(
+            project,
+            id,
+            server,
+            catalog,
+            packages,
+            secrets,
+            cancel,
+            &|| Ok(()),
+            &|_, _, _| Ok(()),
+        )
+    }
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "Owned restore boundary and trusted authorization checkpoints"
+    )]
+    pub fn restore_backup_checked(
+        &self,
+        project: &str,
+        id: &str,
+        server: &mut RunningDatabase,
+        catalog: &Catalog,
+        packages: &PackageStore,
+        secrets: &dyn SecretStore,
+        cancel: &Cancellation,
+        check: &dyn Fn() -> Result<()>,
+        state_check: &dyn Fn(&Manifest, &Binding, &crate::database::Instance) -> Result<()>,
+    ) -> Result<Binding> {
+        check()?;
         let (manifest, mut archive) = inspect(&self.backup_path(project, id)?)?;
         let active = self.binding(project)?.ok_or(E::DatabaseUnavailable)?;
         let instance = self.instance(&active.instance_id)?;
@@ -426,16 +540,25 @@ impl ProjectStore {
         )?;
         output.sync_all()?;
         drop(output);
+        if hash(&payload)? != manifest.sha256 || fs::metadata(&payload)?.len() != manifest.bytes {
+            return Err(E::InvalidBackup);
+        }
         if cancel.is_cancelled() {
             return Err(E::ExecutionFailed);
         }
+        check()?;
+        state_check(&manifest, &active, &instance)?;
         let staged = server.provision_staged(self, project, secrets)?;
         let mut pending = staged.clone();
         pending.ready = false;
         self.retain_binding(&pending)?;
-        self.restore_staged_payload(
-            &staged, &instance, &payload, catalog, packages, secrets, cancel,
+        check()?;
+        self.restore_staged_payload_checked(
+            &staged, &instance, &payload, catalog, packages, secrets, cancel, check,
         )?;
+        check()?;
+        state_check(&manifest, &active, &instance)?;
+        server.validate_store_instance(self, &self.instance(&active.instance_id)?)?;
         self.retain_binding(&staged)?;
         self.activate_binding(project, Some(&staged))?;
         Ok(staged)
@@ -454,12 +577,39 @@ impl ProjectStore {
         secrets: &dyn SecretStore,
         cancel: &Cancellation,
     ) -> Result<()> {
+        self.restore_staged_payload_checked(
+            staged,
+            instance,
+            payload,
+            catalog,
+            packages,
+            secrets,
+            cancel,
+            &|| Ok(()),
+        )
+    }
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "Existing restore process with trusted cooperative checkpoint"
+    )]
+    fn restore_staged_payload_checked(
+        &self,
+        staged: &Binding,
+        instance: &crate::database::Instance,
+        payload: &Path,
+        catalog: &Catalog,
+        packages: &PackageStore,
+        secrets: &dyn SecretStore,
+        cancel: &Cancellation,
+        check: &dyn Fn() -> Result<()>,
+    ) -> Result<()> {
+        check()?;
         if cancel.is_cancelled() {
             return Err(E::ExecutionFailed);
         }
         let c = self.credentials_for(staged.clone(), secrets)?;
         if c.engine == Engine::Postgresql {
-            run(
+            run_connection_checked(
                 &c,
                 &instance.package,
                 "pg_restore",
@@ -475,9 +625,11 @@ impl ProjectStore {
                 packages,
                 payload.parent().ok_or(E::InvalidBackup)?,
                 cancel,
+                None,
+                check,
             )?;
         } else {
-            run(
+            run_connection_checked(
                 &c,
                 &instance.package,
                 "mysql",
@@ -492,8 +644,11 @@ impl ProjectStore {
                 packages,
                 payload.parent().ok_or(E::InvalidBackup)?,
                 cancel,
+                None,
+                check,
             )?;
         }
+        check()?;
         if cancel.is_cancelled() || !c.connection_test()? {
             return Err(E::ExecutionFailed);
         }
@@ -504,6 +659,13 @@ fn inspect_header(path: &Path) -> Result<(Manifest, zip::ZipArchive<File>)> {
     let meta = fs::symlink_metadata(path)?;
     if !meta.is_file() || meta.file_type().is_symlink() || meta.len() > LIMIT + 65536 {
         return Err(E::InvalidBackup);
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::MetadataExt;
+        if meta.file_attributes() & 0x400 != 0 {
+            return Err(E::InvalidBackup);
+        }
     }
     let mut zip = zip::ZipArchive::new(File::open(path)?).map_err(|_| E::InvalidBackup)?;
     if zip.len() != 2 {

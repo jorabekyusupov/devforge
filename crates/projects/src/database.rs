@@ -104,11 +104,8 @@ impl RunningDatabase {
             Self::Mysql(s) => &s.instance,
         }
     }
-    pub(crate) fn validate_store_instance(
-        &self,
-        store: &ProjectStore,
-        expected: &Instance,
-    ) -> Result<()> {
+    /// Verifies a running owner against current registry and canonical data root.
+    pub fn validate_store_instance(&self, store: &ProjectStore, expected: &Instance) -> Result<()> {
         let actual = self.instance();
         let owned_root = match self {
             Self::Postgresql(s) => &s.root,

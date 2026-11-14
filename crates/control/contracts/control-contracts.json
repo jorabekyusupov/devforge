@@ -933,6 +933,196 @@
               "arguments": {
                 "additionalProperties": false,
                 "properties": {
+                  "instance_id": {
+                    "maxLength": 128,
+                    "minLength": 1,
+                    "pattern": "^[A-Za-z0-9_.:-]+$",
+                    "type": "string"
+                  },
+                  "limits": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "max_output_bytes": {
+                            "maximum": 262144,
+                            "minimum": 1,
+                            "type": "integer"
+                          },
+                          "timeout_ms": {
+                            "maximum": 1800000,
+                            "minimum": 1,
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "timeout_ms",
+                          "max_output_bytes"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "instance_id"
+                ],
+                "type": "object"
+              },
+              "tool": {
+                "const": "database.bind"
+              }
+            },
+            "required": [
+              "tool",
+              "arguments"
+            ],
+            "type": "object"
+          },
+          "project_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "type": "string"
+          },
+          "request_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "api_version",
+          "request_id",
+          "project_id",
+          "input",
+          "expected_revision",
+          "idempotency_key"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "api_version": {
+            "const": 1
+          },
+          "expected_revision": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "idempotency_key": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "type": "string"
+          },
+          "input": {
+            "additionalProperties": false,
+            "properties": {
+              "arguments": {
+                "additionalProperties": false,
+                "properties": {
+                  "backup_id": {
+                    "maxLength": 128,
+                    "minLength": 1,
+                    "pattern": "^[A-Za-z0-9_.:-]+$",
+                    "type": "string"
+                  },
+                  "limits": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "max_output_bytes": {
+                            "maximum": 262144,
+                            "minimum": 1,
+                            "type": "integer"
+                          },
+                          "timeout_ms": {
+                            "maximum": 1800000,
+                            "minimum": 1,
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "timeout_ms",
+                          "max_output_bytes"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "backup_id"
+                ],
+                "type": "object"
+              },
+              "tool": {
+                "const": "database.restore"
+              }
+            },
+            "required": [
+              "tool",
+              "arguments"
+            ],
+            "type": "object"
+          },
+          "project_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "type": "string"
+          },
+          "request_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "api_version",
+          "request_id",
+          "project_id",
+          "input",
+          "expected_revision",
+          "idempotency_key"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "api_version": {
+            "const": 1
+          },
+          "expected_revision": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "idempotency_key": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "type": "string"
+          },
+          "input": {
+            "additionalProperties": false,
+            "properties": {
+              "arguments": {
+                "additionalProperties": false,
+                "properties": {
                   "limits": {
                     "anyOf": [
                       {
@@ -6063,17 +6253,102 @@
     },
     {
       "effects": [
-        "owned_database_write"
+        "owned_database_write",
+        "staged_database_roles_credentials_may_remain"
       ],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "instance_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "type": "string"
+          },
+          "limits": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "max_output_bytes": {
+                    "maximum": 262144,
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "timeout_ms": {
+                    "maximum": 1800000,
+                    "minimum": 1,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "timeout_ms",
+                  "max_output_bytes"
+                ],
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "instance_id"
+        ],
+        "type": "object"
+      },
       "live_available": false,
       "name": "database.bind",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "operation_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "type": "string"
+          },
+          "project_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "type": "string"
+          },
+          "revision": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "state": {
+            "enum": [
+              "queued",
+              "running",
+              "cancel_requested",
+              "succeeded",
+              "failed",
+              "cancelled",
+              "interrupted",
+              "unknown"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id",
+          "operation_id",
+          "state",
+          "revision"
+        ],
+        "type": "object"
+      },
       "policy": "project_grant",
       "required_scopes": [
         "project_manage",
         "sensitive_operation"
       ],
       "review_required": true,
-      "schema_status": "planned",
+      "schema_status": "typed_mutation",
       "unavailable_error": "unsupported_capability"
     },
     {
@@ -6149,6 +6424,106 @@
       ],
       "review_required": false,
       "schema_status": "planned",
+      "unavailable_error": "unsupported_capability"
+    },
+    {
+      "effects": [
+        "owned_database_write",
+        "staged_database_roles_credentials_may_remain"
+      ],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "backup_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "type": "string"
+          },
+          "limits": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "max_output_bytes": {
+                    "maximum": 262144,
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "timeout_ms": {
+                    "maximum": 1800000,
+                    "minimum": 1,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "timeout_ms",
+                  "max_output_bytes"
+                ],
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "backup_id"
+        ],
+        "type": "object"
+      },
+      "live_available": false,
+      "name": "database.restore",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "operation_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "type": "string"
+          },
+          "project_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "type": "string"
+          },
+          "revision": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "state": {
+            "enum": [
+              "queued",
+              "running",
+              "cancel_requested",
+              "succeeded",
+              "failed",
+              "cancelled",
+              "interrupted",
+              "unknown"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id",
+          "operation_id",
+          "state",
+          "revision"
+        ],
+        "type": "object"
+      },
+      "policy": "project_grant",
+      "required_scopes": [
+        "project_manage",
+        "sensitive_operation"
+      ],
+      "review_required": true,
+      "schema_status": "typed_mutation",
       "unavailable_error": "unsupported_capability"
     },
     {

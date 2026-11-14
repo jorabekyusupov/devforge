@@ -5,12 +5,13 @@ use devforge_manager::{
     Endpoint,
     credential_file::{CredentialFile, LoadedCredential},
     external_client::{
-        BoundActionsClient, BoundEnvActionsClient, BoundReadOnlyClient, BoundRuntimeClient,
-        BoundServiceClient,
+        BoundActionsClient, BoundDatabaseActionsClient, BoundEnvActionsClient, BoundReadOnlyClient,
+        BoundRuntimeClient, BoundServiceClient,
     },
     mcp_contract::{
-        self, Action, EnvCall, EnvInput, MAX_REQUEST_BYTES, MAX_RESPONSE_BYTES, Protocol,
-        RuntimeCall, RuntimeInput, ServiceCall, ServiceInput, ToolCall,
+        self, Action, DatabaseCall, DatabaseInput, EnvCall, EnvInput, MAX_REQUEST_BYTES,
+        MAX_RESPONSE_BYTES, Protocol, RuntimeCall, RuntimeInput, ServiceCall, ServiceInput,
+        ToolCall,
     },
 };
 use serde_json::{Value, json};
@@ -49,6 +50,7 @@ enum QueuedCall {
     Service(ServiceCall),
     Runtime(RuntimeCall),
     Environment(EnvCall),
+    Database(DatabaseCall),
 }
 impl QueuedCall {
     fn id(&self) -> &Value {
@@ -57,6 +59,7 @@ impl QueuedCall {
             Self::Service(call) => call.jsonrpc_id(),
             Self::Runtime(call) => call.jsonrpc_id(),
             Self::Environment(call) => call.jsonrpc_id(),
+            Self::Database(call) => call.jsonrpc_id(),
         }
     }
     fn failure(self, code: ErrorCode) -> Value {
@@ -65,6 +68,7 @@ impl QueuedCall {
             Self::Service(call) => Protocol::complete_service(call, Err(code)),
             Self::Runtime(call) => Protocol::complete_runtime(call, Err(code)),
             Self::Environment(call) => Protocol::complete_environment(call, Err(code)),
+            Self::Database(call) => Protocol::complete_database(call, Err(code)),
         }
     }
 }
@@ -74,6 +78,7 @@ enum BoundClient {
     Runtime(BoundRuntimeClient),
     Actions(BoundActionsClient),
     Environment(BoundEnvActionsClient),
+    Database(BoundDatabaseActionsClient),
 }
 impl BoundClient {
     fn dispatch(&mut self, call: QueuedCall, cancelled: &AtomicBool) -> Value {
@@ -95,6 +100,9 @@ impl BoundClient {
                     Self::Environment(client) => client
                         .environment()
                         .read(call.request_id.clone(), call.input.clone()),
+                    Self::Database(client) => client
+                        .database()
+                        .read(call.request_id.clone(), call.input.clone()),
                 };
                 Protocol::complete(call, result)
             }
@@ -114,6 +122,7 @@ impl BoundClient {
                     },
                     Self::Actions(client) => combined_service(client, &call),
                     Self::Environment(client) => combined_service(client.actions(), &call),
+                    Self::Database(client) => combined_service(client.previous().actions(), &call),
                 };
                 Protocol::complete_service(call, result)
             }
@@ -124,30 +133,61 @@ impl BoundClient {
                     Self::Environment(client) => {
                         runtime_dispatch(client.actions().runtime(), &call, cancelled)
                     }
+                    Self::Database(client) => {
+                        runtime_dispatch(client.previous().actions().runtime(), &call, cancelled)
+                    }
                     Self::Read(_) | Self::Service(_) => Err(ErrorCode::UnsupportedCapability),
                 };
                 Protocol::complete_runtime(call, result)
             }
             QueuedCall::Environment(call) => {
                 let result = match self {
-                    Self::Environment(client) => match &call.input {
-                        EnvInput::Plan(request) => {
-                            client.environment().plan(request).and_then(value)
+                    Self::Environment(client) => environment_dispatch(client.environment(), &call),
+                    Self::Database(client) => {
+                        environment_dispatch(client.previous().environment(), &call)
+                    }
+                    _ => Err(ErrorCode::UnsupportedCapability),
+                };
+                Protocol::complete_environment(call, result)
+            }
+            QueuedCall::Database(call) => {
+                let result = match self {
+                    Self::Database(client) => match &call.input {
+                        DatabaseInput::Choices => client
+                            .database()
+                            .choices(call.request_id.clone())
+                            .and_then(value),
+                        DatabaseInput::Plan(request) => {
+                            client.database().plan(request).and_then(value)
                         }
-                        EnvInput::Apply { request, review } => client
-                            .environment()
+                        DatabaseInput::Apply { request, review } => client
+                            .database()
                             .apply(request, review)
                             .and_then(admitted_value),
-                        EnvInput::Lookup { idempotency_key } => client
-                            .environment()
+                        DatabaseInput::Lookup { idempotency_key } => client
+                            .database()
                             .lookup(call.request_id.clone(), idempotency_key)
                             .and_then(value),
                     },
                     _ => Err(ErrorCode::UnsupportedCapability),
                 };
-                Protocol::complete_environment(call, result)
+                Protocol::complete_database(call, result)
             }
         }
+    }
+}
+fn environment_dispatch(
+    client: &mut devforge_manager::external_client::BoundEnvClient,
+    call: &EnvCall,
+) -> Result<Value, ErrorCode> {
+    match &call.input {
+        EnvInput::Plan(request) => client.plan(request).and_then(value),
+        EnvInput::Apply { request, review } => {
+            client.apply(request, review).and_then(admitted_value)
+        }
+        EnvInput::Lookup { idempotency_key } => client
+            .lookup(call.request_id.clone(), idempotency_key)
+            .and_then(value),
     }
 }
 fn combined_service(
@@ -288,7 +328,7 @@ pub fn run(args: &[String]) -> i32 {
     {
         println!(
             "{}",
-            json!({"usage":"devforge mcp serve --credential-file ABSOLUTE_PATH [--allow-service-actions] [--allow-runtime-actions] [--allow-environment-actions]","protocol_versions":["2026-07-28","2025-11-25"],"transport":"stdio","default_read_only":true,"service_actions_opt_in":"--allow-service-actions (surface only; grants and native exact-plan approval remain mandatory)","credential":"explicit protected file; never token argv/environment or protocol stdin","runtime_actions_opt_in":"--allow-runtime-actions (catalog install/PHP-Node select only; native exact-plan approval remains mandatory)","environment_actions_opt_in":"--allow-environment-actions (masked preview/approved apply/YAML save only;16KiB UTF8 YAML)","owner_autostart":false})
+            json!({"usage":"devforge mcp serve --credential-file ABSOLUTE_PATH [--allow-service-actions] [--allow-runtime-actions] [--allow-environment-actions] [--allow-database-actions]","protocol_versions":["2026-07-28","2025-11-25"],"transport":"stdio","default_read_only":true,"service_actions_opt_in":"--allow-service-actions (surface only; grants and native exact-plan approval remain mandatory)","credential":"explicit protected file; never token argv/environment or protocol stdin","runtime_actions_opt_in":"--allow-runtime-actions (catalog install/PHP-Node select only; native exact-plan approval remains mandatory)","environment_actions_opt_in":"--allow-environment-actions (masked preview/approved apply/YAML save only;16KiB UTF8 YAML)","database_actions_opt_in":"--allow-database-actions (scoped choices/native-approved stopped-project bind/restore only)","owner_autostart":false})
         );
         return 0;
     }
@@ -303,6 +343,7 @@ pub fn run(args: &[String]) -> i32 {
     let mut service_actions = false;
     let mut runtime_actions = false;
     let mut environment_actions = false;
+    let mut database_actions = false;
     let mut index = 0;
     while index < options.len() {
         match options[index].as_str() {
@@ -317,6 +358,7 @@ pub fn run(args: &[String]) -> i32 {
             "--allow-service-actions" if !service_actions => service_actions = true,
             "--allow-runtime-actions" if !runtime_actions => runtime_actions = true,
             "--allow-environment-actions" if !environment_actions => environment_actions = true,
+            "--allow-database-actions" if !database_actions => database_actions = true,
             _ => {
                 eprintln!("mcp_invalid_arguments");
                 return 2;
@@ -340,6 +382,7 @@ pub fn run(args: &[String]) -> i32 {
         service_actions,
         runtime_actions,
         environment_actions,
+        database_actions,
     ) {
         Ok(()) => 0,
         Err(_) => {
@@ -353,12 +396,14 @@ fn serve_stdio(
     service_actions: bool,
     runtime_actions: bool,
     environment_actions: bool,
+    database_actions: bool,
 ) -> io::Result<()> {
-    let mut protocol = Protocol::with_environment_surfaces(
+    let mut protocol = Protocol::with_database_surfaces(
         loaded.project_id().clone(),
         service_actions,
         runtime_actions,
         environment_actions,
+        database_actions,
     );
     let (input_tx, input_rx) = mpsc::sync_channel(QUEUE);
     let reader = thread::spawn(move || {
@@ -384,6 +429,7 @@ fn serve_stdio(
             service_actions,
             runtime_actions,
             environment_actions,
+            database_actions,
             job_rx,
             done_tx,
         )
@@ -485,6 +531,7 @@ fn transport_loop(
             Action::Environment(call) => {
                 enqueue(QueuedCall::Environment(call), jobs, pending, writer)?
             }
+            Action::Database(call) => enqueue(QueuedCall::Database(call), jobs, pending, writer)?,
         }
     }
 }
@@ -519,6 +566,7 @@ fn read_worker(
     service_actions: bool,
     runtime_actions: bool,
     environment_actions: bool,
+    database_actions: bool,
     jobs: Receiver<Job>,
     done: SyncSender<Completed>,
 ) {
@@ -546,7 +594,10 @@ fn read_worker(
                 })
                 .and_then(|endpoint| {
                     let loaded = loaded.take().expect("single credential consumption");
-                    if environment_actions {
+                    if database_actions {
+                        BoundDatabaseActionsClient::connect(endpoint, loaded)
+                            .map(BoundClient::Database)
+                    } else if environment_actions {
                         BoundEnvActionsClient::connect(endpoint, loaded)
                             .map(BoundClient::Environment)
                     } else if service_actions && runtime_actions {

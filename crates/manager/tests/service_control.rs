@@ -9,7 +9,7 @@ use devforge_manager::{
     auth::{DesktopAuth, Policy, TrustedDesktopAction},
     controller::{Controller, StartIntent, Stores, local_owner_user},
     external_auth::{ExternalCredential, IssuedGrant},
-    external_client::{EnvClient, ExternalClient, RuntimeClient, ServiceClient},
+    external_client::{DatabaseClient, EnvClient, ExternalClient, RuntimeClient, ServiceClient},
     external_control::{ExternalInput, ExternalOutput},
     native_client::NativeClient,
 };
@@ -245,6 +245,13 @@ impl Rig {
     }
     fn environment(&self, grant: &IssuedGrant) -> EnvClient {
         EnvClient::connect(
+            self.endpoint.clone(),
+            ExternalCredential::from_wire(grant.credential.expose_secret()).unwrap(),
+        )
+        .unwrap()
+    }
+    fn database(&self, grant: &IssuedGrant) -> DatabaseClient {
+        DatabaseClient::connect(
             self.endpoint.clone(),
             ExternalCredential::from_wire(grant.credential.expose_secret()).unwrap(),
         )
@@ -1008,6 +1015,102 @@ fn env_policy_opaque_versions_mask_invalid_yaml_and_keep_sensitive_fingerprints_
         .unwrap();
     assert_eq!(
         env.document_state(id("revoked"), &id(&project.id))
+            .unwrap()
+            .error()
+            .unwrap()
+            .code,
+        ErrorCode::GrantRevoked
+    );
+}
+
+#[test]
+fn database_policy_requires_sensitive_scope_and_keeps_choices_project_scoped_without_startup() {
+    use devforge_control::{
+        Response,
+        mutations::{DatabaseBindInput, DatabaseRestoreInput},
+    };
+    let mut rig = Rig::new(None);
+    let project = rig.projects[0].clone();
+    let pm = rig.grant(0, false);
+    let sensitive = rig.env_grant(0, false);
+    let mut client = rig.database(&sensitive);
+    let mut denied = rig.database(&pm);
+    let choices = client.choices(id("choices"), &id(&project.id)).unwrap();
+    assert!(choices.is_ok());
+    let choices = choices.data().unwrap();
+    assert_eq!(choices.project_id, id(&project.id));
+    assert!(choices.stopped);
+    assert!(choices.instance_ids.is_empty());
+    assert!(choices.backup_ids.is_empty());
+    let public = serde_json::to_string(choices).unwrap();
+    for forbidden in ["secret_ref", "admin", "sha256", "port", "role", "path"] {
+        assert!(!public.contains(forbidden));
+    }
+    let bind = env_request(
+        &project.id,
+        project.revision,
+        "bind-denied",
+        MutationInput::DatabaseBind(DatabaseBindInput {
+            instance_id: id("missing-instance"),
+            limits: None,
+        }),
+    );
+    assert_eq!(
+        denied.plan(&bind).unwrap().error().unwrap().code,
+        ErrorCode::Unauthorized
+    );
+    assert_eq!(
+        client.plan(&bind).unwrap().error().unwrap().code,
+        ErrorCode::PreconditionFailed
+    );
+    let restore = env_request(
+        &project.id,
+        project.revision,
+        "restore-denied",
+        MutationInput::DatabaseRestore(DatabaseRestoreInput {
+            backup_id: id("missing-backup"),
+            limits: None,
+        }),
+    );
+    assert_eq!(
+        denied.plan(&restore).unwrap().error().unwrap().code,
+        ErrorCode::Unauthorized
+    );
+    assert_eq!(
+        client.plan(&restore).unwrap().error().unwrap().code,
+        ErrorCode::PreconditionFailed
+    );
+    assert_eq!(
+        client
+            .choices(id("foreign"), &id(&rig.projects[1].id))
+            .unwrap()
+            .error()
+            .unwrap()
+            .code,
+        ErrorCode::ProjectMismatch
+    );
+    let raw=Client::new(rig.endpoint.clone()).request(&json!({"method":"service_plan","credential":sensitive.credential.expose_secret(),"request":bind})).unwrap();
+    let raw: Response<devforge_control::mutations::PlanReceipt> =
+        serde_json::from_value(raw).unwrap();
+    assert_eq!(raw.error().unwrap().code, ErrorCode::UnsupportedCapability);
+    let raw=Client::new(rig.endpoint.clone()).request(&json!({"method":"db_plan","credential":sensitive.credential.expose_secret(),"request":request(&project.id,"stop","wrong-family")})).unwrap();
+    let raw: Response<devforge_control::mutations::PlanReceipt> =
+        serde_json::from_value(raw).unwrap();
+    assert_eq!(raw.error().unwrap().code, ErrorCode::UnsupportedCapability);
+    let db =
+        rusqlite::Connection::open(rig.root.path().join("control/operations.sqlite3")).unwrap();
+    assert_eq!(
+        db.query_row("SELECT count(*) FROM operations", [], |row| row
+            .get::<_, i64>(0))
+            .unwrap(),
+        0
+    );
+    rig.native
+        .revoke_external_grant(&sensitive.record.grant_id)
+        .unwrap();
+    assert_eq!(
+        client
+            .choices(id("revoked"), &id(&project.id))
             .unwrap()
             .error()
             .unwrap()

@@ -1,8 +1,8 @@
 # M13.4 reviewed project actions
 
 M13.4 exposes the reviewed service lifecycle, runtime install/select and
-environment/YAML actions described below. Database and HTTPS mutations remain
-later slices. The default MCP surface remains read-only.
+environment/YAML and database bind/restore actions described below. Domain/HTTPS
+mutations remain a later slice. The default MCP surface remains read-only.
 
 ## Authority and execution
 
@@ -182,3 +182,52 @@ lookup/replay, and manager reopen returning IdempotencyUnverifiable when the RAM
 verifier was gone while preserving receipt lookup. Owned shutdown completed.
 MemoryStore was used; no OS credential service, permission change, runtime
 download or native DB/tool startup is established by this test.
+
+## Database bind/restore slice
+
+The agreed finite inputs map database.bind to existing SwitchDatabase and
+database.restore to RestoreBackup. Both require ProjectManage, SensitiveOperation
+and native exact-plan approval, with the project stopped. Clone remains part of
+the later worktree-clone action; no standalone clone meaning is introduced here.
+
+Private DatabaseActionState captures root/filesystem identity/revision, current
+and selected retained binding, full target instance/data root/exact package, and
+restore manifest/checksum/engine/version/tools. Binding changes do not increment
+project revision, so the approved state is checked separately at admission,
+dequeue and before activation. Execution receives that explicit approved state;
+it cannot capture a new baseline after approval. Its own staged candidate and
+permitted startup are distinguished from external changes.
+
+The scoped choices projection exposes current/retained instance IDs and own
+backup IDs, not global instances, paths, checksums or credentials. Private state
+uses the existing actor's bounded private-read queue; public review references
+are opaque. Missing cached prerequisites fail before work, including PostgreSQL
+restore tools. A retained connection must test true before switching bindings.
+Old binding/data and other projects/shared services are protected; staged
+generations, roles, credentials or started owned servers may remain on failure
+or cancellation. This boundary does not promise physical cleanup or rollback.
+
+Independent QA found one owned-backup gap: a foreign project manifest copied into
+the current project's backup namespace lacked an explicit project match. The
+guarded capture, snapshot/choices and manager predicates now require both backup
+ID and manifest.project to match; provisioning/activation recheck frozen state.
+One foreign-header archive regression proves refusal before credentials/server/
+generation effects. Intentional native import/worktree semantics remain intact.
+QA confirmed that blocker closed through source review; it ran no duplicate tests.
+
+Five focused core tests passed, plus the exact foreign case after the choices
+filter correction. Manager policy1, mutation contracts9, tool contracts10 plus
+the generated-export exact rerun1, adapter mapping1, client integrations2 and
+parser1 passed. Scoped core/manager/client clippy and checked exports passed.
+Only the already-locked mysql28.0.4 minimal-rust test dependency edge was added
+to manager so the native test can query MySQL canary rows; no version or
+production dependency change.
+
+One public DatabaseClient test exercised PostgreSQL18.6.0 and MySQL8.4.11 in
+58.99 seconds: native approval, bind/retained reuse, original-key replay/lookup,
+cancel before activation, fresh-generation restore, unchanged backup checksum,
+restored701/old902/other-project333 canary data and the other connection preserved.
+The isolated fixture stopped cleanly, with copied cache/MemoryStore and no
+download or global database change. This positive native run was reused after
+the reject-only foreign-manifest guard; its separate negative regression passed.
+Windows/Intel native DB and OS credential-provider acceptance remain unverified.

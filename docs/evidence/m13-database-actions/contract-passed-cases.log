@@ -1,0 +1,21 @@
+test project_name_matches_core_byte_and_trim_constraints ... ok
+test domain_document_and_payload_types_match_the_actual_command_boundary ... ok
+test fingerprint_is_retry_stable_but_binds_target_and_typed_arguments ... ok
+test command_receipts_are_project_tool_and_byte_bound ... ok
+test plan_is_nonmutating_and_unimplemented_actions_remain_unavailable ... ok
+test mutations_reject_missing_key_revision_wrong_project_version_and_bounds ... ok
+test client_confirmation_cannot_replace_server_trust_or_grants ... ok
+test sensitive_review_binds_exact_action_backend_state_arguments_revision_and_expiry ... ok
+test every_initial_command_has_typed_mapping_and_can_be_prepared_without_execution ... ok
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+test serialization_stops_at_byte_budget_without_buffering_the_full_payload ... ok
+test stable_fault_mapping_does_not_include_private_payload_text ... ok
+test prepared_projection_cannot_be_checked_against_another_binding ... ok
+test projection_result_cannot_return_another_project_or_requested_resource ... ok
+test bounded_outputs_are_typed_and_do_not_conflate_unknown_tls_or_service_state ... ok
+test typed_dispatch_checks_project_grant_revocation_and_operation_owner ... ok
+test typed_payloads_reject_unknown_fields_wrong_types_and_unsafe_numbers ... ok
+test cursor_is_project_tool_revision_and_expiry_bound ... ok
+test every_operation_backed_projection_requires_owner_and_original_grants ... ok
+test all_inventory_operations_have_explicit_schema_availability_and_policy ... ok
+Checked-export drift was corrected by generation; its exact rerun is in export-test.log.

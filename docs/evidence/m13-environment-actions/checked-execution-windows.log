@@ -1,0 +1,7 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2m 06s
+     Running tests\checked_execution.rs (target\debug\deps\checked_execution-7e3c6d2f8572040c.exe)
+
+running 1 test
+test policy_denial_inside_dependency_poll_stops_owned_child_and_preserves_policy_error ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 9.47s

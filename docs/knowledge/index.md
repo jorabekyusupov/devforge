@@ -29,7 +29,7 @@ mavzuni tanlang, so'ng faqat tegishli hujjatlar va ularning manbalarini o'qing.
 
 ## Manba va yuritish
 
-- [M13.4 reviewed actions](../architecture/reviewed-service-actions.md) - exact native approval bilan service, runtime install/select va env/YAML; qolgan mutation oilalari keyingi kesimlarda.
+- [M13.4 reviewed actions](../architecture/reviewed-service-actions.md) - exact native approval bilan service, runtime, env/YAML va DB bind/restore; domain/HTTPS keyingi kesim.
 
 - [M13.3 stdio MCP](../architecture/mcp-stdio-contract.md) - 5 read-only tools, bound summary resource, modern/legacy protocol va actual client evidence.
 

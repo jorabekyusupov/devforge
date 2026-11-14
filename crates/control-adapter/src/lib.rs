@@ -136,6 +136,22 @@ pub fn map_mutation(
                 consent: true,
             }
         }
+        MutationInput::DatabaseBind(input) => {
+            backend_review(prepared, context)?;
+            Command::SwitchDatabase {
+                id,
+                instance: input.instance_id.as_str().into(),
+                consent: true,
+            }
+        }
+        MutationInput::DatabaseRestore(input) => {
+            backend_review(prepared, context)?;
+            Command::RestoreBackup {
+                id,
+                backup: input.backup_id.as_str().into(),
+                consent: true,
+            }
+        }
         MutationInput::WorkspaceArchive(input) => Command::WorktreeCleanup {
             id: workspace_id(prepared, &input.workspace_id, context)?,
             review: backend_review(prepared, context)?.into(),

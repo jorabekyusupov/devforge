@@ -274,6 +274,14 @@ export interface WorkspaceLifecycleInput {
   workspace_id: string;
   limits?: MutationLimits | null;
 }
+export interface DatabaseBindInput {
+  instance_id: string;
+  limits?: MutationLimits | null;
+}
+export interface DatabaseRestoreInput {
+  backup_id: string;
+  limits?: MutationLimits | null;
+}
 export interface MutationReceipt {
   project_id: string;
   operation_id: string;
@@ -337,6 +345,8 @@ export interface MutationInputs {
   "environment.plan": EnvironmentPlanInput;
   "environment.apply": EnvironmentApplyInput;
   "environment.yaml_save": YamlSaveInput;
+  "database.bind": DatabaseBindInput;
+  "database.restore": DatabaseRestoreInput;
   "workspaces.archive": WorkspaceLifecycleInput;
   "workspaces.restore": WorkspaceLifecycleInput;
   "workspaces.purge": WorkspaceLifecycleInput;
@@ -351,6 +361,8 @@ export interface MutationOutputs {
   "environment.plan": PlanReceipt;
   "environment.apply": MutationReceipt;
   "environment.yaml_save": MutationReceipt;
+  "database.bind": MutationReceipt;
+  "database.restore": MutationReceipt;
   "workspaces.archive": MutationReceipt;
   "workspaces.restore": MutationReceipt;
   "workspaces.purge": MutationReceipt;

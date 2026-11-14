@@ -740,3 +740,106 @@ fn environment_metadata_keeps_yaml_off_argv_and_credentials_off_payload_stdin() 
         serde_json::json!(["project_manage", "sensitive_operation"])
     );
 }
+
+#[test]
+fn database_metadata_and_parser_limit_actions_to_scoped_bind_restore() {
+    for args in [
+        vec!["api", "database", "--help"],
+        vec!["api", "database", "plan", "--help"],
+        vec!["api", "database", "bind", "--help"],
+        vec!["api", "database", "restore", "--help"],
+    ] {
+        let (_, _, output, value) = invoke(&args);
+        assert!(output.status.success());
+        assert_eq!(value["ok"], true);
+    }
+    for args in [
+        vec![
+            "api",
+            "database",
+            "plan",
+            "clone",
+            "project",
+            "--revision",
+            "1",
+            "--idempotency-key",
+            "key",
+        ],
+        vec![
+            "api",
+            "database",
+            "query",
+            "project",
+            "--sql",
+            "private-sql-canary",
+        ],
+        vec![
+            "api",
+            "database",
+            "plan",
+            "bind",
+            "project",
+            "--backup",
+            "backup",
+            "--revision",
+            "1",
+            "--idempotency-key",
+            "key",
+        ],
+        vec![
+            "api",
+            "database",
+            "restore",
+            "project",
+            "--backup",
+            "backup",
+            "--revision",
+            "1",
+            "--idempotency-key",
+            "key",
+        ],
+        vec![
+            "api",
+            "database",
+            "plan",
+            "restore",
+            "project",
+            "--backup",
+            "backup",
+            "--revision",
+            "1",
+            "--idempotency-key",
+            "key",
+            "--path",
+            "/tmp/not-accepted",
+        ],
+        vec![
+            "api",
+            "database",
+            "plan",
+            "project",
+            "--instance",
+            "unscoped",
+        ],
+        vec!["api", "status", "--backup", "backup"],
+    ] {
+        let (_, _, output, value) = invoke(&args);
+        assert_eq!(output.status.code(), Some(2), "{args:?}");
+        assert_eq!(value["error"]["code"], "invalid_input");
+        assert!(
+            !String::from_utf8(output.stdout)
+                .unwrap()
+                .contains("private-sql-canary")
+        );
+    }
+    let (_, _, _, capabilities) = invoke(&["api", "capabilities"]);
+    let commands = capabilities["data"]["commands"].as_array().unwrap();
+    for name in ["database bind", "database restore"] {
+        let entry = commands.iter().find(|entry| entry["name"] == name).unwrap();
+        assert_eq!(
+            entry["required_scopes"],
+            serde_json::json!(["project_manage", "sensitive_operation"])
+        );
+        assert_eq!(entry["execution_requires_native_approval"], true);
+    }
+}

@@ -37,7 +37,7 @@ fn prepare(raw: Value, grant: &Grant) -> Result<PreparedRead> {
 #[test]
 fn all_inventory_operations_have_explicit_schema_availability_and_policy() {
     let contracts = contracts().unwrap();
-    assert_eq!(contracts.len(), 155);
+    assert_eq!(contracts.len(), 156);
     assert_eq!(
         contracts
             .iter()
@@ -357,7 +357,7 @@ fn checked_json_and_typescript_match_the_rust_contract_export() {
         export::typescript()
     );
     let doc: Value = serde_json::from_str(&export::json_document().unwrap()).unwrap();
-    assert_eq!(doc["tools"].as_array().unwrap().len(), 155);
+    assert_eq!(doc["tools"].as_array().unwrap().len(), 156);
     assert_eq!(
         doc["request_schema"]["properties"]["expected_revision"]["anyOf"][0]["maximum"],
         json!(SafeInt::MAX)

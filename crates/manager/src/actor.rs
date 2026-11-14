@@ -38,7 +38,8 @@ pub const RESULTS_TOTAL_BYTES: usize = 1_048_576;
 pub const COMMAND_BYTES: usize = 8 * 1024 * 1024;
 pub const QUEUE_BYTES: usize = 16 * 1024 * 1024;
 pub const SNAPSHOT_BYTES: usize = 4_194_304;
-const ENV_QUERY_BYTES: usize = 1024;
+// Reserved heap budget for either finite environment or database read request.
+const ENV_QUERY_BYTES: usize = 4096;
 /// Receipt namespace for genuinely global desktop operations, never a project.
 pub const ROOT_SUBJECT: &str = "desktop-root";
 
@@ -251,6 +252,7 @@ struct Job {
 enum Message {
     Job(Box<Job>),
     Environment(Box<crate::environment_control::EnvironmentRead>),
+    Database(Box<crate::database_control::DatabaseRead>),
 }
 
 /// Owns and joins exactly one real Workspace thread. Dropping a Handle does not
@@ -425,6 +427,15 @@ impl ActorHandle {
         &self,
         query: crate::environment_control::EnvironmentRead,
     ) -> Result<()> {
+        self.queue_private(Message::Environment(Box::new(query)))
+    }
+    pub(crate) fn queue_database(
+        &self,
+        query: crate::database_control::DatabaseRead,
+    ) -> Result<()> {
+        self.queue_private(Message::Database(Box::new(query)))
+    }
+    fn queue_private(&self, message: Message) -> Result<()> {
         let state = self
             .shared
             .state
@@ -450,11 +461,7 @@ impl ActorHandle {
             .environment_queued
             .fetch_add(1, Ordering::AcqRel);
         self.shared.environment_reads.fetch_add(1, Ordering::AcqRel);
-        if self
-            .sender
-            .try_send(Message::Environment(Box::new(query)))
-            .is_err()
-        {
+        if self.sender.try_send(message).is_err() {
             self.shared
                 .environment_queued
                 .fetch_sub(1, Ordering::AcqRel);
@@ -584,6 +591,8 @@ impl ActorHandle {
             MutationInput::Configure(_) => MutationOutput::Configure(output),
             MutationInput::EnvironmentApply(_) => MutationOutput::EnvironmentApply(output),
             MutationInput::YamlSave(_) => MutationOutput::YamlSave(output),
+            MutationInput::DatabaseBind(_) => MutationOutput::DatabaseBind(output),
+            MutationInput::DatabaseRestore(_) => MutationOutput::DatabaseRestore(output),
             _ => return Err(E::UnsupportedCapability),
         })?;
         let transaction = state
@@ -1393,6 +1402,15 @@ fn worker_loop(
                             project_id: None,
                         }));
                     }
+                    Message::Database(query) => {
+                        shared.environment_queued.fetch_sub(1, Ordering::AcqRel);
+                        shared.environment_reads.fetch_sub(1, Ordering::AcqRel);
+                        let _ = query.reply.send(Err(devforge_workspace::Error {
+                            scope: "workspace",
+                            code: "interrupted".into(),
+                            project_id: None,
+                        }));
+                    }
                 }
             }
             shared
@@ -1433,6 +1451,13 @@ fn worker_loop(
         };
         match message {
             Message::Environment(query) => {
+                shared.environment_queued.fetch_sub(1, Ordering::AcqRel);
+                shared.active.store(true, Ordering::Release);
+                query.execute(&workspace);
+                shared.active.store(false, Ordering::Release);
+                shared.environment_reads.fetch_sub(1, Ordering::AcqRel);
+            }
+            Message::Database(query) => {
                 shared.environment_queued.fetch_sub(1, Ordering::AcqRel);
                 shared.active.store(true, Ordering::Release);
                 query.execute(&workspace);

@@ -1254,3 +1254,51 @@ consumer tests were reused after alias-only backend changes. The successful
 actual save/apply flow was not repeated.
 Windows new-slice execution and these native integrations remain separate gates.
 DB bind/restore and domains/HTTPS are still later M13.4 slices.
+
+### Env publication and focused Windows timing correction
+
+fab9dcb initially stopped on module-order fmt; format-only b244a2a corrected it.
+b244a2a macOS CI passed; Windows passed fmt/clippy but the checked child fixture's
+5s timer included executable validation/spawn and intentional Windows5s stop grace.
+Its policy error/started/incomplete assertions already passed. Only the fixture
+now uses an independent readiness observer and measures ready→policy denial with
+the same5s bound; product stop/grace unchanged and observer cleanup is bounded.
+One exact local case passed. Isolated b244a2a+test-only patch+temporary workflow
+[Windows run43607061157](https://github.com/jorabekyusupov/devforge/actions/runs/43607061157)
+passed exactly1case/0failed/0ignored in9.47s on Server2025/build26100.
+[Proof](../evidence/m13-environment-actions/checked-execution-windows.json)
+records gitblob/CRLF hashes; the shared test matches verified source. Only the
+identity-verified duplicate owned branch core run was canceled, not counted pass.
+No main workflow/production change or full native rerun. This closes that exact
+fixture failure, not a claim of full updated Windows env or Win10/11/UI acceptance.
+
+## M13.4 fourth slice: reviewed database bind/restore
+
+[Contract](../architecture/reviewed-service-actions.md): two finite canonical
+inputs map to SwitchDatabase and RestoreBackup, stopped project, PM+Sensitive
+and native exact approval. Restore is explicit, not an alias for arbitrary import;
+standalone clone stays in the later worktree-clone action. Inventory is now156
+operations;14typed inputs include13mutating inputs and read-only EnvironmentPlan.
+Private frozen state binds current/retained bindings, full owned instance/FS/
+package and archive/checksum/engine/exact-version/tools. Binding does not bump
+project revision, so state is fenced separately through activation. Global2
+private-read slots/32queue are reused; public choices are scoped IDs only and
+plan tickets opaque. No hidden missing-tool downloads or credential/admin export.
+
+Five core tests passed; retained connection false is denied and cache/activation
+guards preserve old binding/data. QA found foreign backup manifest ownership
+missing; guarded live/snapshot/choices/manager predicates now enforce project+ID,
+with one exact foreign archive regression repeated after choices filtering and
+QA source closure. Native import/worktree defaults remain unchanged. Manager
+policy1, mutation9/tool10+generated-export rerun1/adapter1 and client2/parser1
+passed; scoped core/native-test/manager/CLI clippy and checked exports passed.
+
+One actual public-client test/two engines passed58.99s: PostgreSQL18.6.0 and
+MySQL8.4.11 native approval/bind/retained/replay/lookup/cancel-before-activation/
+fresh restore;701restored/902old/333other data, backup hash and other connection
+preserved. [Native summary](../evidence/m13-database-actions/native-result.json).
+Copied approved cache/MemoryStore/owned cleanup, no download/global DB change.
+The positive run was reused after reject-only ownership predicates; the separate
+foreign regression passed. Manager dev-only mysql28.0.4 edge matches existing
+locked version/features to query canary data; no new version/production edge.
+Windows/Intel native DB/OScredentials remain unverified; domain/HTTPS is next.
