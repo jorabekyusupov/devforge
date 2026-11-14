@@ -1,0 +1,42 @@
+{
+  "schema": 1,
+  "requested_major": 11,
+  "target": "macos-arm64",
+  "status": "blocked",
+  "runtime": {
+    "php": {
+      "package_id": "php-8.4.27-staticphp20261113-cli-macos-arm64",
+      "version": "8.4.27-staticphp20261113",
+      "sha256": "7ec1902db79c9b5c34da0460b078136e110d0cb478398e13241c83ae48f0c0e7"
+    },
+    "composer": {
+      "package_id": "composer-2.11.2-macos-arm64",
+      "version": "2.11.2",
+      "sha256": "dd158c0afd41d15fac89e1b4e47b5d42911fe316c3687cd5edac98319b25d028"
+    }
+  },
+  "network_explicitly_allowed": true,
+  "source_sha256": {
+    "Capture.php": "2f0d6f39e3bfb9c8aedaeb694faa7be7f534cb18f654275b46974d5b950d22f0",
+    "InspectorServiceProvider.php": "e78681d94614090f2c1af834aa38806d55ead39f762c5315765c1793d656002a",
+    "RequestCapture.php": "318764545e7da881f19b6287ec1b76c0e3ce3d225e853a059e54a71383fb459d"
+  },
+  "native_desktop_checked": false,
+  "full_skeleton_or_web_server_checked": false,
+  "database_coverage": [
+    "sqlite"
+  ],
+  "queue_coverage": [
+    "sync"
+  ],
+  "unverified": [
+    "postgresql",
+    "mysql",
+    "async_queue",
+    "full_laravel_skeleton",
+    "network_http_server",
+    "native_desktop"
+  ],
+  "blocker": "composer_resolution_or_install_failed",
+  "diagnostic": "Loading composer repositories with package information\nUpdating dependencies\nYour requirements could not be resolved to an installable set of packages.\n\n  Problem 1\n    - Root composer.json requires laravel/framework ^11.0, found laravel/framework[v11.0.0, ..., v11.57.1] but these were not loaded, because they are affected by security advisories (\"PKSA-yxbx-3c9s-cjt9\", \"PKSA-b41t-wbzk-9q51\", \"PKSA-d5tc-s1qs-h781\", \"PKSA-3r5d-mb8f-1qw9\", \"PKSA-m5cs-t1y6-qpcs\", \"PKSA-mdq4-51ck-6kdq\", \"PKSA-8qx3-n5y5-vvnd\", \"PKSA-w7xr-vk7n-rstm\", \"PKSA-q46n-4fdk-zjr4\", \"PKSA-qzrn-rnz3-85w1\"). Go to https://packagist.org/security-advisories/ to find advisory details. To ignore the advisories, add their IDs to the \"policy.advisories.ignore-id\" config or add the package to \"policy.advisories.ignore\". To turn the feature off entirely, you can set \"policy.advisories.block\" to false.\n\n"
+}

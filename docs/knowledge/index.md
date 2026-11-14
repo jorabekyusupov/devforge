@@ -29,6 +29,8 @@ mavzuni tanlang, so'ng faqat tegishli hujjatlar va ularning manbalarini o'qing.
 
 ## Manba va yuritish
 
+- [E10 framework compatibility](companion-compatibility-results.md) - actual Laravel12/13 Collector/mail, Laravel11 fresh-resolution advisory blocker, no guard bypass va unverified matrix.
+
 - [E05.1 storage inventory](storage-inventory-results.md) - read-only ownership/logical size/refs, bounded registry/FS metadata va keyingi cleanup gate.
 
 - [Configure preflight refusal](configure-preflight-results.md) - invalid name/debug PHP-change sessionni stop qilmasligi; actual native red-green va target chegaralari.

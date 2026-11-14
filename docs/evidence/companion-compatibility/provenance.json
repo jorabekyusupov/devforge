@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "source_tree_clean": false,
+  "scope": "actual Foundation kernel/SQLite/syncqueue/real Rust Collector/SMTP; no network web server or native desktop",
+  "at_run_sha256": {
+    "scripts/companion_compatibility.py": "29481149b9c182150f0924557db040e4ce4439d6a0c30b0faebaa73531213047",
+    "packages/laravel-inspector/tests/compatibility.php": "f64ca3c65e5aade91998bf161c7e08a8d4089b359880bca360294bc1d601708a",
+    "crates/inspector/examples/companion_compatibility.rs": "e4889b5605353483d0adc6c549f744e7a26f531227bd86094c67ee390fb80faa",
+    "target/debug/examples/companion_compatibility": "2720e9120e40f95aacd494b0f709828f5e3f306b42b5a6bb928a14823fe2b851"
+  },
+  "post_run_changes": "Runner proxy diagnostic redaction and future provenance fields changed after these runs; runtime/PHP fixture/Rust collector behavior did not change and matrix was not rerun.",
+  "reports": {
+    "laravel11-php84-macos-arm64.json": "afe32e474ba2ee79812db7f7b133bd17989ee3529d1460d3fa678efdec77428a",
+    "laravel12-php84-macos-arm64.json": "5318e13cde36c7033379985886db6db131ba37b29bf4b05398851323c0192e82",
+    "laravel13-php84-macos-arm64.json": "3522477139be708bc4f3b8c6d7b01d2d5be56590e382b80780ad680a55b98688"
+  }
+}

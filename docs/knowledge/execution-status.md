@@ -154,7 +154,7 @@ Parallel agent boshlangan yoki tugagan itemni integrator evidence bilan yangilay
 | E07 | planned | E03 exact bindings va trust policy; catalog/offline lifecycle. |
 | E08 | planned | M13.6 execution, real profile talabi; scheduler/Reverb, keyin Horizon. |
 | E09 | ready | Reproducible release workload baseline dizayni; optimize faqat actual o'lchovdan keyin. |
-| E10 | ready | Declared Laravel11/12/13/PHP/provider meaningful matrix dizayni; actual hostlar ajratiladi. |
+| E10 | in_progress | Declared Laravel11/12/13/PHP/provider meaningful matrix dizayni; actual hostlar ajratiladi. |
 | M14.1 | planned | Project/site/operations kontrakti; IDE/DB adapters. |
 | M14.2 | planned | Verified bitta tunnel provider, target/access/expiry/revoke. |
 | M14.3 | planned | Tunnel stop/Quit/crash/restart/private endpoint exposure test. |
@@ -601,3 +601,12 @@ contentread/productiondatascan.8storage +initialmetadata1 passed; QA SQLquerybyt
 sourcefinding2phaseoctet_length corrected +targetedmetadata2/Unicode1/ref1/DB1pass,
 finalmetadatahandles1/link1pass. Scopedclippy/fmt/strict. Remaining E05UI/cleanup
 preview E06drill/retention alohida; hardlinklogicalsize notfreeable, nonatomicsnapshot.
+
+# E10.1 actual framework compatibility harness
+
+[Framework natijalari](companion-compatibility-results.md): managedPHP8.4.27 actual
+Laravel12.72/13.42 kernel/SQLite/syncqueue/capture/mail19events passed; fresh11install
+Composeradvisorypolicyblocked (installed11runtimefailureemas). Guard saqlandi.
+Python9units/PHP lint/nativeexamplebuild/clippy passed; lastproxyredaction/provenance
+reportchangesonlyPythonchecks, actualmatrixreusedwithat-runhashes. No globalPHP/INI/
+credentials/userproject changes. Intel/Windows/otherPHP/PG/MySQL/async/fullappUIgateochiq.

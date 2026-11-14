@@ -4,6 +4,8 @@
 
 ## 2026-11-14
 
+- **E10.1 framework matrix:** actualmanagedPHP8.4/Laravel12+13 realCollector/mail19events green; fresh11Composeradvisoryblocked, guardunchanged.9Python/lint/examplebuild/clippy, source/runtime/lock/binaryprovenance; postrunreportredactionmatrixnotrerun. [Results](companion-compatibility-results.md), widernative/DBmatrixunverified.
+
 - **E05.1 storage backend:** [Read-only inventory](storage-inventory-results.md), ownership/catalog/receipts, logicalsize/refsunknowncoverage; boundedrow/byte/FSlimits, nofollowmetadata.8storage+targetedSQL/open/linkchecks/clippy/fmt; no productiondatascan/nativeDB/cleanupclaim. QA bytequerysourcefinding2phasefixed, actualoldCASTbugrepro notclaimed.
 
 - **CLI Windowstest imports:**6ab2ca6nativeclippyunusedimports cfg(unix) bilanmoslandi; test-only, scopeclippypass. Rootfailure43570885602saqlandi, no unrelatedtests. [Execution](execution-status.md).
