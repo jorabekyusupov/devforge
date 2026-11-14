@@ -4,6 +4,8 @@
 
 ## 2026-11-14
 
+- **Grant clock fault:** clampedtimebug RED→latcheddeny, additivev2schema, deny-onlycommit onlateproofexpiry; explicitownerrecovery revokesalloldgrants beforebaseline reset.6new+1affectedclockcases/clippy passed, otherfixturesreused/no livegrantschanged. [Contract](../architecture/external-grants.md).
+
 - **Debug manager preparation:** explicitlockednative-targetbuild/exactadjacentCLIhash/fixedmanifest, optionallaunchsameTauri target/buildgate.10mocks+actualARM64prepare-only/hash passed; noCLIexecution/GUI/store/defaultswitch. [Contributor guide](../../CONTRIBUTING.md#debug-desktop-with-the-fixed-adjacent-manager), [execution](execution-status.md).
 
 - **E05.2 preview:** allregisteredphysicalrefs/read-onlylease observations, unknownblocksreviewcandidate, E06ownedreceiptinventory. QAphysical-key/derivedwebfalsecandidates RED→GREEN2+affected2, unchangedlease1/metadata4/preview5/storage9reused; scopedclippy/fmt. Noapply/delete/GUI. Actor/controllerdocreconciliationincluded. [Results](cleanup-preview-results.md).

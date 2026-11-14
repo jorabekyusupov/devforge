@@ -954,3 +954,24 @@ Actualartifactcamefromunfrozenworkingtree, notcleanproductattestation. Generated
 manifest remainsignored; productionpackagehelper/othergeneratednoticesunchanged.
 Windowslayoutmockonly; nolaunch/nativewindow/credential/minOS proof. No version
 changes/newdeps; futureCLIrebuildrequiresnewpreparation beforeGUIcompile.
+
+
+## External grant clock-fault hardening
+
+Deterministicpre-expiryrollback reproducedthatclampedmax(now,high_water) could
+freezegrantevaluation andallowactivecredential beyondtheintendedclockwindow.
+Externalregistryschema2additiveclock_fault latch nowdeniesissue/authorize;
+catch-up/restartneverclearsobservedfault. Existingv1rows/identity/timepreserved;
+rootidentityvalidatedbeforemigration. Deny-onlyfaultcommit surviveslateproof
+expirywithoutnewgrant/data; healthyissue/recoverstillfreshauthoritycommit.
+
+Ownerlist/revoke remainavailablewithoutclaiminggrantusable. Storedclockstatus
+isnotliveclockattestation. recover_clock requiresfreshNativeAuthority+explicit
+TrustedDesktopAction, acceptsNOclienttime, atomicallyrevokesALLoldgrants before
+resettingvalidserverbaseline; noautocall/pruning/reinstatement. Trustedserverwall
+observation, nothardware/undetected-clock-manipulation guarantee.
+
+6newclock/migration/recovery/late-expiry +1affectedhistoricalrollbackcases passed;
+scopedmanagerlibclippy/diff passed. Otherunchangedgrantfixtures reused. NoNativeStore/
+GUI/externaldispatcher/Windowsexecution and noactualusergrantchanged; onlyisolated
+fixtures. [Updated contract](../architecture/external-grants.md).

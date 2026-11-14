@@ -15,7 +15,10 @@
 //! checks (including a future dispatcher's dequeue check); already running jobs
 //! are NOT automatically cancelled by this foundation. A dispatcher must define
 //! and implement its running-job cancellation policy before exposing mutations.
-use crate::{Endpoint, Owner, PeerIdentity, auth::DesktopAuthority};
+use crate::{
+    Endpoint, Owner, PeerIdentity,
+    auth::{DesktopAuthority, TrustedDesktopAction},
+};
 use devforge_control::{Id, ProjectBinding, Scope};
 use rusqlite::{Connection, OpenFlags, OptionalExtension, Transaction, params};
 use serde::{Deserialize, Serialize};
@@ -215,7 +218,7 @@ impl ExternalRegistry {
         let version: u32 = db
             .pragma_query_value(None, "user_version", |row| row.get(0))
             .map_err(storage)?;
-        if version > 1 {
+        if version > 2 {
             return Err(Error::StorageUnavailable);
         }
         db.execute_batch("PRAGMA journal_mode=DELETE; PRAGMA synchronous=FULL;")
@@ -238,6 +241,11 @@ impl ExternalRegistry {
             .map_err(storage)?;
         if stored != (root_identity.clone(), digest(owner_user.as_bytes())) {
             return Err(Error::StorageUnavailable);
+        }
+        if version < 2 {
+            // Additive v1 migration: all grant identities, hashes, rights,
+            // expiry/revocation rows and the durable high-water remain intact.
+            db.execute_batch("BEGIN IMMEDIATE; ALTER TABLE registry_identity ADD COLUMN clock_fault INTEGER NOT NULL DEFAULT 0 CHECK(clock_fault IN (0,1)); PRAGMA user_version=2; COMMIT;").map_err(storage)?;
         }
         Ok(Self {
             endpoint,
@@ -293,7 +301,20 @@ impl ExternalRegistry {
         authority
             .check_current(Instant::now())
             .map_err(|_| Error::Unauthorized)?;
-        let now = advance_clock(&transaction, clock.now()?)?;
+        let now = match advance_clock(&transaction, clock.now()) {
+            Ok(now) => now,
+            Err(Error::ClockUnavailable) => {
+                // No grant has been inserted. Persist this deny-only security
+                // observation even if the admitted desktop proof just expired.
+                let permission = authority
+                    .check_current(Instant::now())
+                    .map_err(|_| Error::Unauthorized);
+                transaction.commit().map_err(storage)?;
+                permission?;
+                return Err(Error::ClockUnavailable);
+            }
+            Err(error) => return Err(error),
+        };
         let count: i64 = transaction
             .query_row("SELECT count(*) FROM grants", [], |row| row.get(0))
             .map_err(storage)?;
@@ -366,6 +387,55 @@ impl ExternalRegistry {
             .map_err(|_| Error::Unauthorized)?;
         transaction.commit().map_err(storage)
     }
+    /// Stored last-observation status, not proof of a currently usable grant.
+    /// Only authorization/issuance/listing observes and latches a bad clock.
+    pub fn clock_status(&self, authority: &DesktopAuthority<'_>) -> Result<ClockStatus> {
+        self.check_desktop(authority)?;
+        let state = read_clock(&self.db)?;
+        authority
+            .check_current(Instant::now())
+            .map_err(|_| Error::Unauthorized)?;
+        Ok(state)
+    }
+    /// Explicit native-owner recovery, never automatic and never caller time.
+    /// All old credentials remain revoked even after the wall clock catches up.
+    pub fn recover_clock(
+        &mut self,
+        authority: &DesktopAuthority<'_>,
+        _action: &TrustedDesktopAction,
+    ) -> Result<usize> {
+        self.check_desktop(authority)?;
+        let clock = self.clock.clone();
+        let transaction = self
+            .db
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+            .map_err(storage)?;
+        authority
+            .check_current(Instant::now())
+            .map_err(|_| Error::Unauthorized)?;
+        let now = clock.now()?;
+        if !valid_clock(now) {
+            return Err(Error::ClockUnavailable);
+        }
+        let revoked = transaction
+            .execute("UPDATE grants SET revoked=1 WHERE revoked=0", [])
+            .map_err(storage)?;
+        if transaction
+            .execute(
+                "UPDATE registry_identity SET high_water=?1,clock_fault=0 WHERE singleton=1",
+                [now as i64],
+            )
+            .map_err(storage)?
+            != 1
+        {
+            return Err(Error::StorageUnavailable);
+        }
+        authority
+            .check_current(Instant::now())
+            .map_err(|_| Error::Unauthorized)?;
+        transaction.commit().map_err(storage)?;
+        Ok(revoked)
+    }
     /// Bounded owner-only metadata, never a token/root-path/content export.
     pub fn list(&mut self, authority: &DesktopAuthority<'_>) -> Result<Vec<GrantRecord>> {
         self.check_desktop(authority)?;
@@ -377,7 +447,29 @@ impl ExternalRegistry {
         authority
             .check_current(Instant::now())
             .map_err(|_| Error::Unauthorized)?;
-        let now = advance_clock(&transaction, clock.now()?)?;
+        let now = observe_owner_clock(&transaction, clock.now())?;
+        let (transaction, now) = if read_clock(&transaction)?.fault_latched {
+            // This transaction contains only deny-only clock metadata, never a
+            // new grant. Commit before listing/decoding any protected records.
+            let permission = authority
+                .check_current(Instant::now())
+                .map_err(|_| Error::Unauthorized);
+            transaction.commit().map_err(storage)?;
+            permission?;
+            let next = self
+                .db
+                .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+                .map_err(storage)?;
+            authority
+                .check_current(Instant::now())
+                .map_err(|_| Error::Unauthorized)?;
+            // A concurrently explicit owner recovery may have reset the stored
+            // baseline. Use that current administrative snapshot, not stale time.
+            let now = read_clock(&next)?.high_water;
+            (next, now)
+        } else {
+            (transaction, now)
+        };
         transaction
             .execute(
                 "UPDATE grants SET expired=1 WHERE expires_at<=?1",
@@ -422,7 +514,14 @@ impl ExternalRegistry {
             .db
             .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
             .map_err(storage)?;
-        let now = advance_clock(&transaction, clock.now()?)?;
+        let now = match advance_clock(&transaction, clock.now()) {
+            Ok(now) => now,
+            Err(Error::ClockUnavailable) => {
+                transaction.commit().map_err(storage)?;
+                return Err(Error::ClockUnavailable);
+            }
+            Err(error) => return Err(error),
+        };
         let row = transaction.query_row("SELECT grant_id,client_id,project_id,root_identity,token_hash,scopes,information,created_at,expires_at,revoked,expired FROM grants WHERE token_hash=?1", [&token_hash], read_stored).optional().map_err(storage)?;
         let Some(row) = row else {
             transaction.commit().map_err(storage)?;
@@ -497,26 +596,94 @@ fn validate_rights(scopes: &[Scope], information: &[InformationScope]) -> Result
     }
     Ok(())
 }
-fn advance_clock(transaction: &Transaction<'_>, now: u64) -> Result<u64> {
-    if now == 0 || now > i64::MAX as u64 {
-        return Err(Error::ClockUnavailable);
-    }
-    let prior: i64 = transaction
+/// Native owner metadata only. A clear latch is not grant authorization.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub struct ClockStatus {
+    pub high_water: u64,
+    pub fault_latched: bool,
+}
+fn read_clock(connection: &Connection) -> Result<ClockStatus> {
+    let (prior, fault): (i64, i64) = connection
         .query_row(
-            "SELECT high_water FROM registry_identity WHERE singleton=1",
+            "SELECT high_water,clock_fault FROM registry_identity WHERE singleton=1",
             [],
-            |row| row.get(0),
+            |row| Ok((row.get(0)?, row.get(1)?)),
         )
         .map_err(storage)?;
-    let prior = u64::try_from(prior).map_err(|_| Error::StorageUnavailable)?;
-    let effective = now.max(prior);
-    transaction
+    if !matches!(fault, 0 | 1) {
+        return Err(Error::StorageUnavailable);
+    }
+    Ok(ClockStatus {
+        high_water: u64::try_from(prior).map_err(|_| Error::StorageUnavailable)?,
+        fault_latched: fault == 1,
+    })
+}
+fn record_clock(transaction: &Transaction<'_>, now: u64) -> Result<()> {
+    if transaction
         .execute(
             "UPDATE registry_identity SET high_water=?1 WHERE singleton=1",
-            [effective as i64],
+            [now as i64],
         )
-        .map_err(storage)?;
-    Ok(effective)
+        .map_err(storage)?
+        != 1
+    {
+        return Err(Error::StorageUnavailable);
+    }
+    Ok(())
+}
+fn latch_clock(transaction: &Transaction<'_>) -> Result<()> {
+    if transaction
+        .execute(
+            "UPDATE registry_identity SET clock_fault=1 WHERE singleton=1",
+            [],
+        )
+        .map_err(storage)?
+        != 1
+    {
+        return Err(Error::StorageUnavailable);
+    }
+    Ok(())
+}
+fn valid_clock(now: u64) -> bool {
+    now > 0 && now <= i64::MAX as u64
+}
+/// Callers MUST commit a ClockUnavailable result so this security latch cannot
+/// disappear through transaction rollback. Merely catching up never clears it.
+fn advance_clock(transaction: &Transaction<'_>, observed: Result<u64>) -> Result<u64> {
+    let state = read_clock(transaction)?;
+    if state.fault_latched {
+        return Err(Error::ClockUnavailable);
+    }
+    match observed {
+        Ok(now) if valid_clock(now) && now >= state.high_water => {
+            record_clock(transaction, now)?;
+            Ok(now)
+        }
+        Ok(_) | Err(Error::ClockUnavailable) => {
+            latch_clock(transaction)?;
+            Err(Error::ClockUnavailable)
+        }
+        Err(error) => Err(error),
+    }
+}
+/// Administrative listing only: it still records a detected clock fault, but can
+/// use the last safe observation to show/revoke records. Never a dispatch clock.
+fn observe_owner_clock(transaction: &Transaction<'_>, observed: Result<u64>) -> Result<u64> {
+    let state = read_clock(transaction)?;
+    if state.fault_latched {
+        return Ok(state.high_water);
+    }
+    match observed {
+        Ok(now) if valid_clock(now) && now >= state.high_water => {
+            record_clock(transaction, now)?;
+            Ok(now)
+        }
+        Ok(_) | Err(Error::ClockUnavailable) => {
+            latch_clock(transaction)?;
+            Ok(state.high_water)
+        }
+        Err(error) => Err(error),
+    }
 }
 type Row = (
     String,
@@ -686,18 +853,26 @@ mod tests {
             Ok(())
         }
     }
-    struct TestClock(AtomicU64);
+    struct TestClock(AtomicU64, AtomicU64);
     impl TestClock {
         fn new() -> Arc<Self> {
-            Arc::new(Self(AtomicU64::new(1_800_000_000_000)))
+            Arc::new(Self(AtomicU64::new(1_800_000_000_000), AtomicU64::new(0)))
         }
         fn set(&self, now: u64) {
             self.0.store(now, Ordering::SeqCst);
         }
+        fn delay_observation(&self, millis: u64) {
+            self.1.store(millis, Ordering::SeqCst);
+        }
     }
     impl Clock for TestClock {
         fn now(&self) -> Result<u64> {
-            Ok(self.0.load(Ordering::SeqCst))
+            let observed = self.0.load(Ordering::SeqCst);
+            let delay = self.1.load(Ordering::SeqCst);
+            if delay > 0 {
+                std::thread::sleep(Duration::from_millis(delay));
+            }
+            Ok(observed)
         }
     }
     struct Auth {
@@ -1105,7 +1280,7 @@ mod tests {
                     None
                 )
                 .unwrap_err(),
-            Error::Expired
+            Error::ClockUnavailable
         );
         assert_eq!(
             registry
@@ -1118,7 +1293,7 @@ mod tests {
                     None
                 )
                 .unwrap_err(),
-            Error::Revoked
+            Error::ClockUnavailable
         );
         assert!(
             registry
@@ -1129,6 +1304,496 @@ mod tests {
                 .unwrap()
                 .expired
         );
+    }
+
+    #[test]
+    fn external_auth_clock_preexpiry_rollback_denies_work_and_new_issuance() {
+        let root = test_support::root("df-eg-");
+        let owner = test_support::acquire(root.path()).unwrap();
+        let binding = project(root.path(), "project-a", 1);
+        let clock = TestClock::new();
+        let initial = clock.now().unwrap();
+        let mut registry = ExternalRegistry::open_with_clock(&owner, clock.clone()).unwrap();
+        let mut auth = Auth::new(&owner, Duration::from_secs(60));
+        let grant = issue(
+            &mut registry,
+            &mut auth,
+            &binding,
+            &[Scope::Observer],
+            &[],
+            Duration::from_secs(30),
+        );
+        clock.set(initial + 10_000);
+        registry
+            .authorize(
+                &auth.peer,
+                &grant.credential,
+                &binding,
+                &[Scope::Observer],
+                &[],
+                None,
+            )
+            .unwrap();
+        clock.set(initial + 5_000);
+        assert_eq!(
+            registry
+                .authorize(
+                    &auth.peer,
+                    &grant.credential,
+                    &binding,
+                    &[Scope::Observer],
+                    &[],
+                    None
+                )
+                .unwrap_err(),
+            Error::ClockUnavailable
+        );
+        assert_eq!(
+            registry
+                .issue(
+                    &auth.proof(),
+                    &binding,
+                    &[Scope::Observer],
+                    &[],
+                    Duration::from_secs(30)
+                )
+                .unwrap_err(),
+            Error::ClockUnavailable
+        );
+        let records = registry.list(&auth.proof()).unwrap();
+        assert_eq!(records.len(), 1);
+        assert!(!records[0].expired);
+        let high_water: i64 = registry
+            .db
+            .query_row(
+                "SELECT high_water FROM registry_identity WHERE singleton=1",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(high_water as u64, initial + 10_000);
+        registry
+            .revoke(&auth.proof(), &grant.record.grant_id)
+            .unwrap();
+        drop(registry);
+        let mut registry = ExternalRegistry::open_with_clock(&owner, clock).unwrap();
+        assert_eq!(
+            registry
+                .authorize(
+                    &auth.peer,
+                    &grant.credential,
+                    &binding,
+                    &[Scope::Observer],
+                    &[],
+                    None
+                )
+                .unwrap_err(),
+            Error::ClockUnavailable
+        );
+        assert!(registry.list(&auth.proof()).unwrap()[0].revoked);
+    }
+
+    #[test]
+    fn external_auth_clock_owner_list_latches_fault_and_revoke_ignores_clock() {
+        let root = test_support::root("df-eg-");
+        let owner = test_support::acquire(root.path()).unwrap();
+        let binding = project(root.path(), "project-a", 1);
+        let clock = TestClock::new();
+        let initial = clock.now().unwrap();
+        let mut registry = ExternalRegistry::open_with_clock(&owner, clock.clone()).unwrap();
+        let mut auth = Auth::new(&owner, Duration::from_secs(60));
+        let grant = issue(
+            &mut registry,
+            &mut auth,
+            &binding,
+            &[Scope::Observer],
+            &[],
+            Duration::from_secs(30),
+        );
+        clock.set(initial - 1);
+        assert_eq!(registry.list(&auth.proof()).unwrap().len(), 1);
+        assert!(registry.clock_status(&auth.proof()).unwrap().fault_latched);
+        clock.set(0);
+        registry
+            .revoke(&auth.proof(), &grant.record.grant_id)
+            .unwrap();
+        let records = registry.list(&auth.proof()).unwrap();
+        assert!(records[0].revoked);
+        assert_eq!(
+            registry.clock_status(&auth.proof()).unwrap().high_water,
+            initial
+        );
+        clock.set(initial + 1);
+        drop(registry);
+        let mut registry = ExternalRegistry::open_with_clock(&owner, clock).unwrap();
+        assert_eq!(
+            registry
+                .authorize(
+                    &auth.peer,
+                    &grant.credential,
+                    &binding,
+                    &[Scope::Observer],
+                    &[],
+                    None
+                )
+                .unwrap_err(),
+            Error::ClockUnavailable
+        );
+    }
+
+    #[test]
+    fn external_auth_clock_recovery_requires_owner_revokes_every_old_grant_and_resets_atomically() {
+        let root = test_support::root("df-eg-");
+        let owner = test_support::acquire(root.path()).unwrap();
+        let binding = project(root.path(), "project-a", 1);
+        let clock = TestClock::new();
+        let initial = clock.now().unwrap();
+        let mut registry = ExternalRegistry::open_with_clock(&owner, clock.clone()).unwrap();
+        let mut auth = Auth::new(&owner, Duration::from_secs(60));
+        let a = issue(
+            &mut registry,
+            &mut auth,
+            &binding,
+            &[Scope::Observer],
+            &[],
+            Duration::from_secs(30),
+        );
+        let b = issue(
+            &mut registry,
+            &mut auth,
+            &binding,
+            &[Scope::Observer],
+            &[],
+            Duration::from_secs(30),
+        );
+        clock.set(initial + 10_000);
+        registry
+            .authorize(
+                &auth.peer,
+                &a.credential,
+                &binding,
+                &[Scope::Observer],
+                &[],
+                None,
+            )
+            .unwrap();
+        clock.set(initial + 5_000);
+        assert_eq!(
+            registry
+                .authorize(
+                    &auth.peer,
+                    &a.credential,
+                    &binding,
+                    &[Scope::Observer],
+                    &[],
+                    None
+                )
+                .unwrap_err(),
+            Error::ClockUnavailable
+        );
+        drop(registry);
+        let mut registry = ExternalRegistry::open_with_clock(&owner, clock.clone()).unwrap();
+        // Catching up alone is not repair and never resurrects an old credential.
+        clock.set(initial + 10_001);
+        assert_eq!(
+            registry
+                .authorize(
+                    &auth.peer,
+                    &a.credential,
+                    &binding,
+                    &[Scope::Observer],
+                    &[],
+                    None
+                )
+                .unwrap_err(),
+            Error::ClockUnavailable
+        );
+        assert_eq!(
+            registry
+                .issue(
+                    &auth.proof(),
+                    &binding,
+                    &[Scope::Observer],
+                    &[],
+                    Duration::from_secs(1)
+                )
+                .unwrap_err(),
+            Error::ClockUnavailable
+        );
+        let other_root = test_support::root("df-eg-");
+        let other = test_support::acquire(other_root.path()).unwrap();
+        let mut other_auth = Auth::new(&other, Duration::from_secs(60));
+        assert_eq!(
+            registry
+                .recover_clock(
+                    &other_auth.proof(),
+                    &TrustedDesktopAction::from_explicit_desktop_action()
+                )
+                .unwrap_err(),
+            Error::Unauthorized
+        );
+        clock.set(0);
+        assert_eq!(
+            registry
+                .recover_clock(
+                    &auth.proof(),
+                    &TrustedDesktopAction::from_explicit_desktop_action()
+                )
+                .unwrap_err(),
+            Error::ClockUnavailable
+        );
+        assert!(
+            registry
+                .list(&auth.proof())
+                .unwrap()
+                .iter()
+                .all(|r| !r.revoked)
+        );
+        assert!(registry.clock_status(&auth.proof()).unwrap().fault_latched);
+        clock.set(initial + 5_000);
+        assert_eq!(
+            registry
+                .recover_clock(
+                    &auth.proof(),
+                    &TrustedDesktopAction::from_explicit_desktop_action()
+                )
+                .unwrap(),
+            2
+        );
+        assert_eq!(
+            registry.clock_status(&auth.proof()).unwrap(),
+            ClockStatus {
+                high_water: initial + 5_000,
+                fault_latched: false
+            }
+        );
+        assert_eq!(registry.list(&auth.proof()).unwrap().len(), 2); // no pruning
+        assert!(
+            registry
+                .list(&auth.proof())
+                .unwrap()
+                .iter()
+                .all(|r| r.revoked)
+        );
+        for credential in [&a.credential, &b.credential] {
+            assert_eq!(
+                registry
+                    .authorize(
+                        &auth.peer,
+                        credential,
+                        &binding,
+                        &[Scope::Observer],
+                        &[],
+                        None
+                    )
+                    .unwrap_err(),
+                Error::Revoked
+            );
+        }
+        let fresh = issue(
+            &mut registry,
+            &mut auth,
+            &binding,
+            &[Scope::Observer],
+            &[],
+            Duration::from_secs(1),
+        );
+        assert_eq!(fresh.record.created_at, initial + 5_000);
+        registry
+            .authorize(
+                &auth.peer,
+                &fresh.credential,
+                &binding,
+                &[Scope::Observer],
+                &[],
+                None,
+            )
+            .unwrap();
+    }
+
+    #[test]
+    fn external_auth_clock_v1_migration_preserves_all_grant_data_and_high_water() {
+        let root = test_support::root("df-eg-");
+        let owner = test_support::acquire(root.path()).unwrap();
+        let binding = project(root.path(), "project-a", 1);
+        let clock = TestClock::new();
+        let mut registry = ExternalRegistry::open_with_clock(&owner, clock.clone()).unwrap();
+        let mut auth = Auth::new(&owner, Duration::from_secs(60));
+        let grant = issue(
+            &mut registry,
+            &mut auth,
+            &binding,
+            &[Scope::Observer],
+            &[InformationScope::MailContent],
+            Duration::from_secs(30),
+        );
+        let before = serde_json::to_value(registry.list(&auth.proof()).unwrap()).unwrap();
+        let high_water = registry.clock_status(&auth.proof()).unwrap().high_water;
+        drop(registry);
+        let db =
+            Connection::open(owner.endpoint().directory.join("external-grants.sqlite3")).unwrap();
+        // Recreate the exact v1 identity table; leave every grant row untouched.
+        db.execute_batch("BEGIN IMMEDIATE; ALTER TABLE registry_identity RENAME TO registry_identity_v2; CREATE TABLE registry_identity(singleton INTEGER PRIMARY KEY CHECK(singleton=1),root_identity TEXT NOT NULL,owner_hash TEXT NOT NULL,high_water INTEGER NOT NULL); INSERT INTO registry_identity SELECT singleton,root_identity,owner_hash,high_water FROM registry_identity_v2; DROP TABLE registry_identity_v2; PRAGMA user_version=1; COMMIT;").unwrap();
+        db.close().unwrap();
+        let mut migrated = ExternalRegistry::open_with_clock(&owner, clock).unwrap();
+        assert_eq!(
+            migrated
+                .db
+                .pragma_query_value::<u32, _>(None, "user_version", |row| row.get(0))
+                .unwrap(),
+            2
+        );
+        assert_eq!(
+            migrated.clock_status(&auth.proof()).unwrap(),
+            ClockStatus {
+                high_water,
+                fault_latched: false
+            }
+        );
+        assert_eq!(
+            serde_json::to_value(migrated.list(&auth.proof()).unwrap()).unwrap(),
+            before
+        );
+        let accepted = migrated
+            .authorize(
+                &auth.peer,
+                &grant.credential,
+                &binding,
+                &[Scope::Observer],
+                &[InformationScope::MailContent],
+                None,
+            )
+            .unwrap();
+        assert_eq!(accepted.grant_id(), &grant.record.grant_id);
+        assert_eq!(accepted.client_id(), &grant.record.client_id);
+    }
+
+    #[test]
+    fn external_auth_clock_recovery_proof_expiring_during_sql_wait_changes_nothing() {
+        let root = test_support::root("df-eg-");
+        let owner = test_support::acquire(root.path()).unwrap();
+        let binding = project(root.path(), "project-a", 1);
+        let clock = TestClock::new();
+        let initial = clock.now().unwrap();
+        let mut registry = ExternalRegistry::open_with_clock(&owner, clock.clone()).unwrap();
+        let mut auth = Auth::new(&owner, Duration::from_secs(60));
+        let grant = issue(
+            &mut registry,
+            &mut auth,
+            &binding,
+            &[Scope::Observer],
+            &[],
+            Duration::from_secs(30),
+        );
+        clock.set(initial - 1);
+        assert_eq!(
+            registry
+                .authorize(
+                    &auth.peer,
+                    &grant.credential,
+                    &binding,
+                    &[Scope::Observer],
+                    &[],
+                    None
+                )
+                .unwrap_err(),
+            Error::ClockUnavailable
+        );
+        // Setup filesystem/SQL costs must not consume the deliberately short
+        // proof lifetime before the contention scenario begins.
+        let mut short_auth = Auth::new(&owner, Duration::from_millis(80));
+        let proof = short_auth.proof();
+        let block =
+            Connection::open(owner.endpoint().directory.join("external-grants.sqlite3")).unwrap();
+        block.execute_batch("BEGIN EXCLUSIVE;").unwrap();
+        std::thread::scope(|scope| {
+            scope.spawn(move || {
+                std::thread::sleep(Duration::from_millis(130));
+                block.execute_batch("COMMIT;").unwrap();
+            });
+            proof.check_current(Instant::now()).unwrap();
+            assert_eq!(
+                registry
+                    .recover_clock(
+                        &proof,
+                        &TrustedDesktopAction::from_explicit_desktop_action()
+                    )
+                    .unwrap_err(),
+                Error::Unauthorized
+            );
+        });
+        assert_eq!(
+            read_clock(&registry.db).unwrap(),
+            ClockStatus {
+                high_water: initial,
+                fault_latched: true
+            }
+        );
+        let revoked: bool = registry
+            .db
+            .query_row(
+                "SELECT revoked FROM grants WHERE grant_id=?1",
+                [grant.record.grant_id.as_str()],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert!(!revoked);
+    }
+
+    #[test]
+    fn external_auth_clock_fault_survives_late_proof_expiry_without_grant_or_data() {
+        for issuer in [true, false] {
+            let root = test_support::root("df-eg-");
+            let owner = test_support::acquire(root.path()).unwrap();
+            let binding = project(root.path(), "project-a", 1);
+            let clock = TestClock::new();
+            let initial = clock.now().unwrap();
+            let mut registry = ExternalRegistry::open_with_clock(&owner, clock.clone()).unwrap();
+            let mut auth = Auth::new(&owner, Duration::from_secs(60));
+            issue(
+                &mut registry,
+                &mut auth,
+                &binding,
+                &[Scope::Observer],
+                &[],
+                Duration::from_secs(30),
+            );
+            clock.set(initial - 1);
+            let mut short = Auth::new(&owner, Duration::from_millis(200));
+            let proof = short.proof();
+            // Expiry is forced inside the server-clock observation, after fresh
+            // admission, rather than depending on normal filesystem/SQL speed.
+            clock.delay_observation(300);
+            proof.check_current(Instant::now()).unwrap();
+            if issuer {
+                assert_eq!(
+                    registry
+                        .issue(
+                            &proof,
+                            &binding,
+                            &[Scope::Observer],
+                            &[],
+                            Duration::from_secs(1)
+                        )
+                        .unwrap_err(),
+                    Error::Unauthorized
+                );
+            } else {
+                assert_eq!(registry.list(&proof).unwrap_err(), Error::Unauthorized);
+            }
+            assert_eq!(
+                read_clock(&registry.db).unwrap(),
+                ClockStatus {
+                    high_water: initial,
+                    fault_latched: true
+                }
+            );
+            let count: i64 = registry
+                .db
+                .query_row("SELECT count(*) FROM grants", [], |row| row.get(0))
+                .unwrap();
+            assert_eq!(count, 1);
+        }
     }
 
     #[test]

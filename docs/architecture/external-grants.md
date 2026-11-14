@@ -1,6 +1,6 @@
 # M13.1 external grant registry foundation
 
-Status: isolated backend implementation; eight staged fixture tests and library clippy passed on macOS ARM64. No public
+Status: isolated backend implementation; original fixture evidence plus scoped clock-hardening fixtures and library clippy passed on macOS ARM64. No public
 CLI/MCP dispatcher, GUI consent flow, external client connection or native
 credential-service behavior is established by this module.
 
@@ -45,9 +45,11 @@ environment, logs, ordinary tool results or silent agent-config replacement.
   fails closed. Owner-controlled pruning/rotation is a later policy, not silent
   eviction. Tokens/client IDs survive manager restart without native Keychain or
   Credential Manager startup access.
-- The clock is server-owned. Durable high-water time and an expired flag prevent
-  an observed expired credential from becoming valid after clock rollback or
-  restart. Revocation is durable and immediately denies subsequent checks.
+- The clock is server-owned. A durable high-water plus latched clock fault denies
+  issuance/authorization after observed backward or invalid/unavailable server
+  time, including before a grant expires. The fault is committed before returning
+  ClockUnavailable and survives restart. Catching up never clears it. Existing
+  expired flags and durable revocation remain independent denial conditions.
 - Grants are not permanently frozen to a project revision. Reads can inspect
   current registered facts. Supplied expected revision is checked against the
   current trusted binding; mutation/review requirements remain separate.
@@ -74,3 +76,55 @@ Moving or replacing the manager data root itself fails the stored registry ident
 check. An owner-controlled registry adoption/reset path is not implemented here;
 no automatic relocation or silent reuse of old grants is claimed. Project-root
 relocation within the same manager requires a newly issued grant after consent.
+
+## Clock correctness hardening
+
+Registry schema2 adds only clock_fault to the v1 identity row, with default0.
+Migration preserves root/owner identity, high-water, every client/grant identity,
+credential hash, rights, expiry and revocation row. Root identity is checked before
+migration. Newer unknown schema versions still fail closed.
+
+Issue and authorize use strict server-clock observation. An observed rollback,
+invalid value or ClockUnavailable response latches the fault; even a later forward
+clock cannot automatically restore old grants. Those paths commit the security
+latch before returning ClockUnavailable rather than losing it in transaction
+rollback. Grant expiry/revoke checks remain effective after healthy-clock recovery.
+
+Owner list is administrative metadata only. It can use the last safe time while
+faulted/unavailable, and a backward/unavailable listing observation also latches the
+fault. Its expired=false field is never evidence of usable authorization.
+clock_status returns only the stored last-observation high_water/fault_latched
+snapshot under fresh native owner authority; it is not an authorization proof or
+an independent live clock check. Owner revoke remains clock-independent.
+
+recover_clock requires BOTH a current same-root DesktopAuthority and explicit
+TrustedDesktopAction. It accepts no timestamp and has no controller/CLI/GUI route.
+Within one immediate transaction it marks every old grant revoked, resets baseline
+from a valid server-owned clock sample and clears the latch, rechecking proof after
+SQL waits and before commit. Failure rolls everything back. No credential is
+restored, refreshed or pruned; capacity policy remains unchanged. This method must
+never be called as automatic repair or while processing a client-supplied role/time.
+
+The protection relies on observed server wall time, not hardware realtime, trusted
+NTP or a guarantee about undetected clock manipulation between observations.
+A valid explicit recovery sample is still the server's clock. Actual external
+handlers must reauthorize at admission/dequeue, and running-job cancellation remains
+separate future dispatcher policy.
+
+Focused evidence: a pre-expiry rollback regression first reproduced the clamped
+clock bug; clock cases cover denied issuance/work, durable catch-up refusal,
+owner listing/revoke, additive v1 preservation, foreign-owner/invalid-clock recovery,
+revocation of all old credentials, valid reissuance and proof expiry during SQLite
+contention. The affected historical expiry/revoke/rollback case also passed with
+ClockUnavailable taking precedence while latched. Other unchanged fixtures were
+not rerun. No native credential service, GUI, external client or Windows execution
+is claimed by these local clock tests.
+
+Fault persistence is deliberately a deny-only commit path. If an admitted native
+proof expires during the clock observation, issue/list still commits the clock
+fault but returns Unauthorized with no credential or metadata. That fault-only
+transaction cannot contain a new grant. Faulted administrative listing opens its
+protected-record transaction only afterward; decode/late-authorization failure
+cannot roll back the security latch. Healthy issuance and recovery still require
+fresh authority before their grant-enabling commits. A controlled delayed-clock
+fixture forces this late-expiry edge independently of normal disk speed.
