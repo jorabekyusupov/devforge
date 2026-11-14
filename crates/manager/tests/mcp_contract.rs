@@ -72,7 +72,7 @@ fn legacy_handshake_does_not_supply_metadata_to_modern_requests() {
             .as_array()
             .unwrap()
             .len(),
-        5
+        9
     );
     let mut modern = modern(json!(4), "ping", json!({}));
     modern["params"]["_meta"]
