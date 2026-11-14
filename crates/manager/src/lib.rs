@@ -88,5 +88,5 @@ pub mod external_control;
 pub mod credential_file;
 pub mod mcp_contract;
 
-pub mod service_control;
 mod environment_control;
+pub mod service_control;
