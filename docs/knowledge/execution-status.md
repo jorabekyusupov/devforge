@@ -867,3 +867,48 @@ readonlyREST sample chose5b9930c/run43576221093. No product/native suite rerunlo
 FirstTP03workflow/scriptsdiff forcesFULL tovalidatepre-migrationpartialscopes;
 historicalcheckpointnotimmutableartifact attestation. Producerfailures stillallow
 matrixFULL(!cancelled), notskippedchecks. Newpolicyremoteacceptancepending.
+
+
+## M13.1.11 private facade, recovery and thin-client lease prerequisite
+
+[Facade](../architecture/manager-desktop-facade.md), [SDK](../architecture/manager-native-client.md)
+va [migration gates](../architecture/manager-desktop-migration.md). Typed native
+Inspector/mail/log/debug/config reads, sensitive access/open/discovery-root,
+coalesced owner discovery, stable own-operation list and point-in-time by-key
+lookup. Native session/kernel/root checks retained; external grants/tools notwired.
+Readtickets RAM128/120s+2pending share32items/16MiBqueue, no SQLpolljournalgrowth.
+Backgroundreads separatefrommutationbusy. Read/large-mutation encodedimages64MiB
+x2 retained, aggregate128MiB includingencoding/exportpins, TTL/digest/root/offset
+validated; near64KiBYAMLwrite staysSucceeded withfullresult, notfalsefailedsave.
+
+Knownsecret-bearing bodies(ConfigSecret, DebugHttp, DebugRequest, ConfigurationSave)
+useinput-independent randomjournalmarker+boundedzeroizingRAMfingerprint, notpersisted
+unkeyedsecret-derivedSHA. RAMgone→IdempotencyUnverifiable; readonlybykeyrecovers
+receiptwithoutbodyequivalence/reexecution. No universalDLPpromiseforarbitrarymetadata.
+SDK durablelost/corruptaccessreply→AdmissionUnconfirmed, noautoretry/newkey; None
+lookupisnotproofnoadmission. Reads/resultdownloads incremental, nativecredentials
+remainRustonly. DebuggerfiniteDomainScope added; unknownscope stilldenied.
+
+Worktree/cache subjectresolvedownedrecords andworkerrevalidated. GlobalCreate/
+WorktreeCreate recoverychild association trustedbefore/after/OSidentity, receipts
+keep root/source namespace. No arbitraryforeignError.project_id relabeling.
+ManagerkeepslegacyAppLease; newNativeClientLease distinctlock+OperationLease
+preservessinglethinGUI/installerexclusion, sharedfinalrootsymlink/reparseguard.
+ActualGUIstilloldWorkspace; no default/cutover/OScredential/dialog/windowaction.
+
+Evidence: desktop6 +quota2 +actor10 +controller7 +adapterboundary1 passed; subjects
+5prior+2newworktree cases (old5reused), secretlookup1 andnewknownbodypolicy1 passed.
+SDKfacade/cancellable/uncertain-access each1passed, priorfourSDKcasesreused.
+Actualsource/near64Ksave/faultrelay effects checked; HTTP policyfixture denied
+NoRuntime, notactualHTTP execution. Manageralltargetsclippy afterfinalmatcher,
+SDKscopedclippy and rootmanager/adapter/platformfmt passed. NativeClientLease
+platformdistribution15/scopedclippy passed. RealWindows/newIntel/GUI/Xdebug/
+Terminalwindow/nativeKeychain/minOS gates remain; notwholeM13.1completion.
+
+ActorCI timingfixtures splitinto deterministicrealSQLitefailure/recovery and
+CondvarMemorySecretStore queue32/cancel; accepted-work continuation uses trusted
+virtualauthcacheexpiry afteradmission, productiontimeouts unchanged. Threechanged
+filters +subjectexpectation1 passed, then10actorintegration passed withnewbackend.
+983Windowsjunctionfixture stillfailedsyntax; rawcmd /D /V:OFF /S /C+raw_arg fixed
+quote strategy nowmatchesexistingWindows-passingprobe. Macguard1/clippy passed;
+newWindowsproofpending, no skip/permissionbypass. Failurehistorypreserved.

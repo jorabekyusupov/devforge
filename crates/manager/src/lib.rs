@@ -71,7 +71,11 @@ pub mod native_client;
 
 pub mod payload;
 
+mod subjects;
+
 pub mod external_auth;
 
 #[cfg(test)]
 extern crate self as devforge_manager;
+
+pub mod desktop;

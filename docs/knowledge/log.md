@@ -4,6 +4,8 @@
 
 ## 2026-11-14
 
+- **M13.1.11 privatefacade:** native read/access/discovery/ops-bykey, ephemeralboundedpolls+sharedlargeimages, truthfullargewrites/recovery, volatileknownsecretbodies, finiteDebuggerScope. Scoped6/2/10/7+adapter/subjects/SDKcases/clippy pass; newclientlease15tests, Windowsrawcmdfixturefollowup. GUI/default/NativeStore notflipped. [Facade](../architecture/manager-desktop-facade.md), [migration](../architecture/manager-desktop-migration.md), [execution](execution-status.md).
+
 - **TP03 accumulatedCI:** bothnativeRuststeps-greenancestor→HEAD baseline, docs-onlyexcluded, boundedAPI/HTTP/historyambiguity FULL notparentdiff.29selectorfixtures+actualreadonlyREST/YAMLreview; firstmigrationFULL/remotegatepending. [Contract](../architecture/ci-validated-baseline.md).
 
 - **CI followup:** preferencesone-lineRustfmtfixed/scopedcheck; Windowsjunctionfixture normalWin32args+boundedredacteddiagnostics, affectedMacguard1/clippy passed. Original9adfmt/5f16fixture failures retained; actualnewWindowsproofpending. ActorCI timingfixturesfixedseparatelywithfacadedependency. [Execution](execution-status.md).

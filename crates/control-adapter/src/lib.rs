@@ -164,6 +164,7 @@ pub enum DomainScope {
     Runtime,
     Serving,
     Workspace,
+    Debugger,
 }
 #[derive(Debug, Serialize)]
 pub struct DomainFailure {
@@ -183,6 +184,7 @@ pub fn map_failure(
         "runtime" => DomainScope::Runtime,
         "serving" => DomainScope::Serving,
         "workspace" => DomainScope::Workspace,
+        "debugger" => DomainScope::Debugger,
         _ => return Err(ErrorCode::StorageUnavailable),
     };
     if error

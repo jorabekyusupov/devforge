@@ -10,7 +10,10 @@ use devforge_manager::{
         ActorError, ActorHandle, CancelOutcome, OperationIdentity, QUEUE_CAPACITY, Receipt,
         WorkspaceActor,
     },
-    auth::{DesktopAuth, DesktopAuthority, Policy, SessionCredential, TrustedDesktopAction},
+    auth::{
+        AuthError, DesktopAuth, DesktopAuthority, Policy, SessionCredential, TrustedDesktopAction,
+    },
+    desktop::{AccessRequest, SecretValue},
 };
 use devforge_runtime::package::Target;
 use devforge_workspace::Command;
@@ -20,7 +23,7 @@ use std::{
     collections::BTreeMap,
     fs,
     path::{Path, PathBuf},
-    sync::{Arc, Mutex},
+    sync::{Arc, Condvar, Mutex},
     thread,
     time::{Duration, Instant},
 };
@@ -51,6 +54,101 @@ impl SecretStore for MemoryAuthSecrets {
         self.0.lock().unwrap().remove(key);
         Ok(())
     }
+}
+
+#[derive(Default)]
+struct SecretGateState {
+    armed: bool,
+    entered: bool,
+    released: bool,
+}
+#[derive(Default)]
+struct SecretGate {
+    state: Mutex<SecretGateState>,
+    changed: Condvar,
+}
+struct ReleaseSecretGate(Arc<SecretGate>);
+impl ReleaseSecretGate {
+    fn wait_until_entered(&self) {
+        let state = self.0.state.lock().unwrap();
+        let (state, _) = self
+            .0
+            .changed
+            .wait_timeout_while(state, Duration::from_secs(10), |s| !s.entered)
+            .unwrap();
+        assert!(
+            state.entered,
+            "real configuration secret write did not reach the gate"
+        );
+    }
+    fn release(&self) {
+        let mut state = self.0.state.lock().unwrap();
+        state.released = true;
+        self.0.changed.notify_all();
+    }
+}
+impl Drop for ReleaseSecretGate {
+    fn drop(&mut self) {
+        // Unblock Workspace cleanup even if a capacity/latency assertion panics.
+        self.release();
+    }
+}
+#[derive(Default)]
+struct BlockingMemorySecrets {
+    values: Mutex<BTreeMap<String, String>>,
+    gate: Arc<SecretGate>,
+}
+impl BlockingMemorySecrets {
+    fn block_sets(&self) -> ReleaseSecretGate {
+        let mut state = self.gate.state.lock().unwrap();
+        assert!(!state.armed, "one controlled gate per isolated fixture");
+        state.armed = true;
+        ReleaseSecretGate(self.gate.clone())
+    }
+}
+impl SecretStore for BlockingMemorySecrets {
+    fn get(&self, key: &str) -> Result<Option<String>, ErrorCode> {
+        Ok(self.values.lock().unwrap().get(key).cloned())
+    }
+    fn set(&self, key: &str, value: &str) -> Result<(), ErrorCode> {
+        let mut state = self.gate.state.lock().unwrap();
+        if state.armed && !state.released {
+            state.entered = true;
+            self.gate.changed.notify_all();
+            while !state.released {
+                state = self.gate.changed.wait(state).unwrap();
+            }
+        }
+        drop(state);
+        self.values.lock().unwrap().insert(key.into(), value.into());
+        Ok(())
+    }
+    fn delete(&self, key: &str) -> Result<(), ErrorCode> {
+        self.values.lock().unwrap().remove(key);
+        Ok(())
+    }
+}
+
+fn block_real_secret_write(
+    handle: &ActorHandle,
+    proof: &DesktopAuthority<'_>,
+    secrets: &BlockingMemorySecrets,
+    project: &str,
+) -> (ReleaseSecretGate, Receipt) {
+    let release = secrets.block_sets();
+    let receipt = handle
+        .desktop_access(
+            proof,
+            id("controlled-secret-write"),
+            AccessRequest::ConfigurationSecret {
+                project_id: id(project),
+                reference: "fixture_gate".into(),
+                value: SecretValue::new("disposable-memory-only-fixture").unwrap(),
+            },
+        )
+        .unwrap();
+    release.wait_until_entered();
+    (release, receipt)
 }
 struct Authorization {
     auth: DesktopAuth,
@@ -275,7 +373,7 @@ fn single_workspace_metadata_idempotency_persistence_and_lease_lifetime() {
 }
 
 #[test]
-fn real_sqlite_contention_keeps_cache_and_cancel_fast_with_bounded_admission() {
+fn real_sqlite_contention_keeps_cache_and_cancel_fast_with_truthful_storage_failure() {
     let root = common::root("df-actor-");
     let owner = common::acquire(root.path()).unwrap();
     let mut auth = Authorization::new(&owner, 12, Policy::default());
@@ -300,10 +398,9 @@ fn real_sqlite_contention_keeps_cache_and_cancel_fast_with_bounded_admission() {
             },
         )
         .unwrap();
-    // An idle periodic snapshot can begin its real SQLite read just before this
-    // job is dequeued. ProjectStore deliberately waits up to three seconds on
-    // this fixture's exclusive lock. Cover that existing bound plus CI scheduling
-    // before asserting Running; this does not relax cache/cancel latency checks.
+    // Periodic refresh can already be waiting on this real ProjectStore lock.
+    // Allow its existing busy timeout before the job reaches Running, without
+    // changing the production timeout or the cache/cancel latency assertions.
     let until = Instant::now() + Duration::from_secs(6);
     while handle
         .status(&proof, &id(&a), &active.operation_id)
@@ -314,6 +411,86 @@ fn real_sqlite_contention_keeps_cache_and_cancel_fast_with_bounded_admission() {
         assert!(Instant::now() < until);
         thread::sleep(Duration::from_millis(2));
     }
+    let started = Instant::now();
+    let cached = handle.cached_snapshot(&proof).unwrap();
+    assert!(started.elapsed() < Duration::from_millis(500));
+    assert!(cached.busy);
+    let started = Instant::now();
+    let cancellation = handle
+        .cancel(&proof, &id(&a), &active.operation_id)
+        .unwrap();
+    assert!(started.elapsed() < Duration::from_millis(500));
+    assert!(matches!(
+        cancellation,
+        CancelOutcome::Requested | CancelOutcome::AlreadyTerminal
+    ));
+
+    // Keep the actual lock until the real domain failure is persisted. SQLite
+    // waits are not cancelled by the metadata command's cancellation bit; never
+    // describe that timeout as successful cancellation or roll it back in tests.
+    assert_eq!(
+        terminal(&handle, &proof, &active).state,
+        OperationState::Failed
+    );
+    let detail = handle
+        .failure_detail(&proof, &id(&a), &active.operation_id)
+        .unwrap();
+    assert_eq!(detail.scope, DomainScope::Project);
+    assert_eq!(detail.code, "storage_unavailable");
+    block.execute_batch("COMMIT;").unwrap();
+
+    let recovery = handle
+        .submit_desktop(
+            &proof,
+            identity(&b, "after-contention"),
+            Command::Favorite {
+                id: b.clone(),
+                favorite: true,
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        terminal(&handle, &proof, &recovery).state,
+        OperationState::Succeeded
+    );
+    let snapshot = handle.cached_snapshot(&proof).unwrap();
+    assert!(
+        !snapshot
+            .snapshot
+            .projects
+            .iter()
+            .find(|row| row.project.id == a)
+            .unwrap()
+            .navigation
+            .favorite
+    );
+    assert!(
+        snapshot
+            .snapshot
+            .projects
+            .iter()
+            .find(|row| row.project.id == b)
+            .unwrap()
+            .navigation
+            .favorite
+    );
+    actor.shutdown().unwrap();
+}
+
+#[test]
+fn real_secret_store_gate_keeps_queue_capacity_and_target_cancel_deterministic() {
+    let root = common::root("df-actor-");
+    let owner = common::acquire(root.path()).unwrap();
+    let mut auth = Authorization::new(&owner, 13, Policy::default());
+    let proof = auth.proof();
+    let secrets = Arc::new(BlockingMemorySecrets::default());
+    let actor = WorkspaceActor::start(owner.claim_workspace().unwrap(), secrets.clone()).unwrap();
+    let handle = actor.handle();
+    let a = register(&handle, &proof, root.path(), "capacity-a");
+    let b = register(&handle, &proof, root.path(), "capacity-b");
+    // This is an existing Workspace configuration_secret operation blocked at
+    // its injected SecretStore, with no fake Workspace/runtime or SQLite timeout.
+    let (release, active) = block_real_secret_write(&handle, &proof, &secrets, &a);
     let before = handle.cached_snapshot(&proof).unwrap();
     let started = Instant::now();
     let cached = handle.cached_snapshot(&proof).unwrap();
@@ -330,12 +507,15 @@ fn real_sqlite_contention_keeps_cache_and_cancel_fast_with_bounded_admission() {
                     identity(project, &format!("queued-{n}")),
                     Command::Favorite {
                         id: project.clone(),
-                        favorite: n != 0,
+                        favorite: true,
                     },
                 )
                 .unwrap(),
         );
     }
+    let usage = handle.queue_usage(&proof).unwrap();
+    assert_eq!(usage.waiting_items, QUEUE_CAPACITY);
+    assert!(usage.active);
     let database = Connection::open(root.path().join("control/operations.sqlite3")).unwrap();
     let count: i64 = database
         .query_row("SELECT count(*) FROM operations", [], |row| row.get(0))
@@ -344,7 +524,7 @@ fn real_sqlite_contention_keeps_cache_and_cancel_fast_with_bounded_admission() {
         handle.submit_desktop(
             &proof,
             identity(&b, "capacity-rejected"),
-            Command::Visit { id: b.clone() }
+            Command::Visit { id: b.clone() },
         ),
         Err(ActorError::Busy)
     ));
@@ -362,30 +542,11 @@ fn real_sqlite_contention_keeps_cache_and_cancel_fast_with_bounded_admission() {
         CancelOutcome::Requested
     );
     assert!(started.elapsed() < Duration::from_millis(500));
+    release.release();
     assert_eq!(
-        handle
-            .cancel(&proof, &id(&a), &active.operation_id)
-            .unwrap(),
-        CancelOutcome::Requested
+        terminal(&handle, &proof, &active).state,
+        OperationState::Succeeded
     );
-    block.execute_batch("COMMIT;").unwrap();
-    // The real ProjectStore lock waits at most three seconds. Durable admission
-    // of 32 receipts can exceed that on a busy host; that is a truthful domain
-    // failure, not successful cancellation or rollback. Do not extend production
-    // timeouts to make this fixture deterministic. A fast release still succeeds.
-    let active_terminal = terminal(&handle, &proof, &active);
-    let active_succeeded = match active_terminal.state {
-        OperationState::Succeeded => true,
-        OperationState::Failed => {
-            let detail = handle
-                .failure_detail(&proof, &id(&a), &active.operation_id)
-                .unwrap();
-            assert_eq!(detail.scope, DomainScope::Project);
-            assert_eq!(detail.code, "storage_unavailable");
-            false
-        }
-        state => panic!("metadata lock must succeed or report its storage failure: {state:?}"),
-    };
     assert_eq!(
         terminal(&handle, &proof, &queued[0]).state,
         OperationState::Cancelled
@@ -397,17 +558,15 @@ fn real_sqlite_contention_keeps_cache_and_cancel_fast_with_bounded_admission() {
         );
     }
     let snapshot = handle.cached_snapshot(&proof).unwrap();
-    assert_eq!(
-        snapshot
+    assert!(
+        !snapshot
             .snapshot
             .projects
             .iter()
             .find(|row| row.project.id == a)
             .unwrap()
             .navigation
-            .favorite,
-        active_succeeded,
-        "cancelled queued A must preserve the actual active A outcome"
+            .favorite
     );
     assert!(
         snapshot
@@ -600,7 +759,7 @@ fn project_subject_cannot_relabel_another_project_or_ambiguous_resource() {
                 id: "worktree-record-not-project".into()
             }
         ),
-        Err(ActorError::UnsupportedSubject)
+        Err(ActorError::SubjectMismatch)
     ));
     assert!(matches!(
         handle.submit_desktop(
@@ -610,7 +769,7 @@ fn project_subject_cannot_relabel_another_project_or_ambiguous_resource() {
                 instance: "project-cache-instance".into()
             }
         ),
-        Err(ActorError::UnsupportedSubject)
+        Err(ActorError::SubjectMismatch)
     ));
     assert_eq!(
         db.query_row::<i64, _, _>("SELECT count(*) FROM operations", [], |row| row.get(0))
@@ -674,11 +833,8 @@ fn project_subject_cannot_relabel_another_project_or_ambiguous_resource() {
 fn expiry_while_waiting_for_admission_rolls_back_but_committed_jobs_continue() {
     let root = common::root("df-actor-");
     let owner = common::acquire(root.path()).unwrap();
-    let actor = WorkspaceActor::start(
-        owner.claim_workspace().unwrap(),
-        Arc::new(NoWorkspaceSecrets),
-    )
-    .unwrap();
+    let secrets = Arc::new(BlockingMemorySecrets::default());
+    let actor = WorkspaceActor::start(owner.claim_workspace().unwrap(), secrets.clone()).unwrap();
     let handle = actor.handle();
     let mut initial = Authorization::new(&owner, 9, Policy::default());
     let initial_proof = initial.proof();
@@ -721,30 +877,48 @@ fn expiry_while_waiting_for_admission_rolls_back_but_committed_jobs_continue() {
         0
     );
 
-    let block = Connection::open(root.path().join("projects/projects.sqlite3")).unwrap();
-    block.execute_batch("BEGIN EXCLUSIVE;").unwrap();
-    let mut short = Authorization::new(&owner, 11, policy);
-    let proof = short.proof();
-    let admitted = handle
-        .submit_desktop(
-            &proof,
-            identity(&project, "accepted-before-expiry"),
-            Command::Favorite {
-                id: project.clone(),
-                favorite: true,
-            },
-        )
-        .unwrap();
-    thread::sleep(Duration::from_millis(120));
-    assert_eq!(
+    let (release, active) = block_real_secret_write(&handle, &initial_proof, &secrets, &project);
+    // Admission must not depend on a Windows fsync finishing within a tiny TTL.
+    // After durable acceptance, advance the auth policy's trusted fixture clock
+    // to expire its cache. The actor must not undo an already accepted job.
+    let accepted_policy = Policy::default();
+    let mut accepted = Authorization::new(&owner, 11, accepted_policy);
+    let admitted = {
+        let proof = accepted.proof();
         handle
-            .status(&proof, &id(&project), &admitted.operation_id)
+            .submit_desktop(
+                &proof,
+                identity(&project, "accepted-before-expiry"),
+                Command::Favorite {
+                    id: project.clone(),
+                    favorite: true,
+                },
+            )
+            .unwrap()
+    };
+    let expired_at = Instant::now() + accepted_policy.session_lifetime + Duration::from_secs(1);
+    assert_eq!(
+        accepted
+            .auth
+            .authorize(&accepted.peer, &accepted.session, expired_at)
             .unwrap_err(),
-        ActorError::Unauthorized
+        AuthError::Unauthorized
     );
-    block.execute_batch("COMMIT;").unwrap();
+    assert_eq!(
+        accepted
+            .auth
+            .authorize(&accepted.peer, &accepted.session, Instant::now())
+            .unwrap_err(),
+        AuthError::Unauthorized,
+        "the server cache really discarded the expired session"
+    );
+    release.release();
     let mut fresh = Authorization::new(&owner, 12, Policy::default());
     let fresh_proof = fresh.proof();
+    assert_eq!(
+        terminal(&handle, &fresh_proof, &active).state,
+        OperationState::Succeeded
+    );
     assert_eq!(
         terminal(&handle, &fresh_proof, &admitted).state,
         OperationState::Succeeded

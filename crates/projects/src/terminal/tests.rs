@@ -109,13 +109,25 @@ fn directory_link(target: &Path, link: &Path) {
     std::os::unix::fs::symlink(target, link).unwrap();
     #[cfg(windows)]
     {
+        use std::os::windows::process::CommandExt;
         let system = std::env::var_os("SystemRoot").unwrap();
+        let link_arg = dunce::simplified(link).to_str().unwrap();
+        let target_arg = dunce::simplified(target).to_str().unwrap();
+        // Only disposable fixture paths enter this fixed builtin. Forbid quote
+        // termination and percent expansion; /V:OFF disables delayed expansion.
+        for value in [link_arg, target_arg] {
+            assert!(
+                !value.contains(['"', '%', '\r', '\n', '\0']),
+                "unsupported fixture path syntax"
+            );
+        }
+        let script = format!("mklink /J \"{link_arg}\" \"{target_arg}\"");
+        // cmd /S /C strips this outer quote pair, preserving the two path pairs.
+        // raw_arg avoids applying C-runtime argv escaping to cmd's command text.
         let result =
             std::process::Command::new(std::path::PathBuf::from(system).join("System32/cmd.exe"))
-                .args(["/D", "/C", "mklink", "/J"])
-                // Use normal Win32 paths for cmd's mklink, not verbatim \\?\ spelling.
-                .arg(dunce::simplified(link))
-                .arg(dunce::simplified(target))
+                .args(["/D", "/V:OFF", "/S", "/C"])
+                .raw_arg(format!("\"{script}\""))
                 .output()
                 .unwrap();
         let mut diagnostic = String::from_utf8_lossy(&result.stderr).into_owned();

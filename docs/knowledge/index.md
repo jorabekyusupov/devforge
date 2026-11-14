@@ -29,6 +29,9 @@ mavzuni tanlang, so'ng faqat tegishli hujjatlar va ularning manbalarini o'qing.
 
 ## Manba va yuritish
 
+- [Private desktop facade](../architecture/manager-desktop-facade.md) - owner read/access, bounded images, ephemeral polling, operations va trusted recovery.
+- [Thin-client migration gates](../architecture/manager-desktop-migration.md) - 20 handler parity, implemented client lease va qolgan UI/auth/native adoption.
+
 - [CI validated baseline](../architecture/ci-validated-baseline.md) - failed/queued commitsdan qolgan scope yo‘qolmasligi, ikki platforma successful ancestor va FULL fallback.
 
 - [Atomic settings patches](../architecture/atomic-settings-patches.md) - independent GUI/manager preference writers va None-only folder initialization.

@@ -274,6 +274,11 @@ fn domain_failures_never_return_foreign_ids_or_display_text() {
     error.code = "busy".into();
     error.scope = "workspace";
     assert!(map_failure(&error, &binding).unwrap().retryable);
+    error.scope = "debugger";
+    error.code = "source_outside".into();
+    let debugger = map_failure(&error, &binding).unwrap();
+    assert_eq!(debugger.scope, DomainScope::Debugger);
+    assert_eq!(debugger.code, "source_outside");
     error.scope = "unknown";
     assert!(matches!(
         map_failure(&error, &binding),

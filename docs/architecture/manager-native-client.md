@@ -115,6 +115,54 @@ private frame buffers and Rust credential types are zeroizing. This does not
 promise that every generic serde JSON copy or unrelated project output has been
 securely erased.
 
+## Desktop facade extension
+
+The typed `desktop_read` and `desktop_access` SDK methods cover the legacy owner
+facade without accepting a generic method string or filesystem root from React.
+Pure read jobs return ephemeral receipts; their bounded RAM metadata expires as
+`actor_read_expired` and creates no polling rows in the durable operation DB.
+Access/mutations retain durable receipts. Filtered `operations` pagination also
+returns separately bounded active reads for same-owner GUI reconnection.
+
+Durable `desktop_access` uses the same uncertainty boundary as command admission:
+an actual backend denial or observable local/pre-send rejection remains definite,
+but lost/invalid post-send replies and malformed/mismatched receipts are
+`AdmissionUnconfirmed`. No new key or automatic access retry is generated.
+`operation_by_key` is a separate authenticated read-only point lookup. A returned
+receipt permits status/result reconciliation without executing the access again;
+None is only an observation at that instant because an earlier handler may still
+commit. Keep the original key. Lookup does not verify secret-body equivalence
+after the owner's volatile verifier is gone.
+
+`begin_read_result`, single-RPC `read_result_step`, `finish_read_result` and explicit
+release use an opaque native handle. The handle pins owner/root, fixed deadline,
+cursor and SHA-256; it retains at most64MiB and decodes only the complete image.
+The bridge can keep it outside the SDK mutex and yield between pages so cancel,
+health and other native requests remain responsive. The returned value is the
+exact old owner-read JSON, not a synthetic snapshot or truncated64KiB result.
+
+`begin_result_image` explicitly retrieves a large Succeeded mutation's result
+without executing it again. Missing/evicted mutation results remain unavailable;
+they are not treated as a pure read eligible for new-job replay. This preserves
+near-limit YAML saves whose real result is larger than the old small result slot.
+Failure detail keeps receipt scope in `project_id`; optional
+`recovery_project_id` is a separately trusted worker association, and finite
+`debugger` scope is preserved without string normalization.
+
+Sensitive access values and their nested transient JSON are scrubbed on early
+authentication failure and transport outcomes. The backend stores no plaintext
+or password-derived fingerprint for configuration-secret intent: only a random
+volatile marker is persisted, while same-owner comparisons are bounded in RAM.
+`actor_idempotency_unverifiable` after restart/eviction is surfaced unchanged;
+the SDK does not manufacture a new intent key or replay sensitive access.
+
+The same volatile policy covers known Core free-text boundaries: `DebugHttp`
+headers/body, `DebugRequest` path/query and `ConfigurationSave` YAML/comments.
+Normal fixed metadata commands keep durable input digests. This finite policy is
+not universal DLP: after RAM eviction/restart, lookup/status remain available but
+resubmission may be unverifiable; the SDK never silently creates a new key or
+replays the action.
+
 ## Evidence and remaining gates
 
 Local macOS ARM64 custom-harness SDK checks passed four cases:
@@ -156,3 +204,25 @@ survival. It is a test component, never a production fallback. Actual GUI cold/w
 start, renderer credential isolation, complete M7 control/read compatibility,
 minimum OS, native credential dialogs, installers/signing and HTTP transport remain
 separate gates. No GUI owner mode is enabled by this SDK.
+
+The subsequent targeted `native_client -- facade` case passed on macOS ARM64
+against actual Controller/Workspace producers. It checked a source read larger
+than the old262KiB wire reply, complete Unicode/backslash content with health
+requests between page steps, independent root binding even when two controllers
+share one process PID, exact document/inbox/Inspector/log projections, no durable
+SQL growth from polling reads, and explicit read-image eviction. A valid65,530-byte
+YAML save then stayed Succeeded and returned its full larger-than64KiB mutation
+document. The same case checked sensitive access replay/conflict and a persisted
+random volatile marker without raw secret content; canonical discovery-root
+updates preserved Russian/dark preferences; filtered operation cursors and finite
+Debugger failure scope were retained. Terminal ownership used an unknown project
+and failed before any OS window; no Terminal.app/editor/browser was launched.
+This was a targeted new facade check, not a fresh rerun of every earlier SDK case.
+
+A separate targeted `native_client -- uncertain_access` case also passed. Its
+fault-injection relay forwarded to a real Controller and only then dropped or
+corrupted the actual accepted receipt. Both outcomes remained unconfirmed, while
+a pure key lookup recovered the real receipt and the effect occurred once with
+no SDK retry. An oversized local request was rejected before send, and an actual
+backend denial stayed definite. Only these changed boundaries and scoped SDK/lib
+clippy were rerun; the earlier whole SDK suite was not claimed as freshly rerun.

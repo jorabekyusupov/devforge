@@ -325,6 +325,31 @@ impl<'de> Deserialize<'de> for WireToken {
 #[derive(Deserialize)]
 #[serde(tag = "method", rename_all = "snake_case", deny_unknown_fields)]
 enum Request {
+    OperationByKey {
+        session: WireToken,
+        project_id: Id,
+        idempotency_key: Id,
+    },
+    DesktopRead {
+        session: WireToken,
+        idempotency_key: Id,
+        request: Box<crate::desktop::ReadRequest>,
+    },
+    DesktopAccess {
+        session: WireToken,
+        idempotency_key: Id,
+        request: Box<crate::desktop::AccessRequest>,
+    },
+    #[serde(rename = "discovery_request")]
+    DiscoveryScan {
+        session: WireToken,
+    },
+    Operations {
+        session: WireToken,
+        project_id: Option<Id>,
+        cursor: Option<crate::actor::OperationCursor>,
+        limit: u32,
+    },
     Health {},
     Authenticate {
         credential: WireToken,
@@ -536,6 +561,11 @@ impl Context {
         }
         let session = match &request {
             Request::Snapshot { session }
+            | Request::OperationByKey { session, .. }
+            | Request::DesktopRead { session, .. }
+            | Request::DesktopAccess { session, .. }
+            | Request::DiscoveryScan { session }
+            | Request::Operations { session, .. }
             | Request::Submit { session, .. }
             | Request::Status { session, .. }
             | Request::Result { session, .. }
@@ -557,6 +587,52 @@ impl Context {
             Err(error) => return fault(&error.to_string()),
         };
         match request {
+            Request::OperationByKey {
+                project_id,
+                idempotency_key,
+                ..
+            } => match self
+                .actor
+                .operation_by_key(&authority, project_id, idempotency_key)
+            {
+                Ok(receipt) => bounded_reply(&receipt),
+                Err(error) => fault(error.code()),
+            },
+            Request::DesktopRead {
+                idempotency_key,
+                request,
+                ..
+            } => match self
+                .actor
+                .desktop_read(&authority, idempotency_key, *request)
+            {
+                Ok(receipt) => bounded_reply(&receipt),
+                Err(error) => fault(error.code()),
+            },
+            Request::DesktopAccess {
+                idempotency_key,
+                request,
+                ..
+            } => match self
+                .actor
+                .desktop_access(&authority, idempotency_key, *request)
+            {
+                Ok(receipt) => bounded_reply(&receipt),
+                Err(error) => fault(error.code()),
+            },
+            Request::DiscoveryScan { .. } => match self.actor.discovery_request(&authority) {
+                Ok(()) => success(json!({"requested":true})),
+                Err(error) => fault(error.code()),
+            },
+            Request::Operations {
+                project_id,
+                cursor,
+                limit,
+                ..
+            } => match self.actor.operations(&authority, project_id, cursor, limit) {
+                Ok(page) => bounded_reply(&page),
+                Err(error) => fault(error.code()),
+            },
             Request::Snapshot { .. } => match self.actor.cached_snapshot(&authority) {
                 Ok(view) => {
                     #[derive(Serialize)]

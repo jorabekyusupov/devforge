@@ -51,6 +51,39 @@ impl AppLease {
         }
     }
 }
+/// Thin native GUI singleton, distinct from the legacy supervisor-owning GUI.
+/// The manager retains AppLease (`desktop.lock`) to exclude old GUI binaries;
+/// this client owns no Workspace and must fail closed if manager startup fails.
+/// Holding its shared OperationLease also protects the installer startup gap.
+pub struct NativeClientLease {
+    _file: File,
+    _operation: OperationLease,
+}
+impl NativeClientLease {
+    pub fn acquire(root: &Path) -> std::io::Result<Self> {
+        // Acquire the existing RAII operation guard first, so every subsequent
+        // failure releases it explicitly even across fork/duplicated handles.
+        let operation = OperationLease::acquire(root)?;
+        let file = lease_file(root, "desktop-client.lock")?;
+        file.try_lock().map_err(|error| match error {
+            std::fs::TryLockError::WouldBlock => {
+                std::io::Error::from(std::io::ErrorKind::WouldBlock)
+            }
+            std::fs::TryLockError::Error(error) => error,
+        })?;
+        Ok(Self {
+            _file: file,
+            _operation: operation,
+        })
+    }
+}
+impl Drop for NativeClientLease {
+    fn drop(&mut self) {
+        // End the logical singleton even if another descriptor still refers to
+        // its open-file description. OperationLease has the same Drop contract.
+        let _ = self._file.unlock();
+    }
+}
 /// Shared by GUI and CLI sessions. Installer checks need an exclusive lock.
 /// CLI/terminal activity can coexist with the GUI without being orphaned by removal.
 pub struct OperationLease {
@@ -61,6 +94,20 @@ fn unsafe_lease() -> std::io::Error {
 }
 fn lease_file(root: &Path, name: &str) -> std::io::Result<File> {
     std::fs::create_dir_all(root)?;
+    let root_metadata = std::fs::symlink_metadata(root)?;
+    if !root_metadata.is_dir() || root_metadata.file_type().is_symlink() {
+        return Err(unsafe_lease());
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::MetadataExt;
+        if root_metadata.file_attributes()
+            & windows_sys::Win32::Storage::FileSystem::FILE_ATTRIBUTE_REPARSE_POINT
+            != 0
+        {
+            return Err(unsafe_lease());
+        }
+    }
     let path = root.join(name);
     match std::fs::symlink_metadata(&path) {
         Ok(meta) if !meta.is_file() || meta.file_type().is_symlink() => return Err(unsafe_lease()),
@@ -278,6 +325,70 @@ mod tests {
         drop(second);
         assert!(AppLease::stopped(root.path()).unwrap());
     }
+    #[test]
+    fn native_client_coexists_with_legacy_app_lease_but_excludes_another_client() {
+        let root = tempfile::tempdir().unwrap();
+        std::fs::write(root.path().join("preserved-data"), b"keep").unwrap();
+        let manager_legacy = AppLease::acquire(root.path()).unwrap();
+        let client = NativeClientLease::acquire(root.path()).unwrap();
+        assert!(
+            matches!(NativeClientLease::acquire(root.path()), Err(error) if error.kind()==std::io::ErrorKind::WouldBlock)
+        );
+        assert!(AppLease::acquire(root.path()).is_err());
+        assert!(!AppLease::stopped(root.path()).unwrap());
+        assert!(OperationLease::exclusive(root.path()).is_err());
+        drop(client);
+        let replacement = NativeClientLease::acquire(root.path()).unwrap();
+        drop(replacement);
+        assert!(AppLease::acquire(root.path()).is_err());
+        drop(manager_legacy);
+        assert!(AppLease::stopped(root.path()).unwrap());
+        assert_eq!(
+            std::fs::read(root.path().join("preserved-data")).unwrap(),
+            b"keep"
+        );
+    }
+    #[test]
+    fn native_client_alone_blocks_install_and_failed_acquisition_releases_operation() {
+        let root = tempfile::tempdir().unwrap();
+        let client = NativeClientLease::acquire(root.path()).unwrap();
+        // Installer checks the shared operation lease even without a manager yet.
+        assert!(!AppLease::stopped(root.path()).unwrap());
+        assert!(OperationLease::exclusive(root.path()).is_err());
+        drop(client);
+        let installer = OperationLease::exclusive(root.path()).unwrap();
+        assert!(
+            matches!(NativeClientLease::acquire(root.path()), Err(error) if error.kind()==std::io::ErrorKind::WouldBlock)
+        );
+        drop(installer);
+        let client = NativeClientLease::acquire(root.path()).unwrap();
+        drop(client);
+        assert!(OperationLease::exclusive(root.path()).is_ok());
+        // A failure after the operation guard is acquired must also release it.
+        std::fs::remove_file(root.path().join("desktop-client.lock")).unwrap();
+        std::fs::create_dir(root.path().join("desktop-client.lock")).unwrap();
+        assert!(NativeClientLease::acquire(root.path()).is_err());
+        assert!(OperationLease::exclusive(root.path()).is_ok());
+    }
+    #[cfg(any(unix, windows))]
+    #[test]
+    fn native_client_logical_drop_unlocks_both_duplicate_descriptors() {
+        let root = tempfile::tempdir().unwrap();
+        let client = NativeClientLease::acquire(root.path()).unwrap();
+        let duplicate_client = client._file.try_clone().unwrap();
+        let duplicate_operation = client._operation._file.try_clone().unwrap();
+        drop(client);
+        let installer = OperationLease::exclusive(root.path()).unwrap();
+        drop(installer);
+        let replacement = NativeClientLease::acquire(root.path()).unwrap();
+        // Closing an old duplicate is not a logical unlock of the new lease.
+        drop(duplicate_client);
+        drop(duplicate_operation);
+        assert!(NativeClientLease::acquire(root.path()).is_err());
+        assert!(OperationLease::exclusive(root.path()).is_err());
+        drop(replacement);
+        assert!(OperationLease::exclusive(root.path()).is_ok());
+    }
     #[cfg(unix)]
     #[test]
     fn lifecycle_leases_unlock_with_duplicate_descriptors_alive() {
@@ -344,5 +455,74 @@ mod lease_path_regressions {
         std::os::unix::fs::symlink(&target, root.path().join("desktop.lock")).unwrap();
         assert!(AppLease::acquire(root.path()).is_err());
         assert!(!target.exists());
+    }
+    #[cfg(unix)]
+    #[test]
+    fn native_client_symlink_cannot_create_or_lock_external_file() {
+        let root = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        let target = outside.path().join("must-not-create");
+        std::os::unix::fs::symlink(&target, root.path().join("desktop-client.lock")).unwrap();
+        assert!(NativeClientLease::acquire(root.path()).is_err());
+        assert!(!target.exists());
+        assert!(OperationLease::exclusive(root.path()).is_ok());
+    }
+    #[test]
+    fn native_client_hardlink_and_directory_are_refused_without_mutating_data() {
+        let root = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        let target = outside.path().join("unchanged-data");
+        std::fs::write(&target, b"keep").unwrap();
+        let path = root.path().join("desktop-client.lock");
+        std::fs::hard_link(&target, &path).unwrap();
+        assert!(NativeClientLease::acquire(root.path()).is_err());
+        assert_eq!(std::fs::read(&target).unwrap(), b"keep");
+        std::fs::remove_file(&path).unwrap();
+        std::fs::create_dir(&path).unwrap();
+        assert!(NativeClientLease::acquire(root.path()).is_err());
+        assert!(OperationLease::exclusive(root.path()).is_ok());
+    }
+    #[cfg(unix)]
+    #[test]
+    fn lifecycle_root_symlink_is_rejected_for_all_three_lease_kinds() {
+        let root = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        let linked = root.path().join("linked-root");
+        std::os::unix::fs::symlink(outside.path(), &linked).unwrap();
+        assert!(AppLease::acquire(&linked).is_err());
+        assert!(OperationLease::acquire(&linked).is_err());
+        assert!(NativeClientLease::acquire(&linked).is_err());
+        assert_eq!(std::fs::read_dir(outside.path()).unwrap().count(), 0);
+    }
+    #[cfg(windows)]
+    #[test]
+    fn native_client_and_other_leases_reject_junction_roots_without_writes() {
+        use std::os::windows::process::CommandExt;
+        let root = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        let linked = root.path().join("linked-root");
+        let quote = |path: &Path| {
+            let text = path.to_str().unwrap();
+            assert!(!text.contains(['%', '"', '\r', '\n']));
+            format!("\"{text}\"")
+        };
+        let command = format!("mklink /J {} {}", quote(&linked), quote(outside.path()));
+        let output = std::process::Command::new(
+            std::path::PathBuf::from(std::env::var_os("SystemRoot").unwrap())
+                .join("System32/cmd.exe"),
+        )
+        .args(["/D", "/V:OFF", "/S", "/C"])
+        .raw_arg(format!("\"{command}\""))
+        .output()
+        .unwrap();
+        assert!(
+            output.status.success(),
+            "isolated junction fixture creation failed"
+        );
+        assert!(AppLease::acquire(&linked).is_err());
+        assert!(OperationLease::acquire(&linked).is_err());
+        assert!(NativeClientLease::acquire(&linked).is_err());
+        assert_eq!(std::fs::read_dir(outside.path()).unwrap().count(), 0);
+        std::fs::remove_dir(&linked).unwrap();
     }
 }

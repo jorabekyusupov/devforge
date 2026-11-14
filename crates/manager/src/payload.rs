@@ -114,6 +114,8 @@ pub struct SnapshotDescriptor {
     pub digest: WireDigest,
     pub observed_at: u64,
     pub cursor: SnapshotCursor,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_in_ms: Option<u64>,
 }
 /// data_hex is private data; deliberately no Debug/Deserialize or logging path.
 #[derive(Serialize)]
@@ -152,8 +154,23 @@ struct Upload {
 }
 struct Export {
     binding: Binding,
-    bytes: Zeroizing<Vec<u8>>,
+    bytes: ExportBytes,
     expires: Instant,
+}
+enum ExportBytes {
+    Snapshot(Zeroizing<Vec<u8>>),
+    Read(std::sync::Arc<crate::desktop::ReadImage>),
+}
+impl ExportBytes {
+    fn bytes(&self) -> &[u8] {
+        match self {
+            Self::Snapshot(bytes) => bytes,
+            Self::Read(image) => image.bytes(),
+        }
+    }
+    fn is_read(&self) -> bool {
+        matches!(self, Self::Read(_))
+    }
 }
 pub struct Store {
     endpoint: Endpoint,
@@ -374,7 +391,13 @@ impl Store {
     ) -> Result<SnapshotDescriptor> {
         let binding = self.binding(authority, now)?;
         self.expire(now);
-        if self.snapshots.len() >= MAX_SNAPSHOTS {
+        if self
+            .snapshots
+            .values()
+            .filter(|value| !value.bytes.is_read())
+            .count()
+            >= MAX_SNAPSHOTS
+        {
             return Err(Error::Capacity);
         }
         #[derive(Serialize)]
@@ -397,7 +420,12 @@ impl Store {
             },
             MAX_SNAPSHOT_BYTES,
         )?;
-        let retained: usize = self.snapshots.values().map(|value| value.bytes.len()).sum();
+        let retained: usize = self
+            .snapshots
+            .values()
+            .filter(|value| !value.bytes.is_read())
+            .map(|value| value.bytes.bytes().len())
+            .sum();
         if bytes.len() > MAX_SNAPSHOT_TOTAL_BYTES.saturating_sub(retained) {
             return Err(Error::Capacity);
         }
@@ -415,13 +443,58 @@ impl Store {
                 epoch: self.epoch.clone(),
                 offset: 0,
             },
+            expires_in_ms: None,
         };
         self.snapshots.insert(
             snapshot_id,
             Export {
                 binding,
-                bytes,
+                bytes: ExportBytes::Snapshot(bytes),
                 expires: after + self.policy.ttl,
+            },
+        );
+        Ok(descriptor)
+    }
+    pub fn read_export(
+        &mut self,
+        authority: &DesktopAuthority<'_>,
+        image: std::sync::Arc<crate::desktop::ReadImage>,
+        now: Instant,
+    ) -> Result<SnapshotDescriptor> {
+        let binding = self.binding(authority, now)?;
+        self.expire(now);
+        if self
+            .snapshots
+            .values()
+            .filter(|value| value.bytes.is_read())
+            .count()
+            >= crate::desktop::READ_RESULTS
+        {
+            return Err(Error::Capacity);
+        }
+        if now >= image.expires {
+            return Err(Error::ResyncRequired);
+        }
+        let snapshot_id = random_id("read-image")?;
+        let descriptor = SnapshotDescriptor {
+            snapshot_id: snapshot_id.clone(),
+            epoch: self.epoch.clone(),
+            size: image.bytes().len() as u64,
+            digest: sha256(image.bytes()),
+            observed_at: image.observed_at,
+            cursor: SnapshotCursor {
+                snapshot_id: snapshot_id.clone(),
+                epoch: self.epoch.clone(),
+                offset: 0,
+            },
+            expires_in_ms: Some(image.expires.saturating_duration_since(now).as_millis() as u64),
+        };
+        self.snapshots.insert(
+            snapshot_id,
+            Export {
+                binding,
+                expires: image.expires,
+                bytes: ExportBytes::Read(image),
             },
         );
         Ok(descriptor)
@@ -446,16 +519,16 @@ impl Store {
             return Err(Error::ResyncRequired);
         }
         let offset = usize::try_from(cursor.offset).map_err(|_| Error::ResyncRequired)?;
-        if offset >= snapshot.bytes.len() || !offset.is_multiple_of(CHUNK_BYTES) {
+        if offset >= snapshot.bytes.bytes().len() || !offset.is_multiple_of(CHUNK_BYTES) {
             return Err(Error::ResyncRequired);
         }
-        let end = (offset + CHUNK_BYTES).min(snapshot.bytes.len());
+        let end = (offset + CHUNK_BYTES).min(snapshot.bytes.bytes().len());
         Ok(SnapshotChunk {
             snapshot_id: cursor.snapshot_id.clone(),
             epoch: self.epoch.clone(),
             offset: cursor.offset,
-            data_hex: hex(&snapshot.bytes[offset..end]),
-            next_cursor: (end < snapshot.bytes.len()).then(|| SnapshotCursor {
+            data_hex: hex(&snapshot.bytes.bytes()[offset..end]),
+            next_cursor: (end < snapshot.bytes.bytes().len()).then(|| SnapshotCursor {
                 snapshot_id: cursor.snapshot_id.clone(),
                 epoch: self.epoch.clone(),
                 offset: end as u64,
@@ -572,6 +645,16 @@ impl<'de> Deserialize<'de> for Session {
 #[derive(Deserialize)]
 #[serde(tag = "method", rename_all = "snake_case", deny_unknown_fields)]
 pub(crate) enum Request {
+    DesktopReadResult {
+        session: Session,
+        project_id: Id,
+        operation_id: Id,
+    },
+    ResultBegin {
+        session: Session,
+        project_id: Id,
+        operation_id: Id,
+    },
     UploadBegin {
         session: Session,
         project_id: Id,
@@ -613,7 +696,9 @@ impl Request {
     pub(crate) fn handles(method: &str) -> bool {
         matches!(
             method,
-            "upload_begin"
+            "desktop_read_result"
+                | "result_begin"
+                | "upload_begin"
                 | "upload_chunk"
                 | "upload_finalize"
                 | "upload_abort"
@@ -624,7 +709,9 @@ impl Request {
     }
     pub(crate) fn credential(&self) -> Result<SessionCredential> {
         let session = match self {
-            Self::UploadBegin { session, .. }
+            Self::DesktopReadResult { session, .. }
+            | Self::ResultBegin { session, .. }
+            | Self::UploadBegin { session, .. }
             | Self::UploadChunk { session, .. }
             | Self::UploadFinalize { session, .. }
             | Self::UploadAbort { session, .. }
@@ -642,6 +729,21 @@ impl Request {
     ) -> Result<Value> {
         let now = Instant::now();
         let value = match self {
+            Self::DesktopReadResult {
+                project_id,
+                operation_id,
+                ..
+            }
+            | Self::ResultBegin {
+                project_id,
+                operation_id,
+                ..
+            } => {
+                let image = actor
+                    .read_image(authority, &project_id, &operation_id)
+                    .map_err(Error::Admission)?;
+                serde_json::to_value(store.read_export(authority, image, now)?)
+            }
             Self::UploadBegin {
                 project_id,
                 idempotency_key,

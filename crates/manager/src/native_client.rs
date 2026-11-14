@@ -6,6 +6,7 @@
 use crate::{
     Client, Endpoint, PeerIdentity,
     auth::{DesktopCredential, SessionCredential, SessionInfo},
+    desktop::{AccessRequest, READ_IMAGE_BYTES, READ_TTL, ReadRequest},
     launch::{BootstrappedChild, ReadyChild},
     payload::{CHUNK_BYTES, MAX_COMMAND_BYTES, MAX_SNAPSHOT_BYTES},
 };
@@ -62,6 +63,8 @@ pub enum Error {
     PayloadResyncRequired,
     AdmissionUnconfirmed,
     AdmissionCancelled,
+    ReadExpired,
+    ResourceLimit,
     Remote(RemoteCode),
 }
 impl Error {
@@ -76,6 +79,8 @@ impl Error {
             Self::PayloadResyncRequired => "payload_resync_required",
             Self::AdmissionUnconfirmed => "native_client_admission_unconfirmed",
             Self::AdmissionCancelled => "native_client_admission_cancelled",
+            Self::ReadExpired => "actor_read_expired",
+            Self::ResourceLimit => "native_client_resource_limit",
             Self::Remote(code) => code.as_str(),
         }
     }
@@ -127,6 +132,7 @@ pub enum FailureScope {
     Runtime,
     Serving,
     Workspace,
+    Debugger,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -135,6 +141,54 @@ pub struct FailureDetail {
     pub code: String,
     pub project_id: Id,
     pub retryable: bool,
+    /// Trusted worker association, separate from the receipt's subject namespace.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recovery_project_id: Option<Id>,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct OperationPage {
+    pub items: Vec<Receipt>,
+    pub next_cursor: Option<Value>,
+    pub active_reads: Vec<Receipt>,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ReadProgress {
+    More { received: u64, total: u64 },
+    Complete,
+}
+/// Native-only incremental read. Keep this outside an SDK mutex and acquire the
+/// client only for each page, so another native worker can send cancel/status.
+/// No body/token Debug, serde or cloning. Drop erases bytes; explicit release is
+/// best-effort and the server's fixed TTL bounds an abandoned export.
+pub struct ReadResult {
+    descriptor: ReadDescriptor,
+    cursor: Option<Cursor>,
+    bytes: Zeroizing<Vec<u8>>,
+    digest: [u8; 32],
+    deadline: Instant,
+    owner: PeerIdentity,
+    root: [u8; 32],
+    read_only: bool,
+}
+impl fmt::Debug for ReadResult {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ReadResult")
+            .field("received", &self.bytes.len())
+            .field("total", &self.descriptor.size)
+            .finish_non_exhaustive()
+    }
+}
+impl ReadResult {
+    pub fn observed_at(&self) -> u64 {
+        self.descriptor.observed_at
+    }
+    pub fn received_bytes(&self) -> u64 {
+        self.bytes.len() as u64
+    }
+    pub fn total_bytes(&self) -> u64 {
+        self.descriptor.size
+    }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Cancellation {
@@ -178,6 +232,7 @@ struct SessionMetadata {
 pub struct NativeClient {
     transport: Client,
     peer: PeerIdentity,
+    root: [u8; 32],
     session: Option<Session>,
     launched: Option<ReadyChild>,
 }
@@ -201,6 +256,7 @@ impl NativeClient {
             return Err(Error::OwnerUnavailable);
         }
         let mut client = Self {
+            root: crate::bootstrap::root_fingerprint(endpoint.root()),
             transport: Client::new(endpoint),
             peer,
             session: None,
@@ -225,6 +281,7 @@ impl NativeClient {
             return Err(Error::OwnerChanged);
         }
         let mut client = Self {
+            root: crate::bootstrap::root_fingerprint(endpoint.root()),
             transport: Client::new(endpoint),
             peer,
             session: None,
@@ -287,6 +344,246 @@ impl NativeClient {
         let result = self.collect_snapshot(&begin, started);
         self.release_snapshot(&begin);
         result
+    }
+    /// Submit one bounded ephemeral observation. A new poll uses a new key; the
+    /// same key identifies the same observation until read expiry/eviction.
+    pub fn desktop_read(&mut self, idempotency: &Id, request: &ReadRequest) -> Result<Receipt> {
+        self.require_session()?;
+        let request_value = serde_json::to_value(request).map_err(|_| Error::Protocol)?;
+        let receipt: Receipt = decode(self.authenticated(
+            "desktop_read",
+            json!({"idempotency_key":idempotency,"request":request_value}),
+        )?)?;
+        if &receipt.project_id != request.project_id() {
+            return Err(Error::Protocol);
+        }
+        Ok(receipt)
+    }
+    /// Durable native access, never implicit credential issuance. Secret input
+    /// stays in a zeroizing request type and its transient JSON is scrubbed even
+    /// when the session expires before the transport can be used.
+    pub fn desktop_access(&mut self, idempotency: &Id, request: &AccessRequest) -> Result<Receipt> {
+        self.require_session()?;
+        let request_value = serde_json::to_value(request).map_err(|_| Error::Protocol)?;
+        let value = self.authenticated(
+            "desktop_access",
+            json!({"idempotency_key":idempotency,"request":request_value}),
+        );
+        let value = match value {
+            Err(Error::OwnerUnavailable | Error::Protocol) => {
+                return Err(Error::AdmissionUnconfirmed);
+            }
+            other => other?,
+        };
+        let receipt: Receipt = decode(value).map_err(|_| Error::AdmissionUnconfirmed)?;
+        if receipt.project_id != request.subject() {
+            return Err(Error::AdmissionUnconfirmed);
+        }
+        Ok(receipt)
+    }
+    /// Read-only reconciliation after an unconfirmed durable admission. None is
+    /// only a point-in-time absence: the old handler may still commit. Keep the
+    /// original key; neither None nor a receipt proves new secret-body equality.
+    pub fn operation_by_key(&mut self, project: &Id, idempotency: &Id) -> Result<Option<Receipt>> {
+        let receipt: Option<Receipt> = decode(self.authenticated(
+            "operation_by_key",
+            json!({"project_id":project,"idempotency_key":idempotency}),
+        )?)?;
+        if receipt
+            .as_ref()
+            .is_some_and(|receipt| &receipt.project_id != project)
+        {
+            return Err(Error::Protocol);
+        }
+        Ok(receipt)
+    }
+    pub fn discovery_request(&mut self) -> Result<()> {
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct Reply {
+            requested: bool,
+        }
+        let reply: Reply = decode(self.authenticated("discovery_request", json!({}))?)?;
+        if !reply.requested {
+            return Err(Error::Protocol);
+        }
+        Ok(())
+    }
+    pub fn operations(
+        &mut self,
+        project: Option<&Id>,
+        cursor: Option<&Value>,
+        limit: u32,
+    ) -> Result<OperationPage> {
+        if limit == 0 || limit > 100 {
+            return Err(Error::InputLimit);
+        }
+        if let Some(cursor) = cursor {
+            validate_cursor(cursor)?;
+        }
+        let page: OperationPage = decode(self.authenticated(
+            "operations",
+            json!({"project_id":project,"cursor":cursor,"limit":limit}),
+        )?)?;
+        if page.items.len() > limit as usize
+            || page.active_reads.len() > 2
+            || project.is_some_and(|project| {
+                page.items
+                    .iter()
+                    .chain(page.active_reads.iter())
+                    .any(|receipt| &receipt.project_id != project)
+            })
+        {
+            return Err(Error::Protocol);
+        }
+        if let Some(cursor) = &page.next_cursor {
+            validate_cursor(cursor).map_err(|_| Error::Protocol)?;
+        }
+        Ok(page)
+    }
+    pub fn begin_read_result(&mut self, project: &Id, operation: &Id) -> Result<ReadResult> {
+        self.begin_image("desktop_read_result", project, operation)
+    }
+    /// Explicit large mutation-result retrieval after a Succeeded receipt. This
+    /// never retries execution; a missing/expired retained image stays unavailable.
+    pub fn begin_result_image(&mut self, project: &Id, operation: &Id) -> Result<ReadResult> {
+        self.begin_image("result_begin", project, operation)
+    }
+    fn begin_image(&mut self, method: &str, project: &Id, operation: &Id) -> Result<ReadResult> {
+        let started = Instant::now();
+        let descriptor: ReadDescriptor = decode(self.operation(method, project, operation)?)?;
+        let prepared = (|| {
+            if descriptor.size == 0
+                || descriptor.size > READ_IMAGE_BYTES as u64
+                || descriptor.expires_in_ms == 0
+                || descriptor.expires_in_ms > millis(READ_TTL)
+                || descriptor.cursor.offset != 0
+                || descriptor.cursor.snapshot_id != descriptor.snapshot_id
+                || descriptor.cursor.epoch != descriptor.epoch
+            {
+                return Err(Error::Protocol);
+            }
+            let digest = digest_bytes(&descriptor.digest)?;
+            let deadline = started
+                .checked_add(Duration::from_millis(descriptor.expires_in_ms))
+                .and_then(|d| d.checked_sub(EXPIRY_MARGIN))
+                .ok_or(Error::Protocol)?;
+            if Instant::now() >= deadline {
+                return Err(Error::ReadExpired);
+            }
+            let mut bytes = Zeroizing::new(Vec::new());
+            bytes
+                .try_reserve_exact(descriptor.size as usize)
+                .map_err(|_| Error::ResourceLimit)?;
+            Ok((digest, deadline, bytes))
+        })();
+        match prepared {
+            Ok((digest, deadline, bytes)) => Ok(ReadResult {
+                cursor: Some(descriptor.cursor.clone()),
+                descriptor,
+                bytes,
+                digest,
+                deadline,
+                owner: self.peer.clone(),
+                root: self.root,
+                read_only: method == "desktop_read_result",
+            }),
+            Err(error) => {
+                let _ = self.release_image(&descriptor.snapshot_id, &descriptor.epoch);
+                Err(error)
+            }
+        }
+    }
+    /// Exactly one page RPC. The native bridge may release its client mutex
+    /// between calls; no background renewal or whole-job waiting is hidden here.
+    pub fn read_result_step(&mut self, image: &mut ReadResult) -> Result<ReadProgress> {
+        self.check_read_owner(image)?;
+        let Some(cursor) = image.cursor.as_ref() else {
+            return Ok(ReadProgress::Complete);
+        };
+        if Instant::now() >= image.deadline {
+            return Err(if image.read_only {
+                Error::ReadExpired
+            } else {
+                Error::Remote(RemoteCode("actor_result_unavailable".into()))
+            });
+        }
+        let page: SnapshotPage =
+            decode(self.authenticated("snapshot_page", json!({"cursor":cursor}))?)?;
+        if page.snapshot_id != image.descriptor.snapshot_id
+            || page.epoch != image.descriptor.epoch
+            || page.offset != image.bytes.len() as u64
+        {
+            return Err(Error::Protocol);
+        }
+        let decoded = decode_chunk(&page.data_hex.0)?;
+        if decoded.is_empty() || decoded.len() > image.descriptor.size as usize - image.bytes.len()
+        {
+            return Err(Error::Protocol);
+        }
+        image.bytes.extend_from_slice(&decoded);
+        match page.next_cursor {
+            None if image.bytes.len() as u64 == image.descriptor.size => {
+                image.cursor = None;
+                Ok(ReadProgress::Complete)
+            }
+            Some(next)
+                if (image.bytes.len() as u64) < image.descriptor.size
+                    && next.snapshot_id == image.descriptor.snapshot_id
+                    && next.epoch == image.descriptor.epoch
+                    && next.offset == image.bytes.len() as u64 =>
+            {
+                image.cursor = Some(next);
+                Ok(ReadProgress::More {
+                    received: image.bytes.len() as u64,
+                    total: image.descriptor.size,
+                })
+            }
+            _ => Err(Error::Protocol),
+        }
+    }
+    /// Complete byte/digest validation, then return the exact old owner value.
+    /// Failed read jobs use failure_detail instead; no error image is fabricated.
+    pub fn finish_read_result(&mut self, image: ReadResult) -> Result<Value> {
+        self.check_read_owner(&image)?;
+        let result = (|| {
+            if image.cursor.is_some()
+                || image.bytes.len() as u64 != image.descriptor.size
+                || <[u8; 32]>::from(Sha256::digest(image.bytes.as_slice())) != image.digest
+            {
+                return Err(Error::Protocol);
+            }
+            let value: Value =
+                serde_json::from_slice(image.bytes.as_slice()).map_err(|_| Error::Protocol)?;
+            data(value)
+        })();
+        let _ = self.release_image(&image.descriptor.snapshot_id, &image.descriptor.epoch);
+        result
+    }
+    pub fn release_read_result(&mut self, image: ReadResult) -> Result<()> {
+        self.check_read_owner(&image)?;
+        self.release_image(&image.descriptor.snapshot_id, &image.descriptor.epoch)
+    }
+    fn check_read_owner(&self, image: &ReadResult) -> Result<()> {
+        if image.owner != self.peer || image.root != self.root {
+            return Err(Error::OwnerChanged);
+        }
+        Ok(())
+    }
+    fn release_image(&mut self, image: &Id, epoch: &Id) -> Result<()> {
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct Reply {
+            released: bool,
+        }
+        let reply: Reply = decode(self.authenticated(
+            "snapshot_release",
+            json!({"snapshot_id":image,"epoch":epoch}),
+        )?)?;
+        if !reply.released {
+            return Err(Error::Protocol);
+        }
+        Ok(())
     }
     fn collect_snapshot(&mut self, begin: &SnapshotBegin, started: Instant) -> Result<Snapshot> {
         let size = bounded_size(begin.size)?;
@@ -538,7 +835,10 @@ impl NativeClient {
         Ok(())
     }
     fn authenticated(&mut self, method: &str, mut fields: Value) -> Result<Value> {
-        self.require_session()?;
+        if let Err(error) = self.require_session() {
+            scrub_request(&mut fields);
+            return Err(error);
+        }
         let object = fields.as_object_mut().ok_or(Error::Protocol)?;
         object.insert("method".into(), Value::String(method.into()));
         object.insert(
@@ -565,6 +865,10 @@ impl NativeClient {
         }
     }
     fn raw(&mut self, mut request: Value) -> Result<Value> {
+        if let Err(error) = validate_value_size(&request, crate::MAX_REQUEST_BYTES) {
+            scrub_request(&mut request);
+            return Err(error);
+        }
         let response = self
             .transport
             .request_with_expected_peer(&self.peer, &request);
@@ -687,6 +991,7 @@ fn data(mut response: Value) -> Result<Value> {
                 | "manager_auth_not_provisioned"
                 | "manager_auth_bootstrap_unavailable" => Err(Error::ReauthenticationRequired),
                 "payload_resync_required" => Err(Error::PayloadResyncRequired),
+                "actor_read_expired" => Err(Error::ReadExpired),
                 _ => Err(Error::Remote(code)),
             }
         }
@@ -699,6 +1004,11 @@ fn scrub_request(request: &mut Value) {
             if let Some(Value::String(value)) = object.get_mut(key) {
                 value.zeroize();
             }
+        }
+        if let Some(Value::Object(request)) = object.get_mut("request")
+            && let Some(Value::String(value)) = request.get_mut("value")
+        {
+            value.zeroize();
         }
     }
 }
@@ -809,4 +1119,40 @@ struct UploadChunk {
     epoch: Id,
     received: u64,
     next_index: u32,
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ReadDescriptor {
+    snapshot_id: Id,
+    epoch: Id,
+    size: u64,
+    digest: String,
+    observed_at: u64,
+    cursor: Cursor,
+    expires_in_ms: u64,
+}
+fn validate_cursor(cursor: &Value) -> Result<()> {
+    if !cursor.is_object() {
+        return Err(Error::InputLimit);
+    }
+    validate_value_size(cursor, 2048)
+}
+fn validate_value_size(value: &Value, limit: usize) -> Result<()> {
+    struct Count {
+        used: usize,
+        limit: usize,
+    }
+    impl Write for Count {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            if bytes.len() > self.limit.saturating_sub(self.used) {
+                return Err(std::io::Error::other("cursor limit"));
+            }
+            self.used += bytes.len();
+            Ok(bytes.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+    serde_json::to_writer(&mut Count { used: 0, limit }, value).map_err(|_| Error::InputLimit)
 }

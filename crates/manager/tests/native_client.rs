@@ -9,8 +9,9 @@ use devforge_manager::{
     auth::{DesktopAuth, DesktopCredential, NativeGuiPolicy, Policy, TrustedDesktopAction},
     bootstrap::{BootstrapError, BootstrapWriter},
     controller::{Controller, Options, StartIntent, Stores, local_owner_user},
+    desktop::{AccessRequest, OpenTarget, ReadRequest, SecretValue},
     launch::{self, LaunchSpec},
-    native_client::{AdmissionProgress, Cancellation, Error, NativeClient},
+    native_client::{AdmissionProgress, Cancellation, Error, NativeClient, ReadProgress},
 };
 use devforge_projects::project::{Catalog, ProjectStore};
 use devforge_runtime::{Cancellation as AdmissionCancellation, package::Target};
@@ -28,12 +29,13 @@ use std::{
     thread::{self, JoinHandle},
     time::{Duration, Instant},
 };
-use zeroize::Zeroizing;
+use zeroize::{Zeroize, Zeroizing};
 
 #[derive(Default)]
 struct MemoryStore {
     values: Mutex<BTreeMap<String, String>>,
     gets: AtomicUsize,
+    sets: AtomicUsize,
 }
 impl SecretStore for MemoryStore {
     fn get(&self, key: &str) -> Result<Option<String>, ErrorCode> {
@@ -41,6 +43,7 @@ impl SecretStore for MemoryStore {
         Ok(self.values.lock().unwrap().get(key).cloned())
     }
     fn set(&self, key: &str, value: &str) -> Result<(), ErrorCode> {
+        self.sets.fetch_add(1, Ordering::SeqCst);
         self.values.lock().unwrap().insert(key.into(), value.into());
         Ok(())
     }
@@ -67,6 +70,22 @@ fn main() {
         cold_fixture(Path::new(&args[1]));
         return;
     }
+    if args.first().is_some_and(|v| v == "uncertain_access") {
+        durable_access_lost_reply_is_reconciled_without_replay();
+        println!(
+            "{}",
+            serde_json::json!({"suite":"native_client_uncertain_access","passed":1,"unavailable":0})
+        );
+        return;
+    }
+    if args.first().is_some_and(|v| v == "facade") {
+        desktop_facade_large_reads_access_and_operations();
+        println!(
+            "{}",
+            serde_json::json!({"suite":"native_client_facade","passed":1,"unavailable":0})
+        );
+        return;
+    }
     if args.first().is_some_and(|v| v == "cancellable") {
         cancellable_admission_boundaries_and_exact_receipt_routing();
         println!(
@@ -79,12 +98,14 @@ fn main() {
     real_large_snapshot_is_complete_and_unicode_safe();
     explicit_renewal_expires_at_absolute_context_deadline();
     cancellable_admission_boundaries_and_exact_receipt_routing();
+    desktop_facade_large_reads_access_and_operations();
+    durable_access_lost_reply_is_reconciled_without_replay();
     let cold = cold_bootstrap_and_owner_replacement();
     let unavailable = usize::from(cold != "passed");
     println!(
         "{}",
-        serde_json::json!({"suite":"native_client","overall":if unavailable==0{"passed"}else{"partial"},"passed":5-unavailable,"unavailable":unavailable,
-        "cases":[{"case":"cancellable_admission_boundaries","status":"passed"},{"case":"explicit_auth_operations_large_command","status":"passed"},{"case":"actual_large_snapshot","status":"passed"},{"case":"renewal_absolute_deadline","status":"passed"},
+        serde_json::json!({"suite":"native_client","overall":if unavailable==0{"passed"}else{"partial"},"passed":7-unavailable,"unavailable":unavailable,
+        "cases":[{"case":"durable_access_uncertainty","status":"passed"},{"case":"desktop_facade_large_read_access_list","status":"passed"},{"case":"cancellable_admission_boundaries","status":"passed"},{"case":"explicit_auth_operations_large_command","status":"passed"},{"case":"actual_large_snapshot","status":"passed"},{"case":"renewal_absolute_deadline","status":"passed"},
             {"case":"detached_cold_bootstrap_owner_replacement","status":if cold=="passed"{"passed"}else{"unavailable"},"reason":if cold=="passed"{None}else{Some("restricted_ancestor_job")}}]})
     );
 }
@@ -115,11 +136,23 @@ fn running(
     JoinHandle<devforge_manager::controller::Result<()>>,
     devforge_manager::controller::OsQuitHandle,
 ) {
+    running_with_workspace(root, store, Arc::new(DenyStore), options)
+}
+fn running_with_workspace(
+    root: &Path,
+    store: Arc<MemoryStore>,
+    workspace: Arc<dyn SecretStore + Send + Sync>,
+    options: Options,
+) -> (
+    Endpoint,
+    JoinHandle<devforge_manager::controller::Result<()>>,
+    devforge_manager::controller::OsQuitHandle,
+) {
     let controller = Controller::with_options(
         root,
         StartIntent::ExplicitUserStart,
         Stores {
-            workspace: Arc::new(DenyStore),
+            workspace,
             desktop: store,
         },
         options,
@@ -498,6 +531,551 @@ fn cancellable_admission_boundaries_and_exact_receipt_routing() {
     assert_eq!(store.gets.load(Ordering::SeqCst), 1);
     client.quit().unwrap();
     worker.join().unwrap().unwrap();
+}
+fn read_value(client: &mut NativeClient, key: &str, request: &ReadRequest) -> serde_json::Value {
+    let receipt = client.desktop_read(&id(key), request).unwrap();
+    assert_eq!(
+        complete(client, request.project_id(), &receipt.operation_id),
+        OperationState::Succeeded
+    );
+    let mut image = client
+        .begin_read_result(request.project_id(), &receipt.operation_id)
+        .unwrap();
+    loop {
+        if matches!(
+            client.read_result_step(&mut image).unwrap(),
+            ReadProgress::Complete
+        ) {
+            break;
+        }
+    }
+    client.finish_read_result(image).unwrap()
+}
+fn desktop_facade_large_reads_access_and_operations() {
+    use devforge_core::{Settings, SettingsRepository, Theme};
+    let root = common::root("df-sdk-facade-");
+    let desktop_store = Arc::new(MemoryStore::default());
+    let workspace_store = Arc::new(MemoryStore::default());
+    let key = provision(root.path(), &desktop_store);
+    let scan = root.path().join("scan-root");
+    fs::create_dir(&scan).unwrap();
+    let mut preferences = devforge_platform::SqliteSettings::open(root.path()).unwrap();
+    preferences
+        .save(&Settings {
+            language: "ru".into(),
+            theme: Theme::Dark,
+            project_folder: Some(scan.to_string_lossy().into_owned()),
+        })
+        .unwrap();
+    drop(preferences);
+    let app = root.path().join("application");
+    laravel(&app);
+    let source = format!("<?php\n{}", "// \"🦀\" \"\\path\"\n".repeat(13_000));
+    assert!(source.len() < 256 * 1024);
+    fs::write(app.join("sdk-large.php"), &source).unwrap();
+    let (endpoint, worker, _quit) = running_with_workspace(
+        root.path(),
+        desktop_store.clone(),
+        workspace_store.clone(),
+        Options::default(),
+    );
+    let mut client = NativeClient::authenticate_explicit(endpoint, &key).unwrap();
+    let (php, node) = runtime_ids(&Catalog::bundled());
+    let root_subject = id(ROOT_SUBJECT);
+    let imported = client
+        .admit(
+            &root_subject,
+            &id("facade-import"),
+            &Command::Import {
+                path: app.clone(),
+                name: "Desktop facade".into(),
+                php,
+                node,
+                domain: "sdk-facade.devforge.test".into(),
+                https: false,
+                vite: false,
+                queue: false,
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        complete(&mut client, &root_subject, &imported.operation_id),
+        OperationState::Succeeded
+    );
+    let project_id = id(client
+        .result(&root_subject, &imported.operation_id)
+        .unwrap()["project_id"]
+        .as_str()
+        .unwrap());
+    let ledger = rusqlite::Connection::open_with_flags(
+        root.path().join("control/operations.sqlite3"),
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
+    )
+    .unwrap();
+    let baseline = ledger
+        .query_row("SELECT COUNT(*) FROM operations", [], |row| {
+            row.get::<_, i64>(0)
+        })
+        .unwrap();
+    let request = ReadRequest::DebugSource {
+        project_id: project_id.clone(),
+        file: "sdk-large.php".into(),
+    };
+    let large = client
+        .desktop_read(&id("facade-large-source"), &request)
+        .unwrap();
+    let replay = client
+        .desktop_read(&id("facade-large-source"), &request)
+        .unwrap();
+    assert_eq!(large.operation_id, replay.operation_id);
+    assert_eq!(
+        complete(&mut client, &project_id, &large.operation_id),
+        OperationState::Succeeded
+    );
+    let mut image = client
+        .begin_read_result(&project_id, &large.operation_id)
+        .unwrap();
+    assert!(image.total_bytes() > devforge_manager::MAX_RESPONSE_BYTES as u64);
+    // Two actual controllers can share a process PID in a native test, so root
+    // binding must independently prevent routing a retained image to the other.
+    let other_root = common::root("df-sdk-other-");
+    let other_store = Arc::new(MemoryStore::default());
+    let other_key = provision(other_root.path(), &other_store);
+    let (other_endpoint, other_worker, _) =
+        running(other_root.path(), other_store, Options::default());
+    let mut other_client = NativeClient::authenticate_explicit(other_endpoint, &other_key).unwrap();
+    assert_eq!(
+        other_client.read_result_step(&mut image).unwrap_err(),
+        Error::OwnerChanged
+    );
+    other_client.quit().unwrap();
+    other_worker.join().unwrap().unwrap();
+    let mut pages = 0;
+    loop {
+        pages += 1;
+        let progress = client.read_result_step(&mut image).unwrap();
+        // Each step releases the client borrow; unrelated native health/status
+        // remains available while the image itself is retained outside the SDK.
+        assert_eq!(
+            client.health().unwrap().state,
+            devforge_manager::native_client::OwnerState::Ready
+        );
+        if matches!(progress, ReadProgress::Complete) {
+            break;
+        }
+    }
+    assert!(pages > 1);
+    let value = client.finish_read_result(image).unwrap();
+    assert_eq!(value["code"], source);
+    let document = read_value(
+        &mut client,
+        "facade-document",
+        &ReadRequest::ConfigurationDocument {
+            project_id: project_id.clone(),
+        },
+    );
+    assert!(document["text"].as_str().unwrap().contains("schema:"));
+    let inbox = read_value(
+        &mut client,
+        "facade-inbox",
+        &ReadRequest::Inbox {
+            project_id: project_id.clone(),
+            query: String::new(),
+            page: 0,
+        },
+    );
+    assert_eq!(inbox["enabled"], false);
+    let inspector = read_value(
+        &mut client,
+        "facade-inspector",
+        &ReadRequest::Inspector {
+            project_id: project_id.clone(),
+            context: None,
+        },
+    );
+    assert!(
+        inspector["capture"]["events"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    let logs = read_value(
+        &mut client,
+        "facade-logs",
+        &ReadRequest::Logs {
+            project_id: project_id.clone(),
+            filter: Default::default(),
+        },
+    );
+    assert!(logs["entries"].as_array().unwrap().is_empty());
+    let failed_debug = client
+        .desktop_read(
+            &id("facade-missing-profile"),
+            &ReadRequest::DebugProfile {
+                project_id: project_id.clone(),
+                profile: id(&"c".repeat(32)),
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        complete(&mut client, &project_id, &failed_debug.operation_id),
+        OperationState::Failed
+    );
+    let failure = client
+        .failure_detail(&project_id, &failed_debug.operation_id)
+        .unwrap();
+    assert!(matches!(
+        failure.scope,
+        devforge_manager::native_client::FailureScope::Debugger
+    ));
+    assert!(matches!(
+        client.begin_read_result(&project_id, &large.operation_id),
+        Err(Error::ReadExpired)
+    ));
+    assert_eq!(
+        ledger
+            .query_row("SELECT COUNT(*) FROM operations", [], |row| row
+                .get::<_, i64>(0))
+            .unwrap(),
+        baseline,
+        "pure polling reads must not create SQL operation rows"
+    );
+
+    // A valid near-domain-limit YAML save returns more than the old64KiB result
+    // cache once its hash/JSON wrapper is included. Keep Succeeded truthful and
+    // retrieve the complete mutation value through the explicit image path.
+    let mut yaml = document["text"].as_str().unwrap().to_owned();
+    yaml.push_str("\n#");
+    yaml.extend(std::iter::repeat_n('x', 65_530 - yaml.len()));
+    let saved_yaml = client
+        .admit(
+            &project_id,
+            &id("facade-large-save"),
+            &Command::ConfigurationSave {
+                id: project_id.as_str().into(),
+                expected: document["expected"].as_str().map(str::to_owned),
+                text: yaml.clone(),
+                consent: true,
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        complete(&mut client, &project_id, &saved_yaml.operation_id),
+        OperationState::Succeeded
+    );
+    assert!(matches!(
+        client.result(&project_id, &saved_yaml.operation_id),
+        Err(Error::Remote(_))
+    ));
+    let mut result_image = client
+        .begin_result_image(&project_id, &saved_yaml.operation_id)
+        .unwrap();
+    assert!(result_image.total_bytes() > 65_536);
+    loop {
+        if matches!(
+            client.read_result_step(&mut result_image).unwrap(),
+            ReadProgress::Complete
+        ) {
+            break;
+        }
+    }
+    let saved_document = client.finish_read_result(result_image).unwrap();
+    assert_eq!(saved_document["text"], yaml);
+    assert_eq!(fs::read_to_string(app.join("devforge.yaml")).unwrap(), yaml);
+
+    let secret_marker = "SDK_DESKTOP_SECRET_NOT_REAL_🦀";
+    let secret = AccessRequest::ConfigurationSecret {
+        project_id: project_id.clone(),
+        reference: "sdk_token".into(),
+        value: SecretValue::new(secret_marker).unwrap(),
+    };
+    let saved = client
+        .desktop_access(&id("facade-secret"), &secret)
+        .unwrap();
+    assert_eq!(
+        complete(&mut client, &project_id, &saved.operation_id),
+        OperationState::Succeeded
+    );
+    assert_eq!(
+        client.result(&project_id, &saved.operation_id).unwrap()["saved"],
+        true
+    );
+    assert!(
+        workspace_store
+            .values
+            .lock()
+            .unwrap()
+            .values()
+            .any(|v| v == secret_marker)
+    );
+    assert_eq!(
+        client
+            .desktop_access(&id("facade-secret"), &secret)
+            .unwrap()
+            .operation_id,
+        saved.operation_id
+    );
+    let changed = AccessRequest::ConfigurationSecret {
+        project_id: project_id.clone(),
+        reference: "sdk_token".into(),
+        value: SecretValue::new("different fixture value").unwrap(),
+    };
+    assert!(matches!(
+        client.desktop_access(&id("facade-secret"), &changed),
+        Err(Error::Remote(_))
+    ));
+    let stored_fingerprint: String = ledger
+        .query_row(
+            "SELECT fingerprint FROM operations WHERE operation_id=?1",
+            [saved.operation_id.as_str()],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert!(stored_fingerprint.starts_with("volatile-secret-v1:"));
+    assert!(
+        !String::from_utf8_lossy(
+            &fs::read(root.path().join("control/operations.sqlite3")).unwrap()
+        )
+        .contains(secret_marker)
+    );
+
+    // Unknown registered-project ownership must fail before any OS terminal is
+    // opened. This fixture deliberately does not launch a real desktop app.
+    let unknown_project = id(&"a".repeat(32));
+    let terminal = client
+        .desktop_access(
+            &id("facade-terminal"),
+            &AccessRequest::OpenTarget {
+                project_id: unknown_project.clone(),
+                target: OpenTarget::Terminal,
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        complete(&mut client, &unknown_project, &terminal.operation_id),
+        OperationState::Failed
+    );
+    let terminal_failure = client
+        .failure_detail(&unknown_project, &terminal.operation_id)
+        .unwrap();
+    assert_eq!(terminal_failure.project_id, unknown_project);
+    let scan2 = root.path().join("scan-root-two");
+    fs::create_dir(&scan2).unwrap();
+    let discovery = client
+        .desktop_access(
+            &id("facade-discovery"),
+            &AccessRequest::DiscoveryRoot {
+                path: scan2.to_string_lossy().into_owned(),
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        complete(&mut client, &root_subject, &discovery.operation_id),
+        OperationState::Succeeded
+    );
+    client.discovery_request().unwrap();
+    let loaded = devforge_platform::SqliteSettings::open(root.path())
+        .unwrap()
+        .load()
+        .unwrap();
+    assert_eq!(loaded.language, "ru");
+    assert_eq!(loaded.theme, Theme::Dark);
+    assert_eq!(
+        loaded.project_folder.as_deref(),
+        Some(fs::canonicalize(&scan2).unwrap().to_str().unwrap())
+    );
+    let first = client.operations(Some(&project_id), None, 1).unwrap();
+    assert_eq!(first.items.len(), 1);
+    let cursor = first
+        .next_cursor
+        .as_ref()
+        .expect("second durable project access");
+    let second = client
+        .operations(Some(&project_id), Some(cursor), 1)
+        .unwrap();
+    assert_eq!(second.items.len(), 1);
+    assert_ne!(first.items[0].operation_id, second.items[0].operation_id);
+    assert!(first.active_reads.len() <= 2);
+    assert_eq!(desktop_store.gets.load(Ordering::SeqCst), 1);
+    drop(ledger);
+    client.quit().unwrap();
+    worker.join().unwrap().unwrap();
+}
+fn durable_access_lost_reply_is_reconciled_without_replay() {
+    let root = common::root("df-sdk-unconfirmed-");
+    let proxy_root = common::root("df-sdk-relay-");
+    let desktop_store = Arc::new(MemoryStore::default());
+    let workspace_store = Arc::new(MemoryStore::default());
+    let key = provision(root.path(), &desktop_store);
+    let app = root.path().join("application");
+    laravel(&app);
+    let catalog = Catalog::bundled();
+    let (php, node) = runtime_ids(&catalog);
+    let registry = ProjectStore::open(root.path().join("projects")).unwrap();
+    let project = registry
+        .import(&app, "Lost reply", &php, &node, &catalog)
+        .unwrap();
+    drop(registry);
+    let project_id = id(&project.id);
+    let (endpoint, worker, _quit) = running_with_workspace(
+        root.path(),
+        desktop_store,
+        workspace_store.clone(),
+        Options::default(),
+    );
+    let forward = devforge_manager::Client::new(endpoint);
+    let (real_peer, _) = forward
+        .request_with_peer(&serde_json::json!({"method":"health"}))
+        .unwrap();
+    let proxy_owner = common::acquire(proxy_root.path()).unwrap();
+    let proxy_endpoint = proxy_owner.endpoint().clone();
+    let stop = devforge_manager::StopSignal::default();
+    let server_stop = stop.clone();
+    let mode = Arc::new(AtomicUsize::new(1));
+    let server_mode = mode.clone();
+    let requests = Arc::new(AtomicUsize::new(0));
+    let server_requests = requests.clone();
+    let observed = Arc::new(Mutex::new(Vec::<Id>::new()));
+    let server_observed = observed.clone();
+    // The relay forwards to a REAL Controller. Only AFTER its actual durable
+    // receipt is received does this fixture drop/corrupt the network reply.
+    // It never fabricates a successful business result or reads native secrets.
+    let proxy = thread::spawn(move || {
+        devforge_manager::Server::new(proxy_owner).run(server_stop, move |_, mut request| {
+            let access = request["method"] == "desktop_access";
+            let mut response = forward.request_with_expected_peer(&real_peer, &request)?;
+            if let Some(object) = request.as_object_mut() {
+                for name in ["credential", "session", "token"] {
+                    if let Some(serde_json::Value::String(value)) = object.get_mut(name) {
+                        value.zeroize();
+                    }
+                }
+                if let Some(serde_json::Value::Object(input)) = object.get_mut("request")
+                    && let Some(serde_json::Value::String(value)) = input.get_mut("value")
+                {
+                    value.zeroize();
+                }
+            }
+            if access {
+                server_requests.fetch_add(1, Ordering::SeqCst);
+                let action = server_mode.swap(0, Ordering::SeqCst);
+                if response["ok"] == true {
+                    server_observed
+                        .lock()
+                        .unwrap()
+                        .push(id(response["data"]["operation_id"].as_str().unwrap()));
+                    if action == 1 {
+                        return Err(devforge_manager::Error::HandlerFailed);
+                    }
+                    if action == 2 {
+                        response["data"]["project_id"] =
+                            serde_json::Value::String("wrong-subject".into());
+                    }
+                }
+            }
+            Ok(response)
+        })
+    });
+    let probe = devforge_manager::Client::new(proxy_endpoint.clone());
+    let started = Instant::now();
+    while probe
+        .request(&serde_json::json!({"method":"health"}))
+        .is_err()
+    {
+        assert!(started.elapsed() < Duration::from_secs(5));
+        thread::sleep(Duration::from_millis(5));
+    }
+    let mut client = NativeClient::authenticate_explicit(proxy_endpoint, &key).unwrap();
+    let oversized = AccessRequest::ConfigurationSecret {
+        project_id: project_id.clone(),
+        reference: "r".repeat(70_000),
+        value: SecretValue::new("fixture").unwrap(),
+    };
+    assert!(matches!(
+        client.desktop_access(&id("access-presend-size"), &oversized),
+        Err(Error::InputLimit)
+    ));
+    assert_eq!(
+        requests.load(Ordering::SeqCst),
+        0,
+        "local known rejection must not send a request"
+    );
+    let intent = id("access-lost-reply");
+    let request = AccessRequest::ConfigurationSecret {
+        project_id: project_id.clone(),
+        reference: "sdk_lost".into(),
+        value: SecretValue::new("SDK_LOST_REPLY_FIXTURE").unwrap(),
+    };
+    assert!(matches!(
+        client.desktop_access(&intent, &request),
+        Err(Error::AdmissionUnconfirmed)
+    ));
+    assert_eq!(
+        requests.load(Ordering::SeqCst),
+        1,
+        "SDK must not retry the access after a lost receipt"
+    );
+    let recovered = client
+        .operation_by_key(&project_id, &intent)
+        .unwrap()
+        .expect("real admitted receipt");
+    assert_eq!(recovered.operation_id, observed.lock().unwrap()[0]);
+    assert_eq!(
+        complete(&mut client, &project_id, &recovered.operation_id),
+        OperationState::Succeeded
+    );
+    let effects = workspace_store.sets.load(Ordering::SeqCst);
+    assert!(effects > 0);
+    assert_eq!(
+        client
+            .operation_by_key(&project_id, &intent)
+            .unwrap()
+            .unwrap()
+            .operation_id,
+        recovered.operation_id
+    );
+    assert_eq!(workspace_store.sets.load(Ordering::SeqCst), effects);
+    assert_eq!(
+        requests.load(Ordering::SeqCst),
+        1,
+        "read-only reconciliation must not execute access"
+    );
+    assert!(
+        client
+            .operation_by_key(&project_id, &id("absent-at-this-instant"))
+            .unwrap()
+            .is_none()
+    );
+
+    mode.store(2, Ordering::SeqCst);
+    let intent2 = id("access-malformed-receipt");
+    assert!(matches!(
+        client.desktop_access(&intent2, &request),
+        Err(Error::AdmissionUnconfirmed)
+    ));
+    let recovered2 = client
+        .operation_by_key(&project_id, &intent2)
+        .unwrap()
+        .unwrap();
+    assert_eq!(recovered2.operation_id, observed.lock().unwrap()[1]);
+    assert_eq!(
+        complete(&mut client, &project_id, &recovered2.operation_id),
+        OperationState::Succeeded
+    );
+    assert_eq!(requests.load(Ordering::SeqCst), 2);
+    let invalid = AccessRequest::ConfigurationSecret {
+        project_id: project_id.clone(),
+        reference: "x".repeat(65),
+        value: SecretValue::new("fixture").unwrap(),
+    };
+    assert!(matches!(
+        client.desktop_access(&id("access-definite-denial"), &invalid),
+        Err(Error::Remote(_))
+    ));
+    client.quit().unwrap();
+    worker.join().unwrap().unwrap();
+    stop.request();
+    proxy.join().unwrap().unwrap();
 }
 fn cold_fixture(root: &Path) {
     let writer = BootstrapWriter::capture_inherited_stdout().unwrap();

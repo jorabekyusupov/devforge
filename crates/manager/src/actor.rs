@@ -4,14 +4,15 @@
 //! or grant issuer. Every admission/read/cancel needs a fresh DesktopAuthority.
 //! Previously admitted jobs survive session revocation/disconnect; execution-time
 //! grant revalidation belongs to the later external-client composition.
+use crate::desktop::{self, AccessRequest, ReadImage, ReadRequest};
 use crate::{WorkspacePermit, auth::DesktopAuthority};
 use devforge_control::{Id, OperationState};
 use devforge_control_adapter::DomainScope;
-use devforge_core::SecretStore;
+use devforge_core::{SecretStore, SettingsRepository};
 use devforge_runtime::Cancellation;
 use devforge_workspace::{Command, Snapshot, Workspace, setup::Progress};
 use rusqlite::{Connection, OpenFlags, OptionalExtension, params};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::{
@@ -27,6 +28,8 @@ use std::{
     thread::{self, JoinHandle},
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
+use subtle::ConstantTimeEq;
+use zeroize::Zeroizing;
 
 pub const QUEUE_CAPACITY: usize = 32;
 pub const RESULT_BYTES: usize = 65_536;
@@ -58,6 +61,8 @@ pub enum ActorError {
     EntropyUnavailable,
     SubjectMismatch,
     UnsupportedSubject,
+    IdempotencyUnverifiable,
+    ReadExpired,
 }
 impl std::fmt::Display for ActorError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -86,6 +91,8 @@ impl ActorError {
             Self::EntropyUnavailable => "actor_entropy_unavailable",
             Self::SubjectMismatch => "actor_subject_mismatch",
             Self::UnsupportedSubject => "actor_unsupported_subject",
+            Self::IdempotencyUnverifiable => "actor_idempotency_unverifiable",
+            Self::ReadExpired => "actor_read_expired",
         }
     }
 }
@@ -106,6 +113,20 @@ pub struct Receipt {
     pub state: OperationState,
     pub code: Option<String>,
 }
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct OperationCursor {
+    pub client_id: Id,
+    pub project_id: Option<Id>,
+    pub ceiling: u64,
+    pub before: u64,
+}
+#[derive(Serialize)]
+pub struct OperationPage {
+    pub items: Vec<Receipt>,
+    pub next_cursor: Option<OperationCursor>,
+    pub active_reads: Vec<Receipt>,
+}
 /// Validated transient domain metadata only; no Display/message, path or payload.
 /// A global operation's subject is ROOT_SUBJECT, not a fabricated project binding.
 #[derive(Debug, Clone, Serialize)]
@@ -114,6 +135,8 @@ pub struct FailureDetail {
     pub code: String,
     pub project_id: Id,
     pub retryable: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub recovery_project_id: Option<Id>,
 }
 pub struct SnapshotView {
     pub snapshot: Arc<Snapshot>,
@@ -153,11 +176,42 @@ struct State {
     waiting_bytes: usize,
     results: VecDeque<SavedResult>,
     result_bytes: usize,
+    reads: VecDeque<SavedRead>,
+    volatile_fingerprints: VecDeque<(Id, Zeroizing<String>)>,
+    read_tickets: VecDeque<ReadTicket>,
+}
+struct ReadTicket {
+    receipt: Receipt,
+    key: Id,
+    fingerprint: String,
+    expires: Instant,
+    cancellation: Cancellation,
+}
+struct SavedRead {
+    operation_id: Id,
+    image: Arc<ReadImage>,
 }
 struct WaitingCommand {
-    command: Command,
+    work: Work,
     bytes: usize,
     cancellation: Cancellation,
+}
+enum Work {
+    Command(Box<Command>),
+    Read(Box<ReadRequest>),
+    Access(Box<AccessRequest>),
+}
+impl Work {
+    fn is_read(&self) -> bool {
+        matches!(self, Self::Read(_))
+    }
+    fn is_secret(&self) -> bool {
+        // These known free-text fields may contain low-entropy credentials.
+        // A persisted unkeyed request hash would be an offline verifier. This
+        // finite policy is not general DLP for arbitrary project metadata.
+        matches!(self,Self::Access(request)if matches!(request.as_ref(),AccessRequest::ConfigurationSecret{..}))
+            || matches!(self,Self::Command(command)if matches!(command.as_ref(),Command::DebugHttp{..}|Command::DebugRequest{..}|Command::ConfigurationSave{..}))
+    }
 }
 #[derive(Debug, Clone, Copy)]
 pub struct QueueUsage {
@@ -179,7 +233,12 @@ struct Shared {
     stopping: AtomicBool,
     stopped: AtomicBool,
     active: AtomicBool,
+    active_read: AtomicBool,
+    mutation_active: AtomicBool,
+    mutation_queued: AtomicUsize,
     queued: AtomicUsize,
+    read_budget: Arc<desktop::ImageBudget>,
+    discovery: Mutex<Option<devforge_workspace::discovery::Service>>,
 }
 struct Job {
     receipt: Receipt,
@@ -223,7 +282,12 @@ impl WorkspaceActor {
             stopping: AtomicBool::new(false),
             stopped: AtomicBool::new(false),
             active: AtomicBool::new(false),
+            active_read: AtomicBool::new(false),
+            mutation_active: AtomicBool::new(false),
+            mutation_queued: AtomicUsize::new(0),
             queued: AtomicUsize::new(0),
+            read_budget: Arc::new(desktop::ImageBudget::default()),
+            discovery: Mutex::new(None),
         });
         let (sender, receiver) = mpsc::sync_channel(QUEUE_CAPACITY);
         let (ready_tx, ready_rx) = mpsc::sync_channel(1);
@@ -243,6 +307,11 @@ impl WorkspaceActor {
                 worker_shared.stopping.store(true, Ordering::Release);
                 worker_shared.stopped.store(true, Ordering::Release);
                 worker_shared.active.store(false, Ordering::Release);
+                worker_shared.active_read.store(false, Ordering::Release);
+                worker_shared
+                    .mutation_active
+                    .store(false, Ordering::Release);
+                worker_shared.mutation_queued.store(0, Ordering::Release);
                 worker_shared.queued.store(0, Ordering::Release);
                 if let Ok(mut entries) = worker_shared.cancellations.lock() {
                     entries.clear();
@@ -254,7 +323,15 @@ impl WorkspaceActor {
                     state.waiting.clear();
                     state.waiting_bytes = 0;
                     state.pending = 0;
+                    state.reads.clear();
+                    state.volatile_fingerprints.clear();
+                    state.read_tickets.clear();
                 }
+                worker_shared
+                    .discovery
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
+                    .take();
                 // Workspace has been dropped (and its process owners joined) before
                 // this permit can release the singleton/install leases.
                 drop(permit);
@@ -302,6 +379,128 @@ impl Drop for WorkspaceActor {
 }
 
 impl ActorHandle {
+    pub fn operation_by_key(
+        &self,
+        authority: &DesktopAuthority<'_>,
+        project: Id,
+        key: Id,
+    ) -> Result<Option<Receipt>> {
+        let client = self.client(authority)?;
+        let state = self
+            .shared
+            .state
+            .lock()
+            .map_err(|_| ActorError::StorageUnavailable)?;
+        self.client(authority)?;
+        let found = state
+            .find(
+                &client,
+                &OperationIdentity {
+                    project_id: project,
+                    idempotency_key: key,
+                },
+            )?
+            .map(|(receipt, _)| receipt);
+        self.client(authority)?;
+        Ok(found)
+    }
+    pub fn operations(
+        &self,
+        authority: &DesktopAuthority<'_>,
+        project: Option<Id>,
+        cursor: Option<OperationCursor>,
+        limit: u32,
+    ) -> Result<OperationPage> {
+        if !(1..=100).contains(&limit) {
+            return Err(ActorError::InvalidInput);
+        }
+        let client = self.client(authority)?;
+        let mut state = self
+            .shared
+            .state
+            .lock()
+            .map_err(|_| ActorError::StorageUnavailable)?;
+        self.client(authority)?;
+        state.expire_reads();
+        let (ceiling, before) = if let Some(cursor) = cursor {
+            if cursor.client_id != client
+                || cursor.project_id != project
+                || cursor.ceiling > 9_007_199_254_740_990
+                || cursor.before == 0
+                || cursor.before > cursor.ceiling + 1
+            {
+                return Err(ActorError::InvalidInput);
+            }
+            (cursor.ceiling, cursor.before)
+        } else {
+            let ceiling=state.db.query_row::<i64,_,_>("SELECT COALESCE(MAX(rowid),0) FROM operations WHERE client_id=?1 AND (?2 IS NULL OR project_id=?2)",params![client.as_str(),project.as_ref().map(Id::as_str)],|row|row.get(0)).map_err(|_|ActorError::StorageUnavailable)?;
+            if !(0..=9_007_199_254_740_990).contains(&ceiling) {
+                return Err(ActorError::OutputLimitExceeded);
+            }
+            (ceiling as u64, ceiling as u64 + 1)
+        };
+        let mut statement=state.db.prepare("SELECT operation_id,client_id,project_id,state,code,rowid FROM operations WHERE client_id=?1 AND (?2 IS NULL OR project_id=?2) AND rowid<=?3 AND rowid<?4 ORDER BY rowid DESC LIMIT ?5").map_err(|_|ActorError::StorageUnavailable)?;
+        let rows = statement
+            .query_map(
+                params![
+                    client.as_str(),
+                    project.as_ref().map(Id::as_str),
+                    ceiling as i64,
+                    before as i64,
+                    limit + 1
+                ],
+                |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, String>(1)?,
+                        row.get::<_, String>(2)?,
+                        row.get::<_, String>(3)?,
+                        row.get::<_, Option<String>>(4)?,
+                        row.get::<_, i64>(5)?,
+                    ))
+                },
+            )
+            .map_err(|_| ActorError::StorageUnavailable)?;
+        let mut items = Vec::new();
+        let mut last = before;
+        let mut more = false;
+        for row in rows {
+            let row = row.map_err(|_| ActorError::StorageUnavailable)?;
+            if items.len() == limit as usize {
+                more = true;
+                break;
+            }
+            last = u64::try_from(row.5).map_err(|_| ActorError::StorageUnavailable)?;
+            items.push(receipt(row.0, row.1, row.2, row.3, row.4)?);
+        }
+        let active_reads = state
+            .read_tickets
+            .iter()
+            .filter(|entry| {
+                entry.receipt.client_id == client
+                    && project
+                        .as_ref()
+                        .is_none_or(|id| id == &entry.receipt.project_id)
+                    && !entry.receipt.state.terminal()
+                    && !entry.cancellation.is_cancelled()
+            })
+            .map(|entry| entry.receipt.clone())
+            .collect::<Vec<_>>();
+        if active_reads.len() > desktop::READ_RESULTS {
+            return Err(ActorError::StorageUnavailable);
+        }
+        self.client(authority)?;
+        Ok(OperationPage {
+            items,
+            next_cursor: more.then_some(OperationCursor {
+                client_id: client,
+                project_id: project,
+                ceiling,
+                before: last,
+            }),
+            active_reads,
+        })
+    }
     pub fn queue_usage(&self, authority: &DesktopAuthority<'_>) -> Result<QueueUsage> {
         self.client(authority)?;
         let state = self
@@ -357,8 +556,8 @@ impl ActorHandle {
         Ok(SnapshotView {
             snapshot: cache.snapshot.clone(),
             observed_at: cache.observed_at,
-            busy: self.shared.active.load(Ordering::Acquire)
-                || self.shared.queued.load(Ordering::Acquire) != 0,
+            busy: self.shared.mutation_active.load(Ordering::Acquire)
+                || self.shared.mutation_queued.load(Ordering::Acquire) != 0,
             stopped: self.shared.stopped.load(Ordering::Acquire),
             error: cache.error,
             progress: self
@@ -375,18 +574,134 @@ impl ActorHandle {
         identity: OperationIdentity,
         command: Command,
     ) -> Result<Receipt> {
+        self.submit_work(authority, identity, Work::Command(Box::new(command)))
+    }
+    pub fn desktop_read(
+        &self,
+        authority: &DesktopAuthority<'_>,
+        idempotency_key: Id,
+        request: ReadRequest,
+    ) -> Result<Receipt> {
+        if !request.valid() {
+            return Err(ActorError::InvalidInput);
+        }
+        let identity = OperationIdentity {
+            project_id: request.project_id().clone(),
+            idempotency_key,
+        };
+        self.submit_work(authority, identity, Work::Read(Box::new(request)))
+    }
+    pub fn desktop_access(
+        &self,
+        authority: &DesktopAuthority<'_>,
+        idempotency_key: Id,
+        request: AccessRequest,
+    ) -> Result<Receipt> {
+        if !request.valid() {
+            return Err(ActorError::InvalidInput);
+        }
+        let identity = OperationIdentity {
+            project_id: request.subject(),
+            idempotency_key,
+        };
+        self.submit_work(authority, identity, Work::Access(Box::new(request)))
+    }
+    pub fn discovery_request(&self, authority: &DesktopAuthority<'_>) -> Result<()> {
+        self.client(authority)?;
+        if self.shared.stopping.load(Ordering::Acquire) {
+            return Err(ActorError::ShuttingDown);
+        }
+        let lock = self
+            .shared
+            .discovery
+            .lock()
+            .map_err(|_| ActorError::WorkerUnavailable)?;
+        lock.as_ref()
+            .ok_or(ActorError::WorkerUnavailable)?
+            .request();
+        Ok(())
+    }
+    pub fn read_image(
+        &self,
+        authority: &DesktopAuthority<'_>,
+        project: &Id,
+        operation: &Id,
+    ) -> Result<Arc<ReadImage>> {
         let client = self.client(authority)?;
-        validate_subject(&identity.project_id, &command)?;
-        let (fingerprint, encoded_bytes) = fingerprint(&identity.project_id, &command)?;
         let mut state = self
             .shared
             .state
             .lock()
             .map_err(|_| ActorError::StorageUnavailable)?;
         self.client(authority)?;
-        if let Some((receipt, previous)) = state.find(&client, &identity)? {
+        let receipt = state.get(&client, project, operation)?;
+        if !receipt.state.terminal() {
+            return Err(ActorError::NotReady);
+        }
+        if receipt.state != OperationState::Succeeded {
+            return Err(ActorError::OperationFailed);
+        }
+        if receipt.code.as_deref() == Some("result_output_limit") {
+            return Err(ActorError::OutputLimitExceeded);
+        }
+        state.expire_reads();
+        state
+            .reads
+            .iter()
+            .find(|entry| &entry.operation_id == operation)
+            .map(|entry| entry.image.clone())
+            .ok_or(if operation.as_str().starts_with("read-") {
+                ActorError::ReadExpired
+            } else {
+                ActorError::ResultUnavailable
+            })
+    }
+    fn submit_work(
+        &self,
+        authority: &DesktopAuthority<'_>,
+        identity: OperationIdentity,
+        work: Work,
+    ) -> Result<Receipt> {
+        let client = self.client(authority)?;
+        if let Work::Command(command) = &work {
+            let cache = self
+                .shared
+                .cache
+                .lock()
+                .map_err(|_| ActorError::StorageUnavailable)?;
+            validate_subject(&identity.project_id, command, &cache.snapshot)?;
+        }
+        let secret = work.is_secret();
+        let read = work.is_read();
+        let (fingerprint, encoded_bytes) = work_fingerprint(&identity.project_id, &work)?;
+        let mut state = self
+            .shared
+            .state
+            .lock()
+            .map_err(|_| ActorError::StorageUnavailable)?;
+        self.client(authority)?;
+        state.expire_reads();
+        let existing = if read {
+            state.find_read(&client, &identity)
+        } else {
+            state.find(&client, &identity)?
+        };
+        if let Some((receipt, previous)) = existing {
             self.client(authority)?;
-            if previous != fingerprint {
+            if secret && previous.starts_with("volatile-secret-v1:") {
+                let Some((_, expected)) = state
+                    .volatile_fingerprints
+                    .iter()
+                    .find(|(operation, _)| operation == &receipt.operation_id)
+                else {
+                    return Err(ActorError::IdempotencyUnverifiable);
+                };
+                if !bool::from(expected.as_bytes().ct_eq(fingerprint.as_bytes())) {
+                    return Err(ActorError::IdempotencyConflict);
+                }
+                return Ok(receipt);
+            }
+            if previous != fingerprint || secret {
                 return Err(ActorError::IdempotencyConflict);
             }
             return Ok(receipt);
@@ -395,13 +710,31 @@ impl ActorHandle {
             return Err(ActorError::ShuttingDown);
         }
         state.purge_cancelled_payloads();
+        publish_queue(&self.shared, &state);
+        state.expire_reads();
         if state.pending >= QUEUE_CAPACITY
             || encoded_bytes > QUEUE_BYTES.saturating_sub(state.waiting_bytes)
         {
             return Err(ActorError::Busy);
         }
+        if read
+            && (state
+                .waiting
+                .values()
+                .filter(|item| item.work.is_read())
+                .count()
+                + usize::from(self.shared.active_read.load(Ordering::Acquire)))
+                >= desktop::READ_RESULTS
+        {
+            return Err(ActorError::Busy);
+        }
         let receipt = Receipt {
-            operation_id: random_id()?,
+            operation_id: if read {
+                Id::new(format!("read-{}", random_id()?.as_str()))
+                    .map_err(|_| ActorError::InvalidInput)?
+            } else {
+                random_id()?
+            },
             client_id: client.clone(),
             project_id: identity.project_id.clone(),
             state: OperationState::Queued,
@@ -422,25 +755,53 @@ impl ActorHandle {
                     cancellation: cancellation.clone(),
                 },
             );
-        if let Err(error) =
-            state.insert(&receipt, &identity.idempotency_key, &fingerprint, authority)
-        {
+        let persisted_fingerprint = if secret {
+            format!("volatile-secret-v1:{}", random_id()?.as_str())
+        } else {
+            fingerprint.clone()
+        };
+        let insertion = if read {
+            state.insert_read(
+                &receipt,
+                &identity.idempotency_key,
+                &fingerprint,
+                cancellation.clone(),
+                authority,
+            )
+        } else {
+            state.insert(
+                &receipt,
+                &identity.idempotency_key,
+                &persisted_fingerprint,
+                authority,
+            )
+        };
+        if let Err(error) = insertion {
             if let Ok(mut entries) = self.shared.cancellations.lock() {
                 entries.remove(&receipt.operation_id);
             }
             return Err(error);
         }
         state.pending += 1;
+        if secret {
+            if state.volatile_fingerprints.len() >= 128 {
+                state.volatile_fingerprints.pop_front();
+            }
+            state
+                .volatile_fingerprints
+                .push_back((receipt.operation_id.clone(), Zeroizing::new(fingerprint)));
+        }
         state.waiting_bytes += encoded_bytes;
         state.waiting.insert(
             receipt.operation_id.clone(),
             WaitingCommand {
-                command,
+                work,
                 bytes: encoded_bytes,
                 cancellation: cancellation.clone(),
             },
         );
         self.shared.queued.store(state.pending, Ordering::Release);
+        publish_queue(&self.shared, &state);
         let job = Message::Job(Box::new(Job {
             receipt: receipt.clone(),
             cancellation,
@@ -448,6 +809,7 @@ impl ActorHandle {
         if let Err(error) = self.sender.try_send(job) {
             state.pending -= 1;
             state.take_payload(&receipt.operation_id);
+            publish_queue(&self.shared, &state);
             self.shared.queued.store(state.pending, Ordering::Release);
             self.shared
                 .cancellations
@@ -569,6 +931,7 @@ impl ActorHandle {
                 drop(entries);
                 if let Ok(mut state) = self.shared.state.try_lock() {
                     state.take_payload(operation);
+                    publish_queue(&self.shared, &state);
                     if let Ok(receipt) = state.get(&client, project, operation)
                         && receipt.state == OperationState::Running
                     {
@@ -602,6 +965,23 @@ fn worker_loop(
         }
     };
     workspace.progress = shared.progress.clone();
+    {
+        let service = devforge_workspace::discovery::Service::new();
+        if let Ok(settings) = devforge_platform::SqliteSettings::open(permit.root())
+            .and_then(|settings| settings.load())
+            && let Some(folder) = settings.project_folder
+        {
+            let path = PathBuf::from(folder);
+            if path.is_absolute() {
+                service.set_root(path);
+            }
+        }
+        *shared
+            .discovery
+            .lock()
+            .map_err(|_| ActorError::WorkerUnavailable)? = Some(service);
+    }
+    sync_discovery(shared, &mut workspace)?;
     if let Err(error) = refresh(shared, &workspace) {
         let _ = ready.send(Err(error));
         return Err(error);
@@ -615,6 +995,11 @@ fn worker_loop(
                     Message::Job(job) => finish_cancelled(shared, &job)?,
                 }
             }
+            shared
+                .discovery
+                .lock()
+                .map_err(|_| ActorError::WorkerUnavailable)?
+                .take();
             let result = workspace.shutdown().map_err(|_| ActorError::ShutdownFailed);
             if let Err(error) = refresh(shared, &workspace)
                 && let Ok(mut cache) = shared.cache.lock()
@@ -628,6 +1013,10 @@ fn worker_loop(
             Ok(value) => value,
             Err(mpsc::RecvTimeoutError::Timeout) => {
                 if last_refresh.elapsed() >= Duration::from_millis(250) {
+                    let _ = sync_discovery(shared, &mut workspace);
+                    if let Ok(mut state) = shared.state.lock() {
+                        state.expire_reads();
+                    }
                     if let Err(error) = refresh(shared, &workspace)
                         && let Ok(mut cache) = shared.cache.lock()
                     {
@@ -648,7 +1037,7 @@ fn worker_loop(
                     finish_cancelled(shared, &job)?;
                     continue;
                 }
-                let command = {
+                let work = {
                     let mut state = shared
                         .state
                         .lock()
@@ -657,6 +1046,7 @@ fn worker_loop(
                     shared.queued.store(state.pending, Ordering::Release);
                     let payload = state.take_payload(&job.receipt.operation_id);
                     if job.cancellation.is_cancelled() || payload.is_none() {
+                        publish_queue(shared, &state);
                         state.update(
                             &job.receipt.operation_id,
                             OperationState::Cancelled,
@@ -671,10 +1061,152 @@ fn worker_loop(
                         continue;
                     }
                     shared.active.store(true, Ordering::Release);
+                    shared.mutation_active.store(
+                        payload.as_ref().is_some_and(|value| !value.work.is_read()),
+                        Ordering::Release,
+                    );
+                    publish_queue(shared, &state);
+                    shared.active_read.store(
+                        payload.as_ref().is_some_and(|value| value.work.is_read()),
+                        Ordering::Release,
+                    );
                     state.update(&job.receipt.operation_id, OperationState::Running, None)?;
-                    payload.ok_or(ActorError::WorkerUnavailable)?.command
+                    payload.ok_or(ActorError::WorkerUnavailable)?.work
                 };
-                let outcome = workspace.execute(command, &job.cancellation);
+                let read = work.is_read();
+                let attempt = if let Work::Command(command) = &work
+                    && let Command::CreateProject { input } = command.as_ref()
+                {
+                    workspace.snapshot().ok().and_then(|before| {
+                        crate::subjects::CreateAttempt::capture(
+                            &shared.root,
+                            &job.receipt.operation_id,
+                            input,
+                            &before,
+                        )
+                    })
+                } else {
+                    None
+                };
+                let worktree_attempt = if let Work::Command(command) = &work
+                    && let Command::WorktreeCreate { input, review, .. } = command.as_ref()
+                {
+                    workspace.snapshot().ok().and_then(|before| {
+                        crate::subjects::WorktreeAttempt::capture(
+                            &shared.root,
+                            &job.receipt.operation_id,
+                            input,
+                            review,
+                            &before,
+                        )
+                    })
+                } else {
+                    None
+                };
+                let mut outcome = match work {
+                    Work::Command(command) => {
+                        if resource_command(&command) {
+                            match workspace
+                                .snapshot()
+                                .map_err(|_| ActorError::WorkspaceUnavailable)
+                                .and_then(|snapshot| {
+                                    validate_subject(&job.receipt.project_id, &command, &snapshot)
+                                }) {
+                                Ok(()) => workspace.execute(*command, &job.cancellation),
+                                Err(_) => Err(devforge_workspace::Error {
+                                    scope: "workspace",
+                                    code: "subject_mismatch".into(),
+                                    project_id: Some(job.receipt.project_id.as_str().into()),
+                                }),
+                            }
+                        } else {
+                            workspace.execute(*command, &job.cancellation)
+                        }
+                    }
+                    Work::Read(request) => request.execute(&workspace),
+                    Work::Access(request) => {
+                        if matches!(request.as_ref(), AccessRequest::DiscoveryRoot { .. }) {
+                            let lock = shared
+                                .discovery
+                                .lock()
+                                .map_err(|_| ActorError::WorkerUnavailable)?;
+                            request.execute(&mut workspace, &shared.root, lock.as_ref())
+                        } else {
+                            request.execute(&mut workspace, &shared.root, None)
+                        }
+                    }
+                };
+                if read {
+                    let expired = {
+                        let state = shared
+                            .state
+                            .lock()
+                            .map_err(|_| ActorError::StorageUnavailable)?;
+                        state
+                            .read_tickets
+                            .iter()
+                            .find(|entry| entry.receipt.operation_id == job.receipt.operation_id)
+                            .is_none_or(|entry| Instant::now() >= entry.expires)
+                    };
+                    if expired || job.cancellation.is_cancelled() {
+                        outcome = Err(devforge_workspace::Error {
+                            scope: "workspace",
+                            code: "cancelled".into(),
+                            project_id: Some(job.receipt.project_id.as_str().into()),
+                        });
+                    }
+                }
+                let recovery = if let Err(error) = &outcome
+                    && let Some(error_project) = error.project_id.as_deref()
+                {
+                    workspace.snapshot().ok().and_then(|after| {
+                        attempt
+                            .as_ref()
+                            .and_then(|attempt| {
+                                attempt.recover_project(
+                                    &shared.root,
+                                    &job.receipt.operation_id,
+                                    &after,
+                                    error_project,
+                                    |path| devforge_projects::discovery::identity(path).ok(),
+                                )
+                            })
+                            .or_else(|| {
+                                worktree_attempt.as_ref().and_then(|attempt| {
+                                    attempt.recover_project(
+                                        &shared.root,
+                                        &job.receipt.operation_id,
+                                        &after,
+                                        error_project,
+                                        &error.code,
+                                        |path| devforge_projects::discovery::identity(path).ok(),
+                                    )
+                                })
+                            })
+                    })
+                } else {
+                    None
+                };
+                let needs_large = read
+                    || outcome
+                        .as_ref()
+                        .is_ok_and(|value| !small_result_fits(value));
+                let large_image = if needs_large && let Ok(value) = &outcome {
+                    {
+                        let mut state = shared
+                            .state
+                            .lock()
+                            .map_err(|_| ActorError::StorageUnavailable)?;
+                        state.expire_reads();
+                        if state.reads.len() >= desktop::READ_RESULTS {
+                            state.reads.pop_front();
+                        }
+                    }
+                    desktop::encode_read(value, shared.read_budget.clone(), now()).ok()
+                } else {
+                    None
+                };
+                let _ = sync_discovery(shared, &mut workspace);
                 if let Err(error) = refresh(shared, &workspace)
                     && let Ok(mut cache) = shared.cache.lock()
                 {
@@ -689,7 +1221,19 @@ fn worker_loop(
                     Ok(value) => {
                         // A successful side effect stays Succeeded even if its
                         // output cannot be retained or a late cancel raced it.
-                        let retained = state.remember(job.receipt.operation_id.clone(), value);
+                        let retained = if needs_large {
+                            if let Some(image) = large_image {
+                                state.reads.push_back(SavedRead {
+                                    operation_id: job.receipt.operation_id.clone(),
+                                    image,
+                                });
+                                true
+                            } else {
+                                false
+                            }
+                        } else {
+                            state.remember(job.receipt.operation_id.clone(), value)
+                        };
                         state.update(
                             &job.receipt.operation_id,
                             OperationState::Succeeded,
@@ -703,7 +1247,24 @@ fn worker_loop(
                     Err(error) => {
                         let cancelled =
                             matches!(error.code.as_str(), "cancelled" | "setup_cancelled");
-                        if let Some(detail) = validated_failure(&error, &job.receipt.project_id) {
+                        if read
+                            && cancelled
+                            && let Some(entry) = state.read_tickets.iter().find(|entry| {
+                                entry.receipt.operation_id == job.receipt.operation_id
+                            })
+                            && entry.receipt.state == OperationState::Running
+                        {
+                            state.update(
+                                &job.receipt.operation_id,
+                                OperationState::CancelRequested,
+                                None,
+                            )?;
+                        }
+                        if let Some(detail) = validated_failure_with_recovery(
+                            &error,
+                            &job.receipt.project_id,
+                            recovery,
+                        ) {
                             state.remember_outcome(
                                 job.receipt.operation_id.clone(),
                                 RetainedOutcome::Failure(detail),
@@ -727,6 +1288,8 @@ fn worker_loop(
                     .map_err(|_| ActorError::StorageUnavailable)?
                     .remove(&job.receipt.operation_id);
                 shared.active.store(false, Ordering::Release);
+                shared.mutation_active.store(false, Ordering::Release);
+                shared.active_read.store(false, Ordering::Release);
             }
         }
     }
@@ -738,6 +1301,7 @@ fn finish_cancelled(shared: &Shared, job: &Job) -> Result<()> {
         .map_err(|_| ActorError::StorageUnavailable)?;
     state.pending -= 1;
     state.take_payload(&job.receipt.operation_id);
+    publish_queue(shared, &state);
     shared.queued.store(state.pending, Ordering::Release);
     state.update(
         &job.receipt.operation_id,
@@ -765,6 +1329,34 @@ fn refresh(shared: &Shared, workspace: &Workspace) -> Result<()> {
         observed_at: now(),
         error: None,
     };
+    Ok(())
+}
+fn publish_queue(shared: &Shared, state: &State) {
+    shared.queued.store(state.pending, Ordering::Release);
+    shared.mutation_queued.store(
+        state
+            .waiting
+            .values()
+            .filter(|value| !value.work.is_read())
+            .count(),
+        Ordering::Release,
+    );
+}
+fn sync_discovery(shared: &Shared, workspace: &mut Workspace) -> Result<()> {
+    let (scan, status) = {
+        let lock = shared
+            .discovery
+            .lock()
+            .map_err(|_| ActorError::WorkerUnavailable)?;
+        let service = lock.as_ref().ok_or(ActorError::WorkerUnavailable)?;
+        (service.take(), service.status())
+    };
+    if let Some(scan) = scan {
+        workspace
+            .reconcile_discovery(scan)
+            .map_err(|_| ActorError::WorkspaceUnavailable)?;
+    }
+    workspace.discovery_status(status.root, status.scanning, status.degraded);
     Ok(())
 }
 
@@ -818,12 +1410,68 @@ impl State {
             waiting_bytes: 0,
             results: VecDeque::new(),
             result_bytes: 0,
+            reads: VecDeque::new(),
+            volatile_fingerprints: VecDeque::new(),
+            read_tickets: VecDeque::new(),
         };
         state.interrupt_pending()?;
         Ok(state)
     }
     fn interrupt_pending(&self) -> Result<()> {
         self.db.execute("UPDATE operations SET state=CASE WHEN state='queued' THEN 'interrupted' ELSE 'unknown' END,code='owner_interrupted',updated_at=?1 WHERE state IN ('queued','running','cancel_requested')", [now() as i64]).map_err(|_| ActorError::StorageUnavailable)?;
+        Ok(())
+    }
+    fn expire_reads(&mut self) {
+        let now = Instant::now();
+        self.reads.retain(|entry| now < entry.image.expires);
+        self.read_tickets.retain(|entry| {
+            if now >= entry.expires {
+                entry.cancellation.cancel();
+                !entry.receipt.state.terminal()
+            } else {
+                true
+            }
+        });
+    }
+    fn find_read(&self, client: &Id, identity: &OperationIdentity) -> Option<(Receipt, String)> {
+        self.read_tickets
+            .iter()
+            .find(|entry| {
+                &entry.receipt.client_id == client
+                    && entry.receipt.project_id == identity.project_id
+                    && entry.key == identity.idempotency_key
+                    && Instant::now() < entry.expires
+            })
+            .map(|entry| (entry.receipt.clone(), entry.fingerprint.clone()))
+    }
+    fn insert_read(
+        &mut self,
+        receipt: &Receipt,
+        key: &Id,
+        fingerprint: &str,
+        cancellation: Cancellation,
+        authority: &DesktopAuthority<'_>,
+    ) -> Result<()> {
+        authority
+            .check_current(Instant::now())
+            .map_err(|_| ActorError::Unauthorized)?;
+        if self.read_tickets.len() >= 128 {
+            let Some(index) = self
+                .read_tickets
+                .iter()
+                .position(|entry| entry.receipt.state.terminal())
+            else {
+                return Err(ActorError::Busy);
+            };
+            self.read_tickets.remove(index);
+        }
+        self.read_tickets.push_back(ReadTicket {
+            receipt: receipt.clone(),
+            key: key.clone(),
+            fingerprint: fingerprint.into(),
+            expires: Instant::now() + desktop::READ_TTL,
+            cancellation,
+        });
         Ok(())
     }
     fn take_payload(&mut self, operation: &Id) -> Option<WaitingCommand> {
@@ -870,10 +1518,39 @@ impl State {
         self.db.query_row("SELECT operation_id,client_id,project_id,state,code,fingerprint FROM operations WHERE client_id=?1 AND project_id=?2 AND idempotency_key=?3", params![client.as_str(),identity.project_id.as_str(),identity.idempotency_key.as_str()], |row| Ok((row.get::<_,String>(0)?,row.get::<_,String>(1)?,row.get::<_,String>(2)?,row.get::<_,String>(3)?,row.get::<_,Option<String>>(4)?,row.get::<_,String>(5)?))).optional().map_err(|_| ActorError::StorageUnavailable)?.map(|(op,client,project,state,code,fingerprint)| Ok((receipt(op,client,project,state,code)?,fingerprint))).transpose()
     }
     fn get(&self, client: &Id, project: &Id, operation: &Id) -> Result<Receipt> {
+        if operation.as_str().starts_with("read-") {
+            let entry = self
+                .read_tickets
+                .iter()
+                .find(|entry| &entry.receipt.operation_id == operation)
+                .ok_or(ActorError::ReadExpired)?;
+            if &entry.receipt.client_id != client || &entry.receipt.project_id != project {
+                return Err(ActorError::OperationNotFound);
+            }
+            if Instant::now() >= entry.expires {
+                return Err(ActorError::ReadExpired);
+            }
+            return Ok(entry.receipt.clone());
+        }
         let row = self.db.query_row("SELECT operation_id,client_id,project_id,state,code FROM operations WHERE operation_id=?1 AND client_id=?2 AND project_id=?3", params![operation.as_str(),client.as_str(),project.as_str()], |row| Ok((row.get::<_,String>(0)?,row.get::<_,String>(1)?,row.get::<_,String>(2)?,row.get::<_,String>(3)?,row.get::<_,Option<String>>(4)?))).optional().map_err(|_| ActorError::StorageUnavailable)?.ok_or(ActorError::OperationNotFound)?;
         receipt(row.0, row.1, row.2, row.3, row.4)
     }
-    fn update(&self, operation: &Id, state: OperationState, code: Option<&str>) -> Result<()> {
+    fn update(&mut self, operation: &Id, state: OperationState, code: Option<&str>) -> Result<()> {
+        if operation.as_str().starts_with("read-") {
+            let entry = self
+                .read_tickets
+                .iter_mut()
+                .find(|entry| &entry.receipt.operation_id == operation)
+                .ok_or(ActorError::ReadExpired)?;
+            entry
+                .receipt
+                .state
+                .transition(state)
+                .map_err(|_| ActorError::InvalidInput)?;
+            entry.receipt.state = state;
+            entry.receipt.code = code.map(str::to_owned);
+            return Ok(());
+        }
         let previous: String = self
             .db
             .query_row(
@@ -934,6 +1611,7 @@ fn receipt(
                 | "runtime_failed"
                 | "serving_failed"
                 | "workspace_failed"
+                | "debugger_failed"
                 | "result_output_limit"
                 | "owner_interrupted"
                 | "admission_interrupted"
@@ -956,7 +1634,16 @@ fn random_id() -> Result<Id> {
     getrandom::fill(&mut bytes).map_err(|_| ActorError::EntropyUnavailable)?;
     Id::new(format!("op-{}", hex(&bytes))).map_err(|_| ActorError::InvalidInput)
 }
-fn validate_subject(subject: &Id, command: &Command) -> Result<()> {
+fn validate_subject(subject: &Id, command: &Command, snapshot: &Snapshot) -> Result<()> {
+    if let Some(resolved) = crate::subjects::resource_subject(command, snapshot)
+        .map_err(|_| ActorError::SubjectMismatch)?
+    {
+        return if &resolved == subject {
+            Ok(())
+        } else {
+            Err(ActorError::SubjectMismatch)
+        };
+    }
     let (expected, global) = match command {
         Command::ConfigurationSave { id, .. }
         | Command::ConfigurationApply { id, .. }
@@ -1028,6 +1715,22 @@ fn validate_subject(subject: &Id, command: &Command) -> Result<()> {
     }
     Ok(())
 }
+fn resource_command(command: &Command) -> bool {
+    matches!(
+        command,
+        Command::WorktreeArchivePlan { .. }
+            | Command::WorktreeArchive { .. }
+            | Command::WorktreeRemotePlan { .. }
+            | Command::WorktreeRemoteCopy { .. }
+            | Command::WorktreeOpen { .. }
+            | Command::WorktreePlan { .. }
+            | Command::WorktreeCreate { .. }
+            | Command::WorktreeCleanupPlan { .. }
+            | Command::WorktreeCleanup { .. }
+            | Command::StartCache { .. }
+            | Command::StopCache { .. }
+    )
+}
 fn hex(bytes: &[u8]) -> String {
     bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
@@ -1045,22 +1748,30 @@ fn stable_code(scope: &str, code: &str) -> &'static str {
         "project" => "project_failed",
         "runtime" => "runtime_failed",
         "serving" => "serving_failed",
+        "debugger" => "debugger_failed",
         _ => "workspace_failed",
     }
 }
+#[cfg(test)]
 fn validated_failure(error: &devforge_workspace::Error, subject: &Id) -> Option<FailureDetail> {
+    validated_failure_with_recovery(error, subject, None)
+}
+fn validated_failure_with_recovery(
+    error: &devforge_workspace::Error,
+    subject: &Id,
+    recovery: Option<Id>,
+) -> Option<FailureDetail> {
     let scope = match error.scope {
         "project" => DomainScope::Project,
         "runtime" => DomainScope::Runtime,
         "serving" => DomainScope::Serving,
         "workspace" => DomainScope::Workspace,
+        "debugger" => DomainScope::Debugger,
         _ => return None,
     };
-    if error
-        .project_id
-        .as_deref()
-        .is_some_and(|project| project != subject.as_str())
-        || error.code.is_empty()
+    if error.project_id.as_deref().is_some_and(|project| {
+        project != subject.as_str() && recovery.as_ref().is_none_or(|id| id.as_str() != project)
+    }) || error.code.is_empty()
         || error.code.len() > 128
         || !error
             .code
@@ -1081,6 +1792,7 @@ fn validated_failure(error: &devforge_workspace::Error, subject: &Id) -> Option<
                 | "download_failed"
                 | "connection_failed"
         ),
+        recovery_project_id: recovery,
     })
 }
 fn native_path_hash(hash: &mut Sha256, root: &Path) {
@@ -1125,6 +1837,39 @@ fn measure<T: Serialize>(value: &T, limit: usize) -> Result<usize> {
     };
     serde_json::to_writer(&mut writer, value).map_err(|_| ActorError::OutputLimitExceeded)?;
     Ok(writer.bytes)
+}
+fn small_result_fits(value: &Value) -> bool {
+    #[derive(Serialize)]
+    #[serde(tag = "kind", content = "data", rename_all = "snake_case")]
+    enum Outcome<'a> {
+        Success(&'a Value),
+    }
+    measure(&Outcome::Success(value), RESULT_BYTES).is_ok()
+}
+fn work_fingerprint(project: &Id, work: &Work) -> Result<(String, usize)> {
+    match work {
+        Work::Command(command) => fingerprint(project, command),
+        Work::Read(request) => named_fingerprint(project, "desktop_read", request),
+        Work::Access(request) => named_fingerprint(project, "desktop_access", request),
+    }
+}
+fn named_fingerprint<T: Serialize>(
+    project: &Id,
+    kind: &str,
+    request: &T,
+) -> Result<(String, usize)> {
+    let bytes = measure(request, COMMAND_BYTES).map_err(|_| ActorError::InvalidInput)?;
+    let mut writer = LimitedWriter {
+        bytes: 0,
+        limit: COMMAND_BYTES + 1024,
+        hash: Some(Sha256::new()),
+    };
+    serde_json::to_writer(&mut writer, &(project, kind, request))
+        .map_err(|_| ActorError::InvalidInput)?;
+    Ok((
+        hex(&writer.hash.ok_or(ActorError::InvalidInput)?.finalize()),
+        bytes,
+    ))
 }
 fn fingerprint(project: &Id, command: &Command) -> Result<(String, usize)> {
     // Preserve the established tuple hash while bounding/counting only command

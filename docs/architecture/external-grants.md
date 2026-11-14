@@ -1,6 +1,6 @@
 # M13.1 external grant registry foundation
 
-Status: isolated backend implementation; focused tests are pending. No public
+Status: isolated backend implementation; eight staged fixture tests and library clippy passed on macOS ARM64. No public
 CLI/MCP dispatcher, GUI consent flow, external client connection or native
 credential-service behavior is established by this module.
 
@@ -68,3 +68,9 @@ authentication fixtures. Initial compilation encountered concurrent actor WIP an
 local timestamp/helper errors; local errors were corrected. The integrator isolated the staged source from concurrent facade changes: all eight
 fixture tests and scoped manager-library clippy passed on local macOS ARM64. No macOS/Windows native service, actual external
 agent, production credential prompt or public grant enforcement is claimed.
+
+
+Moving or replacing the manager data root itself fails the stored registry identity
+check. An owner-controlled registry adoption/reset path is not implemented here;
+no automatic relocation or silent reuse of old grants is claimed. Project-root
+relocation within the same manager requires a newly issued grant after consent.
