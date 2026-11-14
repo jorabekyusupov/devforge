@@ -7,6 +7,7 @@ mod distribution;
 mod e2e_guard;
 mod inspector;
 mod manager;
+mod mcp;
 mod project;
 mod runtime;
 mod site;
@@ -21,6 +22,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     if args.first().is_some_and(|arg| arg == "api") {
         std::process::exit(api::run(&args[1..]));
+    }
+    if args.first().is_some_and(|arg| arg == "mcp") {
+        std::process::exit(mcp::run(&args[1..]));
     }
     if let Some(help) = api::legacy_help(&args) {
         println!("{help}");
@@ -46,7 +50,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     if matches!(top.as_deref(), Some("--help" | "-h" | "help")) {
         println!(
             "{}",
-            serde_json::json!({"commands":["doctor","runtime","project","site","inspect","debug","config","workspace","distribution","manager","api"]})
+            serde_json::json!({"commands":["doctor","runtime","project","site","inspect","debug","config","workspace","distribution","manager","api","mcp"]})
         );
         return Ok(());
     }

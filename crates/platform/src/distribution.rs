@@ -501,12 +501,14 @@ mod lease_path_regressions {
         let root = tempfile::tempdir().unwrap();
         let outside = tempfile::tempdir().unwrap();
         let linked = root.path().join("linked-root");
-        let quote = |path: &Path| {
-            let text = path.to_str().unwrap();
-            assert!(!text.contains(['%', '"', '\r', '\n']));
-            format!("\"{text}\"")
-        };
-        let command = format!("mklink /J {} {}", quote(&linked), quote(outside.path()));
+        let linked_arg = dunce::simplified(&linked).to_str().unwrap();
+        let outside_arg = dunce::simplified(outside.path()).to_str().unwrap();
+        for text in [linked_arg, outside_arg] {
+            assert!(!text.contains(['%', '"', '\r', '\n', '\0']));
+        }
+        // cmd's builtin needs ordinary DOS/UNC paths, not verbatim \\?\ paths.
+        // /S /C strips the outer pair; raw_arg preserves the path quote pairs.
+        let command = format!("mklink /J \"{linked_arg}\" \"{outside_arg}\"");
         let output = std::process::Command::new(
             std::path::PathBuf::from(std::env::var_os("SystemRoot").unwrap())
                 .join("System32/cmd.exe"),
@@ -515,9 +517,23 @@ mod lease_path_regressions {
         .raw_arg(format!("\"{command}\""))
         .output()
         .unwrap();
+        let mut diagnostic = String::from_utf8_lossy(&output.stderr).into_owned();
+        for path in [
+            linked.as_path(),
+            outside.path(),
+            linked.parent().unwrap(),
+            outside.path().parent().unwrap(),
+        ] {
+            for spelling in [path, dunce::simplified(path)] {
+                diagnostic =
+                    diagnostic.replace(spelling.to_string_lossy().as_ref(), "[FIXTURE_PATH]");
+            }
+        }
         assert!(
             output.status.success(),
-            "isolated junction fixture creation failed"
+            "isolated junction fixture creation failed: exit={:?}, stderr={}",
+            output.status.code(),
+            diagnostic.chars().take(1024).collect::<String>()
         );
         assert!(AppLease::acquire(&linked).is_err());
         assert!(OperationLease::acquire(&linked).is_err());

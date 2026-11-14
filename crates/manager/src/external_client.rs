@@ -102,6 +102,65 @@ impl ExternalClient {
         Ok(response)
     }
 }
+/// Fixed configuration is an additional constraint, never authority. This
+/// read-only adapter verifies the requested project against the manager's grant
+/// before delivering any data, and permits only the five M13.3 projections.
+pub struct BoundReadOnlyClient {
+    client: ExternalClient,
+    project: Id,
+}
+impl BoundReadOnlyClient {
+    pub fn connect(
+        endpoint: Endpoint,
+        loaded: crate::credential_file::LoadedCredential,
+    ) -> std::result::Result<Self, ErrorCode> {
+        let (project, credential) = loaded.into_parts();
+        let client = ExternalClient::connect(endpoint, credential).map_err(Error::control_code)?;
+        let mut result = Self { client, project };
+        let response = result.request(
+            Id::new("mcp-project-binding")?,
+            ExternalInput::ProjectGet {
+                project_id: result.project.clone(),
+            },
+        )?;
+        if !response.ok {
+            return Err(response
+                .error
+                .map(|e| e.code)
+                .unwrap_or(ErrorCode::StorageUnavailable));
+        }
+        Ok(result)
+    }
+    pub fn request(
+        &mut self,
+        request_id: Id,
+        input: ExternalInput,
+    ) -> std::result::Result<ExternalReply, ErrorCode> {
+        match &input {
+            ExternalInput::OperationCancel { .. } => return Err(ErrorCode::UnsupportedCapability),
+            ExternalInput::ProjectGet { project_id }
+            | ExternalInput::OperationStatus { project_id, .. }
+                if project_id != &self.project =>
+            {
+                return Err(ErrorCode::ProjectMismatch);
+            }
+            _ => {}
+        }
+        let reply = self
+            .client
+            .request(request_id, input, None)
+            .map_err(Error::control_code)?;
+        if let Some(
+            crate::external_control::ExternalOutput::ProjectGet(output)
+            | crate::external_control::ExternalOutput::ProjectList(output),
+        ) = &reply.data
+            && (output.items.len() != 1 || output.items[0].project_id != self.project)
+        {
+            return Err(ErrorCode::ProjectMismatch);
+        }
+        Ok(reply)
+    }
+}
 struct SecretRequest(Value);
 impl Drop for SecretRequest {
     fn drop(&mut self) {

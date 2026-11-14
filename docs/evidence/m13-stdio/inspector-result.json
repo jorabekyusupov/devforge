@@ -1,0 +1,24 @@
+{
+  "client": "official MCP Inspector",
+  "version": "2.15.0",
+  "secret_backend": "explicit memory",
+  "checks": [
+    {
+      "method": "tools-list",
+      "passed": true
+    },
+    {
+      "method": "project-get",
+      "passed": true
+    },
+    {
+      "method": "resources-list",
+      "passed": true
+    },
+    {
+      "method": "summary-read",
+      "passed": true
+    }
+  ],
+  "initial_default_backend_probe": "failed default keychain lookup under isolated HOME before explicit memory rerun; no dialog/permission change"
+}

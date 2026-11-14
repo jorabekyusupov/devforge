@@ -368,3 +368,67 @@ fn replaced_registered_directory_cannot_receive_or_use_a_grant_and_expiry_is_enf
             .is_err()
     );
 }
+
+#[test]
+fn stdio_file_binding_is_verified_by_manager_and_cannot_enable_cancel_or_foreign_projects() {
+    use devforge_manager::{credential_file::CredentialFile, external_client::BoundReadOnlyClient};
+    let root = common::root("df-mcp-binding-");
+    let a = project(root.path(), "Bound");
+    let b = project(root.path(), "Foreign");
+    let mut owner = Running::new(root.path(), Arc::new(MemoryStore::default()));
+    let grant = owner.issue(&a.id, true);
+    let write = |name: &str, project: &str| {
+        let path = root.path().join(name);
+        common::credential_file(&path,&serde_json::to_vec(&json!({"schema":1,"project_id":project,"credential":grant.credential.expose_secret()})).unwrap());
+        CredentialFile::load(&path).unwrap()
+    };
+    assert!(matches!(
+        BoundReadOnlyClient::connect(owner.endpoint.clone(), write("wrong-project", &b.id)),
+        Err(ErrorCode::ProjectMismatch)
+    ));
+    let mut client =
+        BoundReadOnlyClient::connect(owner.endpoint.clone(), write("correct-project", &a.id))
+            .unwrap();
+    assert!(
+        client
+            .request(id("metadata"), ExternalInput::ProjectList {})
+            .unwrap()
+            .ok
+    );
+    assert!(matches!(
+        client.request(
+            id("no-cancel"),
+            ExternalInput::OperationCancel {
+                project_id: id(&a.id),
+                operation_id: id("not-admitted")
+            }
+        ),
+        Err(ErrorCode::UnsupportedCapability)
+    ));
+    assert!(matches!(
+        client.request(
+            id("no-foreign"),
+            ExternalInput::ProjectGet {
+                project_id: id(&b.id)
+            }
+        ),
+        Err(ErrorCode::ProjectMismatch)
+    ));
+    owner
+        .client
+        .revoke_external_grant(&grant.record.grant_id)
+        .unwrap();
+    failure(
+        client
+            .request(id("revoked"), ExternalInput::Health {})
+            .unwrap(),
+        ErrorCode::GrantRevoked,
+    );
+    drop(owner);
+    assert!(
+        client
+            .request(id("no-autostart"), ExternalInput::Health {})
+            .is_err()
+    );
+    assert!(devforge_platform::distribution::AppLease::acquire(root.path()).is_ok());
+}

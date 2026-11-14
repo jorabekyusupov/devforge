@@ -31,3 +31,6 @@ e2e = ["test-support"]
 [dev-dependencies]
 sha2 = "0.11.1"
 tempfile = "3.27.0"
+
+[target.'cfg(windows)'.dev-dependencies]
+windows-sys = { version = "0.61.2", features = ["Win32_Foundation", "Win32_Security", "Win32_Security_Authorization", "Win32_System_Threading", "Win32_System_Memory", "Win32_Storage_FileSystem"] }

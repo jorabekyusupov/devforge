@@ -1,0 +1,20 @@
+{
+  "client": "Visual Studio Code",
+  "version": "1.107.1",
+  "architecture": "arm64",
+  "actual_builtin_mcp_discovery": true,
+  "discovered_tools": 5,
+  "readonly_tool": "mcp_devforge_fixt_projects_list",
+  "one_grant_bound_project": true,
+  "protocol_offered": "2025-11-25",
+  "protocol_negotiated": "2025-11-25",
+  "model_account_used": false,
+  "bearer_contents_read_by_test": false,
+  "global_config_or_extensions_changed": false,
+  "manager_release_created": false,
+  "client_stdio_server_stopped": true,
+  "evidence": {
+    "real-result.json": "f3bda4fbcc256b0557003a0fa66058620efc9784b3915bff2f1a8de36bbef781",
+    "handshake.json": "3428ab318b0f3ae07977c91827b1b35e1d3dfe6b00fa3e9c2406d75d9f89142a"
+  }
+}

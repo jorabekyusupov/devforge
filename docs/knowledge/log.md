@@ -4,6 +4,8 @@
 
 ## 2026-11-14
 
+- **M13.3 stdio MCP:** bounded5readonlytools+boundsummary, protectedcredentialfile/dual-era protocol, EOF noownerstop.7contract/loader+2transport/3integration/actualfixture andclippy passed; actualInspector/Codex/VSCodepassedwithbootstrapwarningsseparated, fixturecleaned. Windowsgateopen; existingjunctionfixtures7relatedguardsfixed. [Contract](../architecture/mcp-stdio-contract.md).
+
 - **M13.2 JSON CLI:** versioned6-route restrictedexternalboundary, boundedstdin/noNativeauthorityfallback, no-writehelp/schema/capabilities;3backend/5CLI/2legacy checks plusQAhelp-passthrough1/clippy/fmt passed. WindowsCIpending, noMCP/content/execution scope. [CLI](../architecture/json-cli.md), [boundary](../architecture/manager-external-control.md).
 
 - **Windows expiry fixture cleanup:** existing OS quit handle replaces100ms-token cleanup;1affectedcase/fmt passed, productionpolicy unchanged. [Execution](execution-status.md).

@@ -179,12 +179,13 @@ fn junction_root_is_rejected_without_writing_fixture_files() {
     let root = tempfile::tempdir().unwrap();
     let outside = tempfile::tempdir().unwrap();
     let linked = root.path().join("linked-root");
-    let quote = |path: &Path| {
-        let value = path.to_str().unwrap();
-        assert!(!value.contains(['%', '"', '\r', '\n']));
-        format!("\"{value}\"")
-    };
-    let script = format!("mklink /J {} {}", quote(&linked), quote(outside.path()));
+    let linked_arg = dunce::simplified(&linked).to_str().unwrap();
+    let outside_arg = dunce::simplified(outside.path()).to_str().unwrap();
+    for text in [linked_arg, outside_arg] {
+        assert!(!text.contains(['%', '"', '\r', '\n', '\0']));
+    }
+    // Match the terminal fixture: cmd needs DOS/UNC paths and its own quoting.
+    let script = format!("mklink /J \"{linked_arg}\" \"{outside_arg}\"");
     let output = Command::new(
         std::path::PathBuf::from(std::env::var_os("SystemRoot").unwrap()).join("System32/cmd.exe"),
     )
@@ -192,9 +193,22 @@ fn junction_root_is_rejected_without_writing_fixture_files() {
     .raw_arg(format!("\"{script}\""))
     .output()
     .unwrap();
+    let mut diagnostic = String::from_utf8_lossy(&output.stderr).into_owned();
+    for path in [
+        linked.as_path(),
+        outside.path(),
+        linked.parent().unwrap(),
+        outside.path().parent().unwrap(),
+    ] {
+        for spelling in [path, dunce::simplified(path)] {
+            diagnostic = diagnostic.replace(spelling.to_string_lossy().as_ref(), "[FIXTURE_PATH]");
+        }
+    }
     assert!(
         output.status.success(),
-        "isolated junction fixture creation failed"
+        "isolated junction fixture creation failed: exit={:?}, stderr={}",
+        output.status.code(),
+        diagnostic.chars().take(1024).collect::<String>()
     );
     let store = FixtureSecrets::open(linked.join("e2e-secrets.json"));
     assert_eq!(

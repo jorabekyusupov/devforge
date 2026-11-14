@@ -217,6 +217,49 @@ pub(crate) fn validate_lock(file: &File) -> Result<()> {
     }
     Ok(())
 }
+/// Credential files may live outside our private control directory. Validate
+/// security on this opened handle, not a path that can name a different file.
+pub(crate) fn validate_credential_file(file: &File) -> Result<()> {
+    validate_lock(file)?;
+    let mut sd = std::ptr::null_mut();
+    let mut owner = std::ptr::null_mut();
+    let mut dacl = std::ptr::null_mut();
+    if unsafe {
+        GetSecurityInfo(
+            file.as_raw_handle() as HANDLE,
+            SE_FILE_OBJECT,
+            OWNER_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION,
+            &mut owner,
+            std::ptr::null_mut(),
+            &mut dacl,
+            std::ptr::null_mut(),
+            &mut sd,
+        )
+    } != 0
+    {
+        return Err(Error::UnsafeEndpoint);
+    }
+    let _memory = LocalMemory(sd);
+    if owner.is_null()
+        || dacl.is_null()
+        || sid_string(owner)? != current_user()?
+        || unsafe { (*dacl).AceCount } != 1
+    {
+        return Err(Error::UnsafeEndpoint);
+    }
+    let mut ace = std::ptr::null_mut();
+    if unsafe { GetAce(dacl, 0, &mut ace) } == 0 || ace.is_null() {
+        return Err(Error::UnsafeEndpoint);
+    }
+    let allowed = unsafe { &*ace.cast::<ACCESS_ALLOWED_ACE>() };
+    if allowed.Header.AceType != ACCESS_ALLOWED_ACE_TYPE as u8
+        || allowed.Header.AceFlags & INHERIT_ONLY_ACE as u8 != 0
+        || sid_string((&allowed.SidStart as *const u32).cast_mut().cast())? != current_user()?
+    {
+        return Err(Error::UnsafeEndpoint);
+    }
+    Ok(())
+}
 
 pub(crate) enum Stream {
     Server(NamedPipeServer),

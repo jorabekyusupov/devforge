@@ -84,3 +84,6 @@ pub mod report_reads;
 
 pub mod external_client;
 pub mod external_control;
+
+pub mod credential_file;
+pub mod mcp_contract;

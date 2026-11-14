@@ -19,6 +19,28 @@ pub fn root(prefix: &str) -> tempfile::TempDir {
     root
 }
 
+/// New disposable fixture files only. Never adopts a file, repairs an ACL or
+/// prints its credential bytes. Windows hosted runners may use an elevated
+/// default owner; set the current TokenUser explicitly at exclusive creation.
+#[allow(dead_code)]
+pub fn credential_file(path: &std::path::Path, bytes: &[u8]) {
+    use std::io::Write;
+    #[cfg(unix)]
+    let mut file = {
+        use std::os::unix::fs::OpenOptionsExt;
+        std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o600)
+            .open(path)
+            .unwrap()
+    };
+    #[cfg(windows)]
+    let mut file = windows::new_credential_file(path);
+    file.write_all(bytes).unwrap();
+    file.sync_all().unwrap();
+}
+
 /// Preserve acquisition semantics and emit sanitized context before a fixture's
 /// expected-success unwrap. Other test binaries may only need `root`.
 #[allow(dead_code)]
@@ -87,6 +109,69 @@ mod windows {
                 LocalFree(self.0);
             }
         }
+    }
+    pub fn new_credential_file(path: &Path) -> fs::File {
+        use std::os::windows::io::FromRawHandle;
+        let user = current_user_buffer().expect("fixture current user");
+        let sid = unsafe { (*(user.as_ptr().cast::<TOKEN_USER>())).User.Sid };
+        let mut sid_text = std::ptr::null_mut();
+        assert_ne!(
+            unsafe { ConvertSidToStringSidW(sid, &mut sid_text) },
+            0,
+            "fixture SID encoding"
+        );
+        let _sid_memory = LocalMemory(sid_text.cast());
+        let mut length = 0;
+        while unsafe { *sid_text.add(length) } != 0 {
+            length += 1;
+            assert!(length <= 256);
+        }
+        let user =
+            String::from_utf16(unsafe { std::slice::from_raw_parts(sid_text, length) }).unwrap();
+        let sddl = format!("O:{user}D:P(A;;FA;;;{user})")
+            .encode_utf16()
+            .chain(Some(0))
+            .collect::<Vec<_>>();
+        let mut sd = std::ptr::null_mut();
+        assert_ne!(
+            unsafe {
+                ConvertStringSecurityDescriptorToSecurityDescriptorW(
+                    sddl.as_ptr(),
+                    1,
+                    &mut sd,
+                    std::ptr::null_mut(),
+                )
+            },
+            0,
+            "fixture private descriptor"
+        );
+        let sd = LocalMemory(sd);
+        let attributes = SECURITY_ATTRIBUTES {
+            nLength: std::mem::size_of::<SECURITY_ATTRIBUTES>() as u32,
+            lpSecurityDescriptor: sd.0,
+            bInheritHandle: 0,
+        };
+        let name = path
+            .as_os_str()
+            .encode_wide()
+            .chain(Some(0))
+            .collect::<Vec<_>>();
+        let handle = unsafe {
+            CreateFileW(
+                name.as_ptr(),
+                GENERIC_WRITE | GENERIC_READ,
+                FILE_SHARE_READ,
+                &attributes,
+                CREATE_NEW,
+                FILE_ATTRIBUTE_NORMAL,
+                std::ptr::null_mut(),
+            )
+        };
+        assert_ne!(
+            handle, INVALID_HANDLE_VALUE,
+            "fixture exclusive file creation"
+        );
+        unsafe { fs::File::from_raw_handle(handle) }
     }
     #[derive(Default)]
     pub struct State {

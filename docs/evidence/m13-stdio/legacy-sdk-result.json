@@ -1,0 +1,8 @@
+{
+  "client": "official TypeScript SDK",
+  "version": "1.29.0",
+  "protocol": "2025-11-25",
+  "tools": 5,
+  "resource_read": true,
+  "passed": true
+}

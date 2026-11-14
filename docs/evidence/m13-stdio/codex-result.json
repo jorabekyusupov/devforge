@@ -1,0 +1,15 @@
+{
+  "passed": true,
+  "client": "Codex CLI",
+  "client_version": "0.167.0-alpha.4.1",
+  "actual_mcp_tool_call": true,
+  "tool": "projects.list",
+  "returned_project": "d85fee233f534d3c9202ebd3f2c0fe86",
+  "returned_name": "MCP Granted",
+  "other_tool_calls": 0,
+  "global_configuration_changed": false,
+  "ephemeral": true,
+  "native_store_accessed_by_devforge": false,
+  "client_warning": "Pre-existing SessionEnd hook emitted a warning; MCP call and turn completed successfully.",
+  "negotiated_protocol_version": "not separately recorded"
+}

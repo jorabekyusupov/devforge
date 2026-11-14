@@ -29,6 +29,8 @@ mavzuni tanlang, so'ng faqat tegishli hujjatlar va ularning manbalarini o'qing.
 
 ## Manba va yuritish
 
+- [M13.3 stdio MCP](../architecture/mcp-stdio-contract.md) - 5 read-only tools, bound summary resource, modern/legacy protocol va actual client evidence.
+
 - [M13.2 JSON CLI](../architecture/json-cli.md) - versioned envelope, no-write help, bounded credential stdin va 6 cheklangan live buyruq.
 - [External control boundary](../architecture/manager-external-control.md) - grant-derived project/client, native admin ajratilishi va own-operation isolation.
 

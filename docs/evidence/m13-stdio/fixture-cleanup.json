@@ -1,0 +1,8 @@
+{
+  "shared_manual_fixture_passed": true,
+  "fixture_runtime_seconds": 237.16,
+  "manager_worker_joined": true,
+  "temporary_root_removed": true,
+  "post_release_api_health_exit": 4,
+  "post_release_fault": "storage_unavailable"
+}

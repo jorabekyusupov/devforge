@@ -138,7 +138,7 @@ Parallel agent boshlangan yoki tugagan itemni integrator evidence bilan yangilay
 | M13.0 | in_progress | E00 integratsiyasi; 16 oilaning contract mappingi, schema fixtures va lifecycle ADR. |
 | M13.1 | in_progress | M13.0; native single-owner/auth/ID/retry/cancel/Quit/headless acceptance. |
 | M13.2 | validated_local | Versioned JSON CLI plus restricted grant boundary implemented; focused local acceptance passed, new Windows CI pending. |
-| M13.3 | planned | M13.0 projection fixture parallel; actual client live owner/CLI contractdan keyin. |
+| M13.3 | validated_local | Bounded stdio readonly adapter and actual Inspector/Codex/VS Code acceptance passed; Windows target gate remains. |
 | M13.4 | planned | Owner/grants/versioned API; adapterlar start/stop→runtime→env→DB→HTTPS reviewed slices. |
 | M13.5 | planned | Read projection M13.0dan parallel mumkin; integrated scope/freshness/health/mail qabul. |
 | M13.6 | planned | Execution/debug/workspace kontrakti, actual isolated scenario va preservation. |
@@ -1087,3 +1087,30 @@ reused, finalCLI/manager boundaryclippy androotselectedfmt/diff passed. Oneexist
 CLIcontroldependencyedge only; no versionchange. Native credential service/GUI
 were notusedbythistest. Windowsnewboundaryexecution remainsCIgate. Externalgrant
 userUI andMCP followtheirplannedstages; no claimtheyareavailable now.
+
+
+## M13.3 bounded stdio read-only MCP
+
+[Contract/evidence](../architecture/mcp-stdio-contract.md): explicit protected
+credentialfile, no tokenargv/env/stdin; readonlyExternalClient only, noNativeClient/
+Workspace/autostart. Fiveexistingmetadata/ownstatus tools andoneboundsummary
+resource; nocancel/mutation/content/exec/HTTP. Modern2026-07-28 perrequestmetadata/
+discover/cachehints/resultType andlegacy2025-11-25handshake supported. Bounded
+NDJSON64KiB/256KiB, queues/cancellation suppressreadreply, EOFneverquitsmanager.
+
+Focusedchecks: loader2/protocol4/actualboundisolation1, transport2/subprocess3,
+manualsharedclientfixture1 andscopedclippy passed. ActualofficialInspector2.15.0
+memorybackend tools/list/projects.get/resources/list/read; officialSDK1.29.0 is
+legacycompatibilityonly. ActualCodexCLI0.167.0-alpha.4.1 calledprojects.list once,
+VSCode1.107.1 built-inclient discovered5tools/calledprojects.list/negotiated
+2025-11-25. Bothreturnedonlygrantedproject; globalconfigsunchanged. Initial
+Inspectorbackendlookupfailed beforecorrectmemoryinvocation; initialVSCodehost
+neverhandshook beforecorrectworkspaceURI; preexistingCodexSessionEndhookwarned.
+Theseclientbootstrapwarnings areseparatefrompassedDevForgeprotocolcalls.
+
+Sanitizedreports in docs/evidence/m13-stdio. Ownedfixturecleanlyjoinedandremoved,
+post-health exit4. NoDevForgeNativeStore/OSpermissionchanges/newframework/dependency
+version. Windowsstrictcredentialfile helperneedsnativeCI; no modernthird-party
+clientversionclaimbeyondprotocolfixtures. TwoexistingWindowsjunctionfixture
+helpers alignedwithknowncorrectnormalpath/rawcmdpattern; directlyrelatedguards7/
+scopedclippy/fmt passed, actualWindowsnextCI. Historicalunrelatedexampleuntouched.

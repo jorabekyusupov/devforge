@@ -1,0 +1,89 @@
+{
+  "vscode": "1.107.1",
+  "stages": [
+    "actualStartLens",
+    "startReturned",
+    "actualToolDiscovery",
+    "actualReadonlyToolCall"
+  ],
+  "folders": [
+    "file:///tmp/df-vscode-mcp-probe-1mz17es_/workspace"
+  ],
+  "codeLenses": [
+    {
+      "command": "workbench.mcp.startServer",
+      "arguments": [
+        "mcp.config.ws0.devforge_fixture",
+        {
+          "autoTrustChanges": true
+        }
+      ]
+    },
+    {
+      "command": "workbench.mcp.serverOptions",
+      "arguments": [
+        "mcp.config.ws0.devforge_fixture"
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "mcp_devforge_fixt_health_health",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      }
+    },
+    {
+      "name": "mcp_devforge_fixt_operations_status",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "operation_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "operation_id"
+        ],
+        "type": "object"
+      }
+    },
+    {
+      "name": "mcp_devforge_fixt_projects_get",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      }
+    },
+    {
+      "name": "mcp_devforge_fixt_projects_list",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      }
+    },
+    {
+      "name": "mcp_devforge_fixt_services_status",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      }
+    }
+  ],
+  "selectedTool": "mcp_devforge_fixt_projects_list",
+  "toolResult": [
+    {
+      "type": "Ut",
+      "value": "{\"api_version\":1,\"data\":{\"data\":{\"freshness\":{\"observed_at\":1794658603652,\"origin\":\"cached\",\"revision\":1},\"items\":[{\"composer\":\"composer-2.11.2-macos-arm64\",\"name\":\"MCP Granted\",\"node\":\"node-v22.23.4-macos-arm64\",\"php\":\"php-8.4.27-staticphp20261113-cli-macos-arm64\",\"project_id\":\"d85fee233f534d3c9202ebd3f2c0fe86\",\"revision\":1}],\"next_cursor\":null},\"tool\":\"projects.list\"},\"ok\":true,\"request_id\":\"mcp-1\",\"warnings\":[]}"
+    }
+  ],
+  "stoppedMcpClient": true
+}
