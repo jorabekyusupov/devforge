@@ -1,3 +1,4 @@
+mod common;
 use devforge_manager::{
     Client, Endpoint, Error, Owner, Server, StopSignal,
     launch::{self, LaunchSpec},
@@ -13,22 +14,19 @@ use std::{
 };
 
 fn root() -> tempfile::TempDir {
-    // Keep Darwin sockaddr_un below its fixed path limit even when the ordinary
-    // system temporary directory has a long sandbox-specific name.
-    #[cfg(unix)]
-    {
-        tempfile::Builder::new()
-            .prefix("df-manager-")
-            .tempdir_in("/tmp")
-            .unwrap()
+    common::root("df-manager-")
+}
+
+#[cfg(windows)]
+#[test]
+fn disposable_root_security_probe_preserves_production_validation() {
+    let root = root();
+    let result = common::acquire(root.path());
+    common::diagnose("root_after_acquire", root.path());
+    if root.path().join("control").exists() {
+        common::diagnose("control_after_acquire", &root.path().join("control"));
     }
-    #[cfg(not(unix))]
-    {
-        tempfile::Builder::new()
-            .prefix("df-manager-")
-            .tempdir()
-            .unwrap()
-    }
+    assert!(result.is_ok(), "MANAGER_FIXTURE_OWNER_ACQUIRE_OK=false");
 }
 fn fixture(mode: &str, root: &Path) -> Command {
     let mut command = Command::new(std::env::current_exe().unwrap());
@@ -64,7 +62,7 @@ fn ready(root: &Path) -> Client {
 #[test]
 fn owner_excludes_second_owner_and_blocks_installer_until_drop() {
     let root = root();
-    let owner = Owner::acquire(root.path()).unwrap();
+    let owner = common::acquire(root.path()).unwrap();
     assert!(matches!(Owner::acquire(root.path()), Err(Error::Busy)));
     assert!(devforge_platform::distribution::OperationLease::exclusive(root.path()).is_err());
     drop(owner);
@@ -92,7 +90,7 @@ fn owner_rejects_dangling_operation_lock_without_outside_write_and_releases_sing
     // test-owned symlink must allow a fresh owner, proving the failure released
     // the singleton instead of leaving an unavailable endpoint behind.
     fs::remove_file(operation_lock).unwrap();
-    let owner = Owner::acquire(root.path()).unwrap();
+    let owner = common::acquire(root.path()).unwrap();
     assert!(devforge_platform::distribution::OperationLease::exclusive(root.path()).is_err());
     drop(owner);
     assert!(devforge_platform::distribution::OperationLease::exclusive(root.path()).is_ok());
@@ -187,7 +185,7 @@ fn oversize_and_malformed_frames_never_dispatch_and_server_recovers() {
         atomic::{AtomicUsize, Ordering},
     };
     let root = root();
-    let owner = Owner::acquire(root.path()).unwrap();
+    let owner = common::acquire(root.path()).unwrap();
     let endpoint = owner.endpoint().clone();
     let stop = StopSignal::default();
     let shutdown = stop.clone();
@@ -233,7 +231,7 @@ fn oversize_and_malformed_frames_never_dispatch_and_server_recovers() {
 #[test]
 fn oversized_response_closes_exchange_without_killing_owner() {
     let root = root();
-    let owner = Owner::acquire(root.path()).unwrap();
+    let owner = common::acquire(root.path()).unwrap();
     let stop = StopSignal::default();
     let shutdown = stop.clone();
     let worker = thread::spawn(move || {
@@ -261,7 +259,7 @@ fn oversized_response_closes_exchange_without_killing_owner() {
 fn saturated_listener_rejects_excess_without_stopping_owner_and_idle_peers_expire() {
     use std::io::Write;
     let root = root();
-    let owner = Owner::acquire(root.path()).unwrap();
+    let owner = common::acquire(root.path()).unwrap();
     let endpoint = owner.endpoint().clone();
     let stop = StopSignal::default();
     let shutdown = stop.clone();
@@ -369,7 +367,7 @@ fn symlinks_weak_permissions_and_non_socket_endpoint_are_rejected_without_repair
         fs::Permissions::from_mode(0o700),
     )
     .unwrap();
-    let owner = Owner::acquire(root.path()).unwrap();
+    let owner = common::acquire(root.path()).unwrap();
     fs::write(owner.endpoint().address(), b"unrelated").unwrap();
     let stop = StopSignal::default();
     let path = owner.endpoint().address().to_owned();
@@ -404,7 +402,7 @@ fn subprocess_fixture() {
     if mode == "owner" {
         let stop = StopSignal::default();
         let shutdown = stop.clone();
-        Server::new(Owner::acquire(&root).unwrap()).run(stop, move |peer, input| {
+        Server::new(common::acquire(&root).unwrap()).run(stop, move |peer, input| {
             let stop = input["probe"] == "stop";
             let response = json!({"owner":std::process::id(),"client":input["client"],"peer_user":peer.user});
             if stop { shutdown.request(); }

@@ -411,3 +411,11 @@ Windows compile/clippydan o'tdi, lekin manager Owner::acquire UnsafeEndpoint sab
 infrastructure tests fail; macOS job passed. Root-owner/elevated-fixture hypothesis
 native sanitized probe bilan tekshiriladi, production validation yumshatilmaydi.
 Bu failure yashirilmaydi va full M13.1 target qabuli deb ko'rsatilmaydi.
+
+## Windows native diagnostic probe
+
+Manager test-only common root/security probe owner/TokenUser matching, reparse,
+protected DACL va ACE flags/mask booleansni chiqaradi; rawSID/path/credentials yo'q.
+Production owner/ACL validation o'zgarmadi, fixture SetOwner qilinmadi. Probe commit
+sababi79ed2a6 failure qatlamini nativeWindowsda aniq isbotlash; bu platform gate
+yopilganini bildirmaydi. Faqat manager source/tests+docs, TP02 shu paketni tanlaydi.

@@ -4,6 +4,8 @@
 
 ## 2026-11-14
 
+- **Windows manager probe:** test-only sanitized root/control owner/ACL diagnostics, original production checks unchanged.79ed2a6 red natija sababini aniqlash uchun; fixture ownership normalization yo'q. Native test source-only qamrov manager paketiga cheklangan. [Execution](execution-status.md).
+
 - **TP02 Rust CI scope:** reverse local dependency closure (dev/build/alltarget), CLI→desktop override, selectedCargo argv va conservative FULLfallback.10new+8existing scope tests, metadata samples/Workflow review; fullproduct rerunlocalyo'q.79ed2a6Windows Owner UnsafeEndpoint regression nativeprobe bilan izlanmoqda;8e36be8green. [Execution](execution-status.md).
 
 - **M13.1.1 owner/IPC infra:** private user-authenticated endpoints, separate ManagerLease/OperationLease, bounded frames/connections/deadlines, dedicated detached launch. MacOS9initial process tests +new lease regression/affectedfilters o'tdi; packageclippy. QA Windows saturation va sharedlease symlink/hardlink issue tuzatildi; platform8focused tests green after3oldsource failures. Windows/native/fullWorkspace actor/grants/GUI gate ochiq. [Execution](execution-status.md).
