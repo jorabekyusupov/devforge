@@ -5,6 +5,11 @@ edition.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+devforge-control-adapter.workspace = true
+devforge-workspace.workspace = true
+devforge-runtime.workspace = true
+devforge-control.workspace = true
+rusqlite = { version = "0.41.1", default-features = false, features = ["bundled"] }
 devforge-core.workspace = true
 getrandom = "0.4.3"
 zeroize = "1.9.0"

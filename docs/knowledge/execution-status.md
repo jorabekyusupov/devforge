@@ -467,3 +467,34 @@ fixture qayta o'tdi, old9unaffected qamrov reused; heldproofexpiry1newtest o'tdi
 Scopedmanagerclippy/diff green; fullsuite/keychain/UI yoki prompt chaqirilmadi.
 In-processmarker policy wiregrant emas; actualcontroller aynan shu chegaralarni
 saqlamaguncha fullDesktopCommand ochilmaydi. Actor/desktoppubRPC integration keyingikesim.
+
+# M13.1.3 — Single Workspace actor va durable receipts
+
+[Actor ADR](../architecture/manager-actor.md): one-shot WorkspacePermit rootManagerLease
+va installerOperationLease'ni workerning realWorkspace cleanupigacha ushlab turadi.
+32waiting+1active boundedqueue; cached snapshot va targetcancel Workspace lockdan
+mustaqil. Actual isolated Workspace metadata Import/Favorite/Visit ishlatilgan,
+DBcontention/busy/cancel uchun realSQLitelock ishlatiladi, fakebackend yo'q.
+
+Clientidentity root+kerneluserdan serverderived (PIDemas, GUIrelaunchga barqaror).
+ExhaustiveCommandsubject project-ID mosligini tekshiradi; globalfaqatdesktop-root,
+worktree/cacheambiguous rawtargetlar UnsupportedSubject, existingGUIroute o'zgarmadi.
+FreshDesktopAuthority admissionlock/SQLwrite-lock va COMMIToldida qaytatekshiriladi.
+Acceptedjob keyingiexpiry/revokedan so'ngdavom etishi policyexplicit, executiontime
+externalgrants revalidation haliyo'q. Workerunexpectederror cache'da safeActorError.
+
+OperationsSQLite faqat IDs/key/fingerprint/state/finitecode/timestamp; rawcommand,
+secret/log/mail payload yo'q. StartupQueued→Interrupted, Running/CancelRequested→Unknown;
+neverautoreplay. Samekey/samefingerprint oldreceipt, boshqarequest conflict. Success
+value va validatedexactfailure scope/code/subject/retryable faqat64KiBperitem/128row/
+1MiBtotal RAM LRU; eviction/restartResultUnavailable. Durablefailureclassification
+finite; GUIerror tafsilotlariDBga yozilmaydi.
+
+Final focused actorintegration9passed +retention/policyunit2passed, managerclippy
+alltargets-Dwarnings pass. QA A/Bsubject, expired-duringadmission va cacheworkererror
+masalalari tuzatildi; failureDetail eviction/restart realmetadata testibilantasdiq.
+OriginalDarwinlongtemp-path fixture source/tmpga moslandi, prod103bytepolicyyumshamadi.
+Nativeevidence localmacOSARM64; yangiWindows/Intelactoracceptance CI/targetda alohida.
+No GUI/runtime/download/Keychain yokiuserproject mutation. PrivateIPC64KiB va actor
+256KiBcommand limit existingM7 1MiBHttpbodyga yetmaydi: authenticatedlargebodychannel
+va trustedworktreetargetmapping yopilmaguncha GUImigrationready emas.

@@ -1216,10 +1216,15 @@ dependencies = [
 name = "devforge-manager"
 version = "0.1.0"
 dependencies = [
+ "devforge-control",
+ "devforge-control-adapter",
  "devforge-core",
  "devforge-platform",
+ "devforge-runtime",
+ "devforge-workspace",
  "getrandom 0.4.3",
  "libc",
+ "rusqlite",
  "serde",
  "serde_json",
  "sha2 0.11.1",

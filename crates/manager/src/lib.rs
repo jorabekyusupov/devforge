@@ -2,13 +2,13 @@
 //!
 //! A composition root supplies its real workspace handler. Peer identity proves
 //! an OS user, never a client role/grant or permission to execute project code.
-//! No workspace, MCP adapter or fake live tool is constructed by this crate.
+//! A Workspace is constructed only through a one-shot actor permit; no MCP tool is advertised.
 mod endpoint;
 mod framing;
 pub mod launch;
 mod transport;
 
-pub use endpoint::{Endpoint, Owner};
+pub use endpoint::{Endpoint, Owner, WorkspacePermit};
 pub use transport::{Client, PeerIdentity, Server, StopSignal};
 
 use std::{fmt, io};
@@ -60,3 +60,5 @@ impl From<io::Error> for Error {
 pub type Result<T> = std::result::Result<T, Error>;
 
 pub mod auth;
+
+pub mod actor;

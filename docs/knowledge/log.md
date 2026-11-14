@@ -4,6 +4,8 @@
 
 ## 2026-11-14
 
+- **M13.1.3 Workspace actor:** one-ownerworker/permit, boundedqueue/cache/targetcancel, durableidempotentreceipts/noautoreplay va boundedRAMsuccess/exactfailure.9realmetadata actor+2policy tests/clippy; QA subject/TTL/cacheerror tuzatildi. GUI/M7largebody/worktree target mapping hamda Win/Intel actor gate ochiq. [Execution](execution-status.md).
+
 - **M13.1.2 auth policy:** explicitDesktopcapability, zeroizingsessions/consttime/rootpeerbinding/throttle/TTL/revoke va heldproofexpiry. Original13test, QA slowstorefix2new+4affectedtest, expiry1; scopedclippy/strict. Nativekeychain/GUI/wire yo'q, actualstoreprompt qilinmadi. [Execution](execution-status.md).
 
 - **Configure preflight:** [Shared validator](configure-preflight-results.md) invalidname/debugPHP-change actual session stop buglarini yopdi;2cached native RED→GREEN, directstore1test va scopedclippy. PID/HTTP/metadata saqlandi, actualXdebug/WinIntel gate ochiq. Windows managerfixturef84360b selectednativeCI43562216307 success, oldredhistorysaqlandi.

@@ -4,6 +4,10 @@ use sha2::{Digest, Sha256};
 use std::{
     fs::{self, File, OpenOptions},
     path::{Path, PathBuf},
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
 };
 
 #[derive(Debug, Clone)]
@@ -97,8 +101,27 @@ fn root_path(root: &Path) -> Result<PathBuf> {
 /// separate GUI singleton; a headless owner also blocks installer replacement.
 pub struct Owner {
     endpoint: Endpoint,
+    lease: Arc<OwnerLease>,
+}
+struct OwnerLease {
     _lock: File,
     _operation: OperationLease,
+    workspace_claimed: AtomicBool,
+}
+/// One-use in-process authority to construct this owner's Workspace worker.
+/// It cannot be cloned or decoded from wire input. The worker retains its OS
+/// leases until Workspace cleanup finishes, even after the Server/Owner drops.
+pub struct WorkspacePermit {
+    endpoint: Endpoint,
+    _lease: Arc<OwnerLease>,
+}
+impl WorkspacePermit {
+    pub fn root(&self) -> &Path {
+        self.endpoint.root()
+    }
+    pub fn endpoint(&self) -> &Endpoint {
+        &self.endpoint
+    }
 }
 impl Owner {
     pub fn acquire(root: &Path) -> Result<Self> {
@@ -130,11 +153,23 @@ impl Owner {
         })?;
         Ok(Self {
             endpoint,
-            _lock: lock,
-            _operation: operation,
+            lease: Arc::new(OwnerLease {
+                _lock: lock,
+                _operation: operation,
+                workspace_claimed: AtomicBool::new(false),
+            }),
         })
     }
     pub fn endpoint(&self) -> &Endpoint {
         &self.endpoint
+    }
+    pub fn claim_workspace(&self) -> Result<WorkspacePermit> {
+        if self.lease.workspace_claimed.swap(true, Ordering::AcqRel) {
+            return Err(Error::Busy);
+        }
+        Ok(WorkspacePermit {
+            endpoint: self.endpoint.clone(),
+            _lease: self.lease.clone(),
+        })
     }
 }
