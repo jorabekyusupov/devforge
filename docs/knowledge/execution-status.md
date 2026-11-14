@@ -1114,3 +1114,16 @@ version. Windowsstrictcredentialfile helperneedsnativeCI; no modernthird-party
 clientversionclaimbeyondprotocolfixtures. TwoexistingWindowsjunctionfixture
 helpers alignedwithknowncorrectnormalpath/rawcmdpattern; directlyrelatedguards7/
 scopedclippy/fmt passed, actualWindowsnextCI. Historicalunrelatedexampleuntouched.
+
+
+## Windows junction blocker: native focused proof
+
+The three test-only creators now use fixed PowerShell New-Item with literal
+child-env paths, no cmd quoting, policy/privilege changes or skip. Isolated
+validation branch acf1932 parent1ca88b5 ran exactly3requiredjunctioncases on
+WindowsServer2025/build26100; each1testpassed, --locked. [Proof](../evidence/windows-junction/43596587450.json)
+records source/gitblob/CRLFhashes; currenthelperbytesmatchverifiedgitblobs. Shallow
+artifactparentempty was independentlycheckedwithGitHubAPI, notinvented. Owned
+duplicatecore canceled per explicitRootpermission, notcountedaspass. Mainworkflow
+unchanged; tempbranch retained. No broader test rerun; this closes the fixture
+creator blocker, notWindows10/11/nativeGUI/minOS acceptance.

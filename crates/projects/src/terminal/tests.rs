@@ -127,27 +127,25 @@ fn directory_link(target: &Path, link: &Path) {
     std::os::unix::fs::symlink(target, link).unwrap();
     #[cfg(windows)]
     {
-        use std::os::windows::process::CommandExt;
+        use std::os::windows::fs::MetadataExt;
         let system = std::env::var_os("SystemRoot").unwrap();
-        let link_arg = dunce::simplified(link).to_str().unwrap();
-        let target_arg = dunce::simplified(target).to_str().unwrap();
-        // Only disposable fixture paths enter this fixed builtin. Forbid quote
-        // termination and percent expansion; /V:OFF disables delayed expansion.
-        for value in [link_arg, target_arg] {
-            assert!(
-                !value.contains(['"', '%', '\r', '\n', '\0']),
-                "unsupported fixture path syntax"
-            );
-        }
-        let script = format!("mklink /J \"{link_arg}\" \"{target_arg}\"");
-        // cmd /S /C strips this outer quote pair, preserving the two path pairs.
-        // raw_arg avoids applying C-runtime argv escaping to cmd's command text.
-        let result =
-            std::process::Command::new(std::path::PathBuf::from(system).join("System32/cmd.exe"))
-                .args(["/D", "/V:OFF", "/S", "/C"])
-                .raw_arg(format!("\"{script}\""))
-                .output()
-                .unwrap();
+        // One fixed command; paths are literal environment values. This creates
+        // ordinary junctions without a shell quoting or privilege/policy change.
+        const CREATE: &str = "$ErrorActionPreference='Stop'; try { Microsoft.PowerShell.Management\\New-Item -ItemType Junction -Path $env:DEVFORGE_TEST_JUNCTION_LINK -Target $env:DEVFORGE_TEST_JUNCTION_TARGET -ErrorAction Stop | Out-Null } catch { [Console]::Error.WriteLine(('junction fixture: ' + $_.Exception.GetType().FullName + ' HResult=' + $_.Exception.HResult)); exit 1 }";
+        let result = std::process::Command::new(
+            std::path::PathBuf::from(system).join("System32/WindowsPowerShell/v1.0/powershell.exe"),
+        )
+        .args([
+            "-NoLogo",
+            "-NoProfile",
+            "-NonInteractive",
+            "-Command",
+            CREATE,
+        ])
+        .env("DEVFORGE_TEST_JUNCTION_LINK", dunce::simplified(link))
+        .env("DEVFORGE_TEST_JUNCTION_TARGET", dunce::simplified(target))
+        .output()
+        .unwrap();
         let mut diagnostic = String::from_utf8_lossy(&result.stderr).into_owned();
         for path in [
             link,
@@ -165,6 +163,14 @@ fn directory_link(target: &Path, link: &Path) {
             "disposable junction fixture unavailable: exit={:?}, stderr={}",
             result.status.code(),
             diagnostic.chars().take(1024).collect::<String>()
+        );
+        assert_ne!(
+            fs::symlink_metadata(link).unwrap().file_attributes() & 0x400,
+            0
+        );
+        assert_eq!(
+            fs::canonicalize(link).unwrap(),
+            fs::canonicalize(target).unwrap()
         );
     }
 }

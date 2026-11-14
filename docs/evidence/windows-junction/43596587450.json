@@ -1,0 +1,76 @@
+{
+  "source_sha": "acf1932c2da1ce11a263c9b2f6957ce2eb1c4929",
+  "base_sha": "",
+  "platform": "Windows-2025Server-10.0.26100-SP0",
+  "helper_git_blob_sha256": {
+    "crates/platform/src/distribution.rs": "550b113f4a65d72151e6bb7a1c85d2c0411f66f21978649a55ec9ab30fd545af",
+    "crates/projects/src/terminal/tests.rs": "73deec3e3750c9cdedc8c30c3113d95379e4bdcd7e822b7071fcdb7d2de7dfd6",
+    "crates/workspace/tests/fixture_secrets.rs": "6f51abf7c4517ec5e211f69b70f3e8a97c19beea9d3b85bd596767ec37bbc1a8"
+  },
+  "helper_sha256": {
+    "crates/platform/src/distribution.rs": "d9214cf702056a533bbd219c8c3d0128477814c44ed88b865705493bd2dfb9d0",
+    "crates/projects/src/terminal/tests.rs": "918ffbc7286d8265b61f0ff2d31e6d896b48ef8be1c817e943dd2cb6ab809b43",
+    "crates/workspace/tests/fixture_secrets.rs": "a805003ef3a4fa2cb79a585d9b5b116919faadc8a9a691edb09b94601036ad1a"
+  },
+  "cases": [
+    {
+      "name": "distribution::lease_path_regressions::native_client_and_other_leases_reject_junction_roots_without_writes",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "devforge-platform",
+        "--lib",
+        "distribution::lease_path_regressions::native_client_and_other_leases_reject_junction_roots_without_writes",
+        "--",
+        "--exact",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "exactly_one_test_passed": true
+    },
+    {
+      "name": "terminal::tests::snapshot_store_guards_reject_directory_links_without_outside_changes",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "devforge-projects",
+        "--lib",
+        "terminal::tests::snapshot_store_guards_reject_directory_links_without_outside_changes",
+        "--",
+        "--exact",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "exactly_one_test_passed": true
+    },
+    {
+      "name": "junction_root_is_rejected_without_writing_fixture_files",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "devforge-workspace",
+        "--features",
+        "test-support",
+        "--test",
+        "fixture_secrets",
+        "junction_root_is_rejected_without_writing_fixture_files",
+        "--",
+        "--exact",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "exactly_one_test_passed": true
+    }
+  ],
+  "passed": true,
+  "base_sha_verified_separately": "1ca88b5d4428a75c39b6c23575fdac521db5e6ac",
+  "base_verification": "GitHub commit-parent API verified parent; shallow runner artifact base_sha was empty and is preserved as reported.",
+  "run_url": "https://github.com/jorabekyusupov/devforge/actions/runs/43596587450",
+  "duplicate_core_run": "43596587493 canceled only on owned validation branch; not a pass"
+}
