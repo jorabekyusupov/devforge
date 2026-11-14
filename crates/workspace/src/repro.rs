@@ -637,12 +637,25 @@ impl Workspace {
         trusted: bool,
         cancel: &Cancellation,
     ) -> Result<Journal> {
+        self.manifest_setup_checked(path, review, write_env, trusted, cancel, &|| Ok(()))
+    }
+    pub(crate) fn manifest_setup_checked(
+        &mut self,
+        path: &Path,
+        review: &str,
+        write_env: bool,
+        trusted: bool,
+        cancel: &Cancellation,
+        check: &dyn Fn() -> Result<()>,
+    ) -> Result<Journal> {
+        check()?;
         let path = root(path)?;
         let _lock = self.repro_lock(&path)?;
         if !trusted {
             return Err(code("setup_trust_required"));
         }
         let plan = self.plan(&path, write_env)?;
+        check()?;
         if plan.digest != review {
             return Err(code("manifest_review_changed"));
         }
@@ -664,14 +677,16 @@ impl Workspace {
         let mut expected_env = env_hash(&path)?;
         let reviewed_inputs = inputs(&path)?;
         let result = (|| {
+            check()?;
             journal.stage = "download".into();
             self.save_journal(&path, &journal)?;
             for id in plan.packages.values() {
+                check()?;
                 if cancel.is_cancelled() {
                     return Err(code("setup_cancelled"));
                 }
                 let p = self.catalog.get(id)?;
-                self.packages.download(p, cancel, |_| {})?;
+                crate::environment_control::download_checked(&self.packages, p, cancel, check)?;
             }
             if hash(&manifest::read_file(&path.join("devforge.yaml"), 65536)?) != source
                 || env_hash(&path)? != expected_env
@@ -682,12 +697,14 @@ impl Workspace {
             if cancel.is_cancelled() {
                 return Err(code("setup_cancelled"));
             }
+            check()?;
             journal.stage = "register".into();
             self.save_journal(&path, &journal)?;
             let id = if let Some(p) = self.project_at(&path)? {
                 self.require_stopped(&p.id)?;
                 p.id
             } else {
+                check()?;
                 self.projects
                     .import_with_composer(
                         &path,
@@ -705,6 +722,7 @@ impl Workspace {
             journal.project_id = Some(id.clone());
             self.save_journal(&path, &journal)?;
             let p = self.projects.get(&id)?;
+            check()?;
             self.projects.configure(
                 &id,
                 p.revision,
@@ -714,6 +732,7 @@ impl Workspace {
                 &self.catalog,
             )?;
             let p = self.projects.get(&id)?;
+            check()?;
             self.projects.configure_composer(
                 &id,
                 p.revision,
@@ -721,12 +740,14 @@ impl Workspace {
                 &self.catalog,
             )?;
             let p = self.projects.get(&id)?;
+            check()?;
             devforge_projects::php_settings::save(
                 &self.projects,
                 &id,
                 p.revision,
                 m.php_settings.clone(),
             )?;
+            check()?;
             self.sites.configure(
                 &self.projects,
                 Site {
@@ -736,6 +757,7 @@ impl Workspace {
                     vite: m.project.vite,
                 },
             )?;
+            check()?;
             self.preferences.development.insert(
                 id.clone(),
                 Development {
@@ -744,6 +766,7 @@ impl Workspace {
             );
             self.save()?;
             for s in &plan.secrets {
+                check()?;
                 if !s.existing_project {
                     let p = self.projects.get(&id)?;
                     environment::link(
@@ -756,6 +779,7 @@ impl Workspace {
                     )?;
                 }
             }
+            check()?;
             journal.stage = "environment".into();
             self.save_journal(&path, &journal)?;
             if write_env
@@ -769,9 +793,11 @@ impl Workspace {
                 if env.original_hash() != expected_env {
                     return Err(code("manifest_review_changed"));
                 }
+                check()?;
                 env.apply_if_changed(&self.projects)?;
                 expected_env = env_hash(&path)?;
             }
+            check()?;
             journal.stage = "database".into();
             self.save_journal(&path, &journal)?;
             if let Some(package) = plan.packages.get("database") {
@@ -790,6 +816,7 @@ impl Workspace {
                 {
                     i.id
                 } else {
+                    check()?;
                     self.projects
                         .initialize_instance(
                             package,
@@ -802,14 +829,18 @@ impl Workspace {
                 };
                 journal.database = Some(instance.clone());
                 self.save_journal(&path, &journal)?;
+                check()?;
                 self.switch_database(&id, &instance, true)?;
             } else {
+                check()?;
                 self.projects.activate_binding(&id, None)?;
             }
+            check()?;
             journal.stage = "dependencies".into();
             self.save_journal(&path, &journal)?;
             if m.setup.predis && !path.join("vendor/predis/predis/src/Client.php").is_file() {
-                self.install_redis_client(&id, true, cancel)?;
+                check()?;
+                self.install_redis_client_checked(&id, true, cancel, check)?;
             }
             for (enabled, tool, args) in [
                 (
@@ -839,6 +870,7 @@ impl Workspace {
                 ),
             ] {
                 if enabled {
+                    check()?;
                     let context = Context::tooling(
                         &self.projects,
                         &id,
@@ -851,14 +883,18 @@ impl Workspace {
                     } else {
                         context
                     };
-                    let result = context
-                        .invocation(
-                            tool,
-                            args.into_iter().map(Into::into).collect(),
-                            &self.catalog,
-                            &self.packages,
-                        )?
-                        .run_cancellable(self.projects.root().join("manifest-tool-logs"), cancel)?;
+                    let invocation = context.invocation(
+                        tool,
+                        args.into_iter().map(Into::into).collect(),
+                        &self.catalog,
+                        &self.packages,
+                    )?;
+                    let result = crate::environment_control::run_checked(
+                        &invocation,
+                        self.projects.root().join("manifest-tool-logs"),
+                        cancel,
+                        check,
+                    )?;
                     if !result.success {
                         return Err(code("manifest_dependency_failed"));
                     }
@@ -867,6 +903,7 @@ impl Workspace {
             if hash(&manifest::read_file(&path.join("devforge.yaml"), 65536)?) != source {
                 return Err(code("manifest_review_changed"));
             }
+            check()?;
             journal.stage = "services".into();
             self.save_journal(&path, &journal)?;
             let redis = if let Some(package) = plan.packages.get("redis") {
@@ -897,6 +934,7 @@ impl Workspace {
                 {
                     i.id
                 } else {
+                    check()?;
                     self.projects
                         .initialize_cache(
                             &id,
@@ -915,6 +953,7 @@ impl Workspace {
                 None
             };
             let p = self.projects.get(&id)?;
+            check()?;
             self.projects.save_services(
                 &id,
                 p.revision,
@@ -924,6 +963,7 @@ impl Workspace {
                     redis_instance: redis,
                 },
             )?;
+            check()?;
             if let Some(enabled) = m.mail {
                 self.configure_mail(&id, enabled)?;
             } else if self.projects.get(&id)?.mail {
@@ -933,6 +973,7 @@ impl Workspace {
                 return Err(code("setup_cancelled"));
             }
             if write_env {
+                check()?;
                 journal.stage = "env_write".into();
                 self.save_journal(&path, &journal)?;
                 let env = EnvPlan::profile(
@@ -944,8 +985,10 @@ impl Workspace {
                 if env.original_hash() != expected_env {
                     return Err(code("manifest_review_changed"));
                 }
+                check()?;
                 env.apply_if_changed(&self.projects)?;
             }
+            check()?;
             journal.stage = "complete".into();
             journal.completed = true;
             self.save_journal(&path, &journal)?;

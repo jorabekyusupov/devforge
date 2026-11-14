@@ -41,13 +41,25 @@ impl Workspace {
         consent: bool,
         cancel: &Cancellation,
     ) -> Result<serde_json::Value> {
+        self.install_redis_client_checked(id, consent, cancel, &|| Ok(()))
+    }
+    pub(crate) fn install_redis_client_checked(
+        &mut self,
+        id: &str,
+        consent: bool,
+        cancel: &Cancellation,
+        check: &dyn Fn() -> Result<()>,
+    ) -> Result<serde_json::Value> {
+        check()?;
         self.require_stopped(id)?;
         if !consent {
             return Err(error("service_consent_required"));
         }
         let p = self.projects.get(id)?;
         self.catalog.composer(&p.composer)?;
+        check()?;
         self.install_dependency(&p.composer, cancel)?;
+        check()?;
         // Preserve the selected tool while deliberately omitting service credentials
         // and registered environment references from the tooling context.
         let context = Context::bootstrap_for_project(
@@ -57,23 +69,27 @@ impl Workspace {
             &self.packages,
             self.secrets.as_ref(),
         )?;
-        let result = context
-            .invocation(
-                Tool::Composer,
-                [
-                    "require",
-                    "predis/predis:^3.7.1",
-                    "--no-interaction",
-                    "--no-scripts",
-                    "--no-plugins",
-                ]
-                .into_iter()
-                .map(Into::into)
-                .collect(),
-                &self.catalog,
-                &self.packages,
-            )?
-            .run_cancellable(self.projects.root().join("client-install-logs"), cancel)?;
+        let invocation = context.invocation(
+            Tool::Composer,
+            [
+                "require",
+                "predis/predis:^3.7.1",
+                "--no-interaction",
+                "--no-scripts",
+                "--no-plugins",
+            ]
+            .into_iter()
+            .map(Into::into)
+            .collect(),
+            &self.catalog,
+            &self.packages,
+        )?;
+        let result = crate::environment_control::run_checked(
+            &invocation,
+            self.projects.root().join("client-install-logs"),
+            cancel,
+            check,
+        )?;
         if !result.success {
             return Err(error("redis_client_failed"));
         }

@@ -39,6 +39,7 @@ pub struct Protocol {
     counter: u64,
     service_actions: bool,
     runtime_actions: bool,
+    environment_actions: bool,
 }
 pub enum Action {
     Reply(Value),
@@ -47,6 +48,30 @@ pub enum Action {
     Call(ToolCall),
     Service(ServiceCall),
     Runtime(RuntimeCall),
+    Environment(EnvCall),
+}
+#[derive(Clone)]
+pub enum EnvInput {
+    Plan(Request<MutationInput>),
+    Apply {
+        request: Request<MutationInput>,
+        review: Digest,
+    },
+    Lookup {
+        idempotency_key: Id,
+    },
+}
+pub struct EnvCall {
+    pub input: EnvInput,
+    pub request_id: Id,
+    pub project_id: Id,
+    id: Value,
+    version: Version,
+}
+impl EnvCall {
+    pub fn jsonrpc_id(&self) -> &Value {
+        &self.id
+    }
 }
 #[derive(Clone)]
 pub enum RuntimeInput {
@@ -127,6 +152,7 @@ impl Protocol {
             counter: 0,
             service_actions: false,
             runtime_actions: false,
+            environment_actions: false,
         }
     }
     /// Surface selection only; grants and native exact-plan approval remain
@@ -144,6 +170,16 @@ impl Protocol {
         let mut protocol = Self::new(project_id);
         protocol.service_actions = service_actions;
         protocol.runtime_actions = runtime_actions;
+        protocol
+    }
+    pub fn with_environment_surfaces(
+        project_id: Id,
+        service: bool,
+        runtime: bool,
+        environment: bool,
+    ) -> Self {
+        let mut protocol = Self::with_action_surfaces(project_id, service, runtime);
+        protocol.environment_actions = environment;
         protocol
     }
     pub fn receive(&mut self, value: Value) -> Action {
@@ -296,6 +332,15 @@ impl Protocol {
                 Err(()) => Action::Reply(rpc_error(Some(id), -32602, "Invalid params", None)),
             };
         }
+        if method == "tools/call"
+            && self.environment_actions
+            && let Some(environment) = self.env_tool(&params, id.clone(), version)
+        {
+            return match environment {
+                Ok(call) => Action::Environment(call),
+                Err(()) => Action::Reply(rpc_error(Some(id), -32602, "Invalid params", None)),
+            };
+        }
         let result = match method {
             "server/discover" if matches!(version, Version::Modern) => {
                 if keys(&params, &[]) {
@@ -320,7 +365,7 @@ impl Protocol {
                     return Action::Reply(rpc_success(
                         id,
                         version,
-                        json!({"tools":tool_definitions(self.service_actions,self.runtime_actions)}),
+                        json!({"tools":tool_definitions(self.service_actions,self.runtime_actions,self.environment_actions)}),
                     ));
                 } else {
                     Err(())
@@ -370,6 +415,150 @@ impl Protocol {
             }
             Err(()) => Action::Reply(rpc_error(Some(id), -32602, "Invalid params", None)),
         }
+    }
+    fn env_tool(
+        &mut self,
+        params: &Value,
+        id: Value,
+        version: Version,
+    ) -> Option<Result<EnvCall, ()>> {
+        let name = params.get("name").and_then(Value::as_str)?;
+        let args = params
+            .get("arguments")
+            .cloned()
+            .unwrap_or_else(|| json!({}));
+        let lookup = name == "operations.status" && args.get("idempotency_key").is_some();
+        if !lookup
+            && !matches!(
+                name,
+                "environment.plan" | "environment.apply" | "environment.yaml_save"
+            )
+        {
+            return None;
+        }
+        if !keys(params, &["name", "arguments"]) {
+            return Some(Err(()));
+        }
+        self.counter = self.counter.wrapping_add(1);
+        let request_id = Id::new(format!("mcp-{}", self.counter)).expect("fixed request ID");
+        let result = (|| {
+            if lookup {
+                #[derive(Deserialize)]
+                #[serde(deny_unknown_fields)]
+                struct Lookup {
+                    idempotency_key: Id,
+                }
+                let parsed: Lookup = serde_json::from_value(args).map_err(|_| ())?;
+                return Ok(EnvInput::Lookup {
+                    idempotency_key: parsed.idempotency_key,
+                });
+            }
+            let mut args = args.as_object().cloned().ok_or(())?;
+            let planning = name == "environment.plan";
+            let action = if planning {
+                match args.remove("action") {
+                    None => "preview".to_owned(),
+                    Some(Value::String(action)) => action,
+                    _ => return Err(()),
+                }
+            } else {
+                name.strip_prefix("environment.").ok_or(())?.to_owned()
+            };
+            let tool = match action.as_str() {
+                "preview" if planning => "environment.plan",
+                "apply" => "environment.apply",
+                "yaml_save" => "environment.yaml_save",
+                _ => return Err(()),
+            };
+            let expected_revision = match args.remove("expected_revision") {
+                None => None,
+                Some(value) => serde_json::from_value::<Option<u64>>(value).map_err(|_| ())?,
+            };
+            let idempotency_key = match args.remove("idempotency_key") {
+                None => None,
+                Some(value) => serde_json::from_value::<Option<Id>>(value).map_err(|_| ())?,
+            };
+            let review_value = args.remove("review");
+            if planning && review_value.is_some() || !planning && review_value.is_none() {
+                return Err(());
+            }
+            let review = review_value
+                .map(serde_json::from_value::<Digest>)
+                .transpose()
+                .map_err(|_| ())?;
+            if expected_revision
+                .is_some_and(|revision| revision > devforge_control::limits::SafeInt::MAX)
+            {
+                return Err(());
+            }
+            if tool != "environment.plan"
+                && (expected_revision.is_none() || idempotency_key.is_none())
+            {
+                return Err(());
+            }
+            if tool != "environment.yaml_save" && !args.contains_key("write_env") {
+                args.insert("write_env".into(), json!(false));
+            }
+            let input: MutationInput =
+                serde_json::from_value(json!({"tool":tool,"arguments":args})).map_err(|_| ())?;
+            if matches!(&input,MutationInput::YamlSave(candidate) if candidate.text.as_str().len()>crate::service_control::MAX_EXTERNAL_YAML_BYTES)
+            {
+                return Err(());
+            }
+            let request = Request {
+                api_version: Default::default(),
+                request_id: request_id.clone(),
+                project_id: self.project.clone(),
+                expected_revision,
+                idempotency_key,
+                input,
+            };
+            Ok(match review {
+                None => EnvInput::Plan(request),
+                Some(review) => EnvInput::Apply { request, review },
+            })
+        })();
+        Some(result.map(|input| EnvCall {
+            input,
+            request_id,
+            project_id: self.project.clone(),
+            id,
+            version,
+        }))
+    }
+    pub fn complete_environment(call: EnvCall, result: Result<Value, ErrorCode>) -> Value {
+        let invalid = if matches!(call.input, EnvInput::Apply { .. }) {
+            ErrorCode::AdmissionUnconfirmed
+        } else {
+            ErrorCode::InvalidInput
+        };
+        let content = result
+            .and_then(|value| {
+                if value.get("api_version") != Some(&json!(1))
+                    || value.get("request_id") != Some(&json!(call.request_id))
+                    || value.get("ok").and_then(Value::as_bool).is_none_or(|ok| {
+                        ok != value.get("data").is_some() || ok == value.get("error").is_some()
+                    })
+                {
+                    Err(invalid)
+                } else {
+                    Ok(value)
+                }
+            })
+            .unwrap_or_else(|code| {
+                serde_json::to_value(Response::<Value>::failure(
+                    call.request_id,
+                    None,
+                    code.fault(),
+                ))
+                .expect("fixed error envelope")
+            });
+        let is_error = content.get("ok") != Some(&Value::Bool(true));
+        rpc_success(
+            call.id,
+            call.version,
+            json!({"content":[{"type":"text","text":content.to_string()}],"structuredContent":content,"isError":is_error}),
+        )
     }
     fn runtime_tool(
         &mut self,
@@ -835,7 +1024,11 @@ fn implementation(value: &Value) -> bool {
                 .is_some_and(|v| !v.is_empty() && v.len() <= 256)
         })
 }
-fn tool_definitions(service_actions: bool, runtime_actions: bool) -> Vec<Value> {
+fn tool_definitions(
+    service_actions: bool,
+    runtime_actions: bool,
+    environment_actions: bool,
+) -> Vec<Value> {
     let mut definitions = read_tool_definitions();
     if service_actions {
         definitions.extend(service_tool_definitions());
@@ -843,7 +1036,10 @@ fn tool_definitions(service_actions: bool, runtime_actions: bool) -> Vec<Value> 
     if runtime_actions {
         definitions.extend(runtime_tool_definitions());
     }
-    if (service_actions || runtime_actions)
+    if environment_actions {
+        definitions.extend(environment_tool_definitions());
+    }
+    if (service_actions || runtime_actions || environment_actions)
         && let Some(status) = definitions
             .iter_mut()
             .find(|tool| tool["name"] == "operations.status")
@@ -906,5 +1102,47 @@ fn runtime_tool_definitions() -> Vec<Value> {
     ["runtimes.plan","runtimes.install","runtimes.select"].into_iter().map(|name|{
         let plan=name=="runtimes.plan";let schema=if plan{json!({"type":"object","oneOf":[build("install",true),build("select",true)]})}else{build(name.strip_prefix("runtimes.").expect("fixed prefix"),false)};
         json!({"name":name,"description":if plan{"Preview a finite runtime install or PHP/Node selection intent. A native owner must approve the exact plan; this preview is not approval."}else if name=="runtimes.install"{"Install only a catalog-pinned artifact into the shared managed cache. Project pins do not switch. Current grants and native exact-plan approval remain mandatory. Preserve the original key on admission_unconfirmed and reconcile using operations.status; no hidden retry/new key."}else{"Select PHP/Node only. Name, Composer, domain, HTTPS, Vite and queue are preserved by the server. A running selection may stop/restart the selected session and execute trusted project code. Failures/cancellation need not roll back committed pins or started shared dependencies. Preserve original key and lookup receipt after uncertainty."},"inputSchema":schema,"annotations":{"readOnlyHint":plan,"destructiveHint":name=="runtimes.select","idempotentHint":true,"openWorldHint":!plan}})
+    }).collect()
+}
+
+fn environment_tool_definitions() -> Vec<Value> {
+    use devforge_control::export::Wire;
+    let build = |action: &str, planning: bool| {
+        let mut props = serde_json::Map::new();
+        let mut required = vec![];
+        if planning {
+            props.insert("action".into(), json!({"const":action}));
+            if action != "preview" {
+                required.push("action");
+            }
+        }
+        props.insert(
+            "expected_revision".into(),
+            json!({"type":"integer","minimum":0,"maximum":devforge_control::limits::SafeInt::MAX}),
+        );
+        props.insert("idempotency_key".into(), Id::schema());
+        props.insert("limits".into(),json!({"anyOf":[devforge_control::mutations::MutationLimits::schema(),{"type":"null"}]}));
+        if action != "preview" {
+            required.extend(["expected_revision", "idempotency_key"]);
+        }
+        if !planning {
+            props.insert("review".into(), Digest::schema());
+            required.push("review");
+        }
+        if action == "yaml_save" {
+            props.insert("expected".into(),json!({"anyOf":[Digest::schema(),{"type":"null"}],"description":"Opaque version from masked preview; null/missing is create-only, never a raw document SHA."}));
+            props.insert("text".into(),json!({"type":"string","maxLength":crate::service_control::MAX_EXTERNAL_YAML_BYTES,"x-maxUtf8Bytes":crate::service_control::MAX_EXTERNAL_YAML_BYTES}));
+            required.push("text");
+        } else {
+            props.insert(
+                "write_env".into(),
+                json!({"type":"boolean","default":false}),
+            );
+        }
+        json!({"type":"object","properties":props,"required":required,"additionalProperties":false})
+    };
+    ["environment.plan","environment.apply","environment.yaml_save"].into_iter().map(|name|{
+        let planning=name=="environment.plan";let schema=if planning{json!({"type":"object","oneOf":[build("preview",true),build("apply",true),build("yaml_save",true)]})}else{build(name.strip_prefix("environment.").expect("fixed prefix"),false)};
+        json!({"name":name,"description":if planning{"Masked configuration preview or native-review plan. Default action preview returns opaque document version even when existing YAML is invalid. Use action apply or yaml_save to prepare the exact write intent. No raw YAML/.env values, references, core hashes or root paths are exported. YAML text is limited to16KiB UTF8."}else if name=="environment.apply"{"Apply only the native-approved configuration plan with current PM+SensitiveOperation+ExecutionTest grants. Existing backend may write project/configuration/credential links, install dependencies or change owned database bindings; no atomic rollback/hard deadline promise. Preserve original key after uncertainty and use operations.status key lookup."}else{"Save a native-approved YAML candidate up to16KiB UTF8 with an opaque expected version from masked preview (null=create-only). No secret binding/export tool. Input and equivalence fingerprint stay in RAM; after restart/eviction, idempotency_unverifiable requires original-key receipt lookup, never hidden replay or a new key."},"inputSchema":schema,"annotations":{"readOnlyHint":planning,"destructiveHint":!planning,"idempotentHint":true,"openWorldHint":name=="environment.apply"}})
     }).collect()
 }

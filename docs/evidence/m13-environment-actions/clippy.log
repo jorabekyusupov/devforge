@@ -1,0 +1,6 @@
+    Checking devforge-projects v0.1.0 (/Users/yusupov/Herd/devforge/crates/projects)
+    Checking devforge-serving v0.1.0 (/Users/yusupov/Herd/devforge/crates/serving)
+    Checking devforge-workspace v0.1.0 (/Users/yusupov/Herd/devforge/crates/workspace)
+    Checking devforge-control-adapter v0.1.0 (/Users/yusupov/Herd/devforge/crates/control-adapter)
+    Checking devforge-manager v0.1.0 (/Users/yusupov/Herd/devforge/crates/manager)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 5.92s

@@ -20,7 +20,8 @@
     "interrupted",
     "storage_unavailable",
     "admission_unconfirmed",
-    "precondition_failed"
+    "precondition_failed",
+    "idempotency_unverifiable"
   ],
   "live_available": false,
   "mutation_request_schema": {

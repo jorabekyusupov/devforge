@@ -3,7 +3,8 @@
 M13.4 adds a separate [reviewed service boundary](reviewed-service-actions.md).
 Its native-reviewed mutation authority does not expand ExternalInput or the
 default read-only MCP client described here. Native grant issuance additionally
-permits ExecutionTest for that slice; information-content rights remain absent.
+permits ExecutionTest and SensitiveOperation for these slices; information-content
+rights remain absent.
 
 The JSON CLI uses `ExternalClient` and the existing authenticated local manager
 transport. It never constructs a Workspace, launches a manager, reads native

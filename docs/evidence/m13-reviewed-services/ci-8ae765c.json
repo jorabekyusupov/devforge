@@ -1,0 +1,104 @@
+{
+  "source_sha": "8ae765c5a7c090a30d8ba0bcccf496b8d42ac1ab",
+  "run_id": 43600434742,
+  "url": "https://github.com/jorabekyusupov/devforge/actions/runs/43600434742",
+  "conclusion": "success",
+  "jobs": [
+    {
+      "id": 132463806954,
+      "name": "scope-baseline",
+      "conclusion": "success",
+      "passed_steps": [
+        "Set up job",
+        "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+        "Run actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1",
+        "Find last ancestor validated on both platforms",
+        "Post Run actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1",
+        "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+        "Complete job"
+      ]
+    },
+    {
+      "id": 132463808236,
+      "name": "xdebug-native",
+      "conclusion": "skipped",
+      "passed_steps": []
+    },
+    {
+      "id": 132463848433,
+      "name": "check (windows-latest)",
+      "conclusion": "success",
+      "passed_steps": [
+        "Set up job",
+        "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+        "Run actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1",
+        "Select checks from changed paths",
+        "Prepare toolchain from rust-toolchain.toml",
+        "Select Rust packages and consumers",
+        "Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+        "Run npm ci",
+        "Run python -m unittest scripts/test_distribution.py",
+        "Run npm run check:locales",
+        "Run node --test scripts/check_locales.test.mjs",
+        "Run npm run typecheck",
+        "Run npm test",
+        "Rust fmt for selected scope",
+        "Rust clippy for selected scope",
+        "Rust test for selected scope",
+        "Build native desktop binary with embedded frontend",
+        "Run python -m unittest discover -s tests -p 'test_ci_*.py'",
+        "Run python -m unittest discover -s tests -p test_rust_scope.py",
+        "Run python -m pip install -r scripts/requirements-knowledge.txt",
+        "Run python scripts/validate_knowledge.py --strict",
+        "Post Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+        "Post Run actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1",
+        "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+        "Complete job"
+      ]
+    },
+    {
+      "id": 132463848674,
+      "name": "check (macos-latest)",
+      "conclusion": "success",
+      "passed_steps": [
+        "Set up job",
+        "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+        "Run actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1",
+        "Select checks from changed paths",
+        "Prepare toolchain from rust-toolchain.toml",
+        "Select Rust packages and consumers",
+        "Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+        "Run npm ci",
+        "Run python -m unittest scripts/test_distribution.py",
+        "Run npm run check:locales",
+        "Run node --test scripts/check_locales.test.mjs",
+        "Run npm run typecheck",
+        "Run npm test",
+        "Rust fmt for selected scope",
+        "Rust clippy for selected scope",
+        "Rust test for selected scope",
+        "Build native desktop binary with embedded frontend",
+        "Run python -m unittest discover -s tests -p 'test_ci_*.py'",
+        "Run python -m unittest discover -s tests -p test_rust_scope.py",
+        "Run python -m pip install -r scripts/requirements-knowledge.txt",
+        "Run python scripts/validate_knowledge.py --strict",
+        "Post Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+        "Post Run actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1",
+        "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+        "Complete job"
+      ]
+    }
+  ],
+  "windows_service_test_sections": [
+    "2026-11-14T13:47:21.6587776Z      Running tests\\service_control.rs (target\\debug\\deps\\service_control-25f91117bcd331de.exe)\n2026-11-14T13:47:21.6920774Z \n2026-11-14T13:47:21.6921055Z running 3 tests\n2026-11-14T13:47:26.3964936Z test schema_one_migration_preserves_old_receipts_and_small_output_budget_never_admits ... ok\n2026-11-14T13:47:26.5203326Z test review_is_native_and_exact_and_retry_lookup_never_creates_a_second_effect ... ok\n2026-11-14T13:47:30.5185183Z test queued_service_cancel_revoke_revision_and_deadline_are_rechecked_before_effects ... ok\n2026-11-14T13:47:30.5185657Z \n2026-11-14T13:47:30.5188558Z test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.83s",
+    "2026-11-14T13:48:11.4389514Z      Running tests\\service_control.rs (target\\debug\\deps\\service_control-65436400309c07a5.exe)\n2026-11-14T13:48:11.4568773Z \n2026-11-14T13:48:11.4568973Z running 3 tests\n2026-11-14T13:48:12.5513400Z test stop_does_not_require_runtime_cache_or_existing_project_directory_and_action_family_is_closed ... ok\n2026-11-14T13:48:12.5552564Z test denied_actions_preserve_metadata_without_startup_side_effects ... ok\n2026-11-14T13:48:12.5602286Z test live_missing_cache_is_refused_without_download_and_advisory_facts_are_not_full_preflight ... ok\n2026-11-14T13:48:12.5602811Z \n2026-11-14T13:48:12.5603165Z test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.10s"
+  ],
+  "windows_rust_step_seconds": 556,
+  "prior_success_baseline": {
+    "sha": "c98f798dc0d4c238dcc1f883d9e953fb2c31107b",
+    "run_id": 43596995185,
+    "windows_job": 132453573126,
+    "rust_step_seconds": 583
+  },
+  "native_ui_and_windows_10_11": "unverified"
+}

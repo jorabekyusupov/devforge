@@ -9,7 +9,7 @@ use devforge_manager::{
     auth::{DesktopAuth, Policy, TrustedDesktopAction},
     controller::{Controller, StartIntent, Stores, local_owner_user},
     external_auth::{ExternalCredential, IssuedGrant},
-    external_client::{ExternalClient, RuntimeClient, ServiceClient},
+    external_client::{EnvClient, ExternalClient, RuntimeClient, ServiceClient},
     external_control::{ExternalInput, ExternalOutput},
     native_client::NativeClient,
 };
@@ -242,6 +242,35 @@ impl Rig {
             ExternalCredential::from_wire(grant.credential.expose_secret()).unwrap(),
         )
         .unwrap()
+    }
+    fn environment(&self, grant: &IssuedGrant) -> EnvClient {
+        EnvClient::connect(
+            self.endpoint.clone(),
+            ExternalCredential::from_wire(grant.credential.expose_secret()).unwrap(),
+        )
+        .unwrap()
+    }
+    fn env_grant(&mut self, index: usize, execute: bool) -> IssuedGrant {
+        self.native
+            .issue_external_grant(
+                &id(&self.projects[index].id),
+                if execute {
+                    &[
+                        Scope::Observer,
+                        Scope::ProjectManage,
+                        Scope::SensitiveOperation,
+                        Scope::ExecutionTest,
+                    ]
+                } else {
+                    &[
+                        Scope::Observer,
+                        Scope::ProjectManage,
+                        Scope::SensitiveOperation,
+                    ]
+                },
+                Duration::from_secs(600),
+            )
+            .unwrap()
     }
     fn runtime_metadata(&mut self) {
         for index in 0..self.projects.len() {
@@ -762,6 +791,231 @@ fn runtime_policy_keeps_nonselection_fields_authoritative_and_requires_native_re
     assert_eq!(row["project"]["composer"], rig.projects[0].composer);
 }
 
+fn environment_yaml(rig: &Rig, index: usize) -> String {
+    let catalog = Catalog::bundled();
+    let project = &rig.projects[index];
+    let sites: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(rig.root.path().join("serving/sites.json")).unwrap())
+            .unwrap();
+    let domain = sites["sites"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|site| site["project_id"] == project.id)
+        .unwrap()["domain"]
+        .as_str()
+        .unwrap();
+    let php = catalog
+        .get(&project.php)
+        .unwrap()
+        .version
+        .split('-')
+        .next()
+        .unwrap();
+    let node = catalog
+        .get(&project.node)
+        .unwrap()
+        .version
+        .trim_start_matches('v');
+    let mut manifest:devforge_projects::manifest::Manifest=serde_json::from_value(json!({"schema":1,"project":{"name":project.name,"domain":domain,"https":false,"vite":false,"queue":false},"runtimes":{"php":php,"node":node,"composer":"2.11.2"},"pins":{}})).unwrap();
+    manifest.pin_all(&catalog).unwrap();
+    manifest.yaml().unwrap()
+}
+fn env_request(
+    project: &str,
+    revision: u64,
+    key: &str,
+    input: MutationInput,
+) -> Request<MutationInput> {
+    Request {
+        api_version: Default::default(),
+        request_id: id(key),
+        project_id: id(project),
+        expected_revision: Some(revision),
+        idempotency_key: Some(id(key)),
+        input,
+    }
+}
+fn yaml_input(expected: Option<devforge_control::Digest>, text: String) -> MutationInput {
+    MutationInput::YamlSave(devforge_control::mutations::YamlSaveInput {
+        expected,
+        text: devforge_control::mutations::YamlText::new(text).unwrap(),
+        limits: None,
+    })
+}
+
+#[test]
+fn env_policy_opaque_versions_mask_invalid_yaml_and_keep_sensitive_fingerprints_out_of_journal() {
+    let mut rig = Rig::new(None);
+    rig.runtime_metadata();
+    let writer = rig.env_grant(0, false);
+    let mut env = rig.environment(&writer);
+    let project = rig.projects[0].clone();
+    let old = b"not: [valid YAML\n# PRIVATE_OLD=letmein\n";
+    std::fs::write(project.path.join("devforge.yaml"), old).unwrap();
+    let preview = env
+        .plan(&env_request(
+            &project.id,
+            project.revision,
+            "invalid-preview",
+            MutationInput::EnvironmentPlan(devforge_control::mutations::EnvironmentPlanInput {
+                write_env: false,
+                limits: None,
+            }),
+        ))
+        .unwrap();
+    assert!(preview.is_ok());
+    let preview = preview.data().unwrap();
+    assert!(preview.receipt.is_none());
+    assert!(preview.document.version.is_some());
+    let public = serde_json::to_string(preview).unwrap();
+    assert!(!public.contains("PRIVATE_OLD"));
+    assert!(!public.contains(devforge_control_adapter::sha256(old).unwrap().as_str()));
+    assert!(!public.contains("state_hash"));
+    assert!(!public.contains("reference"));
+    let text = format!("# YAML_CANARY=lowentropy\n{}", environment_yaml(&rig, 0));
+    let req = env_request(
+        &project.id,
+        project.revision,
+        "save-sensitive",
+        yaml_input(preview.document.version.clone(), text.clone()),
+    );
+    let plan = env.plan(&req).unwrap();
+    assert!(plan.is_ok(), "save preview denied: {:?}", plan.error());
+    let plan = plan.data().unwrap().receipt.as_ref().unwrap().clone();
+    assert_eq!(
+        env.apply(&req, &plan.digest).unwrap().error().unwrap().code,
+        ErrorCode::Unauthorized
+    );
+    rig.native.approve_service_plan(&plan.digest).unwrap();
+    let applied = env.apply(&req, &plan.digest).unwrap();
+    assert!(applied.is_ok(), "save denied: {:?}", applied.error());
+    let receipt = applied.data().unwrap().clone();
+    assert_eq!(rig.complete(&writer, &receipt), OperationState::Succeeded);
+    assert_eq!(
+        std::fs::read_to_string(project.path.join("devforge.yaml")).unwrap(),
+        text
+    );
+    let again = env.apply(&req, &plan.digest).unwrap();
+    assert_eq!(again.data().unwrap().operation_id, receipt.operation_id);
+    let binding = devforge_control::ProjectBinding::from_registered(
+        id(&project.id),
+        &project.path,
+        project.revision,
+    )
+    .unwrap();
+    let raw_fp = devforge_control_adapter::sha256(
+        &devforge_control::mutations::fingerprint_material(&req, &binding).unwrap(),
+    )
+    .unwrap();
+    assert_ne!(plan.request_fingerprint, raw_fp);
+    let db =
+        rusqlite::Connection::open(rig.root.path().join("control/operations.sqlite3")).unwrap();
+    let stored: String = db
+        .query_row(
+            "SELECT fingerprint FROM operations WHERE operation_id=?1",
+            [receipt.operation_id.as_str()],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert!(stored.starts_with("volatile-secret-v1:"));
+    assert_ne!(stored, raw_fp.as_str());
+    drop(db);
+    let bytes = std::fs::read(rig.root.path().join("control/operations.sqlite3")).unwrap();
+    let journal = String::from_utf8_lossy(&bytes);
+    assert!(!journal.contains("YAML_CANARY"));
+    assert!(!journal.contains(raw_fp.as_str()));
+    let stale = env_request(
+        &project.id,
+        project.revision,
+        "stale-version",
+        yaml_input(preview.document.version.clone(), environment_yaml(&rig, 0)),
+    );
+    assert_eq!(
+        env.plan(&stale).unwrap().error().unwrap().code,
+        ErrorCode::ReviewMismatch
+    );
+    let create = env_request(
+        &project.id,
+        project.revision,
+        "create-only",
+        yaml_input(None, environment_yaml(&rig, 0)),
+    );
+    assert_eq!(
+        env.plan(&create).unwrap().error().unwrap().code,
+        ErrorCode::ReviewMismatch
+    );
+    let changed = env_request(
+        &project.id,
+        project.revision,
+        "save-sensitive",
+        yaml_input(
+            preview.document.version.clone(),
+            format!("# changed\n{}", environment_yaml(&rig, 0)),
+        ),
+    );
+    assert_eq!(
+        env.apply(&changed, &plan.digest)
+            .unwrap()
+            .error()
+            .unwrap()
+            .code,
+        ErrorCode::IdempotencyConflict
+    );
+    let oversized = env_request(
+        &project.id,
+        project.revision,
+        "oversized",
+        yaml_input(None, "x".repeat(16385)),
+    );
+    assert!(matches!(
+        env.plan(&oversized),
+        Err(ErrorCode::OutputLimitExceeded)
+    ));
+    let state = env
+        .document_state(id("version"), &id(&project.id))
+        .unwrap()
+        .data()
+        .unwrap()
+        .clone();
+    let other = rig.env_grant(0, false);
+    let mut foreign = rig.environment(&other);
+    let cross = env_request(
+        &project.id,
+        project.revision,
+        "foreign-version",
+        yaml_input(state.version, environment_yaml(&rig, 0)),
+    );
+    assert_eq!(
+        foreign.plan(&cross).unwrap().error().unwrap().code,
+        ErrorCode::ReviewMismatch
+    );
+    let apply = env_request(
+        &project.id,
+        project.revision,
+        "no-execution",
+        MutationInput::EnvironmentApply(devforge_control::mutations::EnvironmentApplyInput {
+            write_env: true,
+            limits: None,
+        }),
+    );
+    assert_eq!(
+        env.plan(&apply).unwrap().error().unwrap().code,
+        ErrorCode::Unauthorized
+    );
+    rig.native
+        .revoke_external_grant(&writer.record.grant_id)
+        .unwrap();
+    assert_eq!(
+        env.document_state(id("revoked"), &id(&project.id))
+            .unwrap()
+            .error()
+            .unwrap()
+            .code,
+        ErrorCode::GrantRevoked
+    );
+}
+
 #[cfg(target_os = "macos")]
 fn copy_cache(source: &Path, root: &Path, catalog: &Catalog, alternative: bool) {
     fn copy(from: &Path, to: &Path) {
@@ -1121,4 +1375,208 @@ fn runtime_native_cached_select_http_replay_and_install_preserve_configuration()
     assert_eq!(http(&mut rig, 1, "M13_SERVICE_BRAVO").0, other_pid);
     service(&mut rig, &mut sa, &a, 0, "stop", "runtime-stop-a");
     service(&mut rig, &mut sb, &b, 1, "stop", "runtime-stop-b");
+}
+
+#[cfg(target_os = "macos")]
+#[test]
+#[ignore = "requires an explicitly approved immutable native runtime cache"]
+fn env_actual_cached_save_apply_injects_only_manager_secrets_and_replays_truthfully() {
+    let source = std::path::PathBuf::from(
+        std::env::var_os("DEVFORGE_SERVICE_CACHE").expect("explicit approved cache required"),
+    );
+    let mut rig = Rig::new(Some(&source));
+    let project = rig.projects[0].clone();
+    let grant = rig.env_grant(0, true);
+    let mut env = rig.environment(&grant);
+    let injected = "MANAGER_ONLY_lowentropy_value";
+    let native = rig
+        .native
+        .desktop_access(
+            &id("native-env-secret"),
+            &devforge_manager::desktop::AccessRequest::ConfigurationSecret {
+                project_id: id(&project.id),
+                reference: "fixture_secret".into(),
+                value: devforge_manager::desktop::SecretValue::new(injected).unwrap(),
+            },
+        )
+        .unwrap();
+    let until = Instant::now() + Duration::from_secs(5);
+    while !rig
+        .native
+        .status(&id(&project.id), &native.operation_id)
+        .unwrap()
+        .state
+        .terminal()
+    {
+        assert!(Instant::now() < until);
+        thread::sleep(Duration::from_millis(10));
+    }
+    std::fs::write(
+        project.path.join(".env.example"),
+        "APP_ENV=local\nAPP_KEY=\nTEST_PRIVATE=\n",
+    )
+    .unwrap();
+    let mut manifest =
+        devforge_projects::manifest::Manifest::parse(environment_yaml(&rig, 0).as_bytes()).unwrap();
+    manifest
+        .environment
+        .insert("TEST_PRIVATE".into(), "fixture_secret".into());
+    manifest.setup.create_env = true;
+    manifest.setup.generate_key = true;
+    let text = format!(
+        "# PRIVATE_YAML_COMMENT=lowentropy\n{}",
+        manifest.yaml().unwrap()
+    );
+    let save = env_request(
+        &project.id,
+        project.revision,
+        "actual-env-save",
+        yaml_input(None, text.clone()),
+    );
+    let preview = env.plan(&save).unwrap();
+    assert!(
+        preview.is_ok(),
+        "save preview denied: {:?}",
+        preview.error()
+    );
+    let preview = preview.data().unwrap();
+    let public = serde_json::to_string(preview).unwrap();
+    assert!(!public.contains("PRIVATE_YAML_COMMENT"));
+    assert!(!public.contains(injected));
+    let ticket = preview.receipt.as_ref().unwrap().digest.clone();
+    rig.native.approve_service_plan(&ticket).unwrap();
+    let saved = env.apply(&save, &ticket).unwrap();
+    assert!(saved.is_ok(), "save denied: {:?}", saved.error());
+    let saved = saved.data().unwrap().clone();
+    let save_review = ticket.clone();
+    assert_eq!(rig.complete(&grant, &saved), OperationState::Succeeded);
+    assert_eq!(
+        std::fs::read_to_string(project.path.join("devforge.yaml")).unwrap(),
+        text
+    );
+    let preview_request = env_request(
+        &project.id,
+        project.revision,
+        "actual-env-preview",
+        MutationInput::EnvironmentPlan(devforge_control::mutations::EnvironmentPlanInput {
+            write_env: true,
+            limits: None,
+        }),
+    );
+    let preview = env.plan(&preview_request).unwrap();
+    assert!(preview.is_ok());
+    let preview = preview.data().unwrap();
+    assert!(
+        preview.blockers.is_empty(),
+        "masked blockers: {:?}",
+        preview.blockers
+    );
+    assert!(
+        preview.download_ids.is_empty(),
+        "fixture must never download"
+    );
+    let public = serde_json::to_string(preview).unwrap();
+    for forbidden in [
+        injected,
+        "fixture_secret",
+        "PRIVATE_YAML_COMMENT",
+        "state_hash",
+        "environment_references",
+    ] {
+        assert!(!public.contains(forbidden));
+    }
+    let apply = env_request(
+        &project.id,
+        project.revision,
+        "actual-env-apply",
+        MutationInput::EnvironmentApply(devforge_control::mutations::EnvironmentApplyInput {
+            write_env: true,
+            limits: None,
+        }),
+    );
+    let plan = env.plan(&apply).unwrap();
+    assert!(plan.is_ok(), "apply preview denied: {:?}", plan.error());
+    let ticket = plan
+        .data()
+        .unwrap()
+        .receipt
+        .as_ref()
+        .unwrap()
+        .digest
+        .clone();
+    rig.native.approve_service_plan(&ticket).unwrap();
+    let applied = env.apply(&apply, &ticket).unwrap();
+    assert!(applied.is_ok(), "apply denied: {:?}", applied.error());
+    let applied = applied.data().unwrap().clone();
+    assert_eq!(rig.complete(&grant, &applied), OperationState::Succeeded);
+    let output = std::fs::read_to_string(project.path.join(".env")).unwrap();
+    assert!(output.contains(injected));
+    assert!(output.contains("APP_KEY=base64:"));
+    let replay = env.apply(&save, &save_review).unwrap();
+    assert_eq!(replay.data().unwrap().operation_id, saved.operation_id);
+    // Reconciliation remains independent of body comparison, even after the
+    // compound apply changes its own registry revision.
+    let lookup = env
+        .lookup(
+            id("saved-key"),
+            &id(&project.id),
+            save.idempotency_key.as_ref().unwrap(),
+        )
+        .unwrap();
+    assert_eq!(
+        lookup.data().unwrap().as_ref().unwrap().operation_id,
+        saved.operation_id
+    );
+    let journal = std::fs::read(rig.root.path().join("control/operations.sqlite3")).unwrap();
+    let journal = String::from_utf8_lossy(&journal);
+    assert!(!journal.contains("PRIVATE_YAML_COMMENT"));
+    assert!(!journal.contains(injected));
+    // Reopen the actual manager, preserving only its existing durable stores.
+    // Volatile equality proof is intentionally gone, and no job is replayed.
+    rig.native.quit().unwrap();
+    rig.worker.take().unwrap().join().unwrap().unwrap();
+    let controller = Controller::start(
+        rig.root.path(),
+        StartIntent::ExplicitUserStart,
+        Stores {
+            workspace: rig.secrets.clone(),
+            desktop: Arc::new(Memory::default()),
+        },
+    )
+    .unwrap();
+    let stop = controller.quitter();
+    let endpoint = controller.endpoint().clone();
+    let worker = thread::spawn(move || controller.serve(None));
+    let until = Instant::now() + Duration::from_secs(5);
+    while ExternalClient::observe_owner(&endpoint).is_err() {
+        assert!(Instant::now() < until);
+        thread::sleep(Duration::from_millis(10));
+    }
+    let mut reopened = EnvClient::connect(
+        endpoint,
+        ExternalCredential::from_wire(grant.credential.expose_secret()).unwrap(),
+    )
+    .unwrap();
+    let reply = reopened.apply(&save, &ticket).unwrap();
+    assert_eq!(
+        reply.error().unwrap().code,
+        ErrorCode::IdempotencyUnverifiable
+    );
+    assert_eq!(
+        reopened
+            .lookup(
+                id("reopened-key"),
+                &id(&project.id),
+                save.idempotency_key.as_ref().unwrap()
+            )
+            .unwrap()
+            .data()
+            .unwrap()
+            .as_ref()
+            .unwrap()
+            .operation_id,
+        saved.operation_id
+    );
+    stop.request_explicit().unwrap();
+    worker.join().unwrap().unwrap();
 }

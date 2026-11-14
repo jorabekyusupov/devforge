@@ -1,0 +1,7 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.12s
+     Running tests/service_control.rs (target/debug/deps/service_control-b32833356aaaa9fa)
+
+running 1 test
+test env_actual_cached_save_apply_injects_only_manager_secrets_and_replays_truthfully ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 24.25s

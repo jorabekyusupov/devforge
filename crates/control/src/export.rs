@@ -186,6 +186,7 @@ pub const ERRORS: &[ErrorCode] = &[
     ErrorCode::StorageUnavailable,
     ErrorCode::AdmissionUnconfirmed,
     ErrorCode::PreconditionFailed,
+    ErrorCode::IdempotencyUnverifiable,
 ];
 /// Schema for the concrete envelope accepted by prepare_read, not unrestricted Request<T>.
 /// Wire timestamps are Unix milliseconds; timeout_ms is a monotonic duration.

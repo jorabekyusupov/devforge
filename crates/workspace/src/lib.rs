@@ -4,6 +4,7 @@ pub mod cleanup_preview;
 mod configuration;
 pub mod debugging;
 pub mod discovery;
+pub mod environment_control;
 pub mod environment_report;
 mod mail;
 pub mod repro;

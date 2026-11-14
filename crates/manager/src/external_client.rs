@@ -698,11 +698,269 @@ fn bound_read(
     Ok(reply)
 }
 
+/// Finite masked environment/configuration adapter. It exposes no raw document,
+/// .env value, native credential provider or generic mutation escape hatch.
+pub struct EnvClient {
+    inner: ServiceClient,
+}
+impl std::fmt::Debug for EnvClient {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("EnvClient")
+            .field("owner_pid", &self.inner.client.peer.process_id)
+            .finish_non_exhaustive()
+    }
+}
+impl EnvClient {
+    pub fn connect(
+        endpoint: Endpoint,
+        credential: ExternalCredential,
+    ) -> std::result::Result<Self, ErrorCode> {
+        Ok(Self {
+            inner: ServiceClient::connect(endpoint, credential)?,
+        })
+    }
+    pub fn document_state(
+        &mut self,
+        id: Id,
+        project: &Id,
+    ) -> std::result::Result<Response<crate::service_control::EnvDocumentState>, ErrorCode> {
+        env_document_state(&mut self.inner, id, project)
+    }
+    pub fn plan(
+        &mut self,
+        request: &Request<MutationInput>,
+    ) -> std::result::Result<Response<crate::service_control::EnvPreview>, ErrorCode> {
+        env_plan(&mut self.inner, request)
+    }
+    pub fn apply(
+        &mut self,
+        request: &Request<MutationInput>,
+        review: &Digest,
+    ) -> std::result::Result<Response<MutationReceipt>, ErrorCode> {
+        env_apply(&mut self.inner, request, review)
+    }
+    pub fn lookup(
+        &mut self,
+        id: Id,
+        project: &Id,
+        key: &Id,
+    ) -> std::result::Result<Response<Option<MutationReceipt>>, ErrorCode> {
+        env_lookup(&mut self.inner, id, project, key)
+    }
+}
+fn env_request(
+    request: &Request<MutationInput>,
+    apply: bool,
+) -> std::result::Result<(), ErrorCode> {
+    match &request.input {
+        MutationInput::EnvironmentPlan(_) if !apply => {}
+        MutationInput::EnvironmentApply(_) => {}
+        MutationInput::YamlSave(input) => {
+            if input.text.as_str().len() > crate::service_control::MAX_EXTERNAL_YAML_BYTES {
+                return Err(ErrorCode::OutputLimitExceeded);
+            }
+        }
+        _ => return Err(ErrorCode::UnsupportedCapability),
+    }
+    if request
+        .expected_revision
+        .is_some_and(|revision| revision > devforge_control::limits::SafeInt::MAX)
+    {
+        return Err(ErrorCode::InvalidInput);
+    }
+    if request.input.mutates()
+        && (request.expected_revision.is_none() || request.idempotency_key.is_none())
+    {
+        return Err(ErrorCode::InvalidInput);
+    }
+    Ok(())
+}
+fn env_document_state(
+    client: &mut ServiceClient,
+    id: Id,
+    project: &Id,
+) -> std::result::Result<Response<crate::service_control::EnvDocumentState>, ErrorCode> {
+    let reply: Response<crate::service_control::EnvDocumentState> = client.exchange(
+        &id,
+        json!({"method":"env_document_state","request_id":id,"project_id":project}),
+        false,
+    )?;
+    if reply.data().is_some_and(|document| {
+        &document.project_id != project || !document.yaml_exists && document.version.is_some()
+    }) {
+        return Err(ErrorCode::InvalidInput);
+    }
+    Ok(reply)
+}
+fn env_plan(
+    client: &mut ServiceClient,
+    request: &Request<MutationInput>,
+) -> std::result::Result<Response<crate::service_control::EnvPreview>, ErrorCode> {
+    env_request(request, false)?;
+    let method = if matches!(request.input, MutationInput::EnvironmentPlan(_)) {
+        "env_preview"
+    } else {
+        "env_plan"
+    };
+    let reply: Response<crate::service_control::EnvPreview> = client.exchange(
+        &request.request_id,
+        json!({"method":method,"request":request}),
+        false,
+    )?;
+    if reply.data().is_some_and(|preview| {
+        preview.document.project_id != request.project_id
+            || preview
+                .receipt
+                .as_ref()
+                .is_some_and(|receipt| receipt.project_id != request.project_id)
+    }) {
+        return Err(ErrorCode::ProjectMismatch);
+    }
+    Ok(reply)
+}
+fn env_apply(
+    client: &mut ServiceClient,
+    request: &Request<MutationInput>,
+    review: &Digest,
+) -> std::result::Result<Response<MutationReceipt>, ErrorCode> {
+    env_request(request, true)?;
+    let reply: Response<MutationReceipt> = client.exchange(
+        &request.request_id,
+        json!({"method":"env_apply","request":request,"review":review}),
+        true,
+    )?;
+    if reply.data().is_some_and(|receipt| {
+        receipt.project_id != request.project_id
+            || Some(receipt.revision.get()) != request.expected_revision
+            || reply
+                .operation_id()
+                .is_some_and(|id| id != &receipt.operation_id)
+    }) {
+        return Err(ErrorCode::AdmissionUnconfirmed);
+    }
+    Ok(reply)
+}
+fn env_lookup(
+    client: &mut ServiceClient,
+    id: Id,
+    project: &Id,
+    key: &Id,
+) -> std::result::Result<Response<Option<MutationReceipt>>, ErrorCode> {
+    let reply: Response<Option<MutationReceipt>> = client.exchange(
+        &id,
+        json!({"method":"env_lookup","request_id":id,"project_id":project,"idempotency_key":key}),
+        false,
+    )?;
+    if reply
+        .data()
+        .and_then(Option::as_ref)
+        .is_some_and(|receipt| {
+            &receipt.project_id != project
+                || reply
+                    .operation_id()
+                    .is_some_and(|id| id != &receipt.operation_id)
+        })
+    {
+        return Err(ErrorCode::InvalidInput);
+    }
+    Ok(reply)
+}
+pub struct BoundEnvClient {
+    actions: BoundActionsClient,
+}
+impl BoundEnvClient {
+    pub fn connect(
+        endpoint: Endpoint,
+        loaded: crate::credential_file::LoadedCredential,
+    ) -> std::result::Result<Self, ErrorCode> {
+        Ok(Self {
+            actions: BoundActionsClient::connect(endpoint, loaded)?,
+        })
+    }
+    fn project(&self) -> &Id {
+        &self.actions.bound.project
+    }
+    fn transport(&mut self) -> &mut ServiceClient {
+        &mut self.actions.bound.runtime.inner
+    }
+    pub fn read(
+        &mut self,
+        id: Id,
+        input: ExternalInput,
+    ) -> std::result::Result<ExternalReply, ErrorCode> {
+        self.actions.read(id, input)
+    }
+    pub fn document_state(
+        &mut self,
+        id: Id,
+    ) -> std::result::Result<Response<crate::service_control::EnvDocumentState>, ErrorCode> {
+        let project = self.project().clone();
+        env_document_state(self.transport(), id, &project)
+    }
+    pub fn plan(
+        &mut self,
+        request: &Request<MutationInput>,
+    ) -> std::result::Result<Response<crate::service_control::EnvPreview>, ErrorCode> {
+        if &request.project_id != self.project() {
+            return Err(ErrorCode::ProjectMismatch);
+        }
+        env_plan(self.transport(), request)
+    }
+    pub fn apply(
+        &mut self,
+        request: &Request<MutationInput>,
+        review: &Digest,
+    ) -> std::result::Result<Response<MutationReceipt>, ErrorCode> {
+        if &request.project_id != self.project() {
+            return Err(ErrorCode::ProjectMismatch);
+        }
+        env_apply(self.transport(), request, review)
+    }
+    pub fn lookup(
+        &mut self,
+        id: Id,
+        key: &Id,
+    ) -> std::result::Result<Response<Option<MutationReceipt>>, ErrorCode> {
+        let project = self.project().clone();
+        env_lookup(self.transport(), id, &project, key)
+    }
+}
+/// Explicit MCP composition retains one credential and finite validators. The
+/// protocol's independent flags choose which of these surfaces is exposed.
+pub struct BoundEnvActionsClient {
+    env: BoundEnvClient,
+}
+impl BoundEnvActionsClient {
+    pub fn connect(
+        endpoint: Endpoint,
+        loaded: crate::credential_file::LoadedCredential,
+    ) -> std::result::Result<Self, ErrorCode> {
+        Ok(Self {
+            env: BoundEnvClient::connect(endpoint, loaded)?,
+        })
+    }
+    pub fn environment(&mut self) -> &mut BoundEnvClient {
+        &mut self.env
+    }
+    pub fn actions(&mut self) -> &mut BoundActionsClient {
+        &mut self.env.actions
+    }
+}
+
 struct SecretRequest(Value);
 impl Drop for SecretRequest {
     fn drop(&mut self) {
         if let Some(Value::String(value)) = self.0.get_mut("credential") {
             value.zeroize();
+        }
+        if self
+            .0
+            .pointer("/request/input/tool")
+            .and_then(Value::as_str)
+            == Some("environment.yaml_save")
+            && let Some(Value::String(text)) = self.0.pointer_mut("/request/input/arguments/text")
+        {
+            text.zeroize();
         }
     }
 }

@@ -38,6 +38,7 @@ pub const RESULTS_TOTAL_BYTES: usize = 1_048_576;
 pub const COMMAND_BYTES: usize = 8 * 1024 * 1024;
 pub const QUEUE_BYTES: usize = 16 * 1024 * 1024;
 pub const SNAPSHOT_BYTES: usize = 4_194_304;
+const ENV_QUERY_BYTES: usize = 1024;
 /// Receipt namespace for genuinely global desktop operations, never a project.
 pub const ROOT_SUBJECT: &str = "desktop-root";
 
@@ -240,6 +241,8 @@ struct Shared {
     queued: AtomicUsize,
     read_budget: Arc<desktop::ImageBudget>,
     discovery: Mutex<Option<devforge_workspace::discovery::Service>>,
+    environment_queued: AtomicUsize,
+    environment_reads: AtomicUsize,
 }
 struct Job {
     receipt: Receipt,
@@ -247,6 +250,7 @@ struct Job {
 }
 enum Message {
     Job(Box<Job>),
+    Environment(Box<crate::environment_control::EnvironmentRead>),
 }
 
 /// Owns and joins exactly one real Workspace thread. Dropping a Handle does not
@@ -298,6 +302,8 @@ impl WorkspaceActor {
             queued: AtomicUsize::new(0),
             read_budget: Arc::new(desktop::ImageBudget::default()),
             discovery: Mutex::new(None),
+            environment_queued: AtomicUsize::new(0),
+            environment_reads: AtomicUsize::new(0),
         });
         let (sender, receiver) = mpsc::sync_channel(QUEUE_CAPACITY);
         let (ready_tx, ready_rx) = mpsc::sync_channel(1);
@@ -396,6 +402,67 @@ impl Drop for WorkspaceActor {
 }
 
 impl ActorHandle {
+    pub(crate) fn external_fingerprint_matches(
+        &self,
+        operation: &Id,
+        fingerprint: &str,
+    ) -> Result<bool> {
+        let state = self
+            .shared
+            .state
+            .lock()
+            .map_err(|_| ActorError::StorageUnavailable)?;
+        let expected = state
+            .volatile_fingerprints
+            .iter()
+            .find(|(id, _)| id == operation)
+            .ok_or(ActorError::IdempotencyUnverifiable)?;
+        Ok(bool::from(
+            expected.1.as_bytes().ct_eq(fingerprint.as_bytes()),
+        ))
+    }
+    pub(crate) fn queue_environment(
+        &self,
+        query: crate::environment_control::EnvironmentRead,
+    ) -> Result<()> {
+        let state = self
+            .shared
+            .state
+            .lock()
+            .map_err(|_| ActorError::StorageUnavailable)?;
+        if self.shared.stopping.load(Ordering::Acquire) {
+            return Err(ActorError::ShuttingDown);
+        }
+        let queued = self.shared.environment_queued.load(Ordering::Acquire);
+        let reads = state.waiting.values().filter(|v| v.work.is_read()).count()
+            + usize::from(self.shared.active_read.load(Ordering::Acquire))
+            + self.shared.environment_reads.load(Ordering::Acquire);
+        if state.pending + queued >= QUEUE_CAPACITY
+            || state
+                .waiting_bytes
+                .saturating_add((queued + 1) * ENV_QUERY_BYTES)
+                > QUEUE_BYTES
+            || reads >= desktop::READ_RESULTS
+        {
+            return Err(ActorError::Busy);
+        }
+        self.shared
+            .environment_queued
+            .fetch_add(1, Ordering::AcqRel);
+        self.shared.environment_reads.fetch_add(1, Ordering::AcqRel);
+        if self
+            .sender
+            .try_send(Message::Environment(Box::new(query)))
+            .is_err()
+        {
+            self.shared
+                .environment_queued
+                .fetch_sub(1, Ordering::AcqRel);
+            self.shared.environment_reads.fetch_sub(1, Ordering::AcqRel);
+            return Err(ActorError::Busy);
+        }
+        Ok(())
+    }
     pub(crate) fn external_find(
         &self,
         client: &Id,
@@ -448,6 +515,7 @@ impl ActorHandle {
                 .ok_or(E::InvalidInput)?,
         };
         let fingerprint = job.fingerprint().to_owned();
+        let sensitive = job.sensitive();
         let bytes = job.encoded_bytes();
         let mut state = self
             .shared
@@ -458,7 +526,18 @@ impl ActorHandle {
             .find(&client, &identity)
             .map_err(|_| E::StorageUnavailable)?
         {
-            if old != fingerprint {
+            if sensitive && old.starts_with("volatile-secret-v1:") {
+                let expected = state
+                    .volatile_fingerprints
+                    .iter()
+                    .find(|(id, _)| id == &receipt.operation_id)
+                    .ok_or(E::IdempotencyUnverifiable)?;
+                if !bool::from(expected.1.as_bytes().ct_eq(fingerprint.as_bytes())) {
+                    return Err(E::IdempotencyConflict);
+                }
+                return Ok(receipt);
+            }
+            if old != fingerprint || sensitive {
                 return Err(E::IdempotencyConflict);
             }
             return Ok(receipt);
@@ -468,8 +547,12 @@ impl ActorHandle {
         }
         state.purge_cancelled_payloads();
         publish_queue(&self.shared, &state);
-        if state.pending >= QUEUE_CAPACITY
-            || bytes > QUEUE_BYTES.saturating_sub(state.waiting_bytes)
+        if state.pending + self.shared.environment_queued.load(Ordering::Acquire) >= QUEUE_CAPACITY
+            || bytes
+                > QUEUE_BYTES.saturating_sub(
+                    state.waiting_bytes
+                        + self.shared.environment_queued.load(Ordering::Acquire) * ENV_QUERY_BYTES,
+                )
         {
             return Err(E::Busy);
         }
@@ -499,6 +582,8 @@ impl ActorHandle {
             MutationInput::Restart(_) => MutationOutput::Restart(output),
             MutationInput::RuntimeInstall(_) => MutationOutput::RuntimeInstall(output),
             MutationInput::Configure(_) => MutationOutput::Configure(output),
+            MutationInput::EnvironmentApply(_) => MutationOutput::EnvironmentApply(output),
+            MutationInput::YamlSave(_) => MutationOutput::YamlSave(output),
             _ => return Err(E::UnsupportedCapability),
         })?;
         let transaction = state
@@ -506,9 +591,17 @@ impl ActorHandle {
             .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
             .map_err(|_| E::StorageUnavailable)?;
         job.claim(&receipt.operation_id)?;
+        let persisted_fingerprint = if sensitive {
+            format!(
+                "volatile-secret-v1:{}",
+                random_id().map_err(|_| E::StorageUnavailable)?.as_str()
+            )
+        } else {
+            fingerprint.clone()
+        };
         let insertion = (|| {
             job.validate_admission(&snapshot.snapshot, registry)?;
-            transaction.execute("INSERT INTO operations(operation_id,client_id,project_id,idempotency_key,fingerprint,state,created_at,updated_at) VALUES(?1,?2,?3,?4,?5,'queued',?6,?6)",params![receipt.operation_id.as_str(),client.as_str(),identity.project_id.as_str(),identity.idempotency_key.as_str(),fingerprint,now() as i64]).map_err(|_|E::StorageUnavailable)?;
+            transaction.execute("INSERT INTO operations(operation_id,client_id,project_id,idempotency_key,fingerprint,state,created_at,updated_at) VALUES(?1,?2,?3,?4,?5,'queued',?6,?6)",params![receipt.operation_id.as_str(),client.as_str(),identity.project_id.as_str(),identity.idempotency_key.as_str(),persisted_fingerprint,now() as i64]).map_err(|_|E::StorageUnavailable)?;
             transaction
                 .execute(
                     "INSERT INTO service_operations(operation_id,revision) VALUES(?1,?2)",
@@ -524,6 +617,14 @@ impl ActorHandle {
         if let Err(error) = insertion {
             job.release_claim(&receipt.operation_id);
             return Err(error);
+        }
+        if sensitive {
+            if state.volatile_fingerprints.len() >= 128 {
+                state.volatile_fingerprints.pop_front();
+            }
+            state
+                .volatile_fingerprints
+                .push_back((receipt.operation_id.clone(), Zeroizing::new(fingerprint)));
         }
         let cancellation = job.cancellation.clone();
         let mut cancellations = match self.shared.cancellations.lock() {
@@ -940,8 +1041,12 @@ impl ActorHandle {
         state.purge_cancelled_payloads();
         publish_queue(&self.shared, &state);
         state.expire_reads();
-        if state.pending >= QUEUE_CAPACITY
-            || encoded_bytes > QUEUE_BYTES.saturating_sub(state.waiting_bytes)
+        if state.pending + self.shared.environment_queued.load(Ordering::Acquire) >= QUEUE_CAPACITY
+            || encoded_bytes
+                > QUEUE_BYTES.saturating_sub(
+                    state.waiting_bytes
+                        + self.shared.environment_queued.load(Ordering::Acquire) * ENV_QUERY_BYTES,
+                )
         {
             return Err(ActorError::Busy);
         }
@@ -951,7 +1056,8 @@ impl ActorHandle {
                 .values()
                 .filter(|item| item.work.is_read())
                 .count()
-                + usize::from(self.shared.active_read.load(Ordering::Acquire)))
+                + usize::from(self.shared.active_read.load(Ordering::Acquire))
+                + self.shared.environment_reads.load(Ordering::Acquire))
                 >= desktop::READ_RESULTS
         {
             return Err(ActorError::Busy);
@@ -1278,6 +1384,15 @@ fn worker_loop(
             while let Ok(message) = receiver.try_recv() {
                 match message {
                     Message::Job(job) => finish_cancelled(shared, &job)?,
+                    Message::Environment(query) => {
+                        shared.environment_queued.fetch_sub(1, Ordering::AcqRel);
+                        shared.environment_reads.fetch_sub(1, Ordering::AcqRel);
+                        let _ = query.reply.send(Err(devforge_workspace::Error {
+                            scope: "workspace",
+                            code: "interrupted".into(),
+                            project_id: None,
+                        }));
+                    }
                 }
             }
             shared
@@ -1317,6 +1432,13 @@ fn worker_loop(
             }
         };
         match message {
+            Message::Environment(query) => {
+                shared.environment_queued.fetch_sub(1, Ordering::AcqRel);
+                shared.active.store(true, Ordering::Release);
+                query.execute(&workspace);
+                shared.active.store(false, Ordering::Release);
+                shared.environment_reads.fetch_sub(1, Ordering::AcqRel);
+            }
             Message::Job(job) => {
                 if job.cancellation.is_cancelled() || shared.stopping.load(Ordering::Acquire) {
                     finish_cancelled(shared, &job)?;

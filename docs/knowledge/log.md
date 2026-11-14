@@ -4,6 +4,8 @@
 
 ## 2026-11-14
 
+- **M13.4 env/YAML:** opaque metadata/version/native-review bridge, sensitive RAM-only equality/random actor marker, guarded existing setup/save and16KiB external payload. Five core/one child/one policy/two client/one parser checks plus actual isolated save/apply24.25s passed; OS credential/native DB/Windows limits remain explicit. Earlier service/runtime baselines both passed CI. [Contract](../architecture/reviewed-service-actions.md), [execution](execution-status.md).
+
 - **M13.4 runtime install/select:** existing reviewed envelope/actor, finite adapters and independent MCP opt-in; preserved nonselection fields/Composer, pre-stop cache compatibility. Five core/one policy/two client/one parser checks and actual cached PHP-version HTTP flow passed. Fresh network/native GUI/Windows gates remain distinct. [Contract](../architecture/reviewed-service-actions.md), [execution](execution-status.md).
 
 - **M13.4 CI lint follow-up:** single shared test-support module and test-module ordering corrected after actual macOS/Windows lint failures; affected manager/workspace lib+tests clippy passed. Later Windows-only controller ordering and Mac-only PathBuf import were corrected with selected format/diff checks. Native tests not repeated for mechanical changes. [Execution](execution-status.md).

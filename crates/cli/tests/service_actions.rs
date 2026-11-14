@@ -466,10 +466,17 @@ impl Mcp {
         Self::with_flags(fixture, service, false)
     }
     fn with_flags(fixture: &Fixture, service: bool, runtime: bool) -> Self {
-        let file = fixture
-            .parent
-            .path()
-            .join(format!("grant-service-{service}-runtime-{runtime}.json"));
+        Self::with_environment(fixture, service, runtime, false)
+    }
+    fn with_environment(
+        fixture: &Fixture,
+        service: bool,
+        runtime: bool,
+        environment: bool,
+    ) -> Self {
+        let file = fixture.parent.path().join(format!(
+            "grant-service-{service}-runtime-{runtime}-environment-{environment}.json"
+        ));
         let bytes=zeroize::Zeroizing::new(serde_json::to_vec(&json!({"schema":1,"project_id":fixture.project,"credential":fixture.full.credential.expose_secret()})).unwrap());
         common::credential_file(&file, &bytes);
         let mut command = Command::new(env!("CARGO_BIN_EXE_devforge"));
@@ -482,6 +489,9 @@ impl Mcp {
         }
         if runtime {
             command.arg("--allow-runtime-actions");
+        }
+        if environment {
+            command.arg("--allow-environment-actions");
         }
         let mut child = command
             .stdin(Stdio::piped())
@@ -931,5 +941,208 @@ fn runtime_mcp_opt_in_is_independent_and_only_exposes_install_select() {
             .unwrap()
             .next()
             .is_none()
+    );
+}
+
+fn env_cli(
+    fixture: &Fixture,
+    file: &std::path::Path,
+    args: &[&str],
+    input: Option<&[u8]>,
+) -> (i32, Value) {
+    let mut child = Command::new(env!("CARGO_BIN_EXE_devforge"))
+        .env("DEVFORGE_DATA_DIR", &fixture.root)
+        .args(args)
+        .arg("--credential-file")
+        .arg(file)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    if let Some(input) = input {
+        child.stdin.take().unwrap().write_all(input).unwrap();
+    } else {
+        drop(child.stdin.take());
+    }
+    let output = child.wait_with_output().unwrap();
+    assert!(output.stderr.is_empty());
+    (
+        output.status.code().unwrap(),
+        serde_json::from_slice(&output.stdout).unwrap(),
+    )
+}
+#[test]
+fn environment_masked_preview_and_yaml_stdin_do_not_export_invalid_document_content() {
+    use devforge_control::{
+        Request,
+        mutations::{EnvironmentPlanInput, MutationInput},
+    };
+    use devforge_manager::{
+        Endpoint, external_auth::ExternalCredential, external_client::EnvClient,
+    };
+    use sha2::{Digest as _, Sha256};
+    let mut fixture = Fixture::new();
+    let project = Id::new(&fixture.project).unwrap();
+    let snapshot = fixture.native.snapshot().unwrap();
+    let row = snapshot.snapshot["projects"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|row| row["project"]["id"] == fixture.project)
+        .unwrap();
+    let path = PathBuf::from(row["project"]["path"].as_str().unwrap()).join("devforge.yaml");
+    let canary = "yaml-private-comment-canary";
+    let invalid = format!("schema: [\n# {canary}\n");
+    fs::write(&path, &invalid).unwrap();
+    let raw_hash = Sha256::digest(invalid.as_bytes())
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect::<String>();
+    let mut observer = EnvClient::connect(
+        Endpoint::existing(&fixture.root).unwrap(),
+        ExternalCredential::from_wire(fixture.observer.credential.expose_secret()).unwrap(),
+    )
+    .unwrap();
+    let request = Request {
+        api_version: Default::default(),
+        request_id: Id::new("masked-preview").unwrap(),
+        project_id: project,
+        expected_revision: None,
+        idempotency_key: None,
+        input: MutationInput::EnvironmentPlan(EnvironmentPlanInput {
+            write_env: false,
+            limits: None,
+        }),
+    };
+    let preview = observer.plan(&request).unwrap();
+    let data = preview.data().unwrap();
+    assert!(data.document.yaml_exists && data.document.version.is_some());
+    assert!(data.receipt.is_none());
+    assert!(!data.blockers.is_empty());
+    let wire = serde_json::to_string(&preview).unwrap();
+    assert!(
+        !wire.contains(canary)
+            && !wire.contains(&raw_hash)
+            && !wire.contains(fixture.root.to_str().unwrap())
+    );
+    let credential = fixture.parent.path().join("env-observer.json");
+    let bytes=zeroize::Zeroizing::new(serde_json::to_vec(&json!({"schema":1,"project_id":fixture.project,"credential":fixture.observer.credential.expose_secret()})).unwrap());
+    common::credential_file(&credential, &bytes);
+    let (code, cli_preview) = env_cli(
+        &fixture,
+        &credential,
+        &["api", "env", "plan", &fixture.project],
+        None,
+    );
+    assert_eq!(code, 0);
+    assert_eq!(cli_preview["data"]["document"]["yaml_exists"], true);
+    assert!(
+        !cli_preview.to_string().contains(canary) && !cli_preview.to_string().contains(&raw_hash)
+    );
+    let revision = fixture.revision.to_string();
+    let candidate=zeroize::Zeroizing::new(serde_json::to_vec(&json!({"expected":data.document.version,"text":"# supplied-candidate-canary\nschema: 1\n"})).unwrap());
+    let (code, denied) = env_cli(
+        &fixture,
+        &credential,
+        &[
+            "api",
+            "env",
+            "plan",
+            "yaml-save",
+            &fixture.project,
+            "--revision",
+            &revision,
+            "--idempotency-key",
+            "denied-yaml",
+            "--input-stdin",
+        ],
+        Some(&candidate),
+    );
+    assert_eq!(code, 3);
+    assert_eq!(denied["error"]["code"], "unauthorized");
+    assert!(!denied.to_string().contains("supplied-candidate-canary"));
+    let large = zeroize::Zeroizing::new(
+        serde_json::to_vec(&json!({"expected":null,"text":"x".repeat(16385)})).unwrap(),
+    );
+    let (code, limited) = env_cli(
+        &fixture,
+        &credential,
+        &[
+            "api",
+            "env",
+            "plan",
+            "yaml-save",
+            &fixture.project,
+            "--revision",
+            &revision,
+            "--idempotency-key",
+            "oversized-yaml",
+            "--input-stdin",
+        ],
+        Some(&large),
+    );
+    assert_eq!(code, 6);
+    assert_eq!(limited["error"]["code"], "output_limit_exceeded");
+    assert_eq!(fs::read_to_string(path).unwrap(), invalid);
+}
+#[test]
+fn environment_mcp_surface_is_masked_and_flag_never_grants_sensitive_authority() {
+    let mut fixture = Fixture::new();
+    let snapshot = fixture.native.snapshot().unwrap();
+    let row = snapshot.snapshot["projects"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|row| row["project"]["id"] == fixture.project)
+        .unwrap();
+    let path = PathBuf::from(row["project"]["path"].as_str().unwrap()).join("devforge.yaml");
+    fs::write(&path, "schema: [\n# mcp-yaml-private-canary\n").unwrap();
+    for (service, runtime, environment, count) in [
+        (false, false, false, 5),
+        (false, false, true, 8),
+        (true, true, true, 15),
+    ] {
+        let mut mcp = Mcp::with_environment(&fixture, service, runtime, environment);
+        let tools = mcp.call("tools/list", json!({}));
+        assert_eq!(tools["result"]["tools"].as_array().unwrap().len(), count);
+        assert!(
+            !tools["result"]["tools"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|tool| tool["name"] == "env_document_state"
+                    || tool["name"] == "environment.raw_get")
+        );
+        let preview = mcp.call(
+            "tools/call",
+            json!({"name":"environment.plan","arguments":{}}),
+        );
+        if environment {
+            assert_eq!(preview["result"]["isError"], false);
+            let document = &preview["result"]["structuredContent"]["data"]["document"];
+            assert_eq!(document["yaml_exists"], true);
+            assert!(document["version"].is_string());
+            assert!(!preview.to_string().contains("mcp-yaml-private-canary"));
+            let denied=mcp.call("tools/call",json!({"name":"environment.plan","arguments":{"action":"yaml_save","expected_revision":fixture.revision,"idempotency_key":"no-sensitive","expected":document["version"],"text":"schema: 1\n"}}));
+            assert_eq!(denied["result"]["isError"], true);
+            assert_eq!(
+                denied["result"]["structuredContent"]["error"]["code"],
+                "unauthorized"
+            );
+            let oversized=mcp.call("tools/call",json!({"name":"environment.plan","arguments":{"action":"yaml_save","expected_revision":fixture.revision,"idempotency_key":"oversized","text":"x".repeat(16385)}}));
+            assert_eq!(oversized["error"]["code"], -32602);
+            let bypass=mcp.call("tools/call",json!({"name":"environment.plan","arguments":{"action":"yaml_save","expected_revision":fixture.revision,"idempotency_key":"bypass","text":"schema: 1\n","trusted":true}}));
+            assert_eq!(bypass["error"]["code"], -32602);
+        } else {
+            assert_eq!(preview["error"]["code"], -32602);
+        }
+        mcp.close();
+    }
+    assert!(fixture.native.snapshot().is_ok());
+    assert!(
+        fs::read_to_string(path)
+            .unwrap()
+            .contains("mcp-yaml-private-canary")
     );
 }

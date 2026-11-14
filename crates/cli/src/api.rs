@@ -60,6 +60,30 @@ const COMMANDS: &[(&str, &str)] = &[
         "runtime select",
         "devforge api runtime select PROJECT_ID --php PHP_ID --node NODE_ID --revision N --idempotency-key KEY --review DIGEST --credential-stdin",
     ),
+    (
+        "env plan",
+        "devforge api env plan PROJECT_ID --credential-file ABSOLUTE_PATH",
+    ),
+    (
+        "env plan apply",
+        "devforge api env plan apply PROJECT_ID --revision N --idempotency-key KEY --credential-file ABSOLUTE_PATH [--write-env]",
+    ),
+    (
+        "env plan yaml-save",
+        "devforge api env plan yaml-save PROJECT_ID --revision N --idempotency-key KEY --input-stdin --credential-file ABSOLUTE_PATH",
+    ),
+    (
+        "env apply",
+        "devforge api env apply PROJECT_ID --revision N --idempotency-key KEY --review TICKET --credential-file ABSOLUTE_PATH [--write-env]",
+    ),
+    (
+        "env yaml-save",
+        "devforge api env yaml-save PROJECT_ID --revision N --idempotency-key KEY --review TICKET --input-stdin --credential-file ABSOLUTE_PATH",
+    ),
+    (
+        "env lookup",
+        "devforge api env lookup KEY --project PROJECT_ID --credential-file ABSOLUTE_PATH",
+    ),
 ];
 
 #[derive(Debug)]
@@ -74,6 +98,9 @@ struct Invocation {
     package: Option<Id>,
     php: Option<Id>,
     node: Option<Id>,
+    credential_file: Option<std::path::PathBuf>,
+    input_stdin: bool,
+    write_env: bool,
 }
 impl Invocation {
     fn parse(args: &[String], request: Id) -> Result<Self, ErrorCode> {
@@ -88,6 +115,9 @@ impl Invocation {
             package: None,
             php: None,
             node: None,
+            credential_file: None,
+            input_stdin: false,
+            write_env: false,
         };
         let mut request_seen = false;
         let mut version_seen = false;
@@ -97,7 +127,8 @@ impl Invocation {
             let argument = &args[index];
             match argument.as_str() {
                 "--api-version" | "--request-id" | "--project" | "--revision"
-                | "--idempotency-key" | "--review" | "--package" | "--php" | "--node" => {
+                | "--idempotency-key" | "--review" | "--package" | "--php" | "--node"
+                | "--credential-file" => {
                     index += 1;
                     let value = args.get(index).ok_or(ErrorCode::InvalidInput)?;
                     match argument.as_str() {
@@ -138,12 +169,17 @@ impl Invocation {
                         "--node" if invocation.node.is_none() => {
                             invocation.node = Some(Id::new(value)?)
                         }
+                        "--credential-file" if invocation.credential_file.is_none() => {
+                            invocation.credential_file = Some(value.into())
+                        }
                         _ => return Err(ErrorCode::InvalidInput),
                     }
                 }
                 "--credential-stdin" if !invocation.credential_stdin => {
                     invocation.credential_stdin = true
                 }
+                "--input-stdin" if !invocation.input_stdin => invocation.input_stdin = true,
+                "--write-env" if !invocation.write_env => invocation.write_env = true,
                 "--json" if !json_seen => json_seen = true,
                 flag if flag.starts_with('-') && !matches!(flag, "--help" | "-h") => {
                     return Err(ErrorCode::InvalidInput);
@@ -207,7 +243,7 @@ fn metadata(words: &[String]) -> Result<Option<Value>, ErrorCode> {
             return Err(ErrorCode::InvalidInput);
         }
         return Ok(Some(
-            json!({"usage":"devforge api [--api-version 1] [--request-id ID] COMMAND [--json]", "commands":COMMANDS.iter().filter(|(name,_)| path.is_empty() || *name==path || name.starts_with(&(path.clone()+" "))).map(|(name,example)|json!({"name":name,"example":example})).collect::<Vec<_>>(),"credential_input":"explicit --credential-stdin: 64 lowercase hex characters plus optional newline and EOF; never a command argument or environment variable","exit_codes":exit_codes()}),
+            json!({"usage":"devforge api [--api-version 1] [--request-id ID] COMMAND [--json]", "commands":COMMANDS.iter().filter(|(name,_)| path.is_empty() || *name==path || name.starts_with(&(path.clone()+" "))).map(|(name,example)|json!({"name":name,"example":example})).collect::<Vec<_>>(),"credential_input":"Environment uses protected --credential-file; YAML canonical JSON input uses --input-stdin. Other API credentials use explicit --credential-stdin. Never pass token or YAML values in argv/environment.","exit_codes":exit_codes()}),
         ));
     }
     match words
@@ -217,14 +253,14 @@ fn metadata(words: &[String]) -> Result<Option<Value>, ErrorCode> {
         .as_slice()
     {
         ["capabilities"] => Ok(Some(
-            json!({"api_version":API_VERSION,"owner_autostart":false,"native_desktop_authority":false,"external_grant_required":true,"project_visibility":"credential-bound project only","commands":COMMANDS.iter().filter(|(name,_)| !matches!(*name,"schema"|"capabilities")).map(|(name,_)|json!({"name":name,"implemented":true,"requires_connection":true,"requires_grant":*name!="health","required_scopes":match *name {"health"=>vec![],"operation cancel"=>vec!["observer","project_manage"],"service start"|"service restart"|"runtime select"=>vec!["project_manage","execution_test"],"service stop"|"runtime install"=>vec!["project_manage"],"service plan"|"runtime plan"=>vec!["project_manage"],_=>vec!["observer"]},"execution_requires_native_approval":name.starts_with("service ")||name.starts_with("runtime "),"scope_by_action":if *name=="service plan"{json!({"start":["project_manage","execution_test"],"stop":["project_manage"],"restart":["project_manage","execution_test"]})}else if *name=="runtime plan"{json!({"install":["project_manage"],"select":["project_manage","execution_test"]})}else{Value::Null},"partial_effects":if matches!(*name,"service plan"|"service start"|"service restart"){json!(["configured_database_cache_smtp_may_remain_running_after_failure_or_cancel","restart_may_have_stopped_selected_session_before_later_denial"])}else{json!([])},"effect":match *name{"operation cancel"=>"cancel_owned_operation","service start"|"service stop"|"service restart"=>"reviewed_owned_service_lifecycle","runtime install"=>"reviewed_shared_cache_write_without_pin_switch","runtime select"=>"reviewed_php_node_selection_with_possible_session_restart",_=>"read_only"}})).collect::<Vec<_>>(),"deferred":["general_execution_tools","content_reads","other_project_mutations"],"planning_inventory_is_live":false}),
+            json!({"api_version":API_VERSION,"owner_autostart":false,"native_desktop_authority":false,"external_grant_required":true,"project_visibility":"credential-bound project only","commands":COMMANDS.iter().filter(|(name,_)| !matches!(*name,"schema"|"capabilities")).map(|(name,_)|json!({"name":name,"implemented":true,"requires_connection":true,"requires_grant":*name!="health","required_scopes":match *name {"health"=>vec![],"operation cancel"=>vec!["observer","project_manage"],"env apply"|"env plan apply"=>vec!["project_manage","sensitive_operation","execution_test"],"env yaml-save"|"env plan yaml-save"=>vec!["project_manage","sensitive_operation"],"service start"|"service restart"|"runtime select"=>vec!["project_manage","execution_test"],"service stop"|"runtime install"=>vec!["project_manage"],"service plan"|"runtime plan"=>vec!["project_manage"],_=>vec!["observer"]},"execution_requires_native_approval":name.starts_with("service ")||name.starts_with("runtime ")||matches!(*name,"env apply"|"env yaml-save"|"env plan apply"|"env plan yaml-save"),"scope_by_action":if *name=="service plan"{json!({"start":["project_manage","execution_test"],"stop":["project_manage"],"restart":["project_manage","execution_test"]})}else if *name=="runtime plan"{json!({"install":["project_manage"],"select":["project_manage","execution_test"]})}else{Value::Null},"partial_effects":if matches!(*name,"service plan"|"service start"|"service restart"){json!(["configured_database_cache_smtp_may_remain_running_after_failure_or_cancel","restart_may_have_stopped_selected_session_before_later_denial"])}else{json!([])},"effect":match *name{"operation cancel"=>"cancel_owned_operation","service start"|"service stop"|"service restart"=>"reviewed_owned_service_lifecycle","runtime install"=>"reviewed_shared_cache_write_without_pin_switch","runtime select"=>"reviewed_php_node_selection_with_possible_session_restart","env apply"=>"reviewed_existing_configuration_backend_writes","env yaml-save"=>"reviewed_yaml_and_private_core_history_write",_=>"read_only"}})).collect::<Vec<_>>(),"deferred":["general_execution_tools","content_reads","other_project_mutations"],"planning_inventory_is_live":false}),
         )),
         ["schema"] => Ok(Some(schema())),
         _ => Ok(None),
     }
 }
 fn exit_codes() -> Value {
-    json!({"0":"success","2":"invalid_input_or_unsupported_version","3":"unauthorized_or_grant_denied","4":"owner_or_storage_unavailable","5":"conflict_or_busy","6":"unsupported_or_bounded_output","7":"timeout_interrupted_or_admission_unconfirmed"})
+    json!({"0":"success","2":"invalid_input_or_unsupported_version","3":"unauthorized_or_grant_denied","4":"owner_or_storage_unavailable","5":"conflict_or_busy","6":"unsupported_or_bounded_output","7":"timeout_interrupted_unconfirmed_or_unverifiable"})
 }
 fn exit_code(code: ErrorCode) -> i32 {
     match code {
@@ -244,7 +280,10 @@ fn exit_code(code: ErrorCode) -> i32 {
         ErrorCode::CursorExpired
         | ErrorCode::OutputLimitExceeded
         | ErrorCode::UnsupportedCapability => 6,
-        ErrorCode::TimedOut | ErrorCode::Interrupted | ErrorCode::AdmissionUnconfirmed => 7,
+        ErrorCode::TimedOut
+        | ErrorCode::Interrupted
+        | ErrorCode::AdmissionUnconfirmed
+        | ErrorCode::IdempotencyUnverifiable => 7,
     }
 }
 fn schema() -> Value {
@@ -256,7 +295,7 @@ fn schema() -> Value {
             ("request_id".to_owned(),id.clone()),
         ]);
         let mut required = vec!["command"];
-        if *name=="project inspect" || name.starts_with("operation ") || name.starts_with("service ") || name.starts_with("runtime ") {
+        if *name=="project inspect" || name.starts_with("operation ") || name.starts_with("service ") || name.starts_with("runtime ") ||name.starts_with("env ") {
             properties.insert("project_id".into(),id.clone());
             required.push("project_id");
         }
@@ -277,12 +316,23 @@ fn schema() -> Value {
                 if *name=="runtime select"{required.extend(["php","node"]);}else{properties.insert("package_id".into(),id.clone());properties.insert("action".into(),json!({"enum":["install","select"]}));required.push("action");}
             }
         }
+        if name.starts_with("env ") {
+            if *name=="env lookup"{properties.insert("idempotency_key".into(),id.clone());required.push("idempotency_key");}else{
+                properties.insert("expected_revision".into(),json!({"type":"integer","minimum":0,"maximum":devforge_control::limits::SafeInt::MAX}));properties.insert("idempotency_key".into(),id.clone());
+                if *name!="env plan"{required.extend(["expected_revision","idempotency_key"]);}
+                if matches!(*name,"env apply"|"env yaml-save"){properties.insert("review".into(),json!({"type":"string","pattern":"^[0-9a-f]{64}$"}));required.push("review");}
+                if name.ends_with("yaml-save"){
+                    use devforge_control::export::Wire;
+                    let mut payload=devforge_control::mutations::YamlSaveInput::schema();payload["properties"]["text"]["maxLength"]=json!(devforge_manager::service_control::MAX_EXTERNAL_YAML_BYTES);payload["properties"]["text"]["x-maxUtf8Bytes"]=json!(devforge_manager::service_control::MAX_EXTERNAL_YAML_BYTES);payload["properties"]["expected"]["description"]=json!("Opaque version from masked preview; null/missing is create-only. Never a raw document SHA.");properties.insert("stdin_input".into(),payload);required.push("stdin_input");
+                }else{properties.insert("write_env".into(),json!({"type":"boolean","default":false}));}
+            }
+        }
         if *name=="operation lookup"{properties.insert("idempotency_key".into(),id.clone());required.push("idempotency_key");}
         let mut input=json!({"type":"object","additionalProperties":false,"properties":properties,"required":required});
         if *name=="runtime plan"{input["oneOf"]=json!([{"properties":{"action":{"const":"install"}},"required":["package_id"],"not":{"anyOf":[{"required":["php"]},{"required":["node"]}]}},{"properties":{"action":{"const":"select"}},"required":["php","node"],"not":{"required":["package_id"]}}]);}
         input
     }).collect::<Vec<_>>();
-    let mut value = json!({"api_version":API_VERSION,"scope":"implemented JSON CLI and reviewed service and runtime install/PHP-Node selection slices; other mutations remain unavailable","response":{"$schema":"https://json-schema.org/draft/2020-12/schema","type":"object","additionalProperties":false,"required":["api_version","request_id","ok","warnings"],"properties":{"api_version":{"const":API_VERSION},"request_id":{"type":"string","pattern":"^[A-Za-z0-9_.:-]+$","minLength":1,"maxLength":128},"operation_id":{"type":"string"},"ok":{"type":"boolean"},"data":{},"error":{"type":"object","additionalProperties":false,"required":["code","retryable"],"properties":{"code":{"enum":devforge_control::export::ERRORS},"retryable":{"type":"boolean"}}},"warnings":{"type":"array","items":{"enum":devforge_control::export::ERRORS}}},"oneOf":[{"properties":{"ok":{"const":true}},"required":["data"],"not":{"required":["error"]}},{"properties":{"ok":{"const":false}},"required":["error"],"not":{"required":["data"]}}]},"commands":COMMANDS.iter().map(|(name,example)|json!({"name":name,"example":example})).collect::<Vec<_>>(),"exit_codes":exit_codes()});
+    let mut value = json!({"api_version":API_VERSION,"scope":"implemented JSON CLI and reviewed service and runtime install/PHP-Node and masked environment/YAML slices; other mutations remain unavailable","response":{"$schema":"https://json-schema.org/draft/2020-12/schema","type":"object","additionalProperties":false,"required":["api_version","request_id","ok","warnings"],"properties":{"api_version":{"const":API_VERSION},"request_id":{"type":"string","pattern":"^[A-Za-z0-9_.:-]+$","minLength":1,"maxLength":128},"operation_id":{"type":"string"},"ok":{"type":"boolean"},"data":{},"error":{"type":"object","additionalProperties":false,"required":["code","retryable"],"properties":{"code":{"enum":devforge_control::export::ERRORS},"retryable":{"type":"boolean"}}},"warnings":{"type":"array","items":{"enum":devforge_control::export::ERRORS}}},"oneOf":[{"properties":{"ok":{"const":true}},"required":["data"],"not":{"required":["error"]}},{"properties":{"ok":{"const":false}},"required":["error"],"not":{"required":["data"]}}]},"commands":COMMANDS.iter().map(|(name,example)|json!({"name":name,"example":example})).collect::<Vec<_>>(),"exit_codes":exit_codes()});
     value["input"] = json!({"$schema":"https://json-schema.org/draft/2020-12/schema","description":"Logical CLI arguments; bearer credentials are private stdin transport, never JSON fields.","oneOf":inputs});
     value
 }
@@ -314,7 +364,10 @@ pub fn run(args: &[String]) -> i32 {
                 && invocation.review.is_none()
                 && invocation.package.is_none()
                 && invocation.php.is_none()
-                && invocation.node.is_none() =>
+                && invocation.node.is_none()
+                && invocation.credential_file.is_none()
+                && !invocation.input_stdin
+                && !invocation.write_env =>
         {
             Ok((
                 serde_json::to_value(Response::success(request.clone(), None, value))
@@ -343,6 +396,138 @@ fn emit(response: Response<Value>) {
         serde_json::to_string(&response).expect("JSON control envelope")
     );
 }
+fn env_yaml_input() -> Result<devforge_control::mutations::YamlSaveInput, ErrorCode> {
+    let stdin = std::io::stdin();
+    if stdin.is_terminal() {
+        return Err(ErrorCode::InvalidInput);
+    }
+    let mut bytes = Zeroizing::new(Vec::new());
+    stdin
+        .lock()
+        .take(devforge_manager::MAX_REQUEST_BYTES as u64 + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|_| ErrorCode::InvalidInput)?;
+    if bytes.len() > devforge_manager::MAX_REQUEST_BYTES {
+        return Err(ErrorCode::OutputLimitExceeded);
+    }
+    let input: devforge_control::mutations::YamlSaveInput =
+        serde_json::from_slice(&bytes).map_err(|_| ErrorCode::InvalidInput)?;
+    if input.text.as_str().len() > devforge_manager::service_control::MAX_EXTERNAL_YAML_BYTES {
+        return Err(ErrorCode::OutputLimitExceeded);
+    }
+    Ok(input)
+}
+fn env_live(invocation: &Invocation) -> Result<(Value, i32), ErrorCode> {
+    use devforge_control::mutations::{EnvironmentApplyInput, EnvironmentPlanInput};
+    use devforge_manager::{
+        Endpoint, credential_file::CredentialFile, external_client::BoundEnvClient,
+    };
+    if invocation.credential_stdin
+        || invocation.package.is_some()
+        || invocation.php.is_some()
+        || invocation.node.is_some()
+    {
+        return Err(ErrorCode::InvalidInput);
+    }
+    enum Call {
+        Preview,
+        PlanApply,
+        PlanYaml,
+        Apply,
+        Yaml,
+        Lookup(Id),
+    }
+    let words = invocation
+        .words
+        .iter()
+        .map(String::as_str)
+        .collect::<Vec<_>>();
+    let (project, call) = match words.as_slice() {
+        ["env", "plan", project] if invocation.project.is_none() => {
+            (Id::new(*project)?, Call::Preview)
+        }
+        ["env", "plan", "apply", project] if invocation.project.is_none() => {
+            (Id::new(*project)?, Call::PlanApply)
+        }
+        ["env", "plan", "yaml-save", project] if invocation.project.is_none() => {
+            (Id::new(*project)?, Call::PlanYaml)
+        }
+        ["env", "apply", project] if invocation.project.is_none() => {
+            (Id::new(*project)?, Call::Apply)
+        }
+        ["env", "yaml-save", project] if invocation.project.is_none() => {
+            (Id::new(*project)?, Call::Yaml)
+        }
+        ["env", "lookup", key] => (
+            invocation.project.clone().ok_or(ErrorCode::InvalidInput)?,
+            Call::Lookup(Id::new(*key)?),
+        ),
+        _ => return Err(ErrorCode::InvalidInput),
+    };
+    let yaml = matches!(call, Call::PlanYaml | Call::Yaml);
+    let applying = matches!(call, Call::Apply | Call::Yaml);
+    let writing = !matches!(call, Call::Preview | Call::Lookup(_));
+    if invocation.input_stdin != yaml
+        || yaml && invocation.write_env
+        || applying != invocation.review.is_some()
+    {
+        return Err(ErrorCode::InvalidInput);
+    }
+    if writing && (invocation.revision.is_none() || invocation.idempotency.is_none()) {
+        return Err(ErrorCode::InvalidInput);
+    }
+    if matches!(call, Call::Lookup(_))
+        && (invocation.revision.is_some()
+            || invocation.idempotency.is_some()
+            || invocation.write_env)
+    {
+        return Err(ErrorCode::InvalidInput);
+    }
+    let file = invocation
+        .credential_file
+        .as_ref()
+        .ok_or(ErrorCode::Unauthorized)?;
+    let loaded = CredentialFile::load(file)?;
+    if loaded.project_id() != &project {
+        return Err(ErrorCode::ProjectMismatch);
+    }
+    let root = devforge_platform::app_data_dir().map_err(|_| ErrorCode::StorageUnavailable)?;
+    let endpoint = Endpoint::existing(&root).map_err(|_| ErrorCode::StorageUnavailable)?;
+    let mut client = BoundEnvClient::connect(endpoint, loaded)?;
+    if let Call::Lookup(key) = call {
+        return service_response(client.lookup(invocation.request.clone(), &key)?);
+    }
+    let input = if yaml {
+        MutationInput::YamlSave(env_yaml_input()?)
+    } else if matches!(call, Call::Preview) {
+        MutationInput::EnvironmentPlan(EnvironmentPlanInput {
+            write_env: invocation.write_env,
+            limits: None,
+        })
+    } else {
+        MutationInput::EnvironmentApply(EnvironmentApplyInput {
+            write_env: invocation.write_env,
+            limits: None,
+        })
+    };
+    let request = Request {
+        api_version: Default::default(),
+        request_id: invocation.request.clone(),
+        project_id: project,
+        expected_revision: invocation.revision,
+        idempotency_key: invocation.idempotency.clone(),
+        input,
+    };
+    if applying {
+        service_response(client.apply(
+            &request,
+            invocation.review.as_ref().expect("validated review"),
+        )?)
+    } else {
+        service_response(client.plan(&request)?)
+    }
+}
+
 fn runtime_live(invocation: &Invocation) -> Result<(Value, i32), ErrorCode> {
     use devforge_manager::{
         Endpoint, external_auth::ExternalCredential, external_client::RuntimeClient,
@@ -528,6 +713,14 @@ fn live(invocation: &Invocation) -> Result<(Value, i32), ErrorCode> {
         .iter()
         .map(String::as_str)
         .collect::<Vec<_>>();
+    if words.first() == Some(&"env") {
+        return env_live(invocation);
+    }
+    if words.first() != Some(&"env")
+        && (invocation.credential_file.is_some() || invocation.input_stdin || invocation.write_env)
+    {
+        return Err(ErrorCode::InvalidInput);
+    }
     if words.first() == Some(&"runtime") {
         return runtime_live(invocation);
     }

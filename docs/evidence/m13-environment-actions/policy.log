@@ -1,0 +1,8 @@
+   Compiling devforge-manager v0.1.0 (/Users/yusupov/Herd/devforge/crates/manager)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.39s
+     Running tests/service_control.rs (target/debug/deps/service_control-b32833356aaaa9fa)
+
+running 1 test
+test env_policy_opaque_versions_mask_invalid_yaml_and_keep_sensitive_fingerprints_out_of_journal ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.27s

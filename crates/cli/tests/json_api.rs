@@ -632,3 +632,111 @@ fn runtime_metadata_is_finite_and_select_flags_cannot_modify_other_configuration
     );
     assert_eq!(select["execution_requires_native_approval"], true);
 }
+
+#[test]
+fn environment_metadata_keeps_yaml_off_argv_and_credentials_off_payload_stdin() {
+    for args in [
+        vec!["api", "env", "--help"],
+        vec!["api", "env", "plan", "--help"],
+        vec!["api", "env", "apply", "--help"],
+        vec!["api", "env", "yaml-save", "--help"],
+    ] {
+        let (_, _, output, value) = invoke(&args);
+        assert!(output.status.success());
+        assert_eq!(value["ok"], true);
+    }
+    for args in [
+        vec![
+            "api",
+            "env",
+            "yaml-save",
+            "project",
+            "--revision",
+            "1",
+            "--idempotency-key",
+            "key",
+            "--review",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        ],
+        vec![
+            "api",
+            "env",
+            "plan",
+            "yaml-save",
+            "project",
+            "--revision",
+            "1",
+            "--idempotency-key",
+            "key",
+            "--input-stdin",
+            "--credential-stdin",
+        ],
+        vec![
+            "api",
+            "env",
+            "apply",
+            "project",
+            "--revision",
+            "1",
+            "--idempotency-key",
+            "key",
+            "--review",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "--input-stdin",
+        ],
+        vec![
+            "api",
+            "env",
+            "yaml-save",
+            "project",
+            "--yaml-file",
+            "/tmp/not-accepted",
+        ],
+        vec![
+            "api",
+            "env",
+            "yaml-save",
+            "project",
+            "--text",
+            "secret-argv-canary",
+        ],
+        vec![
+            "api",
+            "service",
+            "plan",
+            "stop",
+            "project",
+            "--revision",
+            "1",
+            "--idempotency-key",
+            "key",
+            "--credential-file",
+            "/tmp/not-read",
+        ],
+    ] {
+        let (_, _, output, value) = invoke(&args);
+        assert_eq!(output.status.code(), Some(2), "{args:?}");
+        assert_eq!(value["error"]["code"], "invalid_input");
+        assert!(
+            !String::from_utf8(output.stdout)
+                .unwrap()
+                .contains("secret-argv-canary")
+        );
+    }
+    let (_, _, _, capabilities) = invoke(&["api", "capabilities"]);
+    let commands = capabilities["data"]["commands"].as_array().unwrap();
+    assert_eq!(
+        commands
+            .iter()
+            .find(|entry| entry["name"] == "env apply")
+            .unwrap()["required_scopes"],
+        serde_json::json!(["project_manage", "sensitive_operation", "execution_test"])
+    );
+    assert_eq!(
+        commands
+            .iter()
+            .find(|entry| entry["name"] == "env yaml-save")
+            .unwrap()["required_scopes"],
+        serde_json::json!(["project_manage", "sensitive_operation"])
+    );
+}

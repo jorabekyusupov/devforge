@@ -812,10 +812,23 @@ impl Invocation {
         logs: impl AsRef<std::path::Path>,
         cancel: &Cancellation,
     ) -> Result<ExecutionResult> {
+        self.run_cancellable_checked(logs, cancel, &|| Ok(()))
+    }
+    /// Cooperatively checks caller policy before launch and inside the existing
+    /// bounded poll. Native callers retain the no-op policy. A completed child
+    /// outcome wins over a late policy check; callers may guard later stages.
+    pub fn run_cancellable_checked(
+        &self,
+        logs: impl AsRef<std::path::Path>,
+        cancel: &Cancellation,
+        check: &dyn Fn() -> Result<()>,
+    ) -> Result<ExecutionResult> {
         if cancel.is_cancelled() {
             return Err(E::ExecutionFailed);
         }
+        check()?;
         let mut supervisor = Supervisor::open(logs)?;
+        check()?;
         supervisor.start_redacted(self.spec.clone(), self.context.sensitive.clone())?;
         if let Some(budget) = &self.profile_budget {
             supervisor.attach_file_budget(&self.spec.id, budget.clone())?;
@@ -828,6 +841,10 @@ impl Invocation {
                 Observed::Succeeded | Observed::Failed | Observed::Stopped
             ) {
                 break state;
+            }
+            if let Err(error) = check() {
+                let _ = supervisor.stop(&self.spec.id);
+                return Err(error);
             }
             if cancel.is_cancelled() || std::time::Instant::now() > until {
                 supervisor.stop(&self.spec.id)?;

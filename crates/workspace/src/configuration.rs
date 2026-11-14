@@ -3,7 +3,7 @@ use super::*;
 use devforge_projects::manifest::{self, Manifest};
 use sha2::{Digest, Sha256};
 use std::io::Write;
-fn hash(bytes: &[u8]) -> String {
+pub(crate) fn hash(bytes: &[u8]) -> String {
     Sha256::digest(bytes)
         .iter()
         .map(|b| format!("{b:02x}"))
@@ -40,6 +40,17 @@ impl Workspace {
         text: &str,
         consent: bool,
     ) -> Result<serde_json::Value> {
+        self.configuration_save_checked(id, expected, text, consent, &|| Ok(()))
+    }
+    pub(crate) fn configuration_save_checked(
+        &mut self,
+        id: &str,
+        expected: Option<&str>,
+        text: &str,
+        consent: bool,
+        check: &dyn Fn() -> Result<()>,
+    ) -> Result<serde_json::Value> {
+        check()?;
         self.require_stopped(id)?;
         if !consent {
             return Err(error("manifest_review_required"));
@@ -60,6 +71,7 @@ impl Workspace {
         if current.as_ref().map(|b| hash(b)).as_deref() != expected {
             return Err(error("manifest_review_changed"));
         }
+        check()?;
         if let Some(bytes) = &current {
             let history = self.repro_dir(&project.path)?.join("configuration-history");
             fs::create_dir_all(&history)?;
@@ -68,6 +80,7 @@ impl Workspace {
             }
             let backup = history.join(format!("{}.yaml", hash(bytes)));
             if !backup.exists() {
+                check()?;
                 let mut f = fs::OpenOptions::new()
                     .write(true)
                     .create_new(true)
@@ -76,9 +89,11 @@ impl Workspace {
                 f.sync_all()?;
             }
         }
+        check()?;
         let mut temporary = tempfile::NamedTempFile::new_in(&project.path)?;
         temporary.write_all(text.as_bytes())?;
         temporary.as_file().sync_all()?;
+        check()?;
         let again = if path.exists() {
             Some(manifest::read_file(&path, 65536)?)
         } else {

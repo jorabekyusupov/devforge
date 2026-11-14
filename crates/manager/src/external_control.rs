@@ -215,10 +215,15 @@ impl Server {
     ) -> Result<IssuedGrant, ErrorCode> {
         if !scopes.contains(&Scope::Observer)
             || (scopes.contains(&Scope::ExecutionTest) && !scopes.contains(&Scope::ProjectManage))
+            || (scopes.contains(&Scope::SensitiveOperation)
+                && !scopes.contains(&Scope::ProjectManage))
             || scopes.iter().any(|s| {
                 !matches!(
                     s,
-                    Scope::Observer | Scope::ProjectManage | Scope::ExecutionTest
+                    Scope::Observer
+                        | Scope::ProjectManage
+                        | Scope::ExecutionTest
+                        | Scope::SensitiveOperation
                 )
             })
         {

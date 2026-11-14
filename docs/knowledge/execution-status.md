@@ -1184,6 +1184,14 @@ import. It is now fully qualified at its Mac-only use, removing the shared impor
 The correction is isolated from subsequent runtime-install/select test work;
 selected diff checks passed, with no product/native test repetition.
 
+Service baseline8ae765c [run43600434742](https://github.com/jorabekyusupov/devforge/actions/runs/43600434742)
+then passed both platform jobs, including Rust tests and native binary builds.
+Actual Windows manager service policy/migration3 and workspace service refusal/
+preservation3 passed. [Job/test proof](../evidence/m13-reviewed-services/ci-8ae765c.json)
+keeps skipped Xdebug and unverified Windows10/11/native UI separate. Windows Rust
+step556s was within prior successful baseline583s; no hang or extra rerun claimed.
+This committed service baseline precedes runtime install/select4132560.
+
 ## M13.4 second slice: reviewed runtime install/select
 
 [Contract](../architecture/reviewed-service-actions.md): finite runtime plan/apply/
@@ -1209,3 +1217,40 @@ tests and checked exports passed. These checks did not repeat the native flow.
 Fresh network install, native GUI and Windows new runtime-slice execution remain
 unverified by this local flow. Env/YAML, DB and domains/HTTPS are still later
 M13.4 slices; runtime remove/probe and deferred report UI were not added.
+
+Runtime baseline4132560 [run43600846876](https://github.com/jorabekyusupov/devforge/actions/runs/43600846876)
+passed both macOS/Windows jobs, including Rust tests and native binary builds.
+Actual Windows manager service/runtime policy4, workspace runtime5 and workspace
+service3 passed, zero ignored. [Job/test proof](../evidence/m13-runtime-actions/ci-4132560.json)
+keeps skipped Xdebug/native UI/Windows10/11 limits explicit; cached native PHP
+version-change HTTP proof remains macOS-only as described above.
+
+## M13.4 third slice: masked environment preview and reviewed YAML/setup
+
+[Contract](../architecture/reviewed-service-actions.md): three canonical inputs
+reuse the existing manifest planner/setup/save with guarded callbacks. Public
+preview/document state exposes only allowlisted metadata and random expiring
+version/review IDs; actual core digest/SHA stays private in bounded manager RAM.
+Native exact-plan approval gates apply (PM+Sensitive+Exec) and save (PM+Sensitive).
+External YAML is16KiBUTF8 with independent frame cap; native64KiB/history remains
+as before. Protected credentialfile and bounded zeroizing canonical JSON stdin
+separate authentication from payload. Default MCP5 reads; env opt-in adds3 tools.
+
+Sensitive YAML actor ledger uses random marker and volatile equality; after RAM
+loss it reports IdempotencyUnverifiable with original-key lookup, no replay guess.
+The raw core save return is projected before public response/result caching.
+Five guarded env tests, one actual owned-child poll test, manager policy1,
+consumer integrations2 and parser/auth-channel1 passed. Independent QA reviewed
+source only and found no demonstrated blocker; no duplicate tests/startup.
+
+Actual isolated macOS cached save/apply1 passed24.25s: approved save, masked plan,
+manager-injected.envsecret and generatedAPP_KEY, existing setup success, replay/
+lookup and restart/RAM-loss truth with receipt preserved. [Policy](../evidence/m13-environment-actions/policy.log),
+[actual flow](../evidence/m13-environment-actions/actual.log). Owned fixture joined;
+MemoryStore/no OScredential service, permissions, downloads/nativeDB/tool startup.
+Final manager scoped clippy, nine affected canonical mutation tests and checked
+exports passed. Final CLI bin/service_actions/json_api test-support clippy passed;
+consumer tests were reused after alias-only backend changes. The successful
+actual save/apply flow was not repeated.
+Windows new-slice execution and these native integrations remain separate gates.
+DB bind/restore and domains/HTTPS are still later M13.4 slices.

@@ -1,9 +1,8 @@
-# M13.4 reviewed service lifecycle
+# M13.4 reviewed project actions
 
-This first M13.4 slice exposes only existing project start, stop and restart.
-Runtime installation/selection is the second slice described below;
-environment/YAML, database and HTTPS mutations remain later slices. The default
-MCP surface remains read-only.
+M13.4 exposes the reviewed service lifecycle, runtime install/select and
+environment/YAML actions described below. Database and HTTPS mutations remain
+later slices. The default MCP surface remains read-only.
 
 ## Authority and execution
 
@@ -84,7 +83,9 @@ legacy variant and store marker order) preceded startup. A later transient-busy
 polling error exposed an active cancellation state-transition bug during cleanup;
 both were corrected before the successful final run. The original runtime cache
 was read-only. This is backend/native-process proof, not GUI/native-dialog proof.
-Windows execution of this new service slice remains unverified locally.
+Windows local execution remains unavailable. Subsequent service baseline8ae765c
+passed macOS/Windows CI; actual Windows policy/migration3 and workspace refusal/
+preservation3 tests passed. This is not Windows PHP HTTP/native GUI proof.
 
 ## Runtime install/select slice
 
@@ -130,3 +131,54 @@ project's unchanged PID/HTTP. The fixture stopped and joined cleanly. No cache
 source writes, downloads, native credential-store access or global config change.
 This proves cached install reuse and actual PHP selection; fresh network install,
 native GUI and Windows runtime execution are not established by this flow.
+Subsequent4132560 CI passed both platforms, including actual Windows runtime
+fixture5 and manager policy4. This adds backend/fixture execution evidence;
+Windows cached PHP HTTP/native GUI remain unverified.
+
+## Environment/YAML slice
+
+The agreed slice reuses EnvironmentPlan, EnvironmentApply and YamlSave plus the
+existing manifest planner/setup/save implementation. Observer preview exposes
+allowlisted metadata and stable blocker codes. Apply requires ProjectManage,
+SensitiveOperation and ExecutionTest; YAML save requires ProjectManage and
+SensitiveOperation. Both write paths require native exact-plan approval.
+Apply retains the existing manifest setup effects, including declared downloads,
+dependencies, project-code execution and owned database/credential changes.
+Completed stages can remain after a later failure/cancellation; the guarded
+boundary does not promise a full rollback.
+
+The scoped document-state helper returns only project/revision/existence and an
+expiring random version token. Its bounded private mapping binds current document
+SHA to grant/client/root/revision; the canonical expected field carries the opaque
+token, and None means create-only. Invalid existing YAML can still yield this
+metadata so a reviewed replacement can repair it. Core hashes and raw YAML/env
+content are not external preview fields.
+
+The external inline limit is 16 KiB UTF-8, enforced as bytes and rejected on
+overflow; the generic encoded-frame limit also applies. Accepted YamlText excludes
+control characters other than CR/LF/TAB, bounding JSON expansion. Native core's
+existing 64 KiB limit and project-owned configuration history retain their native
+semantics. External save discards the core raw-document return before response/
+cache projection. YAML idempotency uses an opaque durable marker and volatile
+body comparison, with truthful unverifiable status and original-key lookup after
+eviction/restart. CLI credentials use a protected file and canonical payload uses
+bounded zeroizing stdin; there is no payload/token argument or new upload codec.
+
+Independent QA source review found no demonstrated acceptance blocker in the
+opaque-version, private-plan, journal/replay, projection, framing or callback
+boundaries. QA performed no tests, edits or native launches.
+
+Five guarded environment tests and one real owned child-process polling test
+passed. A manager policy integration passed in 0.27 seconds, including invalid
+YAML repair metadata, version/authority checks and sensitive journal privacy.
+Two client integrations plus one parser/auth-channel case passed: protected
+credential file/stdin, UTF-8 limit, masked output and independent MCP surfaces
+(default5/environment8/all15) without duplicate writes/downloads/startup.
+
+One actual isolated macOS ARM64 cached save/apply flow passed in 24.25 seconds:
+native-approved YAML save and masked preview, manager-injected .env secret and
+generated APP_KEY, successful existing setup with cached packages, original-key
+lookup/replay, and manager reopen returning IdempotencyUnverifiable when the RAM
+verifier was gone while preserving receipt lookup. Owned shutdown completed.
+MemoryStore was used; no OS credential service, permission change, runtime
+download or native DB/tool startup is established by this test.
