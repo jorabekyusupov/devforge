@@ -1,0 +1,54 @@
+name: Focused Windows junction fixture proof
+on:
+  push:
+    branches: [codex/junction-native-proof-20261114]
+permissions:
+  contents: read
+jobs:
+  junction-fixtures:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    env:
+      PYTHONUTF8: '1'
+      PYTHONIOENCODING: utf-8
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.13'
+      - name: Prepare the repository-pinned Rust toolchain
+        run: rustup show
+      - name: Check only the three fixture source formats
+        run: rustfmt --edition 2024 --check crates/platform/src/distribution.rs crates/workspace/tests/fixture_secrets.rs crates/projects/src/terminal/tests.rs
+      - name: Execute exactly three real Windows junction rejection tests
+        shell: python
+        run: |
+          import hashlib, json, os, pathlib, platform, subprocess
+          cases = [
+              ('devforge-platform', ['--lib'], 'distribution::lease_path_regressions::native_client_and_other_leases_reject_junction_roots_without_writes'),
+              ('devforge-projects', ['--lib'], 'terminal::tests::snapshot_store_guards_reject_directory_links_without_outside_changes'),
+              ('devforge-workspace', ['--features', 'test-support', '--test', 'fixture_secrets'], 'junction_root_is_rejected_without_writing_fixture_files'),
+          ]
+          paths = ['crates/platform/src/distribution.rs', 'crates/projects/src/terminal/tests.rs', 'crates/workspace/tests/fixture_secrets.rs']
+          report = {'source_sha': os.environ['GITHUB_SHA'], 'base_sha': subprocess.check_output(['git', 'log', '-1', '--format=%P'], text=True).strip(), 'platform': platform.platform(), 'helper_git_blob_sha256': {path: hashlib.sha256(subprocess.check_output(['git', 'show', os.environ['GITHUB_SHA']+':'+path])).hexdigest() for path in paths}, 'helper_sha256': {path: hashlib.sha256(pathlib.Path(path).read_bytes()).hexdigest() for path in paths}, 'cases': []}
+          out = pathlib.Path('junction-proof'); out.mkdir()
+          failed = False
+          for index, (package, extra, name) in enumerate(cases):
+              command = ['cargo', 'test', '--locked', '-p', package, *extra, name, '--', '--exact', '--nocapture']
+              result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, encoding='utf-8', errors='replace')
+              print(result.stdout, flush=True)
+              (out / f'{index+1}.log').write_text(result.stdout, encoding='utf-8')
+              passed = result.returncode == 0 and 'running 1 test' in result.stdout and f'test {name} ... ok' in result.stdout
+              report['cases'].append({'name': name, 'command': command, 'exit_code': result.returncode, 'exactly_one_test_passed': passed})
+              failed |= not passed
+          report['passed'] = not failed
+          (out / 'result.json').write_text(json.dumps(report, indent=2)+'\n', encoding='utf-8')
+          raise SystemExit(1 if failed else 0)
+      - name: Preserve focused native evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: junction-native-proof
+          path: junction-proof/
+          if-no-files-found: error
+          retention-days: 14

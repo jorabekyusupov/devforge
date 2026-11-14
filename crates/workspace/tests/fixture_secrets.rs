@@ -175,22 +175,29 @@ fn symlink_roots_data_and_lock_never_create_or_change_external_targets() {
 #[cfg(windows)]
 #[test]
 fn junction_root_is_rejected_without_writing_fixture_files() {
-    use std::os::windows::process::CommandExt;
+    use std::os::windows::fs::MetadataExt;
     let root = tempfile::tempdir().unwrap();
     let outside = tempfile::tempdir().unwrap();
-    let linked = root.path().join("linked-root");
-    let linked_arg = dunce::simplified(&linked).to_str().unwrap();
-    let outside_arg = dunce::simplified(outside.path()).to_str().unwrap();
-    for text in [linked_arg, outside_arg] {
-        assert!(!text.contains(['%', '"', '\r', '\n', '\0']));
-    }
-    // Match the terminal fixture: cmd needs DOS/UNC paths and its own quoting.
-    let script = format!("mklink /J \"{linked_arg}\" \"{outside_arg}\"");
+    let linked = root.path().join("linked root & ' [literal] % Ўзбек");
+    // Paths stay out of command source. New-Item -Path is literal; no wildcard,
+    // cmd.exe quoting, execution-policy override or administrator permission.
+    const CREATE: &str = "$ErrorActionPreference='Stop'; try { Microsoft.PowerShell.Management\\New-Item -ItemType Junction -Path $env:DEVFORGE_TEST_JUNCTION_LINK -Target $env:DEVFORGE_TEST_JUNCTION_TARGET -ErrorAction Stop | Out-Null } catch { [Console]::Error.WriteLine(('junction fixture: ' + $_.Exception.GetType().FullName + ' HResult=' + $_.Exception.HResult)); exit 1 }";
     let output = Command::new(
-        std::path::PathBuf::from(std::env::var_os("SystemRoot").unwrap()).join("System32/cmd.exe"),
+        std::path::PathBuf::from(std::env::var_os("SystemRoot").unwrap())
+            .join("System32/WindowsPowerShell/v1.0/powershell.exe"),
     )
-    .args(["/D", "/V:OFF", "/S", "/C"])
-    .raw_arg(format!("\"{script}\""))
+    .args([
+        "-NoLogo",
+        "-NoProfile",
+        "-NonInteractive",
+        "-Command",
+        CREATE,
+    ])
+    .env("DEVFORGE_TEST_JUNCTION_LINK", dunce::simplified(&linked))
+    .env(
+        "DEVFORGE_TEST_JUNCTION_TARGET",
+        dunce::simplified(outside.path()),
+    )
     .output()
     .unwrap();
     let mut diagnostic = String::from_utf8_lossy(&output.stderr).into_owned();
@@ -209,6 +216,14 @@ fn junction_root_is_rejected_without_writing_fixture_files() {
         "isolated junction fixture creation failed: exit={:?}, stderr={}",
         output.status.code(),
         diagnostic.chars().take(1024).collect::<String>()
+    );
+    assert_ne!(
+        fs::symlink_metadata(&linked).unwrap().file_attributes() & 0x400,
+        0
+    );
+    assert_eq!(
+        fs::canonicalize(&linked).unwrap(),
+        fs::canonicalize(outside.path()).unwrap()
     );
     let store = FixtureSecrets::open(linked.join("e2e-secrets.json"));
     assert_eq!(

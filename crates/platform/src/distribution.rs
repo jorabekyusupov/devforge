@@ -497,24 +497,29 @@ mod lease_path_regressions {
     #[cfg(windows)]
     #[test]
     fn native_client_and_other_leases_reject_junction_roots_without_writes() {
-        use std::os::windows::process::CommandExt;
+        use std::os::windows::fs::MetadataExt;
         let root = tempfile::tempdir().unwrap();
         let outside = tempfile::tempdir().unwrap();
-        let linked = root.path().join("linked-root");
-        let linked_arg = dunce::simplified(&linked).to_str().unwrap();
-        let outside_arg = dunce::simplified(outside.path()).to_str().unwrap();
-        for text in [linked_arg, outside_arg] {
-            assert!(!text.contains(['%', '"', '\r', '\n', '\0']));
-        }
-        // cmd's builtin needs ordinary DOS/UNC paths, not verbatim \\?\ paths.
-        // /S /C strips the outer pair; raw_arg preserves the path quote pairs.
-        let command = format!("mklink /J \"{linked_arg}\" \"{outside_arg}\"");
+        let linked = root.path().join("linked root & ' [literal] % Ўзбек");
+        // The command is fixed; paths are literal child-environment data, never
+        // cmd.exe syntax or interpolated PowerShell source. No policy/elevation.
+        const CREATE: &str = "$ErrorActionPreference='Stop'; try { Microsoft.PowerShell.Management\\New-Item -ItemType Junction -Path $env:DEVFORGE_TEST_JUNCTION_LINK -Target $env:DEVFORGE_TEST_JUNCTION_TARGET -ErrorAction Stop | Out-Null } catch { [Console]::Error.WriteLine(('junction fixture: ' + $_.Exception.GetType().FullName + ' HResult=' + $_.Exception.HResult)); exit 1 }";
         let output = std::process::Command::new(
             std::path::PathBuf::from(std::env::var_os("SystemRoot").unwrap())
-                .join("System32/cmd.exe"),
+                .join("System32/WindowsPowerShell/v1.0/powershell.exe"),
         )
-        .args(["/D", "/V:OFF", "/S", "/C"])
-        .raw_arg(format!("\"{command}\""))
+        .args([
+            "-NoLogo",
+            "-NoProfile",
+            "-NonInteractive",
+            "-Command",
+            CREATE,
+        ])
+        .env("DEVFORGE_TEST_JUNCTION_LINK", dunce::simplified(&linked))
+        .env(
+            "DEVFORGE_TEST_JUNCTION_TARGET",
+            dunce::simplified(outside.path()),
+        )
         .output()
         .unwrap();
         let mut diagnostic = String::from_utf8_lossy(&output.stderr).into_owned();
@@ -534,6 +539,17 @@ mod lease_path_regressions {
             "isolated junction fixture creation failed: exit={:?}, stderr={}",
             output.status.code(),
             diagnostic.chars().take(1024).collect::<String>()
+        );
+        assert_ne!(
+            std::fs::symlink_metadata(&linked)
+                .unwrap()
+                .file_attributes()
+                & 0x400,
+            0
+        );
+        assert_eq!(
+            std::fs::canonicalize(&linked).unwrap(),
+            std::fs::canonicalize(outside.path()).unwrap()
         );
         assert!(AppLease::acquire(&linked).is_err());
         assert!(OperationLease::acquire(&linked).is_err());
