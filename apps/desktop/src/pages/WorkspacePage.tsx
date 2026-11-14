@@ -1,3 +1,4 @@
+import { FirstProjectChecklist } from "../components/FirstProjectChecklist";
 import { ProjectServices } from "../components/ProjectServices";
 import { WorkspaceModal as Modal } from "../components/WorkspaceModal";
 import {
@@ -869,6 +870,14 @@ function ProjectDetail({
           {t("setup.systemHttps")}
         </button>
       </div>
+      <FirstProjectChecklist
+        row={row}
+        snapshot={snapshot}
+        busy={busy}
+        dirty={dirty}
+        onTool={onTool}
+        openBrowser={() => void open(p.id, "browser")}
+      />
       <form
         onSubmit={(e) => {
           e.preventDefault();

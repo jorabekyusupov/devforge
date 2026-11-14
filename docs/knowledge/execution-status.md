@@ -145,8 +145,8 @@ Parallel agent boshlangan yoki tugagan itemni integrator evidence bilan yangilay
 | M13.7 | planned | HTTP auth/origin/revoke/version; remote bridge alohida M14. |
 | M13.8 | planned | Frozen contracts ustiga connection/grants/audit UI, locale/native UX. |
 | M13.9 | planned | M13 slice evidence reconciliation va applicable client/OS matrix. |
-| E01 | ready | E00/M8 source, human first-success checklist va UI routing; M13ni kutmaydi. |
-| E02 | ready | Existing M10 plan/health facts ustida expected/actual scope; live facade availability alohida. |
+| E01 | in_progress | Existing project checklist UI validated by scoped browser/contract checks; actual native/human first-success pilot remains. |
+| E02 | in_progress | Read-only expected/actual backend under implementation; native/UI/live facade acceptance separate. |
 | E03 | validated | [Exact Composer source/focused qabul](composer-binding-results.md); native target followup ochiq. |
 | E04 | in_progress | Current-state/tooling/README drift va contributor runbook, product tests talab qilmaydi. |
 | E05 | in_progress | Ownership/resource kontrakti; read-only storage inventari, keyin cleanup preview. |
@@ -683,3 +683,16 @@ Windows/Intel runtime, signatures/refresh/rollback/revocation/cachebundle/UI rem
 4unavailable and SDK3passed/1unavailable (restrictedancestorJob) are PARTIALnative
 coverage; actualordinarychildpipe passed. Macjob failedleasecase, fixed5ff658d;
 newfixrun43574423326 pending atthisintegration. Oldfailurehistory retained.
+
+
+## E01.1 first-success checklist UI
+
+[Scoped result](e01-first-success-results.md): existing projectdetail collapsed
+checklist, exactPHP/Node/Composer facts and conditionalselectedDB/queue/Vite/mail.
+Last-observed/unknown/configured/manual states, no inventedHTTP/Inspector success,
+noautomaticsetup ornewwizard. InstalledUIrouting skills appliedwithin incumbent
+visualsystem. 12focusedVitest(6new+6existing), typecheck/locales passed. Browser
+ENlight1180x800/RUdark+UZlight820x620, overflowchecks, keyboardfocus and scopedUZaxe0
+passed. Agent-desktop missing; no securitypermission changes. Browser fixture
+cleanup complete; notactualTauri/Windows/humanpilot acceptance. UnchangedRust/product
+suites notrerun. Nativecredential/dialog/minimumOS proof remains open.

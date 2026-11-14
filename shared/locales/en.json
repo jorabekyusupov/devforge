@@ -979,5 +979,37 @@
     "unsaved": "Unsaved folder",
     "unsavedDescription": "Discard the folder path you have not saved?",
     "showMore": "Show more projects"
+  },
+  "firstProject": {
+    "title": "First project checks",
+    "hint": "Saved settings and last available checks; their freshness is not recorded here. Verify HTTP and Inspector with a new request.",
+    "runtimes": "Selected PHP and Node packages",
+    "files": "Dependencies, environment file and application key",
+    "preserve": "Preparation preserves existing keys and files; cancellation can leave completed work. Review the result before retrying.",
+    "secrets": "Review configuration and local secrets",
+    "database": "Selected database",
+    "databaseHint": "A saved connection is not a successful query. Test it in Services and check the page that uses it.",
+    "queue": "Requested queue worker",
+    "queueHint": "Check a test job and its logs; readiness alone does not prove the job completed.",
+    "vite": "Requested Vite server",
+    "viteHint": "Open the page and check its assets after the development server is ready.",
+    "mail": "Selected mail capture",
+    "mailHint": "Send a local test message and verify this project’s inbox. Capture never relays mail.",
+    "http": "Open the application",
+    "httpReady": "PHP was reported ready. Open a known page and verify its actual HTTP response; process state does not prove application health.",
+    "httpStart": "Use Start above, then open the reported URL. Review logs if serving fails; use the reported HTTP fallback when trust is incomplete.",
+    "trace": "Find the new request in Inspector",
+    "traceHint": "Select this project, install the companion if needed, enable capture and send a new request. Match its time and context, not an old event.",
+    "status": {
+      "ready": "Last observed ready",
+      "needed": "Action needed",
+      "unknown": "Not checked",
+      "configured": "Configured; verify behavior",
+      "manual": "Verify with a fresh request"
+    },
+    "httpAction": "Check page in browser",
+    "prepareAction": "Review preparation options",
+    "phpAction": "Check PHP setup",
+    "composer": "Selected exact Composer package"
   }
 }

@@ -4,6 +4,8 @@
 
 ## 2026-11-14
 
+- **E01.1 checklist UI:** existingprojectdetail, exactpin/conditionalsteps, freshness/manualHTTPtrace truthfulness;12focusedtests/typecheck/locales, scopedEN/RU/UZbrowser/keyboard/axe passed. Native/humanpilot unverified, agentdesktop unavailable/no permissionchange. [Result](e01-first-success-results.md).
+
 - **E07.1 offline metadata:** exactpins/registryresources, boundedreceipt/fileobservations, no falseoffline-success. Sixfocusedcases+scopedclippy/QA, unchangedresultsreused. Signedrefresh/revocation/bundle/UI/nativeoffline remain. [Evidence](../architecture/offline-readiness.md), [execution](execution-status.md).
 
 - **M13.1 logical lease release:** retainedduplicateFD regressions manager2/platform1 red→green; explicitunlock atlastlogicalowner, WorkspacePermit lifetime preserved. Platform9/infrastructure11/scopedclippy pass. Windowscontentionfixture now asserts exactstoragefailure orsuccess underunchanged3stimeout; focused1pass. OriginalCI43573828659Mac/43573248703Windows failures preserved, newnativeCIpending. [Execution](execution-status.md).

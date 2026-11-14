@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 export interface Project {
+  composer?: string;
   mail?: boolean;
   worktree?: string | null;
   debugger?: DebugSettings;

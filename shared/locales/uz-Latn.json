@@ -979,5 +979,37 @@
     "unsaved": "Papka saqlanmagan",
     "unsavedDescription": "Saqlanmagan papka manzilini bekor qilasizmi?",
     "showMore": "Yana loyihalarni ko‘rsatish"
+  },
+  "firstProject": {
+    "title": "Birinchi ishga tushirish tekshiruvlari",
+    "hint": "Saqlangan sozlamalar va oxirgi mavjud tekshiruvlar; ularning yangiligi bu yerda qayd etilmagan. HTTP va Inspektorni yangi so‘rov bilan tekshiring.",
+    "runtimes": "Tanlangan PHP va Node paketlari",
+    "files": "Dependency, muhit fayli va ilova kaliti",
+    "preserve": "Tayyorlash mavjud kalit va fayllarni saqlaydi; bekor qilinganda bajarilgan ishlar qolishi mumkin. Qayta urinishdan oldin natijani tekshiring.",
+    "secrets": "Konfiguratsiya va mahalliy secretlarni tekshirish",
+    "database": "Tanlangan ma’lumotlar bazasi",
+    "databaseHint": "Saqlangan ulanish muvaffaqiyatli query degani emas. Xizmatlarda ulanishni va undan foydalanadigan sahifani tekshiring.",
+    "queue": "Yoqilgan navbat worker’i",
+    "queueHint": "Test job va loglarini tekshiring: worker tayyorligi job bajarilganini isbotlamaydi.",
+    "vite": "Yoqilgan Vite server",
+    "viteHint": "Server tayyor bo‘lgach sahifani ochib, uning resurslarini tekshiring.",
+    "mail": "Tanlangan xatlarni ushlash",
+    "mailHint": "Mahalliy test xati yuborib, shu loyiha inbox’ini tekshiring. Capture xatlarni tashqariga yubormaydi.",
+    "http": "Ilovani ochish",
+    "httpReady": "PHP tayyorligi xabar qilingan. Ma’lum sahifani ochib actual HTTP javobini tekshiring: jarayon holati ilova sog‘lomligini isbotlamaydi.",
+    "httpStart": "Yuqoridagi «Ishga tushirish»ni bosing va ko‘rsatilgan URL’ni oching. Xatoda logni tekshiring; trust tayyor bo‘lmasa ko‘rsatilgan HTTP fallback’dan foydalaning.",
+    "trace": "Inspektorda yangi so‘rovni topish",
+    "traceHint": "Shu loyihani tanlang, kerak bo‘lsa Laravel paketini o‘rnating, yig‘ishni yoqing va yangi so‘rov yuboring. Eski eventni emas, vaqt va context’ni solishtiring.",
+    "status": {
+      "ready": "So‘nggi tekshiruvda tayyor",
+      "needed": "Amal kerak",
+      "unknown": "Tekshirilmagan",
+      "configured": "Sozlangan; ishlashini tekshiring",
+      "manual": "Yangi so‘rov bilan tekshiring"
+    },
+    "httpAction": "Sahifani brauzerda tekshirish",
+    "prepareAction": "Tayyorlash variantlarini tekshirish",
+    "phpAction": "PHP tayyorligini tekshirish",
+    "composer": "Tanlangan aniq Composer paketi"
   }
 }
