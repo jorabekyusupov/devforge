@@ -907,6 +907,56 @@ impl NativeClient {
         self.session = None;
         Ok(())
     }
+    /// Private native-owner administration only. The one-time bearer is returned
+    /// to trusted Rust composition, never an external JSON CLI or renderer.
+    pub fn issue_external_grant(
+        &mut self,
+        project: &Id,
+        scopes: &[devforge_control::Scope],
+        ttl: Duration,
+    ) -> Result<crate::external_auth::IssuedGrant> {
+        let ttl_ms = u64::try_from(ttl.as_millis()).map_err(|_| Error::InputLimit)?;
+        let mut value = self.authenticated(
+            "external_grant_issue",
+            json!({"project_id":project,"scopes":scopes,"ttl_ms":ttl_ms}),
+        )?;
+        let credential = match value.get_mut("credential") {
+            Some(Value::String(value)) => Zeroizing::new(std::mem::take(value)),
+            _ => return Err(Error::Protocol),
+        };
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct Issued {
+            record: crate::external_auth::GrantRecord,
+            credential: String,
+        }
+        let parsed: Issued = decode(value)?;
+        if !parsed.credential.is_empty() || &parsed.record.project_id != project {
+            return Err(Error::Protocol);
+        }
+        Ok(crate::external_auth::IssuedGrant {
+            record: parsed.record,
+            credential: crate::external_auth::ExternalCredential::from_wire(&credential)
+                .map_err(|_| Error::Protocol)?,
+        })
+    }
+    pub fn list_external_grants(&mut self) -> Result<Vec<crate::external_auth::GrantRecord>> {
+        decode(self.authenticated("external_grant_list", json!({}))?)
+    }
+    pub fn revoke_external_grant(&mut self, grant: &Id) -> Result<()> {
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct Revoked {
+            revoked: bool,
+        }
+        let reply: Revoked =
+            decode(self.authenticated("external_grant_revoke", json!({"grant_id":grant}))?)?;
+        if reply.revoked {
+            Ok(())
+        } else {
+            Err(Error::Protocol)
+        }
+    }
     /// Confirms this authenticated Quit's outcome after cleanup, without any
     /// credential access. Internally holds the legacy exclusion while reading;
     /// a missing/pending/stale record never proves successful cleanup.

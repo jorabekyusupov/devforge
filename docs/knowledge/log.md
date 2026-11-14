@@ -4,6 +4,8 @@
 
 ## 2026-11-14
 
+- **M13.2 JSON CLI:** versioned6-route restrictedexternalboundary, boundedstdin/noNativeauthorityfallback, no-writehelp/schema/capabilities;3backend/5CLI/2legacy checks plusQAhelp-passthrough1/clippy/fmt passed. WindowsCIpending, noMCP/content/execution scope. [CLI](../architecture/json-cli.md), [boundary](../architecture/manager-external-control.md).
+
 - **Windows expiry fixture cleanup:** existing OS quit handle replaces100ms-token cleanup;1affectedcase/fmt passed, productionpolicy unchanged. [Execution](execution-status.md).
 
 - **M13.1 actual GUI cutover:**20handler thin adapter/noWorkspacefallback, minimalconnect/reconcile, confirmedshutdownidentity; nativeWebView13/13 realPHP/twoclients/samePID/retry/Close/warm/Quit passed.3Rust/8frontend/typecheck/locales/scopedclippy; remainingWindows/native-store/minOSgates explicit. [Result](native-manager-gui-results.md).

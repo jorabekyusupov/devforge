@@ -1,5 +1,6 @@
 use devforge_core::SettingsRepository;
 use devforge_platform::{SqliteSettings, app_data_dir, diagnostics};
+mod api;
 mod config;
 mod debugger;
 mod distribution;
@@ -17,6 +18,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     if let Err(error) = stores::validate_fixture_arguments(&args) {
         eprintln!("{}", serde_json::json!({"error":error}));
         std::process::exit(1);
+    }
+    if args.first().is_some_and(|arg| arg == "api") {
+        std::process::exit(api::run(&args[1..]));
+    }
+    if let Some(help) = api::legacy_help(&args) {
+        println!("{help}");
+        return Ok(());
     }
     if let Some(id) = manager::terminal_snapshot_id(&args) {
         match project::snapshot_shell(id, args.iter().any(|arg| arg == stores::FIXTURE_FLAG)) {
@@ -38,7 +46,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     if matches!(top.as_deref(), Some("--help" | "-h" | "help")) {
         println!(
             "{}",
-            serde_json::json!({"commands":["doctor","runtime","project","site","inspect","debug","config","workspace","distribution","manager"]})
+            serde_json::json!({"commands":["doctor","runtime","project","site","inspect","debug","config","workspace","distribution","manager","api"]})
         );
         return Ok(());
     }

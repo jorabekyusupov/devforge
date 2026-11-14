@@ -580,6 +580,11 @@ impl ActorHandle {
     }
     pub fn cached_snapshot(&self, authority: &DesktopAuthority<'_>) -> Result<SnapshotView> {
         self.client(authority)?;
+        self.external_snapshot()
+    }
+    /// Crate-private cache access for the separately authorized external facade.
+    /// This never makes a DesktopAuthority or admits external commands.
+    pub(crate) fn external_snapshot(&self) -> Result<SnapshotView> {
         let cache = self
             .shared
             .cache
@@ -974,6 +979,59 @@ impl ActorHandle {
             }
         }
         let receipt = self.status(authority, project, operation)?;
+        if receipt.state.terminal() {
+            Ok(CancelOutcome::AlreadyTerminal)
+        } else {
+            Err(ActorError::WorkerUnavailable)
+        }
+    }
+    pub(crate) fn external_status(
+        &self,
+        client: &Id,
+        project: &Id,
+        operation: &Id,
+    ) -> Result<Receipt> {
+        self.shared
+            .state
+            .lock()
+            .map_err(|_| ActorError::StorageUnavailable)?
+            .get(client, project, operation)
+    }
+    /// Called with the external grant registry serialized. Revalidate the exact
+    /// original client grant after the cancellation lock wait, before the bit.
+    pub(crate) fn external_cancel<F: FnOnce() -> Result<()>>(
+        &self,
+        client: &Id,
+        project: &Id,
+        operation: &Id,
+        authorize: F,
+    ) -> Result<CancelOutcome> {
+        let entries = self
+            .shared
+            .cancellations
+            .lock()
+            .map_err(|_| ActorError::StorageUnavailable)?;
+        if let Some(entry) = entries.get(operation) {
+            if &entry.client != client || &entry.project != project {
+                return Err(ActorError::OperationNotFound);
+            }
+            authorize()?;
+            entry.cancellation.cancel();
+            drop(entries);
+            if let Ok(mut state) = self.shared.state.try_lock() {
+                state.take_payload(operation);
+                publish_queue(&self.shared, &state);
+                if let Ok(receipt) = state.get(client, project, operation)
+                    && receipt.state == OperationState::Running
+                {
+                    let _ = state.update(operation, OperationState::CancelRequested, None);
+                }
+            }
+            return Ok(CancelOutcome::Requested);
+        }
+        drop(entries);
+        let receipt = self.external_status(client, project, operation)?;
+        authorize()?;
         if receipt.state.terminal() {
             Ok(CancelOutcome::AlreadyTerminal)
         } else {

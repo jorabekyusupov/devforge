@@ -1114,6 +1114,7 @@ name = "devforge-cli"
 version = "0.1.0"
 dependencies = [
  "ctrlc",
+ "devforge-control",
  "devforge-core",
  "devforge-debugger",
  "devforge-inspector",

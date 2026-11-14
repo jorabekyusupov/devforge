@@ -117,6 +117,7 @@ struct Context {
     payloads: Mutex<crate::payload::Store>,
     stop: StopSignal,
     shutdown_id: String,
+    external: crate::external_control::Server,
 }
 /// Trusted OS-signal composition, never a wire role or request field. This may
 /// wait for persistence; call it on the signal library's dedicated worker.
@@ -177,6 +178,8 @@ impl Controller {
         persist_lifecycle_checked(&endpoint, &lifecycle, || Ok(()))?;
         let auth = DesktopAuth::new(endpoint.clone(), local_owner_user()?, options.auth)
             .map_err(|_| Error::AuthenticationUnavailable)?;
+        let external = crate::external_control::Server::new(&owner)
+            .map_err(|_| Error::AuthenticationUnavailable)?;
         let actor = WorkspaceActor::start_with_terminal_arguments(
             owner
                 .claim_workspace()
@@ -200,6 +203,7 @@ impl Controller {
             owner_active: AtomicBool::new(true),
             stop: StopSignal::default(),
             shutdown_id,
+            external,
         });
         Ok(Self {
             server: Some(Server::new(owner)),
@@ -420,9 +424,23 @@ enum Request {
     Quit {
         session: WireToken,
     },
+    ExternalGrantIssue {
+        session: WireToken,
+        project_id: Id,
+        scopes: Vec<devforge_control::Scope>,
+        ttl_ms: u64,
+    },
+    ExternalGrantList {
+        session: WireToken,
+    },
+    ExternalGrantRevoke {
+        session: WireToken,
+        grant_id: Id,
+    },
 }
 impl Context {
     fn finish_shutdown(&self, cleanup: Result<()>) -> Result<()> {
+        self.external.close();
         let mut lifecycle = read_inhibition(&self.endpoint)?;
         if lifecycle
             .shutdown
@@ -470,6 +488,20 @@ impl Context {
         Ok(())
     }
     fn request(&self, peer: PeerIdentity, input: Value) -> Value {
+        if input.get("method").and_then(Value::as_str) == Some("external") {
+            let invalid = crate::external_control::invalid_reply(&input);
+            return match serde_json::from_value(input) {
+                Ok(wire) => serde_json::to_value(self.external.request(
+                    peer,
+                    wire,
+                    &self.actor,
+                    self.quitting.load(Ordering::Acquire),
+                ))
+                .unwrap_or_else(|_| fault("controller_output_limit")),
+                Err(_) => serde_json::to_value(invalid)
+                    .unwrap_or_else(|_| fault("controller_output_limit")),
+            };
+        }
         if input
             .get("method")
             .and_then(Value::as_str)
@@ -625,6 +657,9 @@ impl Context {
             | Request::Result { session, .. }
             | Request::FailureDetail { session, .. }
             | Request::Cancel { session, .. }
+            | Request::ExternalGrantIssue { session, .. }
+            | Request::ExternalGrantList { session }
+            | Request::ExternalGrantRevoke { session, .. }
             | Request::Quit { session } => session,
             _ => return fault("controller_invalid_request"),
         };
@@ -641,6 +676,35 @@ impl Context {
             Err(error) => return fault(&error.to_string()),
         };
         match request {
+            Request::ExternalGrantIssue {
+                project_id,
+                scopes,
+                ttl_ms,
+                ..
+            } => {
+                match self.external.issue(
+                    &authority,
+                    &self.actor,
+                    &project_id,
+                    &scopes,
+                    Duration::from_millis(ttl_ms),
+                ) {
+                    Ok(issued) => success(
+                        json!({"record":issued.record,"credential":issued.credential.expose_secret()}),
+                    ),
+                    Err(error) => fault(control_code(error)),
+                }
+            }
+            Request::ExternalGrantList { .. } => match self.external.list(&authority) {
+                Ok(records) => bounded_reply(&records),
+                Err(error) => fault(control_code(error)),
+            },
+            Request::ExternalGrantRevoke { grant_id, .. } => {
+                match self.external.revoke(&authority, &grant_id) {
+                    Ok(()) => success(json!({"revoked":true})),
+                    Err(error) => fault(control_code(error)),
+                }
+            }
             Request::ResolveSubject { selector, .. } => {
                 match self.actor.resolve_subject(&authority, &selector) {
                     Ok(project_id) => success(json!({"project_id":project_id,"advisory":true})),
@@ -785,6 +849,16 @@ impl Context {
 }
 fn success(data: Value) -> Value {
     json!({"ok":true,"data":data})
+}
+fn control_code(error: devforge_control::ErrorCode) -> &'static str {
+    use devforge_control::ErrorCode as E;
+    match error {
+        E::Unauthorized => "controller_external_grant_unauthorized",
+        E::InvalidInput => "controller_external_grant_invalid_input",
+        E::Busy => "controller_busy",
+        E::ProjectMismatch => "controller_external_grant_project_mismatch",
+        _ => "controller_external_grant_unavailable",
+    }
 }
 fn session_reply(
     auth: &mut DesktopAuth,

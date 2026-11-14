@@ -81,3 +81,6 @@ extern crate self as devforge_manager;
 pub mod desktop;
 
 pub mod report_reads;
+
+pub mod external_client;
+pub mod external_control;

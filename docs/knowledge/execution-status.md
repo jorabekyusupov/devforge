@@ -137,7 +137,7 @@ Parallel agent boshlangan yoki tugagan itemni integrator evidence bilan yangilay
 | E00 | integrated | Inventory/decision/test map: strict34/0/0, source push99d6a9e; remote main tasdiqlandi. |
 | M13.0 | in_progress | E00 integratsiyasi; 16 oilaning contract mappingi, schema fixtures va lifecycle ADR. |
 | M13.1 | in_progress | M13.0; native single-owner/auth/ID/retry/cancel/Quit/headless acceptance. |
-| M13.2 | planned | M13.0 schema parallel, live CLI M13.1dan keyin. |
+| M13.2 | validated_local | Versioned JSON CLI plus restricted grant boundary implemented; focused local acceptance passed, new Windows CI pending. |
 | M13.3 | planned | M13.0 projection fixture parallel; actual client live owner/CLI contractdan keyin. |
 | M13.4 | planned | Owner/grants/versioned API; adapterlar start/stop→runtime→env→DB→HTTPS reviewed slices. |
 | M13.5 | planned | Read projection M13.0dan parallel mumkin; integrated scope/freshness/health/mail qabul. |
@@ -1064,3 +1064,26 @@ expiry/no-provider/explicit-reconnect assertions passed; normalWindowsRPC time
 couldexpirethatshorttokenagain. Cleanupnowusesitsalready-createdtrustedOSQuit
 handle. No productionauth/timeout/cleanup behavior changed. Exactlythatonecase
 reran locally andpassed; scopedfmtpassed. NewWindowsverification pending.
+
+
+## M13.2 versioned JSON CLI and restricted external control
+
+[CLI](../architecture/json-cli.md) and [server boundary](../architecture/manager-external-control.md).
+Additive api command family reuses existing Response/ErrorCode/Id contract;
+stdoutoneJSON, typedexit/errors, no-write global/subcommand help/schema/capabilities.
+Health uses sanitized existing owner metadata; no launch. Live status/projectlist/
+inspect/ownoperationstatus require externalObserver; cancel alsoProjectManage.
+Credentialstdinonly/bounded/noTTY/noargv/env/NativeStore fallback. Endpoint/kernel
+peer pinnedbeforebearerwrite. Native adminissue/list/revoke requirefreshnative
+session and currenttrustedregisteredFSidentity; no callerroot/client/role authority.
+Otherplanningcapabilities remainunavailable, noMCP/execution/content tools.
+
+ActualController+CLI subprocesstest verified allowedprojectonly, revoke/expiry/
+revision/replacedroot/crossproject/nativeSession/foreignoperation denials. Backend
+isolation3passed; registry-lifetime shutdown2+OSquit1 passed. CLI5focused+2legacy
+impact checks passed. QAfound helpinterceptionpasttoolpassthrough; fixedfirst--
+andexecPROJECT+TOOLboundary withonefocusedparserregression passed. Earliercases
+reused, finalCLI/manager boundaryclippy androotselectedfmt/diff passed. Oneexisting
+CLIcontroldependencyedge only; no versionchange. Native credential service/GUI
+were notusedbythistest. Windowsnewboundaryexecution remainsCIgate. Externalgrant
+userUI andMCP followtheirplannedstages; no claimtheyareavailable now.
