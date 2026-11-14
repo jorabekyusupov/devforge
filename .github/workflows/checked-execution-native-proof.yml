@@ -1,0 +1,47 @@
+name: Focused Windows checked execution proof
+on:
+  push:
+    branches: [codex/checked-execution-native-proof-20261114]
+permissions:
+  contents: read
+jobs:
+  checked-execution:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    env:
+      PYTHONUTF8: '1'
+      PYTHONIOENCODING: utf-8
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 2
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.13'
+      - name: Prepare repository-pinned Rust toolchain
+        run: rustup show
+      - name: Check only the timing fixture source format
+        run: rustfmt --edition 2024 --check crates/projects/tests/checked_execution.rs
+      - name: Run one exact native Windows policy denial case
+        shell: python
+        run: |
+          import hashlib, json, os, pathlib, platform, subprocess
+          path = 'crates/projects/tests/checked_execution.rs'
+          name = 'policy_denial_inside_dependency_poll_stops_owned_child_and_preserves_policy_error'
+          command = ['cargo', 'test', '--locked', '-p', 'devforge-projects', '--test', 'checked_execution', name, '--', '--exact', '--nocapture']
+          result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, encoding='utf-8', errors='replace')
+          print(result.stdout, flush=True)
+          passed = result.returncode == 0 and 'running 1 test' in result.stdout and f'test {name} ... ok' in result.stdout
+          report = {'source_sha': os.environ['GITHUB_SHA'], 'base_sha': subprocess.check_output(['git', 'rev-parse', 'HEAD^'], text=True).strip(), 'platform': platform.platform(), 'test_source_git_blob_sha256': hashlib.sha256(subprocess.check_output(['git', 'show', os.environ['GITHUB_SHA']+':'+path])).hexdigest(), 'test_source_windows_sha256': hashlib.sha256(pathlib.Path(path).read_bytes()).hexdigest(), 'name': name, 'command': command, 'exit_code': result.returncode, 'exactly_one_test_passed': passed}
+          out = pathlib.Path('checked-execution-proof'); out.mkdir()
+          (out / 'test.log').write_text(result.stdout, encoding='utf-8')
+          (out / 'result.json').write_text(json.dumps(report, indent=2)+'\n', encoding='utf-8')
+          raise SystemExit(0 if passed else 1)
+      - name: Preserve actual one-case evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: checked-execution-native-proof
+          path: checked-execution-proof/
+          if-no-files-found: error
+          retention-days: 14

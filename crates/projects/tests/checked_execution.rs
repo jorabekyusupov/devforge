@@ -11,9 +11,14 @@ use devforge_runtime::{
     package::{Archive, Limits, Package, PackageStore, Target, hash_file},
 };
 use std::{
+    cell::Cell,
     collections::BTreeMap,
     fs,
     path::Path,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
     time::{Duration, Instant},
 };
 
@@ -119,24 +124,50 @@ fn policy_denial_inside_dependency_poll_stops_owned_child_and_preserves_policy_e
             &packages,
         )
         .unwrap();
+    // Observe readiness independently of Invocation's launch/hash cost. Its
+    // Windows cleanup intentionally permits a 5s grace before terminating a
+    // fixture that does not read stdin; that is not policy polling latency.
+    let stop_observer = Arc::new(AtomicBool::new(false));
+    let observer_stop = stop_observer.clone();
+    let ready_file = project.join("child-started");
+    let observer = std::thread::spawn(move || {
+        loop {
+            if ready_file.is_file() {
+                return Some(Instant::now());
+            }
+            if observer_stop.load(Ordering::Acquire) {
+                return None;
+            }
+            std::thread::sleep(Duration::from_millis(1));
+        }
+    });
+    let denied_at = Cell::new(None);
     let check = || {
         if project.join("child-started").is_file() {
+            denied_at.set(Some(Instant::now()));
             Err(ProjectError::SecretUnavailable)
         } else {
             Ok(())
         }
     };
-    let started = Instant::now();
     let result = invocation.run_cancellable_checked(
         temp.path().join("logs"),
         &Cancellation::default(),
         &check,
     );
+    stop_observer.store(true, Ordering::Release);
+    let observed_ready = observer.join().unwrap();
     assert!(matches!(result, Err(ProjectError::SecretUnavailable)));
     assert!(project.join("child-started").is_file());
     assert!(!project.join("child-completed").exists());
+    let denied_at = denied_at
+        .get()
+        .expect("native child never reached policy denial");
+    let observed_ready = observed_ready.expect("native child never reached fixture readiness");
+    // If denial wins before the observer is scheduled, the policy response was
+    // already complete at the first independent readiness observation.
     assert!(
-        started.elapsed() < Duration::from_secs(5),
-        "policy waited for the dependency process completion"
+        denied_at.saturating_duration_since(observed_ready) < Duration::from_secs(5),
+        "policy polling waited after the dependency child was ready"
     );
 }
