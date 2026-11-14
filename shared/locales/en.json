@@ -1018,6 +1018,141 @@
     "phpAction": "Check PHP setup",
     "composer": "Selected exact Composer package"
   },
+  "reportView": {
+    "technical": "Technical details",
+    "limitations": "Limits and unresolved checks",
+    "loading": "Reading report…",
+    "failed": "The report could not be refreshed. Review the connection and retry.",
+    "refresh": "Refresh report",
+    "unknown": "Unknown",
+    "project": "Project",
+    "evidence": "Evidence",
+    "previous": "Showing a previous observation while the latest read is unavailable.",
+    "unsupported": "This report version is unsupported.",
+    "notLoaded": "No report has been loaded.",
+    "state": {
+      "match": "Recorded match",
+      "mismatch": "Recorded difference",
+      "missing": "Missing",
+      "not_applicable": "Not applicable",
+      "unverified": "Unverified",
+      "supported": "Supported by reported evidence",
+      "unsupported": "Unsupported",
+      "available": "Metadata available"
+    },
+    "reasons": {
+      "metadataMatch": "Repository settings match registered metadata; runtime behavior was not verified.",
+      "metadataDifference": "Repository and registered settings differ. Review the configuration plan.",
+      "missingSetting": "A declared setting is not registered. Review the configuration plan.",
+      "notApplicable": "Neither side declares this setting.",
+      "catalogOnly": "Exact catalog resolution is available; native execution is still separate.",
+      "targetUnavailable": "The exact runtime family is unavailable for this target.",
+      "secretUnverified": "Credential availability was not queried; a registered name is metadata only.",
+      "cachedOnly": "Only cached diagnostics are available, without a current timestamp or revision.",
+      "notProbed": "The relevant native service or platform check was not performed.",
+      "registryIncomplete": "Registry coverage is incomplete; missing records do not establish absence.",
+      "other": "Additional metadata or ownership checks remain unresolved. Inspect details before making a decision.",
+      "activeBinding": "The database generation is currently bound to a project.",
+      "runtimeLeases": "The runtime package is retained; leases in other processes may be unknown.",
+      "retainedBackup": "Backup payload is retained; its contents were not validated by this scan.",
+      "retainedWorkspace": "Workspace or archived files are retained under their ownership receipt.",
+      "pendingData": "Partial or unverified initialization data is preserved for review.",
+      "retainedData": "Application-owned data or history is preserved.",
+      "drillReview": "Restore-drill data is retained and requires a separate review."
+    }
+  },
+  "environmentView": {
+    "title": "Environment comparison",
+    "caution": "Read-only, non-atomic metadata. Matching settings or available package receipts do not establish native health or offline readiness.",
+    "metadataMatch": "Recorded configuration",
+    "health": "Native environment health",
+    "healthUnknown": "Not established by this metadata report",
+    "comparisons": "Repository and registered settings",
+    "setting": "Setting",
+    "expected": "Repository expects",
+    "actual": "Registered value",
+    "noFacts": "No comparison facts were returned; this is not proof of a match.",
+    "portability": "Platform evidence",
+    "target": "Target",
+    "catalog": "Catalog resolution",
+    "native": "Native execution",
+    "secrets": "Local secret references",
+    "secretHint": "Only names and aliases are shown. Registration does not prove a usable credential exists.",
+    "noSecretFacts": "No secret requirement facts were returned; availability was not tested.",
+    "nameRegistered": "Name registered",
+    "nameMissing": "Name not registered",
+    "extensions": "PHP extension requirements",
+    "extensionHint": "Cached presence is historical metadata. Current PHP, transitive lock requirements and platform checks remain separate.",
+    "noExtensionFacts": "No extension facts were returned; this does not prove all requirements are satisfied.",
+    "artifacts": "Managed package metadata",
+    "artifactHint": "Receipts are metadata observations, not a new executable or archive integrity check. Prerequisites and credentials can still block operation.",
+    "replacement": "Reviewed replacement",
+    "match": {
+      "yes": "Matches metadata only",
+      "no": "Recorded differences found",
+      "unknown": "Not established"
+    },
+    "cached": {
+      "present": "Present in cached check",
+      "absent": "Absent in cached check",
+      "unknown": "No cached evidence"
+    }
+  },
+  "storageView": {
+    "title": "Storage observations",
+    "sizeCaution": "Logical apparent bytes are not allocated disk space or freeable space. Hardlinks can repeat and sparse files can overstate usage.",
+    "scopeCaution": "Bounded, non-atomic application namespaces only; user projects and the full data root are not scanned.",
+    "logicalBytes": "Observed logical bytes",
+    "measurement": "Measurement coverage",
+    "registry": "Registry coverage",
+    "completeWithinScope": "Complete within reported scope",
+    "incomplete": "Incomplete or unverified",
+    "noResources": "No resources were returned within this scope; this does not establish zero disk usage.",
+    "ownership": "Ownership evidence",
+    "ownershipUnknown": "Ownership unknown; do not delete",
+    "ownershipRecorded": "Ownership metadata recorded; not delete permission",
+    "workspace": "Workspace",
+    "references": "Observed references",
+    "noReferences": "No references were returned; this is not proof that the resource is unused.",
+    "referenceCaution": "Other leases or archived references may be unknown. Review the reported coverage.",
+    "preview": "Runtime removal review",
+    "previewCaution": "Read-only advice. A review candidate is not deletion authorization or an apply token. No resources can be deleted from this view.",
+    "package": "Package",
+    "reviewState": "Review state",
+    "lease": "Lease observation",
+    "leaseCaution": "A lease result is instantaneous. Any future removal must lock and revalidate ownership, references and the catalog.",
+    "previewState": {
+      "blocked": "Blocked",
+      "review_candidate": "Candidate for further review only",
+      "unknown": "Unknown"
+    },
+    "leaseState": {
+      "held": "Held",
+      "unheld_at_observation": "Not held at observation time",
+      "missing": "Lease metadata missing",
+      "unknown": "Unknown"
+    },
+    "categories": {
+      "runtime_package": "Runtime package",
+      "database_instance": "Database instance",
+      "database_generation": "Database generation",
+      "cache_instance": "Cache instance",
+      "backups": "Backups",
+      "debug_profiles": "Debug profiles",
+      "project_configuration": "Project configuration",
+      "project_logs": "Project logs",
+      "mail": "Mail capture",
+      "worktree_payload": "Workspace files",
+      "workspace_metadata": "Workspace metadata",
+      "project_registry_metadata": "Project registry",
+      "preferences_metadata": "Preferences",
+      "inspection_artifacts": "Inspection artifacts",
+      "tooling_logs": "Tooling logs",
+      "restore_drill_receipt": "Restore drill receipt"
+    },
+    "resource": "Resource",
+    "retained": "Why retained"
+  },
   "agentConnections": {
     "title": "External agents",
     "description": "Connect local clients to selected projects with explicit, time-limited permissions.",
@@ -1136,7 +1271,8 @@
       "yaml_save": "Save portable configuration",
       "database_bind": "Bind database",
       "database_restore": "Restore backup",
-      "domain": "System domain or trust change"
+      "domain": "System domain or trust change",
+      "execution": "Execute project command"
     },
     "domainActions": {
       "hosts": "Owned hosts entries",
@@ -1211,6 +1347,12 @@
     "systemTargets": {
       "system_hosts": "System hosts file",
       "system_trust_store": "System trust store"
-    }
+    },
+    "execCommand": "Reviewed invocation",
+    "execContext": "Execution context",
+    "execTimeout": "Timeout (milliseconds)",
+    "execManagedTest": "Managed test job",
+    "execSummaryHint": "The native owner provides a bounded, redacted invocation summary. Arguments are data, not a shell command; secret values are not shown.",
+    "scopeDependency": "Every grant requires read access. For execution or sensitive permissions, explicitly select project management too; broader permissions are never added automatically."
   }
 }
