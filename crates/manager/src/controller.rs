@@ -319,7 +319,7 @@ enum Request {
         session: WireToken,
         project_id: Id,
         idempotency_key: Id,
-        command: Command,
+        command: Box<Command>,
     },
     Status {
         session: WireToken,
@@ -522,7 +522,7 @@ impl Context {
                     project_id,
                     idempotency_key,
                 },
-                command,
+                *command,
             ) {
                 Ok(value) => bounded_reply(&value),
                 Err(error) => fault(error.code()),

@@ -4,6 +4,8 @@
 
 ## 2026-11-14
 
+- **Windows request layout:**425adecWindowsclippy largeenumvariant uchunprivateSubmitCommand Boxqilindi, JSONwireunchanged;controller7/scopedclippygreen. NativeCIpending, failure43569830478saqlandi. [Execution](execution-status.md).
+
 - **Bootstrap customharness fixture:** Windowsdefaultowner muammosiga plainTempRootqolgan5caseharness common::root bilanmoslandi;5targetedcase/testclippy pass, otherunit/authreused. ProductionACL o'zgarmadi. [Execution](execution-status.md).
 
 - **M13.1.4 privatecontroller/bootstrap:** actor/listenerreadiness, privatepipeoneusecapability/exeSHA, nativecontextboundedrenewal, asyncnativeauth+gracefulinhibitedQuit/OSsignal, legacyguardconfigcompat. Controller7/bootstrap5/newauth3/ready2/oldlaunch1/MacPID1/legacy1 va scopedclippy; lateSIDfixture2targeted. GUI/M7largebody/worktreetarget/Discovery gatesochiq. ActorWindowsfixtureobservation2→6s only, no producttimeoutweakening. [Execution](execution-status.md).

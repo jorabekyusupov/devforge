@@ -544,3 +544,11 @@ Unitfixture avvalprivatechildga tuzatilgan, endicustomharness ham publishedcommo
 helperdan foydalanadi (freshTempDirowneronly, Unix/tmp). Faqat testfile o'zgardi;
 custombootstrap5targetedcase va scopedtestclippy green, otherauth/unitcases reused.
 ProductionACL/rootownercheck o'zgarishsiz. Windows yangi CI snapshotda tekshiriladi.
+
+## Windows private request enum layout correction
+
+425adec run43569830478Windowsclippy Request::Submit.command inlineCommand uchun
+large_enum_variant rad etdi (native tests haliyetmagan). FieldBox<Command> vaactor
+forwarding derefga almashtirildi; serdeJSONwire o'zgarmadi. Faqat2linesource,
+controller7targetedtests va scopedmanagerclippy green. NativeWindowsyangihoptasdiq
+kutiladi; bu failurefixture yokiAuthbuzilishi deb qaytatalqinqilinmaydi.
