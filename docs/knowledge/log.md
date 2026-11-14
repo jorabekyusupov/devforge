@@ -4,6 +4,8 @@
 
 ## 2026-11-14
 
+- **E02.1 environment report:** boundedexpected/registeredmetadata usingexistingofflineevidence, explicitportability/secret/stalePHP unknowns. 6integration+1unit/workspaceclippy pass; QAname/envregistrationfalsematchesfixed. NoCLI/UI/nativeproof. [Contract](../architecture/environment-report.md), [execution](execution-status.md).
+
 - **E06.1 restore drill:** freshDB noactivation, boundedreceipts/ownednamespace/fullserveridentity, ready=false retainedcandidate. Focusedbackup6 +actualPG/MySQLARM64native2/clippy pass; liveSQLcanary/binding/PID/hashpreserved. NotLaravelGUI/cleanupacceptance. [Results](restore-drill-results.md).
 
 - **M13.1.7 cancellable SDK:** nativeprogress/cancel beforefinalize abortsupload; acceptedreceipt retainedforexactcancel, ambiguityunchanged. NewactualControllerfixture1passed+scopedclippy, prior4SDKcasesreused. NoGUI/publicAPIclaim. [SDK](../architecture/manager-native-client.md), [execution](execution-status.md).

@@ -29,6 +29,8 @@ mavzuni tanlang, so'ng faqat tegishli hujjatlar va ularning manbalarini o'qing.
 
 ## Manba va yuritish
 
+- [E02 environment metadata](../architecture/environment-report.md) - repository expected versus registered configuration, portability va explicitly unverified health.
+
 - [E06.1 restore drill](restore-drill-results.md) - activation qilmaydigan DB restore verification, durable receipts va retained cleanup.
 
 - [Bundled manager authority](../architecture/bundled-manager-authority.md) - compiled exact CLI digest, macOS signing order va final-bundle verification.

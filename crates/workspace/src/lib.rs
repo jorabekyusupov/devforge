@@ -3,6 +3,7 @@ pub mod catalog;
 mod configuration;
 pub mod debugging;
 pub mod discovery;
+pub mod environment_report;
 mod mail;
 pub mod repro;
 pub mod worktrees;

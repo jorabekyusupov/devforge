@@ -753,3 +753,20 @@ clippy/fmt passed; QA directorylink/fullidentityfindingsfixed andfocusedregressi
 passed. Guardschangedexecutionpath soonlythose2nativecases rerun, nowider matrix.
 Windows/Intel/GUI/nativecredentials, E05receiptpresentation andphysicalcleanup/
 retentionpreview/scheduling remain. Dirtysourcehash provenance explicit.
+
+
+## E02.1 expected/registered environment report
+
+[Report contract](../architecture/environment-report.md): existingOfflineReport
+reused, boundedmanifest/registry/site/composer metadata, projectname/env-name
+registration, exactpins+familyversions/DB/cache/PHPsettings/development/site drift.
+All3catalogtargets compared butnativesupportalwaysunverified. Secretavailability
+neverqueried; aliasesnotcredentialproof, cachedextensionfactsnostamp/revision
+remainstale/unverified. No trueenvironment_ready frommetadata. NoCLI/UI/liveAPI.
+
+6focusedintegration+1cachedPHPunit passed, workspace-libclippy passed. QAname-only
+andmissing-envregistrationfalsematch findingsfixed with6thregression; missing
+registrycoverage remainsunknownratherthanabsence. Runtime/nodeversionnormalization
+matchesManifestresolve butexactpackageevidence unchanged. Secretcanaries/filetree
+invariance/linkedmanifest/replacedroot/byteboundsfixtures passed. Nativeprovider/
+OS/GUI/cross-deviceuseracceptance remains. No wholeproduct rerun forreportonlyslice.
