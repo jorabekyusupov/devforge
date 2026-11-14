@@ -8,6 +8,7 @@ pub mod worktrees;
 pub use devforge_inspector::logs::Filter as LogFilter;
 mod services;
 pub mod setup;
+pub mod storage;
 mod system_setup;
 use devforge_core::SecretStore;
 use devforge_projects::{

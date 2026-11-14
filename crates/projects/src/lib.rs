@@ -12,6 +12,7 @@ pub mod manifest;
 pub mod mysql_service;
 pub mod php_settings;
 pub mod project;
+pub mod storage_metadata;
 pub mod terminal;
 use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

@@ -29,6 +29,8 @@ mavzuni tanlang, so'ng faqat tegishli hujjatlar va ularning manbalarini o'qing.
 
 ## Manba va yuritish
 
+- [E05.1 storage inventory](storage-inventory-results.md) - read-only ownership/logical size/refs, bounded registry/FS metadata va keyingi cleanup gate.
+
 - [Configure preflight refusal](configure-preflight-results.md) - invalid name/debug PHP-change sessionni stop qilmasligi; actual native red-green va target chegaralari.
 
 - [E03 exact Composer](composer-binding-results.md) - schema8, persisted selection, terminal/YAML/worktree va credential-free tooling; focused test/native chegara.

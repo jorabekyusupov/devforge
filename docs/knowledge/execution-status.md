@@ -149,7 +149,7 @@ Parallel agent boshlangan yoki tugagan itemni integrator evidence bilan yangilay
 | E02 | ready | Existing M10 plan/health facts ustida expected/actual scope; live facade availability alohida. |
 | E03 | validated | [Exact Composer source/focused qabul](composer-binding-results.md); native target followup ochiq. |
 | E04 | in_progress | Current-state/tooling/README drift va contributor runbook, product tests talab qilmaydi. |
-| E05 | planned | Ownership/resource kontrakti; read-only storage inventari, keyin cleanup preview. |
+| E05 | in_progress | Ownership/resource kontrakti; read-only storage inventari, keyin cleanup preview. |
 | E06 | planned | E05 va staged DB ownership; activation'siz drill, keyin retention/scheduling. |
 | E07 | planned | E03 exact bindings va trust policy; catalog/offline lifecycle. |
 | E08 | planned | M13.6 execution, real profile talabi; scheduler/Reverb, keyin Horizon. |
@@ -592,3 +592,12 @@ importi unused bo'lgani uchun native testsdanoldin to'xtadi. Importlarga cfg(uni
 qo'shildi, aynan shu platformagated testsga mos; sourcebehavior/JSON/prodflags o'zgarmadi.
 ScopedCLItestclippy passed; unrelatedtest qayta bajarilmadi. WindowsnewCIhopmustverify,
 oldfailurehistorypreserved.
+
+# E05.1 readonly inventory backend
+
+[Storage natijasi](storage-inventory-results.md): API/ownedmarkers/refs/logicalsize,
+boundedregistry/FS, incompleteunknowncoverage. No cleanup/delete/eligibility/secret
+contentread/productiondatascan.8storage +initialmetadata1 passed; QA SQLquerybyte
+sourcefinding2phaseoctet_length corrected +targetedmetadata2/Unicode1/ref1/DB1pass,
+finalmetadatahandles1/link1pass. Scopedclippy/fmt/strict. Remaining E05UI/cleanup
+preview E06drill/retention alohida; hardlinklogicalsize notfreeable, nonatomicsnapshot.

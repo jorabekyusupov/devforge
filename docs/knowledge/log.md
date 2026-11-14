@@ -4,6 +4,8 @@
 
 ## 2026-11-14
 
+- **E05.1 storage backend:** [Read-only inventory](storage-inventory-results.md), ownership/catalog/receipts, logicalsize/refsunknowncoverage; boundedrow/byte/FSlimits, nofollowmetadata.8storage+targetedSQL/open/linkchecks/clippy/fmt; no productiondatascan/nativeDB/cleanupclaim. QA bytequerysourcefinding2phasefixed, actualoldCASTbugrepro notclaimed.
+
 - **CLI Windowstest imports:**6ab2ca6nativeclippyunusedimports cfg(unix) bilanmoslandi; test-only, scopeclippypass. Rootfailure43570885602saqlandi, no unrelatedtests. [Execution](execution-status.md).
 
 - **E09.1 releasebaseline:**1/10/100real actor metadata harness, sanitizedJSON+binary/sourceprovenance, focusedclippy/argbounds.100projectCPU1ssample5.21%onecore/RSSprocesspeak14.37MB; waitmetricsnotcompute/GUIbudget. ActualWin/GUI/longidle/burstscopeochiq. [Execution](execution-status.md).
