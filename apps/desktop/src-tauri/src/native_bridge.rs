@@ -1146,7 +1146,7 @@ mod tests {
             },
             ..Options::default()
         };
-        let (worker, _) = start(root.path(), store.clone(), options);
+        let (worker, quit) = start(root.path(), store.clone(), options);
         let bridge = NativeBridge::build(
             root.path().to_owned(),
             None,
@@ -1164,7 +1164,7 @@ mod tests {
         thread::sleep(Duration::from_millis(1_000));
         bridge.connect_user_action().unwrap();
         assert_eq!(store.gets.load(Ordering::SeqCst), gets + 2);
-        bridge.quit_owner_user_action().unwrap();
+        quit.request_explicit().unwrap();
         worker.join().unwrap().unwrap();
     }
 }

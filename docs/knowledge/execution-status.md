@@ -1054,3 +1054,13 @@ WindowsnewUI/minOS/credentials/dialog/terminal/signing gates open. Local M13.1
 functional acceptance validated; remaining target checks do not become falsepass.
 Deferred report components/catalog namespaces remain unstaged until their planned
 integration. No externalCLI/MCP capability claimed.
+
+
+## Windows expired-token fixture cleanup
+
+7f5ac19 Windowsrun43590887927:10desktopunitcasespassed, oneexpirycase failed
+onlyatcleanupQuitusingits100ms session aftersuccessfulreconnect. Thetest's
+expiry/no-provider/explicit-reconnect assertions passed; normalWindowsRPC time
+couldexpirethatshorttokenagain. Cleanupnowusesitsalready-createdtrustedOSQuit
+handle. No productionauth/timeout/cleanup behavior changed. Exactlythatonecase
+reran locally andpassed; scopedfmtpassed. NewWindowsverification pending.

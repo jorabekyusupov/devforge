@@ -4,6 +4,8 @@
 
 ## 2026-11-14
 
+- **Windows expiry fixture cleanup:** existing OS quit handle replaces100ms-token cleanup;1affectedcase/fmt passed, productionpolicy unchanged. [Execution](execution-status.md).
+
 - **M13.1 actual GUI cutover:**20handler thin adapter/noWorkspacefallback, minimalconnect/reconcile, confirmedshutdownidentity; nativeWebView13/13 realPHP/twoclients/samePID/retry/Close/warm/Quit passed.3Rust/8frontend/typecheck/locales/scopedclippy; remainingWindows/native-store/minOSgates explicit. [Result](native-manager-gui-results.md).
 
 - **Windows saved-folder fixture:** canonicalpath equivalence replaces verbatim-string equality;1affectedcase/fmt passed, productionunchanged. NativeCIpending. [Execution](execution-status.md).
