@@ -4,6 +4,8 @@
 
 ## 2026-11-14
 
+- **M13.1.6 CLI packaging trust:** compiledtarget/fixedCLI/SHA, explicitpackagegate; Macpresign→hash→customcopy→actualbundlehash/signature matched. Python16/Rustgated4+ordinary4/finaldesktoplibclippy pass. Postrunreportguardreusesactualartifactwithcaveat; WininstalledCLI/GUI/minOS notclaimed. [Authority](../architecture/bundled-manager-authority.md), [execution](execution-status.md).
+
 - **E01.1 checklist UI:** existingprojectdetail, exactpin/conditionalsteps, freshness/manualHTTPtrace truthfulness;12focusedtests/typecheck/locales, scopedEN/RU/UZbrowser/keyboard/axe passed. Native/humanpilot unverified, agentdesktop unavailable/no permissionchange. [Result](e01-first-success-results.md).
 
 - **E07.1 offline metadata:** exactpins/registryresources, boundedreceipt/fileobservations, no falseoffline-success. Sixfocusedcases+scopedclippy/QA, unchangedresultsreused. Signedrefresh/revocation/bundle/UI/nativeoffline remain. [Evidence](../architecture/offline-readiness.md), [execution](execution-status.md).

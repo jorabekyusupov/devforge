@@ -29,6 +29,8 @@ mavzuni tanlang, so'ng faqat tegishli hujjatlar va ularning manbalarini o'qing.
 
 ## Manba va yuritish
 
+- [Bundled manager authority](../architecture/bundled-manager-authority.md) - compiled exact CLI digest, macOS signing order va final-bundle verification.
+
 - [E01 first-success checklist](e01-first-success-results.md) - existing project detail, truthful last-observed/manual states va scoped RU/UZ/EN browser evidence.
 
 - [E07.1 offline metadata](../architecture/offline-readiness.md) - exact pin, bounded receipt/file evidence va unknown full-offline readiness.

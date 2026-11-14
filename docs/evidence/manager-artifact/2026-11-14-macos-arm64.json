@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "manager_artifact": {
+    "target": "aarch64-apple-darwin",
+    "filename": "devforge",
+    "sha256": "a379fa3017d71dcaca295a8af35d195f8f70b55affe1b60117a3f4c13fce217b",
+    "verification_scope": "macos-app-bundle",
+    "hash_matches_compiled_authority": true,
+    "bundled_cli_verified": true,
+    "installed_cli_verified": false
+  },
+  "channel": "internal-unsigned",
+  "target": "aarch64-apple-darwin",
+  "public_release_allowed": false,
+  "commit": "5ff658ddbea8d56d6587bd567dcb87a9f5ffe667",
+  "dirty_at_build": true,
+  "artifacts": [],
+  "verification_note": "Current field semantics distinguish bundled CLI bytes from actual installation. Original build log preserved; no GUI launch, native credential or installer acceptance claimed.",
+  "desktop_executable": {
+    "path": "target/release/bundle/macos/DevForge.app/Contents/MacOS/devforge-desktop",
+    "sha256": "77f8c4edaa0d306be4d1163025144bee776cc2258e3c85718b6fae0a636672b1"
+  },
+  "source_tree_frozen": false,
+  "post_run_changes": "Exact manifest-byte guard and pre-build provenance capture were checked with Python fixtures after this bundle; bundle was not rebuilt for those changes.",
+  "gui_launched": false,
+  "native_credential_store_used": false
+}

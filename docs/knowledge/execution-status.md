@@ -696,3 +696,25 @@ ENlight1180x800/RUdark+UZlight820x620, overflowchecks, keyboardfocus and scopedU
 passed. Agent-desktop missing; no securitypermission changes. Browser fixture
 cleanup complete; notactualTauri/Windows/humanpilot acceptance. UnchangedRust/product
 suites notrerun. Nativecredential/dialog/minimumOS proof remains open.
+
+
+## M13.1.6 packaged CLI authority prerequisite
+
+[Authority contract](../architecture/bundled-manager-authority.md) va
+[actual Mac bundle evidence](../evidence/manager-artifact/2026-11-14-macos-arm64.json).
+Explicitpackagegate+boundedmanifest builds exacttarget/fixedadjacentfilename/SHA
+intoGUI; ordinarybuildNone, noPATH/cwd/runtimeenv/selfhash authority fallback.
+MacCLI presignedbeforehash andfixedcustomcopy avoidsTauri re-signing; actual
+app-onlybundlefinalCLIhash matchescompiledauthority, helper/GUI/outerapp signing
+verified. Internaladhoc only, noGUIlaunch/managercutover/productioncredentials.
+ActualCLI SHA a379fa3017d71dcaca295a8af35d195f8f70b55affe1b60117a3f4c13fce217b.
+Build5ff658d+unfrozendirtytree, notimmutablecleanreleaseartifact.
+
+FinalPython16fixtures(6artifact+10distribution), Rustgated4/ordinary4, rootfinal
+scopeddesktoplibclippy passed. Postrunmanifestbyteguard/provenance-onlychanges
+usedfocusedPythonchecks; actualbundle notrerun and evidenceflags this explicitly.
+Windowschecks copiedNSISsourceonly; actualinstalledCLI/minOS/Authenticode/nativeGUI
+remainunverified. Freshrootclippy firsthit2otheragentsinflightsourcewarnings,
+reportedownersfixed; exactsamefocusedcommand thenpassed, no productfullrerun.
+5ff658d run43574423326 completedmacOS+Windowschecks successfully; restrictedJob
+capability-unavailable remainsdistinctfromdetachedacceptance.

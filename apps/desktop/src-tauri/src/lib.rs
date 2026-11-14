@@ -1,5 +1,6 @@
 #[cfg(all(feature = "e2e", not(debug_assertions)))]
 compile_error!("E2E instrumentation is supported only in debug acceptance builds");
+pub mod manager_artifact;
 mod workspace;
 use devforge_core::{
     ErrorCode, LocaleRegistry, Settings, SettingsPatch, SettingsRepository, Theme,
