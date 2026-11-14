@@ -71,17 +71,26 @@ receipt write is terminalized as Interrupted instead of leaving a Queued
 operation with no delivery. An owner/process failure is reconciled on the next
 startup; persisted commands are never replayed.
 
-Commands are bounded at256KiB serialized input and exist only in memory. The
+Commands are bounded at8MiB serialized input and exist only in memory. The
 worker runs ordinary `Workspace::execute`, preserving its domain validations and
 side effects. No fake runtime or alternate metadata implementation is used.
+Waiting command encodings additionally share a16MiB byte budget, beside the
+32-item bound and one active command. The established project/command tuple hash
+is streamed through a capped writer; adding the larger limit does not change
+earlier idempotency fingerprints or allocate another command-sized hash buffer.
+Channel entries retain only receipt/cancellation metadata. Actual queued Commands
+live in a guarded map so cancellation drops the body and releases its byte
+reservation; if that mutex is busy, the next admission purges canceled bodies
+before checking capacity. The remaining channel tombstone still counts toward
+32 waiting items until consumed, preventing unbounded canceled metadata growth.
+Dequeue/send failure/shutdown also release actual payloads and byte reservations.
 
-Compatibility gate before GUI migration: existing M7 DebugHttp accepts a1MiB
-UTF-8 request body. JSON escaping can exceed this actor's current256KiB command
-cap and the default public IPC64KiB frame. No existing GUI route is changed by
-this slice. An authenticated private body/frame channel or sufficient bounded
-encoding capacity must preserve that established behavior before routing M7
-through the actor. Public control request limits remain64KiB; they are not
-silently increased to match the private desktop contract.
+M13.1.5's authenticated private [payload codec](manager-payload.md) preserves
+M7 DebugHttp's existing1MiB UTF-8 body even under worst-case JSON escaping, while
+public IPC requests remain64KiB. The actor's former256KiB internal limit is
+superseded by the explicit8MiB bound. This is backend/codec compatibility evidence,
+not a completed GUI migration or actual native HTTP acceptance. Core request,
+header, YAML and other domain validations are unchanged.
 
 Snapshot cache has its own short-lived mutex and retains one immutable Snapshot,
 with the actual observation time. It refreshes after operations and approximately

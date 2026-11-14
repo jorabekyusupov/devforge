@@ -39,6 +39,7 @@ pub enum Error {
     RuntimeUnavailable,
     BootstrapUnavailable,
     Unauthorized,
+    PayloadUnavailable,
 }
 impl Error {
     pub fn code(self) -> &'static str {
@@ -53,6 +54,7 @@ impl Error {
             Self::RuntimeUnavailable => "controller_runtime_unavailable",
             Self::BootstrapUnavailable => "controller_bootstrap_unavailable",
             Self::Unauthorized => "manager_auth_unauthorized",
+            Self::PayloadUnavailable => "controller_payload_unavailable",
         }
     }
 }
@@ -106,6 +108,7 @@ struct Context {
     quit_gate: Mutex<()>,
     quitting: AtomicBool,
     owner_active: AtomicBool,
+    payloads: Mutex<crate::payload::Store>,
     stop: StopSignal,
 }
 /// Trusted OS-signal composition, never a wire role or request field. This may
@@ -169,6 +172,10 @@ impl Controller {
             actor: actor.handle(),
             auth: Mutex::new(auth),
             auth_store: stores.desktop,
+            payloads: Mutex::new(
+                crate::payload::Store::new(endpoint.clone(), crate::payload::Policy::default())
+                    .map_err(|_| Error::PayloadUnavailable)?,
+            ),
             endpoint,
             native_policy: options.native_gui,
             quit_gate: Mutex::new(()),
@@ -209,6 +216,18 @@ impl Controller {
         let server = self.server.take().ok_or(Error::OwnerUnavailable)?;
         let ready_context = self.context.clone();
         let context = self.context.clone();
+        let maintenance = self.context.clone();
+        let expiry = runtime.spawn(async move {
+            loop {
+                tokio::time::sleep(Duration::from_secs(1)).await;
+                if maintenance.quitting.load(Ordering::Acquire) {
+                    break;
+                }
+                if let Ok(mut store) = maintenance.payloads.try_lock() {
+                    store.expire(Instant::now());
+                }
+            }
+        });
         let result = runtime
             .block_on(server.run_async_ready(
                 self.context.stop.clone(),
@@ -257,6 +276,7 @@ impl Controller {
             .ok_or(Error::ActorUnavailable)?
             .shutdown()
             .map_err(|_| Error::ActorUnavailable);
+        expiry.abort();
         // Native credential reads are not cancellable. Do not indefinitely block
         // the event-loop owner on an abandoned OS prompt; no actor lease is held
         // by those tasks and their results are refused after quitting.
@@ -276,6 +296,11 @@ impl Drop for Controller {
         if let Ok(mut auth) = self.context.auth.try_lock() {
             auth.revoke_all();
         }
+        self.context
+            .payloads
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clear();
         if let Some(actor) = self.actor.take() {
             let _ = actor.shutdown();
         }
@@ -356,6 +381,10 @@ impl Context {
         }
         persist_inhibition_checked(&self.endpoint, true, authorize)?;
         self.quitting.store(true, Ordering::Release);
+        self.payloads
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clear();
         if let Ok(mut auth) = self.auth.try_lock() {
             auth.revoke_all();
         }
@@ -363,6 +392,16 @@ impl Context {
         Ok(())
     }
     fn request(&self, peer: PeerIdentity, input: Value) -> Value {
+        if input
+            .get("method")
+            .and_then(Value::as_str)
+            .is_some_and(crate::payload::Request::handles)
+        {
+            return match serde_json::from_value(input) {
+                Ok(request) => self.payload_request(peer, request),
+                Err(_) => fault("controller_invalid_request"),
+            };
+        }
         let request = match serde_json::from_value::<Request>(input) {
             Ok(value) => value,
             Err(_) => return fault("controller_invalid_request"),
@@ -402,7 +441,7 @@ impl Context {
                     return fault("controller_quitting");
                 }
                 match result {
-                    Ok(session) => success(json!({"session":session.expose_secret()})),
+                    Ok(session) => session_reply(&mut auth, &peer, &session),
                     Err(error) => fault(&error.to_string()),
                 }
             }
@@ -430,7 +469,7 @@ impl Context {
                     return fault("controller_quitting");
                 }
                 match result {
-                    Ok(session) => success(json!({"session":session.expose_secret()})),
+                    Ok(session) => session_reply(&mut auth, &peer, &session),
                     Err(error) => fault(&error.to_string()),
                 }
             }
@@ -449,11 +488,40 @@ impl Context {
                     return fault("controller_quitting");
                 }
                 match result {
-                    Ok(session) => success(json!({"session":session.expose_secret()})),
+                    Ok(session) => session_reply(&mut auth, &peer, &session),
                     Err(error) => fault(&error.to_string()),
                 }
             }
             request => self.privileged(peer, request),
+        }
+    }
+    fn payload_request(&self, peer: PeerIdentity, request: crate::payload::Request) -> Value {
+        let _gate = match self.quit_gate.try_lock() {
+            Ok(value) => value,
+            Err(_) => return fault("controller_busy"),
+        };
+        if self.quitting.load(Ordering::Acquire) {
+            return fault("controller_quitting");
+        }
+        let mut auth = match self.auth.try_lock() {
+            Ok(value) => value,
+            Err(_) => return fault("controller_busy"),
+        };
+        let credential = match request.credential() {
+            Ok(value) => value,
+            Err(error) => return fault(error.code()),
+        };
+        let authority = match auth.authorize(&peer, &credential, Instant::now()) {
+            Ok(value) => value,
+            Err(error) => return fault(&error.to_string()),
+        };
+        let mut store = match self.payloads.try_lock() {
+            Ok(value) => value,
+            Err(_) => return fault("controller_busy"),
+        };
+        match request.dispatch(&authority, &mut store, &self.actor) {
+            Ok(value) => bounded_reply(&value),
+            Err(error) => fault(error.code()),
         }
     }
     fn privileged(&self, peer: PeerIdentity, request: Request) -> Value {
@@ -581,6 +649,18 @@ impl Context {
 }
 fn success(data: Value) -> Value {
     json!({"ok":true,"data":data})
+}
+fn session_reply(
+    auth: &mut DesktopAuth,
+    peer: &PeerIdentity,
+    session: &SessionCredential,
+) -> Value {
+    match auth.session_info(peer, session, Instant::now()) {
+        Ok(info) => success(
+            json!({"session":session.expose_secret(),"expires_in_ms":info.expires_in_ms,"context_remaining_ms":info.context_remaining_ms,"renewable":info.renewable}),
+        ),
+        Err(error) => fault(&error.to_string()),
+    }
 }
 fn fault(code: &str) -> Value {
     json!({"ok":false,"error":{"code":code}})

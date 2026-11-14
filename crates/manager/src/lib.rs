@@ -66,3 +66,7 @@ pub mod actor;
 pub mod bootstrap;
 
 pub mod controller;
+
+pub mod native_client;
+
+pub mod payload;

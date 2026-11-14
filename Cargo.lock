@@ -1223,6 +1223,7 @@ dependencies = [
  "devforge-control-adapter",
  "devforge-core",
  "devforge-platform",
+ "devforge-projects",
  "devforge-runtime",
  "devforge-workspace",
  "getrandom 0.4.3",

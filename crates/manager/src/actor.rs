@@ -32,7 +32,8 @@ pub const QUEUE_CAPACITY: usize = 32;
 pub const RESULT_BYTES: usize = 65_536;
 pub const RESULT_ROWS: usize = 128;
 pub const RESULTS_TOTAL_BYTES: usize = 1_048_576;
-pub const COMMAND_BYTES: usize = 262_144;
+pub const COMMAND_BYTES: usize = 8 * 1024 * 1024;
+pub const QUEUE_BYTES: usize = 16 * 1024 * 1024;
 pub const SNAPSHOT_BYTES: usize = 4_194_304;
 /// Receipt namespace for genuinely global desktop operations, never a project.
 pub const ROOT_SUBJECT: &str = "desktop-root";
@@ -148,8 +149,21 @@ struct State {
     db: Connection,
     _file: File,
     pending: usize,
+    waiting: HashMap<Id, WaitingCommand>,
+    waiting_bytes: usize,
     results: VecDeque<SavedResult>,
     result_bytes: usize,
+}
+struct WaitingCommand {
+    command: Command,
+    bytes: usize,
+    cancellation: Cancellation,
+}
+#[derive(Debug, Clone, Copy)]
+pub struct QueueUsage {
+    pub waiting_items: usize,
+    pub waiting_bytes: usize,
+    pub active: bool,
 }
 struct CancellationEntry {
     client: Id,
@@ -169,7 +183,6 @@ struct Shared {
 }
 struct Job {
     receipt: Receipt,
-    command: Command,
     cancellation: Cancellation,
 }
 enum Message {
@@ -234,10 +247,13 @@ impl WorkspaceActor {
                 if let Ok(mut entries) = worker_shared.cancellations.lock() {
                     entries.clear();
                 }
-                if result.is_err()
-                    && let Ok(state) = worker_shared.state.lock()
-                {
-                    let _ = state.interrupt_pending();
+                if let Ok(mut state) = worker_shared.state.lock() {
+                    if result.is_err() {
+                        let _ = state.interrupt_pending();
+                    }
+                    state.waiting.clear();
+                    state.waiting_bytes = 0;
+                    state.pending = 0;
                 }
                 // Workspace has been dropped (and its process owners joined) before
                 // this permit can release the singleton/install leases.
@@ -286,6 +302,20 @@ impl Drop for WorkspaceActor {
 }
 
 impl ActorHandle {
+    pub fn queue_usage(&self, authority: &DesktopAuthority<'_>) -> Result<QueueUsage> {
+        self.client(authority)?;
+        let state = self
+            .shared
+            .state
+            .lock()
+            .map_err(|_| ActorError::StorageUnavailable)?;
+        self.client(authority)?;
+        Ok(QueueUsage {
+            waiting_items: state.pending,
+            waiting_bytes: state.waiting_bytes,
+            active: self.shared.active.load(Ordering::Acquire),
+        })
+    }
     /// Bootstrap composition only: this is an actual initialized owner, not a
     /// caller-supplied ready flag or permission to read project metadata.
     pub(crate) fn bootstrap_ready_root(&self) -> Result<&Path> {
@@ -347,7 +377,7 @@ impl ActorHandle {
     ) -> Result<Receipt> {
         let client = self.client(authority)?;
         validate_subject(&identity.project_id, &command)?;
-        let fingerprint = fingerprint(&identity.project_id, &command)?;
+        let (fingerprint, encoded_bytes) = fingerprint(&identity.project_id, &command)?;
         let mut state = self
             .shared
             .state
@@ -364,7 +394,10 @@ impl ActorHandle {
         if self.shared.stopping.load(Ordering::Acquire) {
             return Err(ActorError::ShuttingDown);
         }
-        if state.pending >= QUEUE_CAPACITY {
+        state.purge_cancelled_payloads();
+        if state.pending >= QUEUE_CAPACITY
+            || encoded_bytes > QUEUE_BYTES.saturating_sub(state.waiting_bytes)
+        {
             return Err(ActorError::Busy);
         }
         let receipt = Receipt {
@@ -398,14 +431,23 @@ impl ActorHandle {
             return Err(error);
         }
         state.pending += 1;
+        state.waiting_bytes += encoded_bytes;
+        state.waiting.insert(
+            receipt.operation_id.clone(),
+            WaitingCommand {
+                command,
+                bytes: encoded_bytes,
+                cancellation: cancellation.clone(),
+            },
+        );
         self.shared.queued.store(state.pending, Ordering::Release);
         let job = Message::Job(Box::new(Job {
             receipt: receipt.clone(),
-            command,
             cancellation,
         }));
         if let Err(error) = self.sender.try_send(job) {
             state.pending -= 1;
+            state.take_payload(&receipt.operation_id);
             self.shared.queued.store(state.pending, Ordering::Release);
             self.shared
                 .cancellations
@@ -525,11 +567,13 @@ impl ActorHandle {
                 }
                 entry.cancellation.cancel();
                 drop(entries);
-                if let Ok(state) = self.shared.state.try_lock()
-                    && let Ok(receipt) = state.get(&client, project, operation)
-                    && receipt.state == OperationState::Running
-                {
-                    let _ = state.update(operation, OperationState::CancelRequested, None);
+                if let Ok(mut state) = self.shared.state.try_lock() {
+                    state.take_payload(operation);
+                    if let Ok(receipt) = state.get(&client, project, operation)
+                        && receipt.state == OperationState::Running
+                    {
+                        let _ = state.update(operation, OperationState::CancelRequested, None);
+                    }
                 }
                 return Ok(CancelOutcome::Requested);
             }
@@ -604,17 +648,33 @@ fn worker_loop(
                     finish_cancelled(shared, &job)?;
                     continue;
                 }
-                {
+                let command = {
                     let mut state = shared
                         .state
                         .lock()
                         .map_err(|_| ActorError::StorageUnavailable)?;
-                    shared.active.store(true, Ordering::Release);
                     state.pending -= 1;
                     shared.queued.store(state.pending, Ordering::Release);
+                    let payload = state.take_payload(&job.receipt.operation_id);
+                    if job.cancellation.is_cancelled() || payload.is_none() {
+                        state.update(
+                            &job.receipt.operation_id,
+                            OperationState::Cancelled,
+                            Some("cancelled"),
+                        )?;
+                        drop(state);
+                        shared
+                            .cancellations
+                            .lock()
+                            .map_err(|_| ActorError::StorageUnavailable)?
+                            .remove(&job.receipt.operation_id);
+                        continue;
+                    }
+                    shared.active.store(true, Ordering::Release);
                     state.update(&job.receipt.operation_id, OperationState::Running, None)?;
-                }
-                let outcome = workspace.execute(job.command, &job.cancellation);
+                    payload.ok_or(ActorError::WorkerUnavailable)?.command
+                };
+                let outcome = workspace.execute(command, &job.cancellation);
                 if let Err(error) = refresh(shared, &workspace)
                     && let Ok(mut cache) = shared.cache.lock()
                 {
@@ -677,6 +737,7 @@ fn finish_cancelled(shared: &Shared, job: &Job) -> Result<()> {
         .lock()
         .map_err(|_| ActorError::StorageUnavailable)?;
     state.pending -= 1;
+    state.take_payload(&job.receipt.operation_id);
     shared.queued.store(state.pending, Ordering::Release);
     state.update(
         &job.receipt.operation_id,
@@ -753,6 +814,8 @@ impl State {
             db,
             _file: file,
             pending: 0,
+            waiting: HashMap::new(),
+            waiting_bytes: 0,
             results: VecDeque::new(),
             result_bytes: 0,
         };
@@ -762,6 +825,23 @@ impl State {
     fn interrupt_pending(&self) -> Result<()> {
         self.db.execute("UPDATE operations SET state=CASE WHEN state='queued' THEN 'interrupted' ELSE 'unknown' END,code='owner_interrupted',updated_at=?1 WHERE state IN ('queued','running','cancel_requested')", [now() as i64]).map_err(|_| ActorError::StorageUnavailable)?;
         Ok(())
+    }
+    fn take_payload(&mut self, operation: &Id) -> Option<WaitingCommand> {
+        let value = self.waiting.remove(operation)?;
+        self.waiting_bytes -= value.bytes;
+        Some(value)
+    }
+    fn purge_cancelled_payloads(&mut self) {
+        let mut released = 0;
+        self.waiting.retain(|_, value| {
+            if value.cancellation.is_cancelled() {
+                released += value.bytes;
+                false
+            } else {
+                true
+            }
+        });
+        self.waiting_bytes -= released;
     }
     fn insert(
         &mut self,
@@ -1046,18 +1126,22 @@ fn measure<T: Serialize>(value: &T, limit: usize) -> Result<usize> {
     serde_json::to_writer(&mut writer, value).map_err(|_| ActorError::OutputLimitExceeded)?;
     Ok(writer.bytes)
 }
-fn fingerprint(project: &Id, command: &Command) -> Result<String> {
+fn fingerprint(project: &Id, command: &Command) -> Result<(String, usize)> {
+    // Preserve the established tuple hash while bounding/counting only command
+    // bytes. Id contains ASCII without JSON escapes; tuple overhead is exact.
+    let overhead = project.as_str().len() + 5;
     let mut writer = LimitedWriter {
         bytes: 0,
-        limit: COMMAND_BYTES,
+        limit: COMMAND_BYTES + overhead,
         hash: Some(Sha256::new()),
     };
     serde_json::to_writer(&mut writer, &(project, command))
         .map_err(|_| ActorError::InvalidInput)?;
-    Ok(hex(&writer
-        .hash
-        .ok_or(ActorError::InvalidInput)?
-        .finalize()))
+    let bytes = writer.bytes - overhead;
+    Ok((
+        hex(&writer.hash.ok_or(ActorError::InvalidInput)?.finalize()),
+        bytes,
+    ))
 }
 
 #[cfg(test)]

@@ -103,6 +103,14 @@ pub struct NativeGuiPolicy {
     pub bootstrap_lifetime: Duration,
     pub context_lifetime: Duration,
 }
+
+/// Cache-only lifetime metadata; contains no credential or authority proof.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SessionInfo {
+    pub expires_in_ms: u64,
+    pub context_remaining_ms: Option<u64>,
+    pub renewable: bool,
+}
 impl Default for NativeGuiPolicy {
     fn default() -> Self {
         Self {
@@ -667,6 +675,40 @@ impl DesktopAuth {
             root: self.endpoint.root(),
             peer: &session.peer,
             expires: session.expires,
+        })
+    }
+    /// Verify the same root/peer/generation/expiry as authorization, then return
+    /// conservative whole-millisecond remaining lifetimes. Never probes a store.
+    pub fn session_info(
+        &mut self,
+        peer: &PeerIdentity,
+        credential: &SessionCredential,
+        now: Instant,
+    ) -> Result<SessionInfo> {
+        self.authorize(peer, credential, now)?;
+        let session = self
+            .sessions
+            .iter()
+            .find(|s| {
+                bool::from(s.token.as_bytes().ct_eq(credential.0.as_bytes()))
+                    && s.peer == *peer
+                    && s.root == self.root
+                    && s.generation == self.generation
+            })
+            .ok_or(AuthError::Unauthorized)?;
+        Ok(SessionInfo {
+            expires_in_ms: u64::try_from(
+                session.expires.saturating_duration_since(now).as_millis(),
+            )
+            .map_err(|_| AuthError::InvalidPolicy)?,
+            context_remaining_ms: session
+                .native_deadline
+                .map(|deadline| {
+                    u64::try_from(deadline.saturating_duration_since(now).as_millis())
+                        .map_err(|_| AuthError::InvalidPolicy)
+                })
+                .transpose()?,
+            renewable: session.native_deadline.is_some(),
         })
     }
     /// Cache-only revocation. No credential-service access or global grant change.

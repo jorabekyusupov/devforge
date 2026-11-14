@@ -154,12 +154,29 @@ pub struct BootstrappedChild {
     child: Child,
     credential: crate::auth::BootstrapCredential,
 }
+/// Credential-free monitor retained by a native launcher after redemption.
+pub struct ReadyChild {
+    child: Child,
+}
+impl ReadyChild {
+    pub fn process_id(&self) -> u32 {
+        self.child.id()
+    }
+    pub fn wait_for_exit(mut self) -> std::io::Result<std::process::ExitStatus> {
+        self.child.wait()
+    }
+}
 impl BootstrappedChild {
     pub fn process_id(&self) -> u32 {
         self.child.id()
     }
     pub fn credential(&self) -> &crate::auth::BootstrapCredential {
         &self.credential
+    }
+    /// Split once so the native SDK can erase the redeemed bootstrap secret
+    /// while retaining a credential-free handle for orderly exit/reaping.
+    pub fn into_parts(self) -> (crate::auth::BootstrapCredential, ReadyChild) {
+        (self.credential, ReadyChild { child: self.child })
     }
     /// Optional launcher-worker reaping after orderly authenticated owner quit.
     /// This does not send a signal or stop a ready manager.

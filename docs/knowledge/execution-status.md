@@ -610,3 +610,36 @@ Composeradvisorypolicyblocked (installed11runtimefailureemas). Guard saqlandi.
 Python9units/PHP lint/nativeexamplebuild/clippy passed; lastproxyredaction/provenance
 reportchangesonlyPythonchecks, actualmatrixreusedwithat-runhashes. No globalPHP/INI/
 credentials/userproject changes. Intel/Windows/otherPHP/PG/MySQL/async/fullappUIgateochiq.
+
+# M13.1.5 — Large native payload, complete snapshot va Rust SDK
+
+[Payload ADR](../architecture/manager-payload.md) va [NativeClient ADR](../architecture/manager-native-client.md).
+Private command serialized8MiB, authenticated ordered16KiBhexchunks,2pending/16MiB
+RAM, root/peer/epoch/TTL/SHA/length/finalizeoneuse; no body/header disk. Publicrequest
+64KiB saqlanadi. Actor32waiting+16MiBbytes, cappedstreamhash; commandpayload
+waitingmapda, cancel/dequeue haqiqiyxotira/bytebudgetni bo'shatadi, channelmetadata/tombstonesbounded.
+Snapshotimmutableepochfullbytes,2exports/8MiBeach16MiBtotal, digest/offset/authpeer
+paging, no partial/truncatedUIdefault. Expiry/Quit/Drop payloadzerocleanup.
+
+NativeClient blockingRust-only, SecretStoreAPI/autoprobe yo'q; kernelpeerPIN
+secret/body yozilishidan oldin, replacement ExplicitReauthenticationRequired.
+SessionTTL servercacheinfo'dan konservativ, expiredrenewyo'q. Noaniqfinalize
+AdmissionUnconfirmed, avtomatiksuccess/retryemas. Key/sessionopaqueZeroizing
+JS/outputlogdiskka qaytmaydi. ExistingGUIbackendhaliyoq, defaultModeLegacyStandalone.
+
+Finalchecks: payload5/actor9/controller7 +fullpkgmanagerclippygreen. SDKcustom4/4
+actualprocess pipeline: >1MiBUnicodecommandupload/admit→realmanifestrefusal+exactRAMerror,
+actual1000ProjectStoreRows snapshot>256KiBallrows/emoji, idempotency/result/cancel,
+explicitrenewharddeadline, coldprivatepipe/PIDreplacement/Quit. Newauthmetadata1pass.
+RootM7NUL/UnicodeDebugHttpcodec bytes verified, ACTUALCoreHTTP execution/GUI proofemas.
+
+Bootstraptestharness endipassed/unavailable casecountsJSONberadi; separateordinary
+childcomponent confirmsdetachedfallbackemas. Mac6/6 actualcasespassed; Windows
+restrictedJob sabab2ff0002da4detachedcase capabilityunavailable bo'lganini logdan
+ko'rildi, old'5passed' printedmessagefullWindowsproofemas. NewordinarypipeWindows
+case nextCI'daalohida; productionRestrictedJoberrorfallbacko'zgarmadi. SDK4/auth1/
+bootstrap6 va finalscopedclippy sourcefrozen, unaffectedfixtures reused.
+
+RemainingGUIgates: trustedworktree/cachetargets, alloldprivateTauriIPCfacade+Discovery
+owner, reconnect/nativeUIflow va actualM7HTTP/request+GUI2clienttargetacceptance.
+MCP/externalgrants/publicautomationstillnotwired. NativeUserKeychain ishlatilmadi.

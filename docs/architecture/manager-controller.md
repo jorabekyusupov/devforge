@@ -55,6 +55,15 @@ use try_lock and return Busy while another credential request owns the auth
 policy; health remains responsive. Cached native sessions and explicit renewal
 do not probe the SecretStore. NativeGuiPolicy fixes the absolute context deadline
 and session renewal/rotation rules; it is not indefinite sliding access.
+Successful authenticate/redeem/renew replies now include cache-derived
+expires_in_ms, nullable context_remaining_ms and renewable alongside the session.
+A client need not hardcode a ten-minute lease or extend the absolute native
+context deadline. These metadata reads perform no credential-service access.
+
+M13.1.5 delegates upload_begin/chunk/finalize/abort and snapshot_begin/page/release
+to the private payload module. They require fresh native session authority and
+bind retained data to peer/root/store epoch. No new external tool or grant is
+issued. A maintenance task expires buffers, and successful Quit/Drop clear them.
 
 Request/response bounds remain64KiB/256KiB. Owned encoded/decoded frame byte
 buffers are zeroized after use. This is not a promise to erase every generic
@@ -105,9 +114,11 @@ described as PID verification. Windows retains pipe ACL/SID and kernel peer PID
 checks. See [Apple's socket constants](https://github.com/apple-oss-distributions/xnu/blob/main/bsd/sys/un.h)
 and [Windows move flags](https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-movefileexw).
 
-Before GUI migration, preserve M7's existing1MiB HTTP body under JSON escaping
-through an authenticated private body/frame channel. The current public64KiB
-frame and actor256KiB command cap are not silently enlarged. Worktree/cache
+M13.1.5 adds an authenticated private chunk channel for M7's existing1MiB HTTP
+body under JSON escaping: encoded commands are bounded at8MiB, upload chunks at
+16KiB raw, and public requests remain64KiB. Snapshot exports use the same bounded
+chunk approach and pin a complete immutable byte image. This does not change GUI
+routing or establish actual core/native HTTP success. Worktree/cache
 instance subject resolution and partial-create failure mapping are also required
 before their GUI routes can move to the actor. Existing UI behavior is unchanged.
 

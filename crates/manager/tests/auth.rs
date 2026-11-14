@@ -219,6 +219,59 @@ fn ordinary_store_auth_is_not_implicitly_renewable() {
 }
 
 #[test]
+fn session_lifetime_metadata_is_cache_only_peer_bound_and_expiry_checked() {
+    let root = make_root();
+    let owner = Owner::acquire(root.path()).unwrap();
+    let store = MemoryStore::default();
+    let mut auth = make_auth(
+        &owner,
+        Policy {
+            session_lifetime: Duration::from_secs(10),
+            ..Policy::default()
+        },
+    );
+    let now = Instant::now();
+    let key = auth.rotate_desktop_key(&action(), &store, now).unwrap();
+    let ordinary = auth.authenticate(&peer(), &key, &store, now).unwrap();
+    let info = auth.session_info(&peer(), &ordinary, now).unwrap();
+    assert!(info.expires_in_ms >= 10_000 && info.expires_in_ms < 11_000);
+    assert!(!info.renewable);
+    assert_eq!(info.context_remaining_ms, None);
+    let native = auth
+        .authenticate_native_gui(
+            &peer(),
+            &key,
+            &store,
+            NativeGuiPolicy {
+                context_lifetime: Duration::from_secs(25),
+                ..NativeGuiPolicy::default()
+            },
+            now + Duration::from_secs(6),
+        )
+        .unwrap();
+    store.deny.set(true);
+    let before = store.gets.get();
+    let info = auth
+        .session_info(&peer(), &native, now + Duration::from_secs(7))
+        .unwrap();
+    assert!(info.renewable);
+    assert!(info.expires_in_ms < info.context_remaining_ms.unwrap());
+    let mut foreign = peer();
+    foreign.process_id = Some(99);
+    assert_eq!(
+        auth.session_info(&foreign, &native, now + Duration::from_secs(7))
+            .unwrap_err(),
+        AuthError::Unauthorized
+    );
+    assert_eq!(
+        auth.session_info(&peer(), &native, now + Duration::from_secs(17))
+            .unwrap_err(),
+        AuthError::Unauthorized
+    );
+    assert_eq!(store.gets.get(), before);
+}
+
+#[test]
 fn explicit_native_gui_renewal_rotates_token_without_store_and_has_absolute_deadline() {
     let root = make_root();
     let owner = Owner::acquire(root.path()).unwrap();

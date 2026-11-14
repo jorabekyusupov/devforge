@@ -51,12 +51,54 @@ fn main() {
         fixture(args[1].to_str().unwrap(), Path::new(&args[2]));
         return;
     }
-    real_private_channel_and_one_use_redemption();
-    inherited_channel_rejects_files_and_null();
-    mandatory_executable_digest_and_unready_cleanup();
-    malformed_frame_is_bounded_and_cleaned();
-    timeout_does_not_kill_an_observed_ready_owner();
-    println!("bootstrap focused checks passed (5)");
+    let cases = vec![
+        report(
+            "detached_private_channel",
+            real_private_channel_and_one_use_redemption(),
+        ),
+        report(
+            "file_null_rejection",
+            inherited_channel_rejects_files_and_null(),
+        ),
+        report(
+            "detached_unready_cleanup",
+            mandatory_executable_digest_and_unready_cleanup(),
+        ),
+        report(
+            "detached_malformed_cleanup",
+            malformed_frame_is_bounded_and_cleaned(),
+        ),
+        report(
+            "detached_ready_owner_preserved",
+            timeout_does_not_kill_an_observed_ready_owner(),
+        ),
+        report(
+            "ordinary_child_pipe_component",
+            ordinary_child_private_pipe_component(),
+        ),
+    ];
+    let passed = cases
+        .iter()
+        .filter(|case| case["status"] == "passed")
+        .count();
+    let unavailable = cases.len() - passed;
+    println!(
+        "{}",
+        json!({"suite":"bootstrap","overall":if unavailable==0{"passed"}else{"partial"},"passed":passed,"unavailable":unavailable,"cases":cases})
+    );
+}
+#[derive(Clone, Copy)]
+enum CaseStatus {
+    Passed,
+    Unavailable,
+}
+fn report(name: &str, status: CaseStatus) -> Value {
+    match status {
+        CaseStatus::Passed => json!({"case":name,"status":"passed"}),
+        CaseStatus::Unavailable => {
+            json!({"case":name,"status":"unavailable","reason":"restricted_ancestor_job"})
+        }
+    }
 }
 fn fixture(mode: &str, root: &Path) {
     match mode {
@@ -163,20 +205,15 @@ fn spawn(root: &Path, mode: &str) -> Option<launch::PendingBootstrapChild> {
     let spec = spec(root, mode);
     match launch::spawn_with_private_bootstrap(&spec, &digest(&spec.executable)) {
         Ok(child) => Some(child),
-        Err(Error::RestrictedJob) => {
-            println!(
-                "CAPABILITY_UNAVAILABLE: Windows ancestor job forbids private detached launch"
-            );
-            None
-        }
+        Err(Error::RestrictedJob) => None,
         Err(error) => panic!("private fixture launch failed: {error}"),
     }
 }
 fn hex(bytes: &[u8]) -> String {
     bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
-fn request(client: &Client, mut request: Value) -> Value {
-    let result = client.request(&request);
+fn request(client: &Client, peer: &devforge_manager::PeerIdentity, mut request: Value) -> Value {
+    let result = client.request_with_expected_peer(peer, &request);
     if let Some(fields) = request.as_object_mut() {
         for key in ["token", "session"] {
             if let Some(Value::String(value)) = fields.get_mut(key) {
@@ -186,29 +223,49 @@ fn request(client: &Client, mut request: Value) -> Value {
     }
     result.unwrap()
 }
-fn real_private_channel_and_one_use_redemption() {
+fn real_private_channel_and_one_use_redemption() -> CaseStatus {
     let root = root();
     let Some(child) = spawn(root.path(), "ready") else {
-        return;
+        return CaseStatus::Unavailable;
     };
     let ready = child
         .wait_ready(Duration::from_secs(5), |_| Err(BootstrapError::NotReady))
         .unwrap();
-    let credential = ready.credential();
+    exercise_private_owner(root.path(), ready.credential(), ready.process_id());
+    assert!(ready.wait_for_exit().unwrap().success());
+    assert_eq!(
+        fs::read(root.path().join("stdout-guard")).unwrap(),
+        b"untouched"
+    );
+    CaseStatus::Passed
+}
+fn exercise_private_owner(
+    root: &Path,
+    credential: &devforge_manager::auth::BootstrapCredential,
+    expected_pid: u32,
+) {
     assert!(!format!("{credential:?}").contains(credential.expose_secret()));
-    let client = Client::new(Endpoint::existing(root.path()).unwrap());
+    let client = Client::new(Endpoint::existing(root).unwrap());
+    let (peer, health) = client
+        .request_with_peer(&json!({"method":"health"}))
+        .unwrap();
+    assert_eq!(peer.process_id, Some(expected_pid));
+    assert_eq!(health["ok"], true);
     let invalid = request(
         &client,
+        &peer,
         json!({"method":"redeem_bootstrap","token":credential.expose_secret(),"root_fingerprint":"00".repeat(32),"manager_instance":hex(credential.manager_instance())}),
     );
     assert_eq!(invalid["ok"], false);
     let invalid = request(
         &client,
+        &peer,
         json!({"method":"redeem_bootstrap","token":credential.expose_secret(),"root_fingerprint":hex(credential.root_fingerprint()),"manager_instance":"00".repeat(32)}),
     );
     assert_eq!(invalid["ok"], false);
     let mut auth = request(
         &client,
+        &peer,
         json!({"method":"redeem_bootstrap","token":credential.expose_secret(),"root_fingerprint":hex(credential.root_fingerprint()),"manager_instance":hex(credential.manager_instance())}),
     );
     assert_eq!(auth["ok"], true);
@@ -218,23 +275,55 @@ fn real_private_channel_and_one_use_redemption() {
     }
     let reused = request(
         &client,
+        &peer,
         json!({"method":"redeem_bootstrap","token":credential.expose_secret(),"root_fingerprint":hex(credential.root_fingerprint()),"manager_instance":hex(credential.manager_instance())}),
     );
     assert_eq!(reused["ok"], false);
     let reply = request(
         &client,
+        &peer,
         json!({"method":"snapshot","session":session.as_str()}),
     );
     assert_eq!(reply["ok"], true);
-    let reply = request(&client, json!({"method":"quit","session":session.as_str()}));
+    let reply = request(
+        &client,
+        &peer,
+        json!({"method":"quit","session":session.as_str()}),
+    );
     assert_eq!(reply["ok"], true);
-    assert!(ready.wait_for_exit().unwrap().success());
+}
+/// Test component only: no detached flags and no production fallback. Hosted
+/// Windows Jobs may prohibit detached launch while permitting this ordinary
+/// child, so the actual CRT/pipe/controller path still receives native coverage.
+fn ordinary_child_private_pipe_component() -> CaseStatus {
+    let root = root();
+    let launch = spec(root.path(), "ready");
+    let mut child = Command::new(&launch.executable)
+        .args(&launch.arguments)
+        .current_dir(root.path())
+        .env_clear()
+        .envs(&launch.environment)
+        .env("DEVFORGE_DATA_DIR", root.path())
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .unwrap();
+    let credential = devforge_manager::bootstrap::read_child_pipe(
+        child.stdout.take().unwrap(),
+        root.path(),
+        Duration::from_secs(5),
+    )
+    .unwrap();
+    exercise_private_owner(root.path(), &credential, child.id());
+    assert!(child.wait().unwrap().success());
     assert_eq!(
         fs::read(root.path().join("stdout-guard")).unwrap(),
         b"untouched"
     );
+    CaseStatus::Passed
 }
-fn inherited_channel_rejects_files_and_null() {
+fn inherited_channel_rejects_files_and_null() -> CaseStatus {
     let root = root();
     let path = root.path().join("regular-output");
     let status = Command::new(std::env::current_exe().unwrap())
@@ -256,8 +345,9 @@ fn inherited_channel_rejects_files_and_null() {
         .status()
         .unwrap();
     assert!(status.success());
+    CaseStatus::Passed
 }
-fn mandatory_executable_digest_and_unready_cleanup() {
+fn mandatory_executable_digest_and_unready_cleanup() -> CaseStatus {
     let root = root();
     let launch_spec = spec(root.path(), "unready");
     assert!(matches!(
@@ -266,7 +356,7 @@ fn mandatory_executable_digest_and_unready_cleanup() {
     ));
     let handles_before = open_handles();
     let Some(child) = spawn(root.path(), "unready") else {
-        return;
+        return CaseStatus::Unavailable;
     };
     assert!(matches!(
         child.wait_ready(Duration::from_millis(25), |_| Ok(false)),
@@ -278,12 +368,13 @@ fn mandatory_executable_digest_and_unready_cleanup() {
         handles_before,
         "timeout leaked a pipe/process handle"
     );
+    CaseStatus::Passed
 }
-fn malformed_frame_is_bounded_and_cleaned() {
+fn malformed_frame_is_bounded_and_cleaned() -> CaseStatus {
     let root = root();
     let handles_before = open_handles();
     let Some(child) = spawn(root.path(), "malformed") else {
-        return;
+        return CaseStatus::Unavailable;
     };
     assert!(matches!(
         child.wait_ready(Duration::from_secs(2), |_| Ok(false)),
@@ -294,6 +385,7 @@ fn malformed_frame_is_bounded_and_cleaned() {
         handles_before,
         "malformed frame leaked a pipe/process handle"
     );
+    CaseStatus::Passed
 }
 #[cfg(unix)]
 fn open_handles() -> usize {
@@ -309,10 +401,10 @@ fn open_handles() -> usize {
     );
     count as usize
 }
-fn timeout_does_not_kill_an_observed_ready_owner() {
+fn timeout_does_not_kill_an_observed_ready_owner() -> CaseStatus {
     let root = root();
     let Some(child) = spawn(root.path(), "ready-no-frame") else {
-        return;
+        return CaseStatus::Unavailable;
     };
     let result = child.wait_ready(Duration::from_millis(100), |expected_pid| {
         let start = Instant::now();
@@ -339,4 +431,5 @@ fn timeout_does_not_kill_an_observed_ready_owner() {
         fs::read(root.path().join("ready-survived")).unwrap(),
         b"alive"
     );
+    CaseStatus::Passed
 }

@@ -161,6 +161,22 @@ impl Client {
     }
     /// Server identity is verified before any payload/credential is written.
     pub fn request_with_peer(&self, value: &Value) -> Result<(PeerIdentity, Value)> {
+        self.exchange(None, value)
+    }
+    /// Pin the kernel-observed owner before writing any session/key/body data.
+    /// The health/bootstrap caller establishes this identity without secrets.
+    pub fn request_with_expected_peer(
+        &self,
+        expected: &PeerIdentity,
+        value: &Value,
+    ) -> Result<Value> {
+        self.exchange(Some(expected), value).map(|(_, value)| value)
+    }
+    fn exchange(
+        &self,
+        expected: Option<&PeerIdentity>,
+        value: &Value,
+    ) -> Result<(PeerIdentity, Value)> {
         self.endpoint.validate()?;
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
@@ -169,6 +185,9 @@ impl Client {
             tokio::time::timeout(IO_TIMEOUT, async {
                 let mut stream = os::connect(&self.endpoint).await?;
                 let peer = os::peer(&stream, true)?;
+                if expected.is_some_and(|expected| expected != &peer) {
+                    return Err(Error::UnauthorizedPeer);
+                }
                 framing::write(&mut stream, value, MAX_REQUEST_BYTES).await?;
                 let response = framing::read(&mut stream, MAX_RESPONSE_BYTES).await?;
                 Ok((peer, response))

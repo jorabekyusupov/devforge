@@ -154,3 +154,10 @@ Relevant Windows ownership references:
 [`_dup2`](https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/dup-dup2),
 [`_open_osfhandle`](https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/open-osfhandle),
 [`SetStdHandle`](https://learn.microsoft.com/en-us/windows/console/setstdhandle).
+
+The later harness reports a structured per-case `passed`/`unavailable` record and
+an overall partial result when ancestor Jobs prohibit detached breakaway. It also
+contains a separate ordinary-child private-pipe/controller/redemption/Quit case.
+That test has no detached flags and is explicitly not a production fallback or
+detached-survival proof. Its native Windows execution is tracked separately;
+Windows detached lifetime remains an open gate wherever breakaway is unavailable.
