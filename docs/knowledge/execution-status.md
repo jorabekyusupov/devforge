@@ -536,3 +536,11 @@ TargetedcaseMacpassed; newWindowsnativehopqaroriCI'daalohida, oldfailurehistorys
 Stillgates: noactualGUIclientmigration; private64KiB/actor256KiB existingM7largebody
 uchun yetmaydi, worktree/cachetrustedtargets/partialspecificerrors vaDiscoveryowner
 wiring ham yopilmaguncha GUIreadyemas. NoMCP/externalgranttool liveadvertisement.
+
+## Bootstrap custom-harness Windows fixture correction
+
+QA ownerfixtureauditda bootstrapcustomharnessroot() ham plainTempdir ekanini topdi.
+Unitfixture avvalprivatechildga tuzatilgan, endicustomharness ham publishedcommon::root
+helperdan foydalanadi (freshTempDirowneronly, Unix/tmp). Faqat testfile o'zgardi;
+custombootstrap5targetedcase va scopedtestclippy green, otherauth/unitcases reused.
+ProductionACL/rootownercheck o'zgarishsiz. Windows yangi CI snapshotda tekshiriladi.

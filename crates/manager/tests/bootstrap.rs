@@ -1,5 +1,6 @@
 //! Custom harness keeps Rust libtest banners out of the private child pipe.
 //! Every fixture store is denied/in-memory; no native credential API is opened.
+mod common;
 use devforge_core::{ErrorCode, SecretStore};
 use devforge_manager::{
     Client, Endpoint, Error,
@@ -131,10 +132,7 @@ fn fixture(mode: &str, root: &Path) {
     }
 }
 fn root() -> tempfile::TempDir {
-    tempfile::Builder::new()
-        .prefix("df-boot-")
-        .tempdir()
-        .unwrap()
+    common::root("df-boot-")
 }
 fn spec(root: &Path, mode: &str) -> LaunchSpec {
     let mut environment = BTreeMap::new();
