@@ -88,7 +88,7 @@ fn linked(meta: &fs::Metadata) -> bool {
 }
 /// Final-component protection only. Ancestor checks and the inventory remain a
 /// non-atomic observation; this does not implement an adversarial openat sandbox.
-fn open_metadata_file(path: &Path, limit: u64) -> Option<fs::File> {
+pub(crate) fn open_metadata_file(path: &Path, limit: u64) -> Option<fs::File> {
     let mut options = fs::OpenOptions::new();
     options.read(true);
     #[cfg(unix)]

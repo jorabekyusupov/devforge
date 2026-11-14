@@ -151,9 +151,9 @@ Parallel agent boshlangan yoki tugagan itemni integrator evidence bilan yangilay
 | E04 | in_progress | Current-state/tooling/README drift va contributor runbook, product tests talab qilmaydi. |
 | E05 | in_progress | Ownership/resource kontrakti; read-only storage inventari, keyin cleanup preview. |
 | E06 | planned | E05 va staged DB ownership; activation'siz drill, keyin retention/scheduling. |
-| E07 | planned | E03 exact bindings va trust policy; catalog/offline lifecycle. |
+| E07 | in_progress | E07.1 read-only exact-pin offline metadata validated; signed refresh/revocation/bundle/UI/native offline acceptance remains. |
 | E08 | planned | M13.6 execution, real profile talabi; scheduler/Reverb, keyin Horizon. |
-| E09 | ready | Reproducible release workload baseline dizayni; optimize faqat actual o'lchovdan keyin. |
+| E09 | in_progress | Release actor 1/10/100 baseline recorded; full GUI/process-tree/burst/native target measurements remain. |
 | E10 | in_progress | Declared Laravel11/12/13/PHP/provider meaningful matrix dizayni; actual hostlar ajratiladi. |
 | M14.1 | planned | Project/site/operations kontrakti; IDE/DB adapters. |
 | M14.2 | planned | Verified bitta tunnel provider, target/access/expiry/revoke. |
@@ -665,3 +665,21 @@ Focused endpoint2/platformdistribution9/infrastructure11passed(1subprocessfixtur
 ignored) and scoped platform+manageralltargetsclippy passed. No timeout/sleepretry
 added to lease productcode/tests. New actual Windows/Mac CI remains required;
 noGUI/credential/minimumOS pass inferred. Unaffected product suites not rerunlocally.
+
+
+## E07.1 exact-pin offline metadata
+
+[Backend evidence](../architecture/offline-readiness.md): bounded receipt/catalog/
+regular-file metadata, exact persisted PHP/Node/Composer and registryDB/cache,
+explicitderived web/Caddy defaults, missing/unsupported/unverified reasons.
+No downloads/processes/secrets/leases/configchanges or versionfallback.
+Available means metadata only; no trueoffline success from filepresence.
+Six focused fixturecases passed across recorded scopedruns; strictreaderbudget
+change reran affectedpositive/budgetcases only. Scopedclippy passed, QA source
+review found no blocker. Inertformatheaders notexecuted as nativebinaries.
+Windows/Intel runtime, signatures/refresh/rollback/revocation/cachebundle/UI remain.
+
+487bbeb Windowsrun43573828659 completed checks successfully but bootstrap2passed/
+4unavailable and SDK3passed/1unavailable (restrictedancestorJob) are PARTIALnative
+coverage; actualordinarychildpipe passed. Macjob failedleasecase, fixed5ff658d;
+newfixrun43574423326 pending atthisintegration. Oldfailurehistory retained.

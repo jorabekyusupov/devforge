@@ -29,6 +29,8 @@ mavzuni tanlang, so'ng faqat tegishli hujjatlar va ularning manbalarini o'qing.
 
 ## Manba va yuritish
 
+- [E07.1 offline metadata](../architecture/offline-readiness.md) - exact pin, bounded receipt/file evidence va unknown full-offline readiness.
+
 - [E10 framework compatibility](companion-compatibility-results.md) - actual Laravel12/13 Collector/mail, Laravel11 fresh-resolution advisory blocker, no guard bypass va unverified matrix.
 
 - [E05.1 storage inventory](storage-inventory-results.md) - read-only ownership/logical size/refs, bounded registry/FS metadata va keyingi cleanup gate.
