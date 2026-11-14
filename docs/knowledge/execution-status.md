@@ -395,3 +395,19 @@ source-macOS dalili minimumOS/interactiveGUI/signing acceptancega aylanmaydi.
 M13.1.2 keyingi capability/auth module explicit firstaction va independent grants
 chegarasini qo'shadi; keyin single Workspace actor, durableoperations vaGUI/CLI
 forwarding. Full M13.1 gate hali ochiq.
+
+# TP02 — Rust dependency impact CI (2026-11-14)
+
+Rust .rs-only change uchun cargo metadata'dagi barcha dev/build/target local
+dependency reverse closure olinadi. CLI→desktop runtime edge explicit qo'shilgan.
+Test/clippy/fmt argumentarray orqali selected packagesda; frontend/native build
+faqat desktop consumer bo'lsa. Manifest/lock/toolchain/unknown/manual/metadata failure
+FULL fallback, docs-only TP01 o'zgarishsiz.10selector test +old8scope test passed,
+actual cargo metadata read-only sample bilan leaf/control/manager/CLI closure review
+qilindi; product suite lokal rerun qilinmadi.
+
+M13.0.3 source8e36be8 run43559303146 success. M13.1.1 source79ed2a6 run43559549217
+Windows compile/clippydan o'tdi, lekin manager Owner::acquire UnsafeEndpoint sabab
+infrastructure tests fail; macOS job passed. Root-owner/elevated-fixture hypothesis
+native sanitized probe bilan tekshiriladi, production validation yumshatilmaydi.
+Bu failure yashirilmaydi va full M13.1 target qabuli deb ko'rsatilmaydi.
