@@ -1182,6 +1182,273 @@ impl BoundDatabaseActionsClient {
     }
 }
 
+/// Project-scoped facts and reviewed system integration. This client has no
+/// helper launcher, native owner confirmation or authority-preparation method.
+pub struct DomainClient {
+    inner: ServiceClient,
+}
+impl std::fmt::Debug for DomainClient {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DomainClient")
+            .field("owner_pid", &self.inner.client.peer.process_id)
+            .finish_non_exhaustive()
+    }
+}
+impl DomainClient {
+    pub fn connect(
+        endpoint: Endpoint,
+        credential: ExternalCredential,
+    ) -> std::result::Result<Self, ErrorCode> {
+        Ok(Self {
+            inner: ServiceClient::connect(endpoint, credential)?,
+        })
+    }
+    pub fn facts(
+        &mut self,
+        id: Id,
+        project: &Id,
+        operation: crate::service_control::DomainReadKind,
+    ) -> std::result::Result<Response<crate::service_control::DomainFacts>, ErrorCode> {
+        domain_facts(&mut self.inner, id, project, operation)
+    }
+    pub fn prepare(
+        &mut self,
+        id: Id,
+        project: &Id,
+        kind: crate::service_control::DomainPlanKind,
+    ) -> std::result::Result<Response<crate::service_control::DomainPlanPreview>, ErrorCode> {
+        domain_prepare(&mut self.inner, id, project, kind)
+    }
+    pub fn plan(
+        &mut self,
+        request: &Request<MutationInput>,
+    ) -> std::result::Result<Response<PlanReceipt>, ErrorCode> {
+        domain_plan(&mut self.inner, request)
+    }
+    pub fn apply(
+        &mut self,
+        request: &Request<MutationInput>,
+        review: &Digest,
+    ) -> std::result::Result<Response<MutationReceipt>, ErrorCode> {
+        domain_apply(&mut self.inner, request, review)
+    }
+    pub fn lookup(
+        &mut self,
+        id: Id,
+        project: &Id,
+        key: &Id,
+    ) -> std::result::Result<Response<Option<MutationReceipt>>, ErrorCode> {
+        domain_lookup(&mut self.inner, id, project, key)
+    }
+}
+fn domain_request(request: &Request<MutationInput>) -> std::result::Result<(), ErrorCode> {
+    if !matches!(
+        request.input,
+        MutationInput::DomainApply(_) | MutationInput::DomainCleanup(_)
+    ) {
+        return Err(ErrorCode::UnsupportedCapability);
+    }
+    if !request
+        .expected_revision
+        .is_some_and(|revision| revision <= devforge_control::limits::SafeInt::MAX)
+        || request.idempotency_key.is_none()
+    {
+        return Err(ErrorCode::InvalidInput);
+    }
+    Ok(())
+}
+fn domain_facts(
+    client: &mut ServiceClient,
+    id: Id,
+    project: &Id,
+    operation: crate::service_control::DomainReadKind,
+) -> std::result::Result<Response<crate::service_control::DomainFacts>, ErrorCode> {
+    let reply: Response<crate::service_control::DomainFacts> = client.exchange(
+        &id,
+        json!({"method":"domain_read","request_id":id,"project_id":project,"operation":operation}),
+        false,
+    )?;
+    if reply
+        .data()
+        .is_some_and(|facts| &facts.project_id != project)
+    {
+        return Err(ErrorCode::ProjectMismatch);
+    }
+    Ok(reply)
+}
+fn domain_prepare(
+    client: &mut ServiceClient,
+    id: Id,
+    project: &Id,
+    kind: crate::service_control::DomainPlanKind,
+) -> std::result::Result<Response<crate::service_control::DomainPlanPreview>, ErrorCode> {
+    let reply: Response<crate::service_control::DomainPlanPreview> = client.exchange(
+        &id,
+        json!({"method":"domain_prepare","request_id":id,"project_id":project,"kind":kind}),
+        false,
+    )?;
+    if reply.data().is_some_and(|plan| {
+        &plan.project_id != project
+            || std::mem::discriminant(&plan.kind) != std::mem::discriminant(&kind)
+            || matches!(kind, crate::service_control::DomainPlanKind::Cleanup)
+                && !plan.shared_ca_preserved
+    }) {
+        return Err(ErrorCode::InvalidInput);
+    }
+    Ok(reply)
+}
+fn domain_plan(
+    client: &mut ServiceClient,
+    request: &Request<MutationInput>,
+) -> std::result::Result<Response<PlanReceipt>, ErrorCode> {
+    domain_request(request)?;
+    let reply: Response<PlanReceipt> = client.exchange(
+        &request.request_id,
+        json!({"method":"domain_plan","request":request}),
+        false,
+    )?;
+    if reply.data().is_some_and(|plan| {
+        plan.project_id != request.project_id
+            || Some(plan.revision.get()) != request.expected_revision
+    }) {
+        return Err(ErrorCode::InvalidInput);
+    }
+    Ok(reply)
+}
+fn domain_apply(
+    client: &mut ServiceClient,
+    request: &Request<MutationInput>,
+    review: &Digest,
+) -> std::result::Result<Response<MutationReceipt>, ErrorCode> {
+    domain_request(request)?;
+    let reply: Response<MutationReceipt> = client.exchange(
+        &request.request_id,
+        json!({"method":"domain_apply","request":request,"review":review}),
+        true,
+    )?;
+    if reply.data().is_some_and(|receipt| {
+        receipt.project_id != request.project_id
+            || Some(receipt.revision.get()) != request.expected_revision
+            || reply
+                .operation_id()
+                .is_some_and(|id| id != &receipt.operation_id)
+    }) {
+        return Err(ErrorCode::AdmissionUnconfirmed);
+    }
+    Ok(reply)
+}
+fn domain_lookup(
+    client: &mut ServiceClient,
+    id: Id,
+    project: &Id,
+    key: &Id,
+) -> std::result::Result<Response<Option<MutationReceipt>>, ErrorCode> {
+    let reply:Response<Option<MutationReceipt>>=client.exchange(&id,json!({"method":"domain_lookup","request_id":id,"project_id":project,"idempotency_key":key}),false)?;
+    if reply
+        .data()
+        .and_then(Option::as_ref)
+        .is_some_and(|receipt| {
+            &receipt.project_id != project
+                || reply
+                    .operation_id()
+                    .is_some_and(|id| id != &receipt.operation_id)
+        })
+    {
+        return Err(ErrorCode::InvalidInput);
+    }
+    Ok(reply)
+}
+pub struct BoundDomainClient {
+    previous: BoundDatabaseActionsClient,
+}
+impl BoundDomainClient {
+    pub fn connect(
+        endpoint: Endpoint,
+        loaded: crate::credential_file::LoadedCredential,
+    ) -> std::result::Result<Self, ErrorCode> {
+        Ok(Self {
+            previous: BoundDatabaseActionsClient::connect(endpoint, loaded)?,
+        })
+    }
+    fn project(&self) -> &Id {
+        self.previous.database.project()
+    }
+    fn transport(&mut self) -> &mut ServiceClient {
+        self.previous.database.transport()
+    }
+    pub fn read_base(
+        &mut self,
+        id: Id,
+        input: ExternalInput,
+    ) -> std::result::Result<ExternalReply, ErrorCode> {
+        self.previous.database().read(id, input)
+    }
+    pub fn facts(
+        &mut self,
+        id: Id,
+        operation: crate::service_control::DomainReadKind,
+    ) -> std::result::Result<Response<crate::service_control::DomainFacts>, ErrorCode> {
+        let project = self.project().clone();
+        domain_facts(self.transport(), id, &project, operation)
+    }
+    pub fn prepare(
+        &mut self,
+        id: Id,
+        kind: crate::service_control::DomainPlanKind,
+    ) -> std::result::Result<Response<crate::service_control::DomainPlanPreview>, ErrorCode> {
+        let project = self.project().clone();
+        domain_prepare(self.transport(), id, &project, kind)
+    }
+    pub fn plan(
+        &mut self,
+        request: &Request<MutationInput>,
+    ) -> std::result::Result<Response<PlanReceipt>, ErrorCode> {
+        if &request.project_id != self.project() {
+            return Err(ErrorCode::ProjectMismatch);
+        }
+        domain_plan(self.transport(), request)
+    }
+    pub fn apply(
+        &mut self,
+        request: &Request<MutationInput>,
+        review: &Digest,
+    ) -> std::result::Result<Response<MutationReceipt>, ErrorCode> {
+        if &request.project_id != self.project() {
+            return Err(ErrorCode::ProjectMismatch);
+        }
+        domain_apply(self.transport(), request, review)
+    }
+    pub fn lookup(
+        &mut self,
+        id: Id,
+        key: &Id,
+    ) -> std::result::Result<Response<Option<MutationReceipt>>, ErrorCode> {
+        let project = self.project().clone();
+        domain_lookup(self.transport(), id, &project, key)
+    }
+}
+/// Finite MCP composition; independent surface flags expose only approved
+/// operations, and never constitute machine-change confirmation or elevation.
+pub struct BoundDomainActionsClient {
+    domain: BoundDomainClient,
+}
+impl BoundDomainActionsClient {
+    pub fn connect(
+        endpoint: Endpoint,
+        loaded: crate::credential_file::LoadedCredential,
+    ) -> std::result::Result<Self, ErrorCode> {
+        Ok(Self {
+            domain: BoundDomainClient::connect(endpoint, loaded)?,
+        })
+    }
+    pub fn domain(&mut self) -> &mut BoundDomainClient {
+        &mut self.domain
+    }
+    pub fn previous(&mut self) -> &mut BoundDatabaseActionsClient {
+        &mut self.domain.previous
+    }
+}
+
 struct SecretRequest(Value);
 impl Drop for SecretRequest {
     fn drop(&mut self) {

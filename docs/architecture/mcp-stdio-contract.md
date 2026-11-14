@@ -1,8 +1,9 @@
 # M13.3 bounded read-only stdio contract
 
 M13.4 optionally adds [reviewed project actions](reviewed-service-actions.md)
-behind independent --allow-service-actions, --allow-runtime-actions and
---allow-environment-actions flags. The five-tool read-only surface below remains
+behind independent --allow-service-actions, --allow-runtime-actions,
+--allow-environment-actions, --allow-database-actions and --allow-domain-actions
+flags. The five-tool read-only surface below remains
 the default; these flags themselves grant no mutation authority.
 
 The adapter supports modern `2026-07-28` and legacy `2025-11-25`, based on the

@@ -1,0 +1,9 @@
+   Compiling devforge-workspace v0.1.0 (/Users/yusupov/Herd/devforge/crates/workspace)
+   Compiling devforge-control-adapter v0.1.0 (/Users/yusupov/Herd/devforge/crates/control-adapter)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 6.02s
+     Running tests/dispatch.rs (target/debug/deps/dispatch-6280df04de372094)
+
+running 1 test
+test reviewed_domain_actions_dispatch_only_private_plan_references_not_legacy_global_https ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.01s

@@ -1,0 +1,5 @@
+   Compiling devforge-control v0.1.0 (/Users/yusupov/Herd/devforge/crates/control)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.04s
+     Running `target/debug/examples/export_contracts --write`
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.05s
+     Running `target/debug/examples/export_contracts --check`

@@ -966,6 +966,26 @@ impl NativeClient {
     ) -> Result<devforge_control::mutations::PlanReceipt> {
         decode(self.authenticated("approve_service_plan", json!({"digest":digest}))?)
     }
+    /// Separate explicit native-owner machine-change action. This marker is
+    /// never accepted from renderer/automation JSON or an external grant.
+    pub fn confirm_domain_change(
+        &mut self,
+        digest: &devforge_control::Digest,
+        _action: &crate::auth::TrustedDesktopAction,
+    ) -> Result<()> {
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct Confirmed {
+            confirmed: bool,
+        }
+        let reply: Confirmed =
+            decode(self.authenticated("confirm_domain_change", json!({"digest":digest}))?)?;
+        if reply.confirmed {
+            Ok(())
+        } else {
+            Err(Error::Protocol)
+        }
+    }
     /// Confirms this authenticated Quit's outcome after cleanup, without any
     /// credential access. Internally holds the legacy exclusion while reading;
     /// a missing/pending/stale record never proves successful cleanup.

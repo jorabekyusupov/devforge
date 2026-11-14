@@ -89,5 +89,6 @@ pub mod credential_file;
 pub mod mcp_contract;
 
 mod database_control;
+mod domain_control;
 mod environment_control;
 pub mod service_control;

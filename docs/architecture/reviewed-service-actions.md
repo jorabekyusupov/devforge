@@ -1,8 +1,9 @@
 # M13.4 reviewed project actions
 
 M13.4 exposes the reviewed service lifecycle, runtime install/select and
-environment/YAML and database bind/restore actions described below. Domain/HTTPS
-mutations remain a later slice. The default MCP surface remains read-only.
+environment/YAML, database bind/restore and domain/HTTPS actions described below.
+The default MCP surface remains read-only. Native machine integration retains
+the explicit owner/helper/platform gates recorded below.
 
 ## Authority and execution
 
@@ -231,3 +232,46 @@ The isolated fixture stopped cleanly, with copied cache/MemoryStore and no
 download or global database change. This positive native run was reused after
 the reject-only foreign-manifest guard; its separate negative regression passed.
 Windows/Intel native DB and OS credential-provider acceptance remain unverified.
+
+## Domain/HTTPS slice
+
+The exact seven planned operations are URL, ports, certificate status, hosts
+plan, trust plan, apply and cleanup. There is no additional site-configuration
+endpoint: the reviewed YAML/setup flow already handles those changes. Domain
+opt-in adds seven MCP tools (default5/domain12/all25); flags grant no authority.
+
+Observer reads and preparation use noncreating scoped helpers. Missing CA returns
+native_owner_preparation_required rather than opening Authority or initializing
+the credential store. ca_prepared means validated public DER metadata only;
+the signing key is unprobed and system_trusted remains None. Public responses
+omit owner-wide domains, actual hosts/paths/CAS hashes, DER, keys and raw plans.
+The private existing SystemPlan, owner/site/CA/root/revision/expiry fingerprint
+and hosts CAS remain in bounded manager RAM.
+
+Apply/cleanup require ProjectManage and SensitiveOperation, native exact-plan
+approval, and a separate current-DesktopAuthority exact-machine confirmation.
+The Rust-only confirmation is one-shot, fingerprint/expiry bound and cannot be
+deserialized or cloned. Grant, generic approval or client JSON/flags alone cannot
+elevate. Current state is checked again before the fixed helper steps; partial or
+unconfirmed outcomes do not claim rollback. No arbitrary privileged command exists.
+
+Hosts plans union the selected project's names with the actual canonical owner
+entries. Cleanup subtracts only those names, preserving other/stale entries and
+the shared CA. Last-project empty hosts sets are supported by the existing plan;
+unsafe/noncanonical owner blocks are blocked. Cleanup never emits TrustRemove.
+
+Core metadata/CA/cleanup/confirmation tests3, manager policy1, scoped callback1,
+canonical mutation9, adapter1, client integrations2 and parser1 passed, with
+scoped clippy and checked exports. QA found and closed one composition issue:
+authorization had called global Snapshot, whose backup listing creates/chmods
+namespaces. It now reads only scoped registration/root/revision/filesystem
+identity; the synchronous regression proves no unrelated backup/CA directories.
+QA performed source review only, with no duplicate tests or helper calls.
+
+One actual macOS ARM64 smoke used hash-verified copied Caddy2.11.9, an owned
+MemoryCA and client-only root trust on loopback. TLS and explicit denial before
+helper passed; the owned child stopped. No PHP, original cache mutation, system
+hosts/trust read/write, native credential service or OS permission change occurred.
+Its evidence was reused after the accessor-only authorization fix. Production
+helper/UAC/macOS dialogs, signing, minimum OS and real trust-store/hosts mutation
+remain M13.9/M15 acceptance gates; this smoke does not close them.

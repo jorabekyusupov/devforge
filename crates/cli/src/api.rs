@@ -104,6 +104,46 @@ const COMMANDS: &[(&str, &str)] = &[
         "database restore",
         "devforge api database restore PROJECT_ID --backup ID --revision N --idempotency-key KEY --review TICKET --credential-stdin",
     ),
+    (
+        "domain url",
+        "devforge api domain url PROJECT_ID --credential-stdin",
+    ),
+    (
+        "domain ports",
+        "devforge api domain ports PROJECT_ID --credential-stdin",
+    ),
+    (
+        "domain certificate-status",
+        "devforge api domain certificate-status PROJECT_ID --credential-stdin",
+    ),
+    (
+        "domain hosts-plan",
+        "devforge api domain hosts-plan PROJECT_ID --credential-stdin",
+    ),
+    (
+        "domain trust-plan",
+        "devforge api domain trust-plan PROJECT_ID --credential-stdin",
+    ),
+    (
+        "domain apply plan",
+        "devforge api domain apply plan PROJECT_ID --plan TICKET --revision N --idempotency-key KEY --credential-stdin",
+    ),
+    (
+        "domain apply",
+        "devforge api domain apply PROJECT_ID --plan TICKET --revision N --idempotency-key KEY --review REVIEW --credential-stdin",
+    ),
+    (
+        "domain cleanup",
+        "devforge api domain cleanup PROJECT_ID --credential-stdin",
+    ),
+    (
+        "domain cleanup plan",
+        "devforge api domain cleanup plan PROJECT_ID --plan TICKET --revision N --idempotency-key KEY --credential-stdin",
+    ),
+    (
+        "domain cleanup apply",
+        "devforge api domain cleanup apply PROJECT_ID --plan TICKET --revision N --idempotency-key KEY --review REVIEW --credential-stdin",
+    ),
 ];
 
 #[derive(Debug)]
@@ -123,6 +163,7 @@ struct Invocation {
     write_env: bool,
     instance: Option<Id>,
     backup: Option<Id>,
+    plan: Option<Digest>,
 }
 impl Invocation {
     fn parse(args: &[String], request: Id) -> Result<Self, ErrorCode> {
@@ -142,6 +183,7 @@ impl Invocation {
             write_env: false,
             instance: None,
             backup: None,
+            plan: None,
         };
         let mut request_seen = false;
         let mut version_seen = false;
@@ -152,7 +194,7 @@ impl Invocation {
             match argument.as_str() {
                 "--api-version" | "--request-id" | "--project" | "--revision"
                 | "--idempotency-key" | "--review" | "--package" | "--php" | "--node"
-                | "--credential-file" | "--instance" | "--backup" => {
+                | "--credential-file" | "--instance" | "--backup" | "--plan" => {
                     index += 1;
                     let value = args.get(index).ok_or(ErrorCode::InvalidInput)?;
                     match argument.as_str() {
@@ -201,6 +243,9 @@ impl Invocation {
                         }
                         "--backup" if invocation.backup.is_none() => {
                             invocation.backup = Some(Id::new(value)?)
+                        }
+                        "--plan" if invocation.plan.is_none() => {
+                            invocation.plan = Some(Digest::new(value.clone())?)
                         }
                         _ => return Err(ErrorCode::InvalidInput),
                     }
@@ -283,7 +328,7 @@ fn metadata(words: &[String]) -> Result<Option<Value>, ErrorCode> {
         .as_slice()
     {
         ["capabilities"] => Ok(Some(
-            json!({"api_version":API_VERSION,"owner_autostart":false,"native_desktop_authority":false,"external_grant_required":true,"project_visibility":"credential-bound project only","commands":COMMANDS.iter().filter(|(name,_)| !matches!(*name,"schema"|"capabilities")).map(|(name,_)|json!({"name":name,"implemented":true,"requires_connection":true,"requires_grant":*name!="health","required_scopes":match *name {"health"=>vec![],"operation cancel"=>vec!["observer","project_manage"],"env apply"|"env plan apply"=>vec!["project_manage","sensitive_operation","execution_test"],"env yaml-save"|"env plan yaml-save"|"database bind"|"database restore"|"database plan bind"|"database plan restore"=>vec!["project_manage","sensitive_operation"],"service start"|"service restart"|"runtime select"=>vec!["project_manage","execution_test"],"service stop"|"runtime install"=>vec!["project_manage"],"service plan"|"runtime plan"=>vec!["project_manage"],_=>vec!["observer"]},"execution_requires_native_approval":name.starts_with("service ")||name.starts_with("runtime ")||matches!(*name,"env apply"|"env yaml-save"|"env plan apply"|"env plan yaml-save"|"database bind"|"database restore"|"database plan bind"|"database plan restore"),"scope_by_action":if *name=="service plan"{json!({"start":["project_manage","execution_test"],"stop":["project_manage"],"restart":["project_manage","execution_test"]})}else if *name=="runtime plan"{json!({"install":["project_manage"],"select":["project_manage","execution_test"]})}else{Value::Null},"partial_effects":if matches!(*name,"service plan"|"service start"|"service restart"){json!(["configured_database_cache_smtp_may_remain_running_after_failure_or_cancel","restart_may_have_stopped_selected_session_before_later_denial"])}else{json!([])},"effect":match *name{"operation cancel"=>"cancel_owned_operation","service start"|"service stop"|"service restart"=>"reviewed_owned_service_lifecycle","runtime install"=>"reviewed_shared_cache_write_without_pin_switch","runtime select"=>"reviewed_php_node_selection_with_possible_session_restart","env apply"=>"reviewed_existing_configuration_backend_writes","env yaml-save"=>"reviewed_yaml_and_private_core_history_write","database bind"=>"reviewed_owned_database_binding_write","database restore"=>"reviewed_owned_backup_restore",_=>"read_only"}})).collect::<Vec<_>>(),"deferred":["general_execution_tools","content_reads","other_project_mutations"],"planning_inventory_is_live":false}),
+            json!({"api_version":API_VERSION,"owner_autostart":false,"native_desktop_authority":false,"external_grant_required":true,"project_visibility":"credential-bound project only","commands":COMMANDS.iter().filter(|(name,_)| !matches!(*name,"schema"|"capabilities")).map(|(name,_)|json!({"name":name,"implemented":true,"requires_connection":true,"requires_grant":*name!="health","required_scopes":match *name {"health"=>vec![],"operation cancel"=>vec!["observer","project_manage"],"env apply"|"env plan apply"=>vec!["project_manage","sensitive_operation","execution_test"],"env yaml-save"|"env plan yaml-save"|"database bind"|"database restore"|"database plan bind"|"database plan restore"|"domain apply"|"domain apply plan"|"domain cleanup"|"domain cleanup plan"|"domain cleanup apply"=>vec!["project_manage","sensitive_operation"],"service start"|"service restart"|"runtime select"=>vec!["project_manage","execution_test"],"service stop"|"runtime install"=>vec!["project_manage"],"service plan"|"runtime plan"=>vec!["project_manage"],_=>vec!["observer"]},"execution_requires_native_approval":name.starts_with("service ")||name.starts_with("runtime ")||matches!(*name,"env apply"|"env yaml-save"|"env plan apply"|"env plan yaml-save"|"database bind"|"database restore"|"database plan bind"|"database plan restore"|"domain apply"|"domain apply plan"|"domain cleanup plan"|"domain cleanup apply"),"native_machine_confirmation_required":matches!(*name,"domain apply"|"domain apply plan"|"domain cleanup"|"domain cleanup plan"|"domain cleanup apply"),"scope_by_action":if *name=="service plan"{json!({"start":["project_manage","execution_test"],"stop":["project_manage"],"restart":["project_manage","execution_test"]})}else if *name=="runtime plan"{json!({"install":["project_manage"],"select":["project_manage","execution_test"]})}else{Value::Null},"partial_effects":if matches!(*name,"service plan"|"service start"|"service restart"){json!(["configured_database_cache_smtp_may_remain_running_after_failure_or_cancel","restart_may_have_stopped_selected_session_before_later_denial"])}else{json!([])},"effect":match *name{"operation cancel"=>"cancel_owned_operation","service start"|"service stop"|"service restart"=>"reviewed_owned_service_lifecycle","runtime install"=>"reviewed_shared_cache_write_without_pin_switch","runtime select"=>"reviewed_php_node_selection_with_possible_session_restart","env apply"=>"reviewed_existing_configuration_backend_writes","env yaml-save"=>"reviewed_yaml_and_private_core_history_write","database bind"=>"reviewed_owned_database_binding_write","database restore"=>"reviewed_owned_backup_restore","domain apply"|"domain cleanup apply"=>"native_confirmed_project_scoped_system_integration",_=>"read_only"}})).collect::<Vec<_>>(),"deferred":["general_execution_tools","content_reads","other_project_mutations"],"planning_inventory_is_live":false}),
         )),
         ["schema"] => Ok(Some(schema())),
         _ => Ok(None),
@@ -325,7 +370,7 @@ fn schema() -> Value {
             ("request_id".to_owned(),id.clone()),
         ]);
         let mut required = vec!["command"];
-        if *name=="project inspect" || name.starts_with("operation ") || name.starts_with("service ") || name.starts_with("runtime ") ||name.starts_with("env ") ||name.starts_with("database ") {
+        if *name=="project inspect" || name.starts_with("operation ") || name.starts_with("service ") || name.starts_with("runtime ") ||name.starts_with("env ") ||name.starts_with("database ") ||name.starts_with("domain ") {
             properties.insert("project_id".into(),id.clone());
             required.push("project_id");
         }
@@ -362,12 +407,16 @@ fn schema() -> Value {
             if name.ends_with("bind"){properties.insert("instance_id".into(),id.clone());required.push("instance_id");}else{properties.insert("backup_id".into(),id.clone());required.push("backup_id");}
             if !name.starts_with("database plan "){properties.insert("review".into(),json!({"type":"string","pattern":"^[0-9a-f]{64}$"}));required.push("review");}
         }
+        if matches!(*name,"domain apply"|"domain apply plan"|"domain cleanup plan"|"domain cleanup apply"){
+            properties.insert("plan".into(),json!({"type":"string","pattern":"^[0-9a-f]{64}$"}));properties.insert("expected_revision".into(),json!({"type":"integer","minimum":0,"maximum":devforge_control::limits::SafeInt::MAX}));properties.insert("idempotency_key".into(),id.clone());required.extend(["plan","expected_revision","idempotency_key"]);
+            if matches!(*name,"domain apply"|"domain cleanup apply"){properties.insert("review".into(),json!({"type":"string","pattern":"^[0-9a-f]{64}$"}));required.push("review");}
+        }
         if *name=="operation lookup"{properties.insert("idempotency_key".into(),id.clone());required.push("idempotency_key");}
         let mut input=json!({"type":"object","additionalProperties":false,"properties":properties,"required":required});
         if *name=="runtime plan"{input["oneOf"]=json!([{"properties":{"action":{"const":"install"}},"required":["package_id"],"not":{"anyOf":[{"required":["php"]},{"required":["node"]}]}},{"properties":{"action":{"const":"select"}},"required":["php","node"],"not":{"required":["package_id"]}}]);}
         input
     }).collect::<Vec<_>>();
-    let mut value = json!({"api_version":API_VERSION,"scope":"implemented JSON CLI and reviewed service and runtime install/PHP-Node and masked environment/YAML and owned database bind/restore slices; other mutations remain unavailable","response":{"$schema":"https://json-schema.org/draft/2020-12/schema","type":"object","additionalProperties":false,"required":["api_version","request_id","ok","warnings"],"properties":{"api_version":{"const":API_VERSION},"request_id":{"type":"string","pattern":"^[A-Za-z0-9_.:-]+$","minLength":1,"maxLength":128},"operation_id":{"type":"string"},"ok":{"type":"boolean"},"data":{},"error":{"type":"object","additionalProperties":false,"required":["code","retryable"],"properties":{"code":{"enum":devforge_control::export::ERRORS},"retryable":{"type":"boolean"}}},"warnings":{"type":"array","items":{"enum":devforge_control::export::ERRORS}}},"oneOf":[{"properties":{"ok":{"const":true}},"required":["data"],"not":{"required":["error"]}},{"properties":{"ok":{"const":false}},"required":["error"],"not":{"required":["data"]}}]},"commands":COMMANDS.iter().map(|(name,example)|json!({"name":name,"example":example})).collect::<Vec<_>>(),"exit_codes":exit_codes()});
+    let mut value = json!({"api_version":API_VERSION,"scope":"implemented JSON CLI and reviewed service and runtime install/PHP-Node and masked environment/YAML and owned database bind/restore and finite project domain/HTTPS slices; other mutations remain unavailable","response":{"$schema":"https://json-schema.org/draft/2020-12/schema","type":"object","additionalProperties":false,"required":["api_version","request_id","ok","warnings"],"properties":{"api_version":{"const":API_VERSION},"request_id":{"type":"string","pattern":"^[A-Za-z0-9_.:-]+$","minLength":1,"maxLength":128},"operation_id":{"type":"string"},"ok":{"type":"boolean"},"data":{},"error":{"type":"object","additionalProperties":false,"required":["code","retryable"],"properties":{"code":{"enum":devforge_control::export::ERRORS},"retryable":{"type":"boolean"}}},"warnings":{"type":"array","items":{"enum":devforge_control::export::ERRORS}}},"oneOf":[{"properties":{"ok":{"const":true}},"required":["data"],"not":{"required":["error"]}},{"properties":{"ok":{"const":false}},"required":["error"],"not":{"required":["data"]}}]},"commands":COMMANDS.iter().map(|(name,example)|json!({"name":name,"example":example})).collect::<Vec<_>>(),"exit_codes":exit_codes()});
     value["input"] = json!({"$schema":"https://json-schema.org/draft/2020-12/schema","description":"Logical CLI arguments; bearer credentials are private stdin transport, never JSON fields.","oneOf":inputs});
     value
 }
@@ -404,7 +453,8 @@ pub fn run(args: &[String]) -> i32 {
                 && !invocation.input_stdin
                 && !invocation.write_env
                 && invocation.instance.is_none()
-                && invocation.backup.is_none() =>
+                && invocation.backup.is_none()
+                && invocation.plan.is_none() =>
         {
             Ok((
                 serde_json::to_value(Response::success(request.clone(), None, value))
@@ -433,6 +483,142 @@ fn emit(response: Response<Value>) {
         serde_json::to_string(&response).expect("JSON control envelope")
     );
 }
+fn domain_live(invocation: &Invocation) -> Result<(Value, i32), ErrorCode> {
+    use devforge_manager::{
+        Endpoint,
+        external_auth::ExternalCredential,
+        external_client::DomainClient,
+        service_control::{DomainPlanKind, DomainReadKind},
+    };
+    if invocation.project.is_some()
+        || invocation.package.is_some()
+        || invocation.php.is_some()
+        || invocation.node.is_some()
+        || invocation.input_stdin
+        || invocation.write_env
+        || invocation.credential_file.is_some()
+        || invocation.instance.is_some()
+        || invocation.backup.is_some()
+    {
+        return Err(ErrorCode::InvalidInput);
+    }
+    enum Call {
+        Facts(DomainReadKind),
+        Prepare(DomainPlanKind),
+        Plan(Request<MutationInput>),
+        Apply(Request<MutationInput>, Digest),
+    }
+    let words = invocation
+        .words
+        .iter()
+        .map(String::as_str)
+        .collect::<Vec<_>>();
+    let (project, call) = if let ["domain", operation, project] = words.as_slice() {
+        match *operation {
+            "url" | "ports" | "certificate-status" | "hosts-plan" | "trust-plan" | "cleanup" => {
+                if invocation.revision.is_some()
+                    || invocation.idempotency.is_some()
+                    || invocation.review.is_some()
+                    || invocation.plan.is_some()
+                {
+                    return Err(ErrorCode::InvalidInput);
+                }
+                let call = match *operation {
+                    "url" => Call::Facts(DomainReadKind::Url),
+                    "ports" => Call::Facts(DomainReadKind::Ports),
+                    "certificate-status" => Call::Facts(DomainReadKind::CertificateStatus),
+                    "hosts-plan" => Call::Prepare(DomainPlanKind::Hosts),
+                    "trust-plan" => Call::Prepare(DomainPlanKind::Trust),
+                    _ => Call::Prepare(DomainPlanKind::Cleanup),
+                };
+                (Id::new(*project)?, call)
+            }
+            "apply" => {
+                let project = Id::new(*project)?;
+                let request = domain_cli_request(invocation, project.clone(), false)?;
+                (
+                    project,
+                    Call::Apply(
+                        request,
+                        invocation.review.clone().ok_or(ErrorCode::InvalidInput)?,
+                    ),
+                )
+            }
+            _ => return Err(ErrorCode::InvalidInput),
+        }
+    } else {
+        let (operation, phase, project) = match words.as_slice() {
+            ["domain", operation, phase, project] => (*operation, *phase, *project),
+            _ => return Err(ErrorCode::InvalidInput),
+        };
+        if !matches!(
+            (operation, phase),
+            ("apply", "plan") | ("cleanup", "plan") | ("cleanup", "apply")
+        ) {
+            return Err(ErrorCode::InvalidInput);
+        }
+        let project = Id::new(project)?;
+        let request = domain_cli_request(invocation, project.clone(), operation == "cleanup")?;
+        let call = if phase == "plan" {
+            if invocation.review.is_some() {
+                return Err(ErrorCode::InvalidInput);
+            }
+            Call::Plan(request)
+        } else {
+            Call::Apply(
+                request,
+                invocation.review.clone().ok_or(ErrorCode::InvalidInput)?,
+            )
+        };
+        (project, call)
+    };
+    if !invocation.credential_stdin {
+        return Err(ErrorCode::Unauthorized);
+    }
+    let credential = credential()?;
+    let credential =
+        ExternalCredential::from_wire(&credential).map_err(|_| ErrorCode::Unauthorized)?;
+    let root = devforge_platform::app_data_dir().map_err(|_| ErrorCode::StorageUnavailable)?;
+    let endpoint = Endpoint::existing(&root).map_err(|_| ErrorCode::StorageUnavailable)?;
+    let mut client = DomainClient::connect(endpoint, credential)?;
+    match call {
+        Call::Facts(operation) => {
+            service_response(client.facts(invocation.request.clone(), &project, operation)?)
+        }
+        Call::Prepare(kind) => {
+            service_response(client.prepare(invocation.request.clone(), &project, kind)?)
+        }
+        Call::Plan(request) => service_response(client.plan(&request)?),
+        Call::Apply(request, review) => service_response(client.apply(&request, &review)?),
+    }
+}
+fn domain_cli_request(
+    invocation: &Invocation,
+    project: Id,
+    cleanup: bool,
+) -> Result<Request<MutationInput>, ErrorCode> {
+    use devforge_control::mutations::{DomainApplyInput, DomainCleanupInput};
+    let plan = invocation.plan.clone().ok_or(ErrorCode::InvalidInput)?;
+    let input = if cleanup {
+        MutationInput::DomainCleanup(DomainCleanupInput { plan, limits: None })
+    } else {
+        MutationInput::DomainApply(DomainApplyInput { plan, limits: None })
+    };
+    Ok(Request {
+        api_version: Default::default(),
+        request_id: invocation.request.clone(),
+        project_id: project,
+        expected_revision: Some(invocation.revision.ok_or(ErrorCode::InvalidInput)?),
+        idempotency_key: Some(
+            invocation
+                .idempotency
+                .clone()
+                .ok_or(ErrorCode::InvalidInput)?,
+        ),
+        input,
+    })
+}
+
 fn database_live(invocation: &Invocation) -> Result<(Value, i32), ErrorCode> {
     use devforge_control::mutations::{DatabaseBindInput, DatabaseRestoreInput};
     use devforge_manager::{
@@ -839,6 +1025,12 @@ fn live(invocation: &Invocation) -> Result<(Value, i32), ErrorCode> {
         .iter()
         .map(String::as_str)
         .collect::<Vec<_>>();
+    if words.first() == Some(&"domain") {
+        return domain_live(invocation);
+    }
+    if invocation.plan.is_some() {
+        return Err(ErrorCode::InvalidInput);
+    }
     if words.first() == Some(&"database") {
         return database_live(invocation);
     }

@@ -446,6 +446,10 @@ enum Request {
         session: WireToken,
         digest: devforge_control::Digest,
     },
+    ConfirmDomainChange {
+        session: WireToken,
+        digest: devforge_control::Digest,
+    },
 }
 impl Context {
     fn finish_shutdown(&self, cleanup: Result<()>) -> Result<()> {
@@ -696,6 +700,7 @@ impl Context {
             | Request::ExternalGrantList { session }
             | Request::ExternalGrantRevoke { session, .. }
             | Request::ApproveServicePlan { session, .. }
+            | Request::ConfirmDomainChange { session, .. }
             | Request::Quit { session } => session,
             _ => return fault("controller_invalid_request"),
         };
@@ -712,6 +717,15 @@ impl Context {
             Err(error) => return fault(&error.to_string()),
         };
         match request {
+            Request::ConfirmDomainChange { digest, .. } => {
+                match self
+                    .services
+                    .confirm_domain(&authority, &digest, &self.actor)
+                {
+                    Ok(()) => success(json!({"confirmed":true})),
+                    Err(error) => fault(control_code(error)),
+                }
+            }
             Request::ApproveServicePlan { digest, .. } => {
                 match self.services.approve(&authority, &digest, &self.actor) {
                     Ok(receipt) => bounded_reply(&receipt),

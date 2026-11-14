@@ -129,6 +129,8 @@ contract!(YamlSaveInput{expected:Option<Digest>,text:YamlText,limits:Option<Muta
 contract!(WorkspaceLifecycleInput{workspace_id:Id,limits:Option<MutationLimits>});
 contract!(DatabaseBindInput{instance_id:Id,limits:Option<MutationLimits>});
 contract!(DatabaseRestoreInput{backup_id:Id,limits:Option<MutationLimits>});
+contract!(DomainApplyInput{plan:Digest,limits:Option<MutationLimits>});
+contract!(DomainCleanupInput{plan:Digest,limits:Option<MutationLimits>});
 contract!(MutationReceipt {
     project_id: Id,
     operation_id: Id,
@@ -177,6 +179,8 @@ mutation_set! {
     YamlSave("environment.yaml_save",YamlSaveInput,MutationReceipt,"configuration_save"),
     DatabaseBind("database.bind",DatabaseBindInput,MutationReceipt,"switch_database"),
     DatabaseRestore("database.restore",DatabaseRestoreInput,MutationReceipt,"restore_backup"),
+    DomainApply("domains.apply",DomainApplyInput,MutationReceipt,"domain_system_apply"),
+    DomainCleanup("domains.cleanup",DomainCleanupInput,MutationReceipt,"domain_system_cleanup"),
     WorkspaceArchive("workspaces.archive",WorkspaceLifecycleInput,MutationReceipt,"worktree_cleanup"),
     WorkspaceRestore("workspaces.restore",WorkspaceLifecycleInput,MutationReceipt,"worktree_archive.restore"),
     WorkspacePurge("workspaces.purge",WorkspaceLifecycleInput,MutationReceipt,"worktree_archive.purge"),
@@ -387,6 +391,8 @@ pub fn declarations() -> Vec<String> {
         WorkspaceLifecycleInput,
         DatabaseBindInput,
         DatabaseRestoreInput,
+        DomainApplyInput,
+        DomainCleanupInput,
         MutationReceipt,
         PlanReceipt
     )

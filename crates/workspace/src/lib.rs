@@ -5,6 +5,7 @@ mod configuration;
 pub mod database_control;
 pub mod debugging;
 pub mod discovery;
+pub mod domain_control;
 pub mod environment_control;
 pub mod environment_report;
 mod mail;

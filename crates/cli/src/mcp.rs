@@ -5,13 +5,13 @@ use devforge_manager::{
     Endpoint,
     credential_file::{CredentialFile, LoadedCredential},
     external_client::{
-        BoundActionsClient, BoundDatabaseActionsClient, BoundEnvActionsClient, BoundReadOnlyClient,
-        BoundRuntimeClient, BoundServiceClient,
+        BoundActionsClient, BoundDatabaseActionsClient, BoundDomainActionsClient,
+        BoundEnvActionsClient, BoundReadOnlyClient, BoundRuntimeClient, BoundServiceClient,
     },
     mcp_contract::{
-        self, Action, DatabaseCall, DatabaseInput, EnvCall, EnvInput, MAX_REQUEST_BYTES,
-        MAX_RESPONSE_BYTES, Protocol, RuntimeCall, RuntimeInput, ServiceCall, ServiceInput,
-        ToolCall,
+        self, Action, DatabaseCall, DatabaseInput, DomainCall, DomainInput, EnvCall, EnvInput,
+        MAX_REQUEST_BYTES, MAX_RESPONSE_BYTES, Protocol, RuntimeCall, RuntimeInput, ServiceCall,
+        ServiceInput, ToolCall,
     },
 };
 use serde_json::{Value, json};
@@ -30,6 +30,15 @@ use std::{
 use zeroize::Zeroizing;
 
 const QUEUE: usize = 8;
+#[derive(Clone, Copy, Default)]
+struct Surfaces {
+    service: bool,
+    runtime: bool,
+    environment: bool,
+    database: bool,
+    domain: bool,
+}
+
 enum Frame {
     Json(Zeroizing<Vec<u8>>),
     TooLarge,
@@ -51,6 +60,7 @@ enum QueuedCall {
     Runtime(RuntimeCall),
     Environment(EnvCall),
     Database(DatabaseCall),
+    Domain(DomainCall),
 }
 impl QueuedCall {
     fn id(&self) -> &Value {
@@ -60,6 +70,7 @@ impl QueuedCall {
             Self::Runtime(call) => call.jsonrpc_id(),
             Self::Environment(call) => call.jsonrpc_id(),
             Self::Database(call) => call.jsonrpc_id(),
+            Self::Domain(call) => call.jsonrpc_id(),
         }
     }
     fn failure(self, code: ErrorCode) -> Value {
@@ -69,6 +80,7 @@ impl QueuedCall {
             Self::Runtime(call) => Protocol::complete_runtime(call, Err(code)),
             Self::Environment(call) => Protocol::complete_environment(call, Err(code)),
             Self::Database(call) => Protocol::complete_database(call, Err(code)),
+            Self::Domain(call) => Protocol::complete_domain(call, Err(code)),
         }
     }
 }
@@ -79,6 +91,7 @@ enum BoundClient {
     Actions(BoundActionsClient),
     Environment(BoundEnvActionsClient),
     Database(BoundDatabaseActionsClient),
+    Domain(BoundDomainActionsClient),
 }
 impl BoundClient {
     fn dispatch(&mut self, call: QueuedCall, cancelled: &AtomicBool) -> Value {
@@ -103,12 +116,14 @@ impl BoundClient {
                     Self::Database(client) => client
                         .database()
                         .read(call.request_id.clone(), call.input.clone()),
+                    Self::Domain(client) => client
+                        .domain()
+                        .read_base(call.request_id.clone(), call.input.clone()),
                 };
                 Protocol::complete(call, result)
             }
             QueuedCall::Service(call) => {
                 let result = match self {
-                    Self::Read(_) | Self::Runtime(_) => Err(ErrorCode::UnsupportedCapability),
                     Self::Service(client) => match &call.input {
                         ServiceInput::Plan(request) => client.plan(request).and_then(value),
                         ServiceInput::Apply { request, review } => {
@@ -123,6 +138,10 @@ impl BoundClient {
                     Self::Actions(client) => combined_service(client, &call),
                     Self::Environment(client) => combined_service(client.actions(), &call),
                     Self::Database(client) => combined_service(client.previous().actions(), &call),
+                    Self::Domain(client) => {
+                        combined_service(client.previous().previous().actions(), &call)
+                    }
+                    _ => Err(ErrorCode::UnsupportedCapability),
                 };
                 Protocol::complete_service(call, result)
             }
@@ -136,7 +155,12 @@ impl BoundClient {
                     Self::Database(client) => {
                         runtime_dispatch(client.previous().actions().runtime(), &call, cancelled)
                     }
-                    Self::Read(_) | Self::Service(_) => Err(ErrorCode::UnsupportedCapability),
+                    Self::Domain(client) => runtime_dispatch(
+                        client.previous().previous().actions().runtime(),
+                        &call,
+                        cancelled,
+                    ),
+                    _ => Err(ErrorCode::UnsupportedCapability),
                 };
                 Protocol::complete_runtime(call, result)
             }
@@ -146,36 +170,65 @@ impl BoundClient {
                     Self::Database(client) => {
                         environment_dispatch(client.previous().environment(), &call)
                     }
+                    Self::Domain(client) => {
+                        environment_dispatch(client.previous().previous().environment(), &call)
+                    }
                     _ => Err(ErrorCode::UnsupportedCapability),
                 };
                 Protocol::complete_environment(call, result)
             }
             QueuedCall::Database(call) => {
                 let result = match self {
-                    Self::Database(client) => match &call.input {
-                        DatabaseInput::Choices => client
-                            .database()
-                            .choices(call.request_id.clone())
+                    Self::Database(client) => database_dispatch(client.database(), &call),
+                    Self::Domain(client) => database_dispatch(client.previous().database(), &call),
+                    _ => Err(ErrorCode::UnsupportedCapability),
+                };
+                Protocol::complete_database(call, result)
+            }
+            QueuedCall::Domain(call) => {
+                let result = match self {
+                    Self::Domain(client) => match &call.input {
+                        DomainInput::Facts(operation) => client
+                            .domain()
+                            .facts(call.request_id.clone(), *operation)
                             .and_then(value),
-                        DatabaseInput::Plan(request) => {
-                            client.database().plan(request).and_then(value)
-                        }
-                        DatabaseInput::Apply { request, review } => client
-                            .database()
+                        DomainInput::Prepare(kind) => client
+                            .domain()
+                            .prepare(call.request_id.clone(), *kind)
+                            .and_then(value),
+                        DomainInput::Plan(request) => client.domain().plan(request).and_then(value),
+                        DomainInput::Apply { request, review } => client
+                            .domain()
                             .apply(request, review)
                             .and_then(admitted_value),
-                        DatabaseInput::Lookup { idempotency_key } => client
-                            .database()
+                        DomainInput::Lookup { idempotency_key } => client
+                            .domain()
                             .lookup(call.request_id.clone(), idempotency_key)
                             .and_then(value),
                     },
                     _ => Err(ErrorCode::UnsupportedCapability),
                 };
-                Protocol::complete_database(call, result)
+                Protocol::complete_domain(call, result)
             }
         }
     }
 }
+fn database_dispatch(
+    client: &mut devforge_manager::external_client::BoundDatabaseClient,
+    call: &DatabaseCall,
+) -> Result<Value, ErrorCode> {
+    match &call.input {
+        DatabaseInput::Choices => client.choices(call.request_id.clone()).and_then(value),
+        DatabaseInput::Plan(request) => client.plan(request).and_then(value),
+        DatabaseInput::Apply { request, review } => {
+            client.apply(request, review).and_then(admitted_value)
+        }
+        DatabaseInput::Lookup { idempotency_key } => client
+            .lookup(call.request_id.clone(), idempotency_key)
+            .and_then(value),
+    }
+}
+
 fn environment_dispatch(
     client: &mut devforge_manager::external_client::BoundEnvClient,
     call: &EnvCall,
@@ -328,7 +381,7 @@ pub fn run(args: &[String]) -> i32 {
     {
         println!(
             "{}",
-            json!({"usage":"devforge mcp serve --credential-file ABSOLUTE_PATH [--allow-service-actions] [--allow-runtime-actions] [--allow-environment-actions] [--allow-database-actions]","protocol_versions":["2026-07-28","2025-11-25"],"transport":"stdio","default_read_only":true,"service_actions_opt_in":"--allow-service-actions (surface only; grants and native exact-plan approval remain mandatory)","credential":"explicit protected file; never token argv/environment or protocol stdin","runtime_actions_opt_in":"--allow-runtime-actions (catalog install/PHP-Node select only; native exact-plan approval remains mandatory)","environment_actions_opt_in":"--allow-environment-actions (masked preview/approved apply/YAML save only;16KiB UTF8 YAML)","database_actions_opt_in":"--allow-database-actions (scoped choices/native-approved stopped-project bind/restore only)","owner_autostart":false})
+            json!({"usage":"devforge mcp serve --credential-file ABSOLUTE_PATH [--allow-service-actions] [--allow-runtime-actions] [--allow-environment-actions] [--allow-database-actions] [--allow-domain-actions]","protocol_versions":["2026-07-28","2025-11-25"],"transport":"stdio","default_read_only":true,"service_actions_opt_in":"--allow-service-actions (surface only; grants and native exact-plan approval remain mandatory)","credential":"explicit protected file; never token argv/environment or protocol stdin","runtime_actions_opt_in":"--allow-runtime-actions (catalog install/PHP-Node select only; native exact-plan approval remains mandatory)","environment_actions_opt_in":"--allow-environment-actions (masked preview/approved apply/YAML save only;16KiB UTF8 YAML)","database_actions_opt_in":"--allow-database-actions (scoped choices/native-approved stopped-project bind/restore only)","domain_actions_opt_in":"--allow-domain-actions (project-only facts/opaque hosts-trust plan/apply/safe cleanup; native machine confirmation is separate)","owner_autostart":false})
         );
         return 0;
     }
@@ -340,10 +393,7 @@ pub fn run(args: &[String]) -> i32 {
         return 2;
     }
     let mut path = None;
-    let mut service_actions = false;
-    let mut runtime_actions = false;
-    let mut environment_actions = false;
-    let mut database_actions = false;
+    let mut surfaces = Surfaces::default();
     let mut index = 0;
     while index < options.len() {
         match options[index].as_str() {
@@ -355,10 +405,11 @@ pub fn run(args: &[String]) -> i32 {
                     return 2;
                 }
             }
-            "--allow-service-actions" if !service_actions => service_actions = true,
-            "--allow-runtime-actions" if !runtime_actions => runtime_actions = true,
-            "--allow-environment-actions" if !environment_actions => environment_actions = true,
-            "--allow-database-actions" if !database_actions => database_actions = true,
+            "--allow-service-actions" if !surfaces.service => surfaces.service = true,
+            "--allow-runtime-actions" if !surfaces.runtime => surfaces.runtime = true,
+            "--allow-environment-actions" if !surfaces.environment => surfaces.environment = true,
+            "--allow-database-actions" if !surfaces.database => surfaces.database = true,
+            "--allow-domain-actions" if !surfaces.domain => surfaces.domain = true,
             _ => {
                 eprintln!("mcp_invalid_arguments");
                 return 2;
@@ -377,13 +428,7 @@ pub fn run(args: &[String]) -> i32 {
             return 3;
         }
     };
-    match serve_stdio(
-        loaded,
-        service_actions,
-        runtime_actions,
-        environment_actions,
-        database_actions,
-    ) {
+    match serve_stdio(loaded, surfaces) {
         Ok(()) => 0,
         Err(_) => {
             eprintln!("mcp_stdio_unavailable");
@@ -391,19 +436,14 @@ pub fn run(args: &[String]) -> i32 {
         }
     }
 }
-fn serve_stdio(
-    loaded: LoadedCredential,
-    service_actions: bool,
-    runtime_actions: bool,
-    environment_actions: bool,
-    database_actions: bool,
-) -> io::Result<()> {
-    let mut protocol = Protocol::with_database_surfaces(
+fn serve_stdio(loaded: LoadedCredential, surfaces: Surfaces) -> io::Result<()> {
+    let mut protocol = Protocol::with_domain_surfaces(
         loaded.project_id().clone(),
-        service_actions,
-        runtime_actions,
-        environment_actions,
-        database_actions,
+        surfaces.service,
+        surfaces.runtime,
+        surfaces.environment,
+        surfaces.database,
+        surfaces.domain,
     );
     let (input_tx, input_rx) = mpsc::sync_channel(QUEUE);
     let reader = thread::spawn(move || {
@@ -423,17 +463,7 @@ fn serve_stdio(
     });
     let (job_tx, job_rx) = mpsc::sync_channel::<Job>(QUEUE);
     let (done_tx, done_rx) = mpsc::sync_channel::<Completed>(QUEUE);
-    let worker = thread::spawn(move || {
-        read_worker(
-            loaded,
-            service_actions,
-            runtime_actions,
-            environment_actions,
-            database_actions,
-            job_rx,
-            done_tx,
-        )
-    });
+    let worker = thread::spawn(move || read_worker(loaded, surfaces, job_rx, done_tx));
     let mut pending: HashMap<String, Arc<AtomicBool>> = HashMap::new();
     let stdout = io::stdout();
     let mut writer = stdout.lock();
@@ -532,6 +562,7 @@ fn transport_loop(
                 enqueue(QueuedCall::Environment(call), jobs, pending, writer)?
             }
             Action::Database(call) => enqueue(QueuedCall::Database(call), jobs, pending, writer)?,
+            Action::Domain(call) => enqueue(QueuedCall::Domain(call), jobs, pending, writer)?,
         }
     }
 }
@@ -563,10 +594,7 @@ fn enqueue(
 }
 fn read_worker(
     loaded: LoadedCredential,
-    service_actions: bool,
-    runtime_actions: bool,
-    environment_actions: bool,
-    database_actions: bool,
+    surfaces: Surfaces,
     jobs: Receiver<Job>,
     done: SyncSender<Completed>,
 ) {
@@ -594,17 +622,19 @@ fn read_worker(
                 })
                 .and_then(|endpoint| {
                     let loaded = loaded.take().expect("single credential consumption");
-                    if database_actions {
+                    if surfaces.domain {
+                        BoundDomainActionsClient::connect(endpoint, loaded).map(BoundClient::Domain)
+                    } else if surfaces.database {
                         BoundDatabaseActionsClient::connect(endpoint, loaded)
                             .map(BoundClient::Database)
-                    } else if environment_actions {
+                    } else if surfaces.environment {
                         BoundEnvActionsClient::connect(endpoint, loaded)
                             .map(BoundClient::Environment)
-                    } else if service_actions && runtime_actions {
+                    } else if surfaces.service && surfaces.runtime {
                         BoundActionsClient::connect(endpoint, loaded).map(BoundClient::Actions)
-                    } else if runtime_actions {
+                    } else if surfaces.runtime {
                         BoundRuntimeClient::connect(endpoint, loaded).map(BoundClient::Runtime)
-                    } else if service_actions {
+                    } else if surfaces.service {
                         BoundServiceClient::connect(endpoint, loaded).map(BoundClient::Service)
                     } else {
                         BoundReadOnlyClient::connect(endpoint, loaded).map(BoundClient::Read)

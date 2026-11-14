@@ -483,8 +483,18 @@ impl Mcp {
         environment: bool,
         database: bool,
     ) -> Self {
+        Self::with_domain(fixture, service, runtime, environment, database, false)
+    }
+    fn with_domain(
+        fixture: &Fixture,
+        service: bool,
+        runtime: bool,
+        environment: bool,
+        database: bool,
+        domain: bool,
+    ) -> Self {
         let file = fixture.parent.path().join(format!(
-            "grant-service-{service}-runtime-{runtime}-environment-{environment}-database-{database}.json"
+            "grant-service-{service}-runtime-{runtime}-environment-{environment}-database-{database}-domain-{domain}.json"
         ));
         let bytes=zeroize::Zeroizing::new(serde_json::to_vec(&json!({"schema":1,"project_id":fixture.project,"credential":fixture.full.credential.expose_secret()})).unwrap());
         common::credential_file(&file, &bytes);
@@ -504,6 +514,9 @@ impl Mcp {
         }
         if database {
             command.arg("--allow-database-actions");
+        }
+        if domain {
+            command.arg("--allow-domain-actions");
         }
         let mut child = command
             .stdin(Stdio::piped())
@@ -1331,5 +1344,174 @@ fn database_mcp_opt_in_only_adds_choices_reviewed_bind_and_restore() {
         }
         mcp.close();
     }
+    assert!(fixture.native.snapshot().is_ok());
+}
+
+#[test]
+fn domain_observer_facts_and_missing_ca_plans_never_initialize_authority_or_export_global_state() {
+    use devforge_control::{
+        Request,
+        mutations::{DomainCleanupInput, MutationInput},
+    };
+    use devforge_manager::{
+        Endpoint,
+        external_auth::ExternalCredential,
+        external_client::DomainClient,
+        service_control::{DomainPlanKind, DomainReadKind},
+    };
+    let fixture = Fixture::new();
+    let ca = fixture.root.join("serving/authority");
+    assert!(!ca.exists());
+    let endpoint = Endpoint::existing(&fixture.root).unwrap();
+    let project = Id::new(&fixture.project).unwrap();
+    let token = |grant: &IssuedGrant| {
+        ExternalCredential::from_wire(grant.credential.expose_secret()).unwrap()
+    };
+    let mut observer = DomainClient::connect(endpoint.clone(), token(&fixture.observer)).unwrap();
+    for operation in [
+        DomainReadKind::Url,
+        DomainReadKind::Ports,
+        DomainReadKind::CertificateStatus,
+    ] {
+        let reply = observer
+            .facts(Id::new("domain-read").unwrap(), &project, operation)
+            .unwrap();
+        let facts = reply.data().unwrap();
+        assert!(!facts.ca_prepared);
+        assert!(facts.ca_fingerprint.is_none());
+        assert!(!facts.domain.as_str().contains("Other"));
+        let value = serde_json::to_value(&reply).unwrap();
+        assert!(!value.to_string().contains(fixture.root.to_str().unwrap()));
+        let keys = value["data"].as_object().unwrap();
+        for private in [
+            "owner",
+            "domains",
+            "hosts_path",
+            "before_sha256",
+            "certificate_der",
+            "key",
+            "root",
+        ] {
+            assert!(!keys.contains_key(private));
+        }
+    }
+    let trust = observer
+        .prepare(
+            Id::new("trust-preview").unwrap(),
+            &project,
+            DomainPlanKind::Trust,
+        )
+        .unwrap();
+    let trust = trust.data().unwrap();
+    assert!(trust.ticket.is_none() && trust.blocked.is_some());
+    assert!(!trust.ca_prepared);
+    let cleanup = observer
+        .prepare(
+            Id::new("cleanup-denied").unwrap(),
+            &project,
+            DomainPlanKind::Cleanup,
+        )
+        .unwrap();
+    assert_eq!(
+        cleanup.error().unwrap().code,
+        devforge_control::ErrorCode::Unauthorized
+    );
+    let (code, cli) = fixture.cli(
+        &[
+            "api",
+            "domain",
+            "certificate-status",
+            &fixture.project,
+            "--credential-stdin",
+        ],
+        &fixture.observer,
+    );
+    assert_eq!(code, 0);
+    assert_eq!(cli["data"]["ca_prepared"], false);
+    let foreign = observer
+        .facts(
+            Id::new("foreign-domain").unwrap(),
+            &Id::new(&fixture.other).unwrap(),
+            DomainReadKind::Url,
+        )
+        .unwrap();
+    assert_eq!(
+        foreign.error().unwrap().code,
+        devforge_control::ErrorCode::ProjectMismatch
+    );
+    let mut full = DomainClient::connect(endpoint, token(&fixture.full)).unwrap();
+    let request = Request {
+        api_version: Default::default(),
+        request_id: Id::new("unapproved-machine-plan").unwrap(),
+        project_id: project,
+        expected_revision: Some(fixture.revision),
+        idempotency_key: Some(Id::new("no-system-permission").unwrap()),
+        input: MutationInput::DomainCleanup(DomainCleanupInput {
+            plan: Digest::new("a".repeat(64)).unwrap(),
+            limits: None,
+        }),
+    };
+    assert_eq!(
+        full.plan(&request).unwrap().error().unwrap().code,
+        devforge_control::ErrorCode::Unauthorized
+    );
+    assert!(!ca.exists());
+}
+#[test]
+fn domain_mcp_flag_exposes_exact_seven_operations_without_elevation_or_configure() {
+    let mut fixture = Fixture::new();
+    let ca = fixture.root.join("serving/authority");
+    for (service, runtime, environment, database, domain, count) in [
+        (false, false, false, false, false, 5),
+        (false, false, false, false, true, 12),
+        (true, true, true, true, true, 25),
+    ] {
+        let mut mcp = Mcp::with_domain(&fixture, service, runtime, environment, database, domain);
+        let listed = mcp.call("tools/list", json!({}));
+        let tools = listed["result"]["tools"].as_array().unwrap();
+        assert_eq!(tools.len(), count);
+        assert!(!tools.iter().any(|tool| {
+            [
+                "domains.configure",
+                "domains.confirm",
+                "domains.elevate",
+                "domain_prepare",
+            ]
+            .iter()
+            .any(|name| tool["name"] == *name)
+        }));
+        let facts = mcp.call(
+            "tools/call",
+            json!({"name":"domains.certificate_status","arguments":{}}),
+        );
+        if domain {
+            assert_eq!(facts["result"]["isError"], false);
+            assert_eq!(
+                facts["result"]["structuredContent"]["data"]["ca_prepared"],
+                false
+            );
+            let prepared = mcp.call(
+                "tools/call",
+                json!({"name":"domains.trust_plan","arguments":{}}),
+            );
+            assert!(prepared["result"]["structuredContent"]["data"]["ticket"].is_null());
+            let denied = mcp.call(
+                "tools/call",
+                json!({"name":"domains.cleanup","arguments":{}}),
+            );
+            assert_eq!(
+                denied["result"]["structuredContent"]["error"]["code"],
+                "unauthorized"
+            );
+            let bypass=mcp.call("tools/call",json!({"name":"domains.apply","arguments":{"action":"plan","plan":"a".repeat(64),"expected_revision":fixture.revision,"idempotency_key":"no-elevation","consent":true,"confirm":true,"elevate":true,"helper":"/tmp/not-accepted"}}));
+            assert_eq!(bypass["error"]["code"], -32602);
+            let global=mcp.call("tools/call",json!({"name":"domains.hosts_plan","arguments":{"domains":["other.devforge.test"],"owner":"not-authority"}}));
+            assert_eq!(global["error"]["code"], -32602);
+        } else {
+            assert_eq!(facts["error"]["code"], -32602);
+        }
+        mcp.close();
+    }
+    assert!(!ca.exists());
     assert!(fixture.native.snapshot().is_ok());
 }

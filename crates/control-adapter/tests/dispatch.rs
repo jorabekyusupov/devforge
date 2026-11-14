@@ -37,6 +37,21 @@ fn reviewed_database_actions_map_only_owned_ids_and_synthesize_consent() {
     );
     assert!(map_mutation(&restore, &binding, &BackendContext::default()).is_err());
 }
+#[test]
+fn reviewed_domain_actions_dispatch_only_private_plan_references_not_legacy_global_https() {
+    let fixture = Fixture::new();
+    let binding = fixture.binding("p1", 4);
+    let backend = digest();
+    let context = BackendContext::reviewed(&backend);
+    for (tool, cleanup) in [("domains.apply", false), ("domains.cleanup", true)] {
+        let prepared = fixture.prepare(tool, json!({"plan":"b".repeat(64)}));
+        let dispatch = map_mutation(&prepared, &binding, &context).unwrap();
+        assert!(
+            matches!(dispatch,Dispatch::DomainSystem{project_id,plan,cleanup:actual}if project_id=="p1"&&plan.as_str()=="b".repeat(64)&&actual==cleanup)
+        );
+        assert!(map_mutation(&prepared, &binding, &BackendContext::default()).is_err());
+    }
+}
 struct Fixture {
     temp: tempfile::TempDir,
 }

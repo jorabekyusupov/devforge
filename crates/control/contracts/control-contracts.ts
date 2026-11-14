@@ -282,6 +282,14 @@ export interface DatabaseRestoreInput {
   backup_id: string;
   limits?: MutationLimits | null;
 }
+export interface DomainApplyInput {
+  plan: string;
+  limits?: MutationLimits | null;
+}
+export interface DomainCleanupInput {
+  plan: string;
+  limits?: MutationLimits | null;
+}
 export interface MutationReceipt {
   project_id: string;
   operation_id: string;
@@ -347,6 +355,8 @@ export interface MutationInputs {
   "environment.yaml_save": YamlSaveInput;
   "database.bind": DatabaseBindInput;
   "database.restore": DatabaseRestoreInput;
+  "domains.apply": DomainApplyInput;
+  "domains.cleanup": DomainCleanupInput;
   "workspaces.archive": WorkspaceLifecycleInput;
   "workspaces.restore": WorkspaceLifecycleInput;
   "workspaces.purge": WorkspaceLifecycleInput;
@@ -363,6 +373,8 @@ export interface MutationOutputs {
   "environment.yaml_save": MutationReceipt;
   "database.bind": MutationReceipt;
   "database.restore": MutationReceipt;
+  "domains.apply": MutationReceipt;
+  "domains.cleanup": MutationReceipt;
   "workspaces.archive": MutationReceipt;
   "workspaces.restore": MutationReceipt;
   "workspaces.purge": MutationReceipt;

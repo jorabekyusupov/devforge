@@ -9,7 +9,9 @@ use devforge_manager::{
     auth::{DesktopAuth, Policy, TrustedDesktopAction},
     controller::{Controller, StartIntent, Stores, local_owner_user},
     external_auth::{ExternalCredential, IssuedGrant},
-    external_client::{DatabaseClient, EnvClient, ExternalClient, RuntimeClient, ServiceClient},
+    external_client::{
+        DatabaseClient, DomainClient, EnvClient, ExternalClient, RuntimeClient, ServiceClient,
+    },
     external_control::{ExternalInput, ExternalOutput},
     native_client::NativeClient,
 };
@@ -252,6 +254,13 @@ impl Rig {
     }
     fn database(&self, grant: &IssuedGrant) -> DatabaseClient {
         DatabaseClient::connect(
+            self.endpoint.clone(),
+            ExternalCredential::from_wire(grant.credential.expose_secret()).unwrap(),
+        )
+        .unwrap()
+    }
+    fn domain(&self, grant: &IssuedGrant) -> DomainClient {
+        DomainClient::connect(
             self.endpoint.clone(),
             ExternalCredential::from_wire(grant.credential.expose_secret()).unwrap(),
         )
@@ -1117,6 +1126,98 @@ fn database_policy_requires_sensitive_scope_and_keeps_choices_project_scoped_wit
             .code,
         ErrorCode::GrantRevoked
     );
+}
+
+#[test]
+fn domain_policy_reads_only_own_facts_and_blocks_missing_native_preparation_and_json_elevation() {
+    use devforge_manager::service_control::{DomainPlanKind, DomainReadKind};
+    let mut rig = Rig::new(None);
+    rig.runtime_metadata();
+    let project = rig.projects[0].clone();
+    let grant = rig
+        .native
+        .issue_external_grant(
+            &id(&project.id),
+            &[Scope::Observer],
+            Duration::from_secs(600),
+        )
+        .unwrap();
+    let mut observer = rig.domain(&grant);
+    let authority = rig.root.path().join("serving/authority");
+    assert!(!authority.exists());
+    for operation in [
+        DomainReadKind::Url,
+        DomainReadKind::Ports,
+        DomainReadKind::CertificateStatus,
+    ] {
+        let facts = observer
+            .facts(id("facts"), &id(&project.id), operation)
+            .unwrap();
+        assert!(facts.is_ok());
+        let facts = facts.data().unwrap();
+        assert_eq!(facts.domain.as_str(), "alpha-runtime.devforge.test");
+        assert!(!facts.ca_prepared);
+        assert!(facts.ca_fingerprint.is_none());
+        assert!(facts.system_trusted.is_none());
+        let text = serde_json::to_string(facts).unwrap();
+        assert!(!text.contains("bravo"));
+        assert!(!text.contains("hosts_path"));
+        assert!(!text.contains("/etc/hosts"));
+    }
+    for kind in [DomainPlanKind::Hosts, DomainPlanKind::Trust] {
+        let prepared = observer
+            .prepare(id("prepare"), &id(&project.id), kind)
+            .unwrap();
+        assert!(prepared.is_ok());
+        let prepared = prepared.data().unwrap();
+        assert!(prepared.ticket.is_none());
+        assert_eq!(
+            prepared.blocked.as_ref().unwrap().as_str(),
+            "native_owner_preparation_required"
+        );
+        assert!(prepared.shared_ca_preserved);
+    }
+    assert!(!authority.exists());
+    assert_eq!(
+        observer
+            .prepare(
+                id("cleanup-denied"),
+                &id(&project.id),
+                DomainPlanKind::Cleanup
+            )
+            .unwrap()
+            .error()
+            .unwrap()
+            .code,
+        ErrorCode::Unauthorized
+    );
+    assert_eq!(
+        observer
+            .facts(id("foreign"), &id(&rig.projects[1].id), DomainReadKind::Url)
+            .unwrap()
+            .error()
+            .unwrap()
+            .code,
+        ErrorCode::ProjectMismatch
+    );
+    let raw=Client::new(rig.endpoint.clone()).request(&json!({"method":"confirm_domain_change","session":grant.credential.expose_secret(),"digest":"0".repeat(64)})).unwrap();
+    assert_eq!(raw["ok"], false);
+    let request = env_request(
+        &project.id,
+        project.revision,
+        "no-elevation",
+        MutationInput::DomainApply(devforge_control::mutations::DomainApplyInput {
+            plan: devforge_control::Digest::new("0".repeat(64)).unwrap(),
+            limits: None,
+        }),
+    );
+    let denied = observer.plan(&request).unwrap();
+    assert_eq!(denied.error().unwrap().code, ErrorCode::Unauthorized);
+    let mut forged = serde_json::to_value(&request).unwrap();
+    forged["input"]["arguments"]["confirmed"] = json!(true);
+    let raw=Client::new(rig.endpoint.clone()).request(&json!({"method":"domain_plan","credential":grant.credential.expose_secret(),"request":forged})).unwrap();
+    assert_eq!(raw["error"]["code"], "invalid_input");
+    assert!(!authority.exists());
 }
 
 #[cfg(target_os = "macos")]

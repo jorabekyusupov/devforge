@@ -61,6 +61,12 @@ pub struct DatabaseChoices {
     pub backup_ids: Vec<Id>,
 }
 pub type DatabaseChoicesReply = Response<DatabaseChoices>;
+pub use crate::domain_control::{DomainFacts, DomainPlanKind, DomainPlanPreview, DomainReadKind};
+pub type DomainFactsReply = Response<DomainFacts>;
+pub type DomainPrepareReply = Response<DomainPlanPreview>;
+pub type DomainPlanReply = Response<PlanReceipt>;
+pub type DomainApplyReply = Response<MutationReceipt>;
+pub type DomainLookupReply = Response<Option<MutationReceipt>>;
 const PLAN_TTL: Duration = Duration::from_secs(300);
 const MAX_PLANS: usize = 128;
 const MAX_PLAN_BYTES: usize = 1_048_576;
@@ -68,6 +74,17 @@ pub(crate) struct Services {
     grants: Arc<Grants>,
     plans: Mutex<VecDeque<Arc<Intent>>>,
     environment_versions: Mutex<crate::environment_control::Versions>,
+    domain_preparations: Mutex<VecDeque<DomainPreparation>>,
+}
+struct DomainPreparation {
+    ticket: Digest,
+    client: Id,
+    grant: Id,
+    binding: ProjectBinding,
+    kind: DomainPlanKind,
+    plan: devforge_workspace::domain_control::DomainPlan,
+    expires: Instant,
+    bytes: usize,
 }
 struct Intent {
     request: Request<MutationInput>,
@@ -89,6 +106,7 @@ struct Intent {
     public_digest: Option<Digest>,
     public_fingerprint: Option<Digest>,
     database: Option<crate::database_control::DatabaseReadResult>,
+    domain: Option<crate::domain_control::DomainIntent>,
 }
 pub(crate) struct ServiceJob {
     intent: Arc<Intent>,
@@ -142,6 +160,15 @@ impl ServiceJob {
         registry: &mut crate::external_auth::ExternalRegistry,
     ) -> Result<devforge_control::mutations::PreparedMutation, ErrorCode> {
         self.check_basic()?;
+        if let Some(domain) = &self.intent.domain
+            && domain
+                .confirmation
+                .lock()
+                .map_err(|_| ErrorCode::StorageUnavailable)?
+                .is_none()
+        {
+            return Err(ErrorCode::Unauthorized);
+        }
         let current = project_binding(snapshot, &self.intent.request.project_id)?;
         let proof = registry
             .authorize(
@@ -213,7 +240,12 @@ impl ServiceJob {
         if initial {
             cached_preflight(snapshot, &self.intent.request)?;
         }
-        let backend = if let Some(database) = &self.intent.database {
+        let backend = if let Some(domain) = &self.intent.domain {
+            if domain_snapshot_digest(snapshot, &self.intent.request)? != domain.snapshot_digest {
+                return Err(ErrorCode::ReviewMismatch);
+            }
+            self.intent.backend.clone()
+        } else if let Some(database) = &self.intent.database {
             if database_snapshot_digest(snapshot, &self.intent.request)? != database.snapshot_digest
             {
                 return Err(ErrorCode::ReviewMismatch);
@@ -318,15 +350,12 @@ impl ServiceJob {
             sha256,
         )
         .map_err(ws_error)?;
-        let Dispatch::Command(command) = map_mutation(
+        let dispatch = map_mutation(
             &prepared,
             &current,
             &BackendContext::reviewed(&self.intent.backend),
         )
-        .map_err(ws_error)?
-        else {
-            return Err(ws_error(ErrorCode::UnsupportedCapability));
-        };
+        .map_err(ws_error)?;
         let check = || {
             self.check_basic().map_err(ws_error)?;
             self.authorize(&current).map_err(ws_error)?;
@@ -341,6 +370,41 @@ impl ServiceJob {
                 return Err(ws_error(ErrorCode::ProjectMismatch));
             }
             Ok(())
+        };
+        let command = match dispatch {
+            Dispatch::Command(command) => command,
+            Dispatch::DomainSystem {
+                project_id,
+                cleanup,
+                plan,
+            } => {
+                let domain = self
+                    .intent
+                    .domain
+                    .as_ref()
+                    .ok_or_else(|| ws_error(ErrorCode::Unauthorized))?;
+                if project_id != current.project_id().as_str()
+                    || cleanup != (domain.kind == DomainPlanKind::Cleanup)
+                    || domain_reference(&self.intent.request.input).map_err(ws_error)? != &plan
+                {
+                    return Err(ws_error(ErrorCode::ReviewMismatch));
+                }
+                let mut confirmation = domain
+                    .confirmation
+                    .lock()
+                    .map_err(|_| ws_error(ErrorCode::StorageUnavailable))?
+                    .take()
+                    .ok_or_else(|| ws_error(ErrorCode::Unauthorized))?;
+                let _private = workspace.execute_domain_plan(
+                    &project_id,
+                    &domain.plan,
+                    &mut confirmation,
+                    &self.cancellation,
+                    &check,
+                )?;
+                return Ok(json!({"applied":true}));
+            }
+            _ => return Err(ws_error(ErrorCode::UnsupportedCapability)),
         };
         match command.as_ref() {
             devforge_workspace::Command::Start { .. } => {
@@ -395,6 +459,309 @@ impl ServiceJob {
     }
 }
 impl Services {
+    fn read_domain(
+        self: &Arc<Self>,
+        actor: &ActorHandle,
+        peer: &PeerIdentity,
+        credential: &ExternalCredential,
+        project: &Id,
+        options: (Option<DomainPlanKind>, Option<u64>),
+    ) -> Result<crate::domain_control::DomainReadResult, ErrorCode> {
+        let (kind, revision) = options;
+        let policy = self.clone();
+        let peer = peer.clone();
+        let credential =
+            ExternalCredential::from_wire(credential.expose_secret()).map_err(grant_error)?;
+        let project_id = project.clone();
+        let check = Box::new(move |workspace: &Workspace| {
+            let binding = domain_registration_binding(workspace, &project_id).map_err(ws_error)?;
+            let required = if kind == Some(DomainPlanKind::Cleanup) {
+                &[Scope::ProjectManage, Scope::SensitiveOperation][..]
+            } else {
+                &[Scope::Observer][..]
+            };
+            policy
+                .grants
+                .registry
+                .lock()
+                .map_err(|_| ws_error(ErrorCode::StorageUnavailable))?
+                .as_mut()
+                .ok_or_else(|| ws_error(ErrorCode::Interrupted))?
+                .authorize(&peer, &credential, &binding, required, &[], revision)
+                .map_err(|e| ws_error(grant_error(e)))?;
+            Ok(())
+        });
+        let (reply, receiver) = std::sync::mpsc::sync_channel(1);
+        let cancelled = Arc::new(AtomicBool::new(false));
+        actor
+            .queue_domain(crate::domain_control::DomainRead {
+                project: project.clone(),
+                kind,
+                check,
+                cancelled: cancelled.clone(),
+                reply,
+            })
+            .map_err(actor_error)?;
+        match receiver.recv_timeout(Duration::from_secs(5)) {
+            Ok(result) => result.map_err(environment_error),
+            Err(_) => {
+                cancelled.store(true, Ordering::Release);
+                Err(ErrorCode::TimedOut)
+            }
+        }
+    }
+    fn domain_read(
+        self: &Arc<Self>,
+        peer: &PeerIdentity,
+        credential: &ExternalCredential,
+        project: &Id,
+        _operation: DomainReadKind,
+        actor: &ActorHandle,
+    ) -> Result<DomainFacts, ErrorCode> {
+        let data = self.read_domain(actor, peer, credential, project, (None, None))?;
+        domain_facts(&data.facts)
+    }
+    fn domain_prepare(
+        self: &Arc<Self>,
+        peer: &PeerIdentity,
+        credential: &ExternalCredential,
+        project: &Id,
+        kind: DomainPlanKind,
+        actor: &ActorHandle,
+    ) -> Result<DomainPlanPreview, ErrorCode> {
+        let data = self.read_domain(actor, peer, credential, project, (Some(kind), None))?;
+        let facts = domain_facts(&data.facts)?;
+        let Some(plan) = data.plan else {
+            return Ok(DomainPlanPreview {
+                project_id: project.clone(),
+                revision: facts.revision,
+                kind,
+                ticket: None,
+                blocked: data.blocked.map(Id::new).transpose()?,
+                ca_prepared: facts.ca_prepared,
+                shared_ca_preserved: true,
+            });
+        };
+        let view = actor.external_snapshot().map_err(actor_error)?;
+        let binding = project_binding(&view.snapshot, project)?;
+        if facts.revision.get() != binding.revision() {
+            return Err(ErrorCode::ReviewMismatch);
+        }
+        let scopes = if kind == DomainPlanKind::Cleanup {
+            vec![Scope::ProjectManage, Scope::SensitiveOperation]
+        } else {
+            vec![Scope::Observer]
+        };
+        let proof = self
+            .grants
+            .registry
+            .lock()
+            .map_err(|_| ErrorCode::StorageUnavailable)?
+            .as_mut()
+            .ok_or(ErrorCode::Interrupted)?
+            .authorize(
+                peer,
+                credential,
+                &binding,
+                &scopes,
+                &[],
+                Some(binding.revision()),
+            )
+            .map_err(grant_error)?;
+        let mut preparations = self
+            .domain_preparations
+            .lock()
+            .map_err(|_| ErrorCode::StorageUnavailable)?;
+        preparations.retain(|p| Instant::now() < p.expires);
+        let bytes = 262144;
+        if preparations.len() >= 128
+            || bytes > MAX_PLAN_BYTES.saturating_sub(preparations.iter().map(|p| p.bytes).sum())
+        {
+            return Err(ErrorCode::Busy);
+        }
+        let ticket = crate::environment_control::opaque()?;
+        preparations.push_back(DomainPreparation {
+            ticket: ticket.clone(),
+            client: proof.client_id().clone(),
+            grant: proof.grant_id().clone(),
+            binding,
+            kind,
+            plan,
+            expires: Instant::now() + PLAN_TTL,
+            bytes,
+        });
+        Ok(DomainPlanPreview {
+            project_id: project.clone(),
+            revision: facts.revision,
+            kind,
+            ticket: Some(ticket),
+            blocked: None,
+            ca_prepared: facts.ca_prepared,
+            shared_ca_preserved: true,
+        })
+    }
+    fn domain_plan(
+        self: &Arc<Self>,
+        peer: PeerIdentity,
+        credential: ExternalCredential,
+        request: Request<MutationInput>,
+        actor: &ActorHandle,
+    ) -> Result<PlanReceipt, ErrorCode> {
+        let reference = domain_reference(&request.input)?.clone();
+        let view = actor.external_snapshot().map_err(actor_error)?;
+        let binding = project_binding(&view.snapshot, &request.project_id)?;
+        request.validate(&binding, true)?;
+        let proof = self.authorize(
+            &peer,
+            &credential,
+            &binding,
+            &request.input,
+            request.expected_revision,
+        )?;
+        let (kind, prepared) = {
+            let preparations = self
+                .domain_preparations
+                .lock()
+                .map_err(|_| ErrorCode::StorageUnavailable)?;
+            let p = preparations
+                .iter()
+                .find(|p| p.ticket == reference && Instant::now() < p.expires)
+                .ok_or(ErrorCode::ReviewExpired)?;
+            if p.client != *proof.client_id()
+                || p.grant != *proof.grant_id()
+                || p.binding.root() != binding.root()
+                || p.binding.project_id() != binding.project_id()
+                || p.binding.revision() != binding.revision()
+                || matches!(request.input, MutationInput::DomainCleanup(_))
+                    != (p.kind == DomainPlanKind::Cleanup)
+            {
+                return Err(ErrorCode::ReviewMismatch);
+            }
+            (p.kind, p.plan.clone())
+        };
+        let data = self.read_domain(
+            actor,
+            &peer,
+            &credential,
+            &request.project_id,
+            (Some(kind), request.expected_revision),
+        )?;
+        let current = data.plan.ok_or(ErrorCode::PreconditionFailed)?;
+        if current.fingerprint().map_err(environment_error)?
+            != prepared.fingerprint().map_err(environment_error)?
+        {
+            return Err(ErrorCode::ReviewMismatch);
+        }
+        let backend = domain_backend(&view.snapshot, &binding, &request, &proof, &prepared)?;
+        let fingerprint = sha256(&fingerprint_material(&request, &binding)?)?;
+        let mut plans = self
+            .plans
+            .lock()
+            .map_err(|_| ErrorCode::StorageUnavailable)?;
+        plans.retain(|p| Instant::now() < p.expires);
+        if let Some(existing) = plans.iter().find(|p| {
+            p.domain.is_some()
+                && p.client == *proof.client_id()
+                && p.grant == *proof.grant_id()
+                && p.request.idempotency_key == request.idempotency_key
+                && p.fingerprint == fingerprint
+                && p.backend == backend
+        }) {
+            return Ok(plan_receipt(existing));
+        }
+        let bytes = 262144;
+        if plans.len() >= MAX_PLANS
+            || bytes > MAX_PLAN_BYTES.saturating_sub(plans.iter().map(|p| p.bytes).sum())
+        {
+            return Err(ErrorCode::Busy);
+        }
+        let expires_at = proof.observed_at() + PLAN_TTL.as_millis() as u64;
+        SafeInt::new(expires_at)?;
+        let review = ReviewedPlan::record(
+            &binding,
+            Id::new(request.input.tool())?,
+            backend.clone(),
+            expires_at,
+        )?;
+        let snapshot_digest = domain_snapshot_digest(&view.snapshot, &request)?;
+        let intent = Arc::new(Intent {
+            request,
+            binding,
+            fingerprint,
+            backend,
+            review,
+            client: proof.client_id().clone(),
+            grant: proof.grant_id().clone(),
+            peer,
+            credential,
+            expires_at,
+            expires: Instant::now() + PLAN_TTL,
+            approved: AtomicBool::new(false),
+            claimed: Mutex::new(None),
+            cancellation: Mutex::new(None),
+            bytes,
+            environment: None,
+            public_digest: Some(crate::environment_control::opaque()?),
+            public_fingerprint: None,
+            database: None,
+            domain: Some(crate::domain_control::DomainIntent {
+                plan: prepared,
+                kind,
+                snapshot_digest,
+                confirmation: Mutex::new(None),
+            }),
+        });
+        let receipt = plan_receipt(&intent);
+        plans.push_back(intent);
+        Ok(receipt)
+    }
+    pub(crate) fn confirm_domain(
+        self: &Arc<Self>,
+        authority: &DesktopAuthority<'_>,
+        digest: &Digest,
+        actor: &ActorHandle,
+    ) -> Result<(), ErrorCode> {
+        authority
+            .check_current(Instant::now())
+            .map_err(|_| ErrorCode::Unauthorized)?;
+        if authority.root() != actor.bootstrap_ready_root().map_err(actor_error)? {
+            return Err(ErrorCode::Unauthorized);
+        }
+        let intent = self.intent(digest)?;
+        if !intent.approved.load(Ordering::Acquire) || Instant::now() >= intent.expires {
+            return Err(ErrorCode::Unauthorized);
+        }
+        let domain = intent
+            .domain
+            .as_ref()
+            .ok_or(ErrorCode::UnsupportedCapability)?;
+        let data = self.read_domain(
+            actor,
+            &intent.peer,
+            &intent.credential,
+            &intent.request.project_id,
+            (Some(domain.kind), intent.request.expected_revision),
+        )?;
+        let plan = data.plan.ok_or(ErrorCode::PreconditionFailed)?;
+        if plan.fingerprint().map_err(environment_error)?
+            != domain.plan.fingerprint().map_err(environment_error)?
+        {
+            return Err(ErrorCode::ReviewMismatch);
+        }
+        authority
+            .check_current(Instant::now())
+            .map_err(|_| ErrorCode::Unauthorized)?;
+        *domain
+            .confirmation
+            .lock()
+            .map_err(|_| ErrorCode::StorageUnavailable)? = Some(
+            domain
+                .plan
+                .confirm_native_owner()
+                .map_err(environment_error)?,
+        );
+        Ok(())
+    }
     fn database_choices(
         &self,
         peer: &PeerIdentity,
@@ -598,6 +965,7 @@ impl Services {
             public_digest: Some(crate::environment_control::opaque()?),
             public_fingerprint: None,
             database: Some(data),
+            domain: None,
         });
         let receipt = plan_receipt(&intent);
         plans.push_back(intent);
@@ -891,6 +1259,7 @@ impl Services {
             public_digest: Some(crate::environment_control::opaque()?),
             public_fingerprint: Some(crate::environment_control::opaque()?),
             database: None,
+            domain: None,
         });
         let receipt = plan_receipt(&intent);
         plans.push_back(intent);
@@ -909,6 +1278,7 @@ impl Services {
             grants,
             plans: Mutex::new(VecDeque::new()),
             environment_versions: Mutex::new(Default::default()),
+            domain_preparations: Mutex::new(VecDeque::new()),
         }
     }
     pub(crate) fn handles(method: &str) -> bool {
@@ -930,6 +1300,11 @@ impl Services {
                 | "db_plan"
                 | "db_apply"
                 | "db_lookup"
+                | "domain_read"
+                | "domain_prepare"
+                | "domain_plan"
+                | "domain_apply"
+                | "domain_lookup"
         )
     }
     pub(crate) fn request(
@@ -962,6 +1337,70 @@ impl Services {
             Err(_) => return respond::<PlanReceipt>(id, Err(ErrorCode::InvalidInput), None),
         };
         match wire {
+            Wire::DomainRead {
+                credential,
+                request_id,
+                project_id,
+                operation,
+            } => respond(
+                request_id,
+                credential
+                    .parse()
+                    .and_then(|c| self.domain_read(&peer, &c, &project_id, operation, actor)),
+                None,
+            ),
+            Wire::DomainPrepare {
+                credential,
+                request_id,
+                project_id,
+                kind,
+            } => respond(
+                request_id,
+                credential
+                    .parse()
+                    .and_then(|c| self.domain_prepare(&peer, &c, &project_id, kind, actor)),
+                None,
+            ),
+            Wire::DomainPlan {
+                credential,
+                request,
+            } => respond(
+                id,
+                domain_only(&request.input).and_then(|_| {
+                    credential
+                        .parse()
+                        .and_then(|c| self.domain_plan(peer, c, *request, actor))
+                }),
+                None,
+            ),
+            Wire::DomainApply {
+                credential,
+                request,
+                review,
+            } => {
+                let result = domain_only(&request.input).and_then(|_| {
+                    credential
+                        .parse()
+                        .and_then(|c| self.apply(peer, c, *request, review, actor))
+                });
+                let op = result.as_ref().ok().map(|r| r.operation_id.clone());
+                respond(id, result, op)
+            }
+            Wire::DomainLookup {
+                credential,
+                request_id,
+                project_id,
+                idempotency_key,
+            } => {
+                let result = credential
+                    .parse()
+                    .and_then(|c| self.lookup(&peer, &c, &project_id, &idempotency_key, actor));
+                let op = result
+                    .as_ref()
+                    .ok()
+                    .and_then(|r| r.as_ref().map(|r| r.operation_id.clone()));
+                respond(request_id, result, op)
+            }
             Wire::DatabaseChoices {
                 credential,
                 request_id,
@@ -1176,6 +1615,10 @@ impl Services {
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .clear();
+        self.domain_preparations
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clear();
     }
     fn selection(
         &self,
@@ -1256,7 +1699,17 @@ impl Services {
             &intent.request.input,
             intent.request.expected_revision,
         )?;
-        let current_digest = if intent.database.is_some() {
+        let current_digest = if let Some(domain) = &intent.domain {
+            let data = self.read_domain(
+                actor,
+                &intent.peer,
+                &intent.credential,
+                &intent.request.project_id,
+                (Some(domain.kind), intent.request.expected_revision),
+            )?;
+            let plan = data.plan.as_ref().ok_or(ErrorCode::PreconditionFailed)?;
+            domain_backend(&view.snapshot, &current, &intent.request, &proof, plan)?
+        } else if intent.database.is_some() {
             let data =
                 self.read_database(actor, &intent.peer, &intent.credential, &intent.request)?;
             database_backend(&view.snapshot, &current, &intent.request, &proof, &data)?
@@ -1396,6 +1849,7 @@ impl Services {
             public_digest: None,
             public_fingerprint: None,
             database: None,
+            domain: None,
         });
         let receipt = plan_receipt(&intent);
         plans.push_back(intent);
@@ -1451,6 +1905,27 @@ impl Services {
             return mutation_receipt(receipt, revision);
         }
         let intent = self.intent(&review)?;
+        if let Some(domain) = &intent.domain {
+            if domain
+                .confirmation
+                .lock()
+                .map_err(|_| ErrorCode::StorageUnavailable)?
+                .is_none()
+            {
+                return Err(ErrorCode::Unauthorized);
+            }
+            let data = self.read_domain(
+                actor,
+                &peer,
+                &credential,
+                &request.project_id,
+                (Some(domain.kind), request.expected_revision),
+            )?;
+            let plan = data.plan.as_ref().ok_or(ErrorCode::PreconditionFailed)?;
+            if domain_backend(&view.snapshot, &current, &request, &proof, plan)? != intent.backend {
+                return Err(ErrorCode::ReviewMismatch);
+            }
+        }
         if intent.database.is_some() {
             let data = self.read_database(actor, &peer, &credential, &request)?;
             if database_backend(&view.snapshot, &current, &request, &proof, &data)?
@@ -1530,6 +2005,9 @@ fn required(input: &MutationInput) -> Result<Vec<Scope>, ErrorCode> {
         ]),
         MutationInput::YamlSave(_) => Ok(vec![Scope::ProjectManage, Scope::SensitiveOperation]),
         MutationInput::DatabaseBind(_) | MutationInput::DatabaseRestore(_) => {
+            Ok(vec![Scope::ProjectManage, Scope::SensitiveOperation])
+        }
+        MutationInput::DomainApply(_) | MutationInput::DomainCleanup(_) => {
             Ok(vec![Scope::ProjectManage, Scope::SensitiveOperation])
         }
         _ => Err(ErrorCode::UnsupportedCapability),
@@ -1737,6 +2215,94 @@ fn database_only(input: &MutationInput) -> Result<(), ErrorCode> {
     } else {
         Err(ErrorCode::UnsupportedCapability)
     }
+}
+fn domain_only(input: &MutationInput) -> Result<(), ErrorCode> {
+    if matches!(
+        input,
+        MutationInput::DomainApply(_) | MutationInput::DomainCleanup(_)
+    ) {
+        Ok(())
+    } else {
+        Err(ErrorCode::UnsupportedCapability)
+    }
+}
+fn domain_registration_binding(
+    workspace: &Workspace,
+    project: &Id,
+) -> Result<ProjectBinding, ErrorCode> {
+    let registered = workspace
+        .domain_registered_project(project.as_str())
+        .map_err(environment_error)?;
+    let identity = devforge_projects::discovery::identity(&registered.path)
+        .map_err(|_| ErrorCode::ProjectMismatch)?;
+    if registered.id != project.as_str()
+        || registered.filesystem_identity.as_deref() != Some(identity.as_str())
+    {
+        return Err(ErrorCode::ProjectMismatch);
+    }
+    ProjectBinding::from_registered(project.clone(), &registered.path, registered.revision)
+}
+fn domain_reference(input: &MutationInput) -> Result<&Digest, ErrorCode> {
+    match input {
+        MutationInput::DomainApply(input) => Ok(&input.plan),
+        MutationInput::DomainCleanup(input) => Ok(&input.plan),
+        _ => Err(ErrorCode::UnsupportedCapability),
+    }
+}
+fn domain_snapshot_digest(
+    snapshot: &Snapshot,
+    request: &Request<MutationInput>,
+) -> Result<Digest, ErrorCode> {
+    if !snapshot
+        .projects
+        .iter()
+        .any(|row| row.project.id == request.project_id.as_str() && row.site.is_some())
+    {
+        return Err(ErrorCode::PreconditionFailed);
+    }
+    if snapshot.projects.len() > 2048 {
+        return Err(ErrorCode::OutputLimitExceeded);
+    }
+    let sites = snapshot
+        .projects
+        .iter()
+        .filter_map(|row| row.site.as_ref())
+        .collect::<Vec<_>>();
+    sha256(&serde_json::to_vec(&sites).map_err(|_| ErrorCode::InvalidInput)?)
+}
+fn domain_backend(
+    snapshot: &Snapshot,
+    binding: &ProjectBinding,
+    request: &Request<MutationInput>,
+    proof: &AuthorizedExternal,
+    plan: &devforge_workspace::domain_control::DomainPlan,
+) -> Result<Digest, ErrorCode> {
+    sha256(&serde_json::to_vec(&json!({"scope":binding.project_id(),"grant":proof.grant_id(),"client":proof.client_id(),"key":request.idempotency_key,"request":sha256(&fingerprint_material(request,binding)?)?,"sites":domain_snapshot_digest(snapshot,request)?,"system":plan.fingerprint().map_err(environment_error)?})).map_err(|_|ErrorCode::InvalidInput)?)
+}
+fn domain_facts(
+    facts: &devforge_workspace::domain_control::DomainFacts,
+) -> Result<DomainFacts, ErrorCode> {
+    Ok(DomainFacts {
+        project_id: Id::new(&facts.project_id)?,
+        revision: SafeInt::new(facts.revision)?,
+        domain: devforge_control::limits::Text::new(facts.domain.clone())?,
+        https_enabled: facts.https_enabled,
+        preferred_url: facts
+            .preferred_url
+            .as_ref()
+            .map(|url| devforge_control::limits::Text::new(url.clone()))
+            .transpose()?,
+        http_port: facts.http_port,
+        https_port: facts.https_port,
+        certificate_active: facts.certificate_active,
+        ca_prepared: facts.ca_prepared,
+        ca_fingerprint: facts
+            .ca_fingerprint
+            .as_ref()
+            .map(|hash| Digest::new(hash.clone()))
+            .transpose()?,
+        system_trusted: facts.system_trusted,
+    })
 }
 fn database_command(
     request: &Request<MutationInput>,
@@ -1963,6 +2529,38 @@ impl<'de> Deserialize<'de> for Token {
 #[derive(Deserialize)]
 #[serde(tag = "method", rename_all = "snake_case", deny_unknown_fields)]
 enum Wire {
+    #[serde(rename = "domain_read")]
+    DomainRead {
+        credential: Token,
+        request_id: Id,
+        project_id: Id,
+        operation: DomainReadKind,
+    },
+    #[serde(rename = "domain_prepare")]
+    DomainPrepare {
+        credential: Token,
+        request_id: Id,
+        project_id: Id,
+        kind: DomainPlanKind,
+    },
+    #[serde(rename = "domain_plan")]
+    DomainPlan {
+        credential: Token,
+        request: Box<Request<MutationInput>>,
+    },
+    #[serde(rename = "domain_apply")]
+    DomainApply {
+        credential: Token,
+        request: Box<Request<MutationInput>>,
+        review: Digest,
+    },
+    #[serde(rename = "domain_lookup")]
+    DomainLookup {
+        credential: Token,
+        request_id: Id,
+        project_id: Id,
+        idempotency_key: Id,
+    },
     #[serde(rename = "db_choices")]
     DatabaseChoices {
         credential: Token,
@@ -2061,4 +2659,67 @@ enum Wire {
 }
 fn respond<T: Serialize>(id: Id, result: Result<T, ErrorCode>, operation: Option<Id>) -> Value {
     serde_json::to_value(match result{Ok(data)=>Response::success(id,operation,data),Err(code)=>Response::failure(id,operation,code.fault())}).unwrap_or_else(|_|json!({"api_version":1,"request_id":"invalid-request","ok":false,"error":{"code":"storage_unavailable","retryable":true},"warnings":[]}))
+}
+
+#[cfg(test)]
+mod domain_scoped_tests {
+    use super::*;
+    struct NoSecrets;
+    impl devforge_core::SecretStore for NoSecrets {
+        fn get(&self, _: &str) -> std::result::Result<Option<String>, devforge_core::ErrorCode> {
+            panic!("domain binding must not read credentials")
+        }
+        fn set(&self, _: &str, _: &str) -> std::result::Result<(), devforge_core::ErrorCode> {
+            panic!("domain binding must not write credentials")
+        }
+        fn delete(&self, _: &str) -> std::result::Result<(), devforge_core::ErrorCode> {
+            panic!("domain binding must not delete credentials")
+        }
+    }
+    #[test]
+    fn scoped_domain_callback_does_not_create_unrelated_backup_directories() {
+        let root = crate::external_auth::test_support::root("df-domain-scope-");
+        let workspace = Workspace::open(root.path().join("data"), Arc::new(NoSecrets)).unwrap();
+        let catalog = devforge_projects::project::Catalog::bundled();
+        let target = devforge_runtime::package::Target::current().unwrap();
+        let php = catalog
+            .packages
+            .iter()
+            .find(|(_, p)| {
+                p.kind == "php" && p.target == target && p.executables.contains_key("php")
+            })
+            .unwrap()
+            .0;
+        let node = catalog
+            .packages
+            .iter()
+            .find(|(_, p)| p.kind == "node" && p.target == target)
+            .unwrap()
+            .0;
+        let mut own = None;
+        for name in ["A", "B"] {
+            let path = root.path().join(name);
+            std::fs::create_dir_all(path.join("public")).unwrap();
+            std::fs::write(path.join("public/index.php"), "<?php").unwrap();
+            std::fs::write(
+                path.join("composer.json"),
+                r#"{"require":{"php":"^8.3","laravel/framework":"^13"}}"#,
+            )
+            .unwrap();
+            let project = workspace
+                .projects
+                .import(&path, name, php, node, &catalog)
+                .unwrap();
+            if name == "A" {
+                own = Some(project);
+            }
+        }
+        let backups = workspace.projects.root().join("backups");
+        assert!(!backups.exists());
+        let own = own.unwrap();
+        let binding = domain_registration_binding(&workspace, &Id::new(own.id).unwrap()).unwrap();
+        assert_eq!(binding.root(), own.path);
+        assert!(!backups.exists());
+        assert!(!root.path().join("data/serving/authority").exists());
+    }
 }

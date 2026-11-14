@@ -65,7 +65,7 @@ qabul dalili emas. `gh` mavjud. `claude` va `agent-desktop` PATH lookupda topilm
 bu appning butun hostda mutlaqo yo'qligi degani emas. GUI skill/permission inventari
 UI vazifasi boshlanganda AGENTS bo'yicha bajariladi. Hozir GUI ishlatilmadi.
 
-# Mavjud imkoniyat va saqlanadigan source
+# E00 paytidagi imkoniyat va saqlanadigan source
 
 | Capability | Mavjud source | Dalil va navbatdagi ish chegarasi |
 | --- | --- | --- |
@@ -127,20 +127,21 @@ R03/R04 release target acceptance'ini to'sishi mumkin; schema, core, scoped test
 docs va independent implementationni to'xtatmaydi. Blocking holatning egasi va
 talab qilinadigan external evidence har stage handoffda saqlanadi.
 
-# Boshlang'ich work queue
+# Work queue va joriy integratsiya holati
 
-Holatlar ushbu E00 inventory topshirilishidagi dependency readiness, product completion emas.
+Holatlar E00 boshlangan queue va keyingi exact source/test evidence asosida
+yangilanadi; implementatsiya platforma/release gate yopilganini anglatmaydi.
 Parallel agent boshlangan yoki tugagan itemni integrator evidence bilan yangilaydi.
 
 | Work ID | Inventory holati | Old shart / navbatdagi qabul |
 | --- | --- | --- |
 | E00 | integrated | Inventory/decision/test map: strict34/0/0, source push99d6a9e; remote main tasdiqlandi. |
-| M13.0 | in_progress | E00 integratsiyasi; 16 oilaning contract mappingi, schema fixtures va lifecycle ADR. |
-| M13.1 | in_progress | M13.0; native single-owner/auth/ID/retry/cancel/Quit/headless acceptance. |
-| M13.2 | validated_local | Versioned JSON CLI plus restricted grant boundary implemented; focused local acceptance passed, new Windows CI pending. |
-| M13.3 | validated_local | Bounded stdio readonly adapter and actual Inspector/Codex/VS Code acceptance passed; Windows target gate remains. |
-| M13.4 | planned | Owner/grants/versioned API; adapterlar start/stop→runtime→env→DB→HTTPS reviewed slices. |
-| M13.5 | planned | Read projection M13.0dan parallel mumkin; integrated scope/freshness/health/mail qabul. |
+| M13.0 | implemented | 16-family foundation/schema/lifecycle; later live slices extend typed inputs. Inventory availability is distinct from implementation. |
+| M13.1 | implemented_with_gates | Single owner/auth/actor/native GUI cutover; actual ARM64 GUI and Windows backend CI. Native credential/desktop/minimum-OS gates remain. |
+| M13.2 | validated_local_and_ci | Versioned JSON CLI, restricted grants, focused local and macOS/Windows CI; applicable client/native gates tracked separately. |
+| M13.3 | validated_local_and_ci | Bounded stdio and actual Inspector/Codex/VS Code local clients; Windows backend CI, desktop/client matrix remains M13.9. |
+| M13.4 | implemented_with_gates | Five reviewed service/runtime/env/DB/domain slices; scoped/native evidence below. Real helper/dialog/signing/minimum-OS acceptance remains M13.9/M15. |
+| M13.5 | next_ready | Existing canonical metadata projections first; explicit content rights/cursor freshness/health/mail acceptance follows. |
 | M13.6 | planned | Execution/debug/workspace kontrakti, actual isolated scenario va preservation. |
 | M13.7 | planned | HTTP auth/origin/revoke/version; remote bridge alohida M14. |
 | M13.8 | planned | Frozen contracts ustiga connection/grants/audit UI, locale/native UX. |
@@ -1302,3 +1303,44 @@ The positive run was reused after reject-only ownership predicates; the separate
 foreign regression passed. Manager dev-only mysql28.0.4 edge matches existing
 locked version/features to query canary data; no new version/production edge.
 Windows/Intel native DB/OScredentials remain unverified; domain/HTTPS is next.
+
+Combined env/DB baseline70d572a [run43608569446](https://github.com/jorabekyusupov/devforge/actions/runs/43608569446)
+passed macOS and Windows jobs, including native binary builds. Actual Windows
+Server2025/build26100 environment5/database5/checked-execution2 tests passed,
+zero failed/ignored, plus manager DB metadata/permission cases.
+[Job/test proof](../evidence/m13-database-actions/ci-70d572a.json) records source
+and keeps skipped Xdebug, Win10/11/native UI/native SQL limits explicit. The
+Windows checked-child case included the corrected fixture and passed9.37s total.
+
+## M13.4 fifth slice: scoped domains and owner-gated HTTPS integration
+
+[Contract](../architecture/reviewed-service-actions.md): exact seven planned
+URL/ports/certificate/hosts-plan/trust-plan/apply/cleanup operations; no extra
+configure endpoint. Two canonical writes reuse existing SystemPlan/fixed helper.
+Observer uses noncreating metadata only; missing public CA blocks owner
+preparation, signing key stays unprobed/system_trusted None. Owner-wide hosts,
+paths/CAS, CA DER/key and raw plans remain private; tickets opaque. Writes require
+PM+Sensitive, generic native approval AND separate current DesktopAuthority
+one-shot exact-machine confirmation. Client JSON/flags cannot elevate.
+
+Hosts union/subtraction uses actual canonical owner entries and only A's names;
+other/stale entries and shared CA remain. Last-A empty set supported by existing
+plan, unsafe/noncanonical blocks denied. No TrustRemove or global registry rewrite.
+QA identified global Snapshot in the read auth callback creating unrelated backup
+namespaces; only this callback now uses scoped registration/root/revision/FSid.
+Synchronous regression1passed0.04s; QA source closure, no broad snapshot rewrite.
+
+Core3, manager policy1, canonical9, adapter1, client2/parser1, checked exports and
+scoped clippy passed. [Policy](../evidence/m13-domain-actions/policy.log) and
+[scoped callback](../evidence/m13-domain-actions/scoped-read.log). One actual
+macOS ARM64 copied/hash-verified Caddy2.11.9 +owned MemoryCA/client-root loopback
+TLS/denial-before-helper smoke passed; owned child stopped.
+[Smoke](../evidence/m13-domain-actions/tls-smoke.json) records no source mutation,
+PHP/native credentials/global hosts/trust read/write or permission changes.
+That smoke was reused after the accessor-only fix; no duplicate native run.
+
+M13.4 implementation slices are integrated; real signed helper/UAC/macOS dialogs,
+OS hosts/trust writes, minimum OS and new Windows domain runtime remain separate
+M13.9/M15 gates. This phase does not authorize changing system security settings.
+M13.5 metadata diagnostics/Inspector/log/mail is next, then explicit content rights
+and cursor/freshness acceptance. Deferred E UI/retention work remains in queue.

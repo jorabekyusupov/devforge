@@ -843,3 +843,66 @@ fn database_metadata_and_parser_limit_actions_to_scoped_bind_restore() {
         assert_eq!(entry["execution_requires_native_approval"], true);
     }
 }
+
+#[test]
+fn domain_metadata_and_parser_never_accept_confirmation_elevation_or_new_configuration() {
+    for args in [
+        vec!["api", "domain", "--help"],
+        vec!["api", "domain", "hosts-plan", "--help"],
+        vec!["api", "domain", "trust-plan", "--help"],
+        vec!["api", "domain", "cleanup", "--help"],
+    ] {
+        let (_, _, output, value) = invoke(&args);
+        assert!(output.status.success());
+        assert_eq!(value["ok"], true);
+    }
+    for args in [
+        vec![
+            "api",
+            "domain",
+            "configure",
+            "project",
+            "--domain",
+            "other.devforge.test",
+        ],
+        vec!["api", "domain", "apply", "project", "--confirm"],
+        vec!["api", "domain", "apply", "project", "--elevate"],
+        vec!["api", "domain", "cleanup", "apply", "project", "--consent"],
+        vec![
+            "api",
+            "domain",
+            "hosts-plan",
+            "project",
+            "--helper",
+            "/tmp/not-accepted",
+        ],
+        vec![
+            "api",
+            "domain",
+            "cleanup",
+            "project",
+            "--plan",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        ],
+        vec![
+            "api",
+            "status",
+            "--plan",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        ],
+    ] {
+        let (_, _, output, value) = invoke(&args);
+        assert_eq!(output.status.code(), Some(2), "{args:?}");
+        assert_eq!(value["error"]["code"], "invalid_input");
+    }
+    let (_, _, _, capabilities) = invoke(&["api", "capabilities"]);
+    let commands = capabilities["data"]["commands"].as_array().unwrap();
+    for name in ["domain apply", "domain cleanup apply"] {
+        let entry = commands.iter().find(|entry| entry["name"] == name).unwrap();
+        assert_eq!(
+            entry["required_scopes"],
+            serde_json::json!(["project_manage", "sensitive_operation"])
+        );
+        assert_eq!(entry["native_machine_confirmation_required"], true);
+    }
+}

@@ -1,0 +1,19 @@
+{
+  "caddy_archive_sha256": "d075afc620376679a77b453399bf7ada264cab3280b2833e4ed1372abc0c1c13",
+  "caddy_package": "caddy-v2.11.9-macos-arm64",
+  "client_only_ca_tls_loopback": true,
+  "copied_executable_verified": true,
+  "denied_before_helper": true,
+  "host": {
+    "arch": "aarch64",
+    "os": "macos"
+  },
+  "native_credentials": false,
+  "observer_no_store_or_ca_creation": true,
+  "owned_child_stopped": true,
+  "passed": true,
+  "php_execution": false,
+  "source_cache_mutated": false,
+  "system_hosts_read_or_write": false,
+  "system_trust_read_or_write": false
+}

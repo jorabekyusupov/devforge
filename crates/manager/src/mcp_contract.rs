@@ -41,6 +41,7 @@ pub struct Protocol {
     runtime_actions: bool,
     environment_actions: bool,
     database_actions: bool,
+    domain_actions: bool,
 }
 pub enum Action {
     Reply(Value),
@@ -51,6 +52,32 @@ pub enum Action {
     Runtime(RuntimeCall),
     Environment(EnvCall),
     Database(DatabaseCall),
+    Domain(DomainCall),
+}
+#[derive(Clone)]
+pub enum DomainInput {
+    Facts(crate::service_control::DomainReadKind),
+    Prepare(crate::service_control::DomainPlanKind),
+    Plan(Request<MutationInput>),
+    Apply {
+        request: Request<MutationInput>,
+        review: Digest,
+    },
+    Lookup {
+        idempotency_key: Id,
+    },
+}
+pub struct DomainCall {
+    pub input: DomainInput,
+    pub request_id: Id,
+    pub project_id: Id,
+    id: Value,
+    version: Version,
+}
+impl DomainCall {
+    pub fn jsonrpc_id(&self) -> &Value {
+        &self.id
+    }
 }
 #[derive(Clone)]
 pub enum DatabaseInput {
@@ -180,6 +207,7 @@ impl Protocol {
             runtime_actions: false,
             environment_actions: false,
             database_actions: false,
+            domain_actions: false,
         }
     }
     /// Surface selection only; grants and native exact-plan approval remain
@@ -218,6 +246,19 @@ impl Protocol {
     ) -> Self {
         let mut protocol = Self::with_environment_surfaces(project, service, runtime, environment);
         protocol.database_actions = database;
+        protocol
+    }
+    pub fn with_domain_surfaces(
+        project: Id,
+        service: bool,
+        runtime: bool,
+        environment: bool,
+        database: bool,
+        domain: bool,
+    ) -> Self {
+        let mut protocol =
+            Self::with_database_surfaces(project, service, runtime, environment, database);
+        protocol.domain_actions = domain;
         protocol
     }
     pub fn receive(&mut self, value: Value) -> Action {
@@ -388,6 +429,15 @@ impl Protocol {
                 Err(()) => Action::Reply(rpc_error(Some(id), -32602, "Invalid params", None)),
             };
         }
+        if method == "tools/call"
+            && self.domain_actions
+            && let Some(domain) = self.domain_tool(&params, id.clone(), version)
+        {
+            return match domain {
+                Ok(call) => Action::Domain(call),
+                Err(()) => Action::Reply(rpc_error(Some(id), -32602, "Invalid params", None)),
+            };
+        }
         let result = match method {
             "server/discover" if matches!(version, Version::Modern) => {
                 if keys(&params, &[]) {
@@ -412,7 +462,7 @@ impl Protocol {
                     return Action::Reply(rpc_success(
                         id,
                         version,
-                        json!({"tools":tool_definitions(self.service_actions,self.runtime_actions,self.environment_actions,self.database_actions)}),
+                        json!({"tools":tool_definitions(self.service_actions,self.runtime_actions,self.environment_actions,self.database_actions,self.domain_actions)}),
                     ));
                 } else {
                     Err(())
@@ -462,6 +512,162 @@ impl Protocol {
             }
             Err(()) => Action::Reply(rpc_error(Some(id), -32602, "Invalid params", None)),
         }
+    }
+    fn domain_tool(
+        &mut self,
+        params: &Value,
+        id: Value,
+        version: Version,
+    ) -> Option<Result<DomainCall, ()>> {
+        use crate::service_control::{DomainPlanKind, DomainReadKind};
+        let name = params.get("name").and_then(Value::as_str)?;
+        let args = params
+            .get("arguments")
+            .cloned()
+            .unwrap_or_else(|| json!({}));
+        let lookup = name == "operations.status" && args.get("idempotency_key").is_some();
+        if !lookup
+            && !matches!(
+                name,
+                "domains.url"
+                    | "domains.ports"
+                    | "domains.certificate_status"
+                    | "domains.hosts_plan"
+                    | "domains.trust_plan"
+                    | "domains.apply"
+                    | "domains.cleanup"
+            )
+        {
+            return None;
+        }
+        if !keys(params, &["name", "arguments"]) {
+            return Some(Err(()));
+        }
+        self.counter = self.counter.wrapping_add(1);
+        let request_id = Id::new(format!("mcp-{}", self.counter)).expect("fixed request ID");
+        let result = (|| {
+            if lookup {
+                #[derive(Deserialize)]
+                #[serde(deny_unknown_fields)]
+                struct Lookup {
+                    idempotency_key: Id,
+                }
+                let input: Lookup = serde_json::from_value(args).map_err(|_| ())?;
+                return Ok(DomainInput::Lookup {
+                    idempotency_key: input.idempotency_key,
+                });
+            }
+            if !matches!(name, "domains.apply" | "domains.cleanup") {
+                if !keys(&args, &[]) {
+                    return Err(());
+                }
+                return Ok(match name {
+                    "domains.url" => DomainInput::Facts(DomainReadKind::Url),
+                    "domains.ports" => DomainInput::Facts(DomainReadKind::Ports),
+                    "domains.certificate_status" => {
+                        DomainInput::Facts(DomainReadKind::CertificateStatus)
+                    }
+                    "domains.hosts_plan" => DomainInput::Prepare(DomainPlanKind::Hosts),
+                    "domains.trust_plan" => DomainInput::Prepare(DomainPlanKind::Trust),
+                    _ => return Err(()),
+                });
+            }
+            let mut args = args.as_object().cloned().ok_or(())?;
+            let action = match args.remove("action") {
+                None => {
+                    if name == "domains.cleanup" {
+                        "prepare".to_owned()
+                    } else {
+                        "plan".to_owned()
+                    }
+                }
+                Some(Value::String(action)) => action,
+                _ => return Err(()),
+            };
+            if name == "domains.cleanup" && action == "prepare" {
+                return if args.is_empty() {
+                    Ok(DomainInput::Prepare(DomainPlanKind::Cleanup))
+                } else {
+                    Err(())
+                };
+            }
+            if !matches!(action.as_str(), "plan" | "apply") {
+                return Err(());
+            }
+            let expected_revision =
+                serde_json::from_value::<u64>(args.remove("expected_revision").ok_or(())?)
+                    .map_err(|_| ())?;
+            if expected_revision > devforge_control::limits::SafeInt::MAX {
+                return Err(());
+            }
+            let idempotency_key =
+                serde_json::from_value::<Id>(args.remove("idempotency_key").ok_or(())?)
+                    .map_err(|_| ())?;
+            let review_value = args.remove("review");
+            let applying = action == "apply";
+            if applying != review_value.is_some() {
+                return Err(());
+            }
+            let review = review_value
+                .map(serde_json::from_value::<Digest>)
+                .transpose()
+                .map_err(|_| ())?;
+            let input: MutationInput =
+                serde_json::from_value(json!({"tool":name,"arguments":args})).map_err(|_| ())?;
+            let request = Request {
+                api_version: Default::default(),
+                request_id: request_id.clone(),
+                project_id: self.project.clone(),
+                expected_revision: Some(expected_revision),
+                idempotency_key: Some(idempotency_key),
+                input,
+            };
+            Ok(match review {
+                None => DomainInput::Plan(request),
+                Some(review) => DomainInput::Apply { request, review },
+            })
+        })();
+        Some(result.map(|input| DomainCall {
+            input,
+            request_id,
+            project_id: self.project.clone(),
+            id,
+            version,
+        }))
+    }
+    pub fn complete_domain(call: DomainCall, result: Result<Value, ErrorCode>) -> Value {
+        let invalid = if matches!(call.input, DomainInput::Apply { .. }) {
+            ErrorCode::AdmissionUnconfirmed
+        } else {
+            ErrorCode::InvalidInput
+        };
+        let content = result
+            .and_then(|value| {
+                if value.get("api_version") != Some(&json!(1))
+                    || value.get("request_id") != Some(&json!(call.request_id))
+                    || value.get("ok").and_then(Value::as_bool).is_none_or(|ok| {
+                        ok != value.get("data").is_some() || ok == value.get("error").is_some()
+                    })
+                {
+                    Err(invalid)
+                } else {
+                    Ok(value)
+                }
+            })
+            .unwrap_or_else(|code| {
+                serde_json::to_value(Response::<Value>::failure(
+                    call.request_id,
+                    None,
+                    code.fault(),
+                ))
+                .expect("fixed error envelope")
+            });
+        let is_error = content.get("ok") != Some(&Value::Bool(true));
+        rpc_success(
+            call.id,
+            call.version,
+            json!({"content":[{"type":"text","text":content.to_string()}],"structuredContent":content,"isError":is_error}),
+        )
     }
     fn database_tool(
         &mut self,
@@ -1205,6 +1411,7 @@ fn tool_definitions(
     runtime_actions: bool,
     environment_actions: bool,
     database_actions: bool,
+    domain_actions: bool,
 ) -> Vec<Value> {
     let mut definitions = read_tool_definitions();
     if service_actions {
@@ -1219,7 +1426,14 @@ fn tool_definitions(
     if database_actions {
         definitions.extend(database_tool_definitions());
     }
-    if (service_actions || runtime_actions || environment_actions || database_actions)
+    if domain_actions {
+        definitions.extend(domain_tool_definitions());
+    }
+    if (service_actions
+        || runtime_actions
+        || environment_actions
+        || database_actions
+        || domain_actions)
         && let Some(status) = definitions
             .iter_mut()
             .find(|tool| tool["name"] == "operations.status")
@@ -1360,5 +1574,34 @@ fn database_tool_definitions() -> Vec<Value> {
     ["database.plan","database.bind","database.restore"].into_iter().map(|name|{
         let planning=name=="database.plan";let schema=if planning{json!({"type":"object","oneOf":[build("choices",true),build("bind",true),build("restore",true)]})}else{build(name.strip_prefix("database.").expect("fixed prefix"),false)};
         json!({"name":name,"description":if planning{"Scoped owned DB choices or native-review plan. Default action choices lists only this project's current/retained instance IDs and own backup IDs. Bind/restore plans require PM+Sensitive and stopped project. Private paths, credentials, database names, checksums and identities remain at the manager/native-plan boundary."}else if name=="database.bind"{"Apply only the exact native-approved owned instance binding with PM+Sensitive and stopped project. It may start a managed DB daemon or provision a project-owned staged binding; failure/cancellation need not undo completed prerequisites. No admin credentials or SQL tool is exposed. Keep original key after uncertainty and lookup its receipt."}else{"Restore only an owned backup by ID through the existing staged restore/activation transaction. PM+Sensitive, stopped project and exact native approval are mandatory. Private checksum/identity/engine checks are server-owned. Staging or completed prerequisites may remain after failure; late cancellation does not undo successful activation. Preserve original key and reconcile; no path, SQL import, clone or export tool."},"inputSchema":schema,"annotations":{"readOnlyHint":planning,"destructiveHint":!planning,"idempotentHint":true,"openWorldHint":!planning}})
+    }).collect()
+}
+
+fn domain_tool_definitions() -> Vec<Value> {
+    use devforge_control::export::Wire;
+    let write_schema = |action: &str| {
+        let mut props = serde_json::Map::from_iter([
+            ("action".into(), json!({"const":action})),
+            ("plan".into(), Digest::schema()),
+            (
+                "expected_revision".into(),
+                json!({"type":"integer","minimum":0,"maximum":devforge_control::limits::SafeInt::MAX}),
+            ),
+            ("idempotency_key".into(), Id::schema()),
+            (
+                "limits".into(),
+                json!({"anyOf":[devforge_control::mutations::MutationLimits::schema(),{"type":"null"}]}),
+            ),
+        ]);
+        let mut required = vec!["plan", "expected_revision", "idempotency_key"];
+        if action == "apply" {
+            props.insert("review".into(), Digest::schema());
+            required.extend(["action", "review"]);
+        }
+        json!({"type":"object","properties":props,"required":required,"additionalProperties":false})
+    };
+    ["domains.url","domains.ports","domains.certificate_status","domains.hosts_plan","domains.trust_plan","domains.apply","domains.cleanup"].into_iter().map(|name|{
+        let write=matches!(name,"domains.apply"|"domains.cleanup");let schema=if name=="domains.cleanup"{let mut plan=write_schema("plan");plan["required"].as_array_mut().expect("fixed schema").push(json!("action"));json!({"type":"object","oneOf":[{"type":"object","properties":{"action":{"const":"prepare"}},"additionalProperties":false},plan,write_schema("apply")]})}else if write{json!({"type":"object","oneOf":[write_schema("plan"),write_schema("apply")]})}else{json!({"type":"object","properties":{},"additionalProperties":false})};
+        json!({"name":name,"description":if !write{"Read only this project's URL/ports/certificate status or prepare opaque hosts/trust plan. Missing CA requires native owner preparation; this route never creates CA, reads its private key or exports global domains/hosts/paths/DER."}else if name=="domains.cleanup"{"Prepare/plan/apply cleanup of only the selected project's owned hosts entries. Other projects and shared CA are preserved. PM+Sensitive, native exact-plan approval AND separate explicit native owner confirmation of the exact machine change are mandatory before helper execution. No agent confirmation/elevation/consent flag is accepted. Preserve original key after uncertainty; no rollback/hard deadline promise."}else{"Plan/apply a prepared hosts or trust ticket. PM+Sensitive, native exact-plan approval AND separate explicit native owner confirmation of the exact machine change are mandatory. Generic approval, grant or tool action never authorizes elevation. No helper path, hosts contents, CA DER/key or owner-wide domains accepted/exported. Preserve original key and reconcile after uncertain admission."},"inputSchema":schema,"annotations":{"readOnlyHint":!write,"destructiveHint":write,"idempotentHint":true,"openWorldHint":false}})
     }).collect()
 }

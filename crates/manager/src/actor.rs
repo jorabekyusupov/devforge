@@ -253,6 +253,7 @@ enum Message {
     Job(Box<Job>),
     Environment(Box<crate::environment_control::EnvironmentRead>),
     Database(Box<crate::database_control::DatabaseRead>),
+    Domain(Box<crate::domain_control::DomainRead>),
 }
 
 /// Owns and joins exactly one real Workspace thread. Dropping a Handle does not
@@ -435,6 +436,9 @@ impl ActorHandle {
     ) -> Result<()> {
         self.queue_private(Message::Database(Box::new(query)))
     }
+    pub(crate) fn queue_domain(&self, query: crate::domain_control::DomainRead) -> Result<()> {
+        self.queue_private(Message::Domain(Box::new(query)))
+    }
     fn queue_private(&self, message: Message) -> Result<()> {
         let state = self
             .shared
@@ -593,6 +597,8 @@ impl ActorHandle {
             MutationInput::YamlSave(_) => MutationOutput::YamlSave(output),
             MutationInput::DatabaseBind(_) => MutationOutput::DatabaseBind(output),
             MutationInput::DatabaseRestore(_) => MutationOutput::DatabaseRestore(output),
+            MutationInput::DomainApply(_) => MutationOutput::DomainApply(output),
+            MutationInput::DomainCleanup(_) => MutationOutput::DomainCleanup(output),
             _ => return Err(E::UnsupportedCapability),
         })?;
         let transaction = state
@@ -1411,6 +1417,15 @@ fn worker_loop(
                             project_id: None,
                         }));
                     }
+                    Message::Domain(query) => {
+                        shared.environment_queued.fetch_sub(1, Ordering::AcqRel);
+                        shared.environment_reads.fetch_sub(1, Ordering::AcqRel);
+                        let _ = query.reply.send(Err(devforge_workspace::Error {
+                            scope: "workspace",
+                            code: "interrupted".into(),
+                            project_id: None,
+                        }));
+                    }
                 }
             }
             shared
@@ -1458,6 +1473,13 @@ fn worker_loop(
                 shared.environment_reads.fetch_sub(1, Ordering::AcqRel);
             }
             Message::Database(query) => {
+                shared.environment_queued.fetch_sub(1, Ordering::AcqRel);
+                shared.active.store(true, Ordering::Release);
+                query.execute(&workspace);
+                shared.active.store(false, Ordering::Release);
+                shared.environment_reads.fetch_sub(1, Ordering::AcqRel);
+            }
+            Message::Domain(query) => {
                 shared.environment_queued.fetch_sub(1, Ordering::AcqRel);
                 shared.active.store(true, Ordering::Release);
                 query.execute(&workspace);

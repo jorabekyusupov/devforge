@@ -40,7 +40,15 @@ impl<'a> BackendContext<'a> {
 /// Configuration planning is a read-only domain method, not a Command mutation.
 pub enum Dispatch {
     Command(Box<Command>),
-    ConfigurationPlan { project_id: String, write_env: bool },
+    ConfigurationPlan {
+        project_id: String,
+        write_env: bool,
+    },
+    DomainSystem {
+        project_id: String,
+        plan: Digest,
+        cleanup: bool,
+    },
 }
 fn backend_review<'a>(
     prepared: &PreparedMutation,
@@ -151,6 +159,22 @@ pub fn map_mutation(
                 backup: input.backup_id.as_str().into(),
                 consent: true,
             }
+        }
+        MutationInput::DomainApply(input) => {
+            backend_review(prepared, context)?;
+            return Ok(Dispatch::DomainSystem {
+                project_id: id,
+                plan: input.plan.clone(),
+                cleanup: false,
+            });
+        }
+        MutationInput::DomainCleanup(input) => {
+            backend_review(prepared, context)?;
+            return Ok(Dispatch::DomainSystem {
+                project_id: id,
+                plan: input.plan.clone(),
+                cleanup: true,
+            });
         }
         MutationInput::WorkspaceArchive(input) => Command::WorktreeCleanup {
             id: workspace_id(prepared, &input.workspace_id, context)?,
