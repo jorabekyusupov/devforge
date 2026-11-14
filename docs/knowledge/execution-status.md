@@ -831,3 +831,22 @@ Twoindependentconnections/fieldordering/initializerace tested withoutnativeUI/
 Keychain/globalsettings; Windowsnativeexecution pending. No visual/React/locale
 change orfullsuite rerun. ProtectspreferencesbeforeGUI+managercutover, notactual
 cutoveracceptance oruniversalreplacementofallfuturewriters.
+
+
+## CI formatting and Windows junction fixture followup
+
+9adad8f run43577317790 bothplatforms stoppedatoneDesktopAppState Rustfmtline,
+not producttest failure. Rootformattedthatline andscopedrustfmtcheckpassed;
+unchanged9settingschecks/consumercompile reused, notrepeatedforformatonly.
+5f16ab6 run43576483531 Windows projecttests26passed/1failed/2nativeignored: new
+mklink/Jfixturecreation failedwithoutstderr, beforeproductpathguardassertion.
+Fixture nowusesnormalWin32 spellingsviadunce forbothpaths andboundedpath-redacted
+exit/stderr diagnostics; noskip/fakefallback/OSpermissionchange. Exactcause remains
+sourcehypothesisuntilnewWindowsrun. AffectedMacpathguard1+projectsclippy passed.
+
+Earliercd6ba86Windowsrun43575813976 exposedactorfixturetiming assumptions(32durable
+writesoutlastSQLitebusywindow; 80msaccepted-proofexpirybeforecommit). Deterministic
+fixtureseparation underway withnewfacade, productiontimeouts unchanged. E06run
+43576036027 andE02run43576221093 completedmacOS/Windowschecks success; E07/E01/
+artifactruns43575265189/43575299620/43575624364 success. Remainingnewnativegates
+notinferredfromthoseearlierscopes.

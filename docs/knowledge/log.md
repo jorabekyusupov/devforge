@@ -4,6 +4,8 @@
 
 ## 2026-11-14
 
+- **CI followup:** preferencesone-lineRustfmtfixed/scopedcheck; Windowsjunctionfixture normalWin32args+boundedredacteddiagnostics, affectedMacguard1/clippy passed. Original9adfmt/5f16fixture failures retained; actualnewWindowsproofpending. ActorCI timingfixturesfixedseparatelywithfacadedependency. [Execution](execution-status.md).
+
 - **M13.1.10 atomicprefs:** immediatetransactionfieldpatch+None-onlyfolderinit, GUIwriteradopted, savedunknownlocale/JSONpreserved.9focusedplatformtests/clippy+desktoplibcheck pass; managerwriterintegration/nativeWindows next. [Contract](../architecture/atomic-settings-patches.md).
 
 - **M13.1.9 externalgrants:** ownerissuedprojectscopes+independentcontentrights, opaquehash-onlytoken, durableexpiry/revoke, OwnerGuard lifetimefix. Isolatedstaged8tests+managerlibclippy pass; noexternalactor/CLI/MCP/GUIwiring/NativeStoreclaim. [Foundation](../architecture/external-grants.md).

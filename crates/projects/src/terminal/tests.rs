@@ -113,13 +113,28 @@ fn directory_link(target: &Path, link: &Path) {
         let result =
             std::process::Command::new(std::path::PathBuf::from(system).join("System32/cmd.exe"))
                 .args(["/D", "/C", "mklink", "/J"])
-                .arg(link)
-                .arg(target)
+                // Use normal Win32 paths for cmd's mklink, not verbatim \\?\ spelling.
+                .arg(dunce::simplified(link))
+                .arg(dunce::simplified(target))
                 .output()
                 .unwrap();
+        let mut diagnostic = String::from_utf8_lossy(&result.stderr).into_owned();
+        for path in [
+            link,
+            target,
+            link.parent().unwrap(),
+            target.parent().unwrap(),
+        ] {
+            for spelling in [path, dunce::simplified(path)] {
+                diagnostic =
+                    diagnostic.replace(spelling.to_string_lossy().as_ref(), "[FIXTURE_PATH]");
+            }
+        }
         assert!(
             result.status.success(),
-            "disposable junction fixture unavailable"
+            "disposable junction fixture unavailable: exit={:?}, stderr={}",
+            result.status.code(),
+            diagnostic.chars().take(1024).collect::<String>()
         );
     }
 }

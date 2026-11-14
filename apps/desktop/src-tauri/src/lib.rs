@@ -95,7 +95,8 @@ impl AppState {
         database.initialize_project_folder(&self.project_home()?)?;
         if let Some(mut patch) = update {
             if let Some(input) = patch.project_folder.as_deref() {
-                let folder = devforge_platform::resolve_project_folder(input, &self.project_home()?)?;
+                let folder =
+                    devforge_platform::resolve_project_folder(input, &self.project_home()?)?;
                 patch.project_folder = Some(folder.to_string_lossy().into_owned());
             }
             database.patch(patch, &self.registry)?;
