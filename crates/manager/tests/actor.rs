@@ -369,12 +369,23 @@ fn real_sqlite_contention_keeps_cache_and_cancel_fast_with_bounded_admission() {
         CancelOutcome::Requested
     );
     block.execute_batch("COMMIT;").unwrap();
-    // Favorite does not observe cancellation during its atomic metadata write;
-    // successful completion wins a late request rather than claiming rollback.
-    assert_eq!(
-        terminal(&handle, &proof, &active).state,
-        OperationState::Succeeded
-    );
+    // The real ProjectStore lock waits at most three seconds. Durable admission
+    // of 32 receipts can exceed that on a busy host; that is a truthful domain
+    // failure, not successful cancellation or rollback. Do not extend production
+    // timeouts to make this fixture deterministic. A fast release still succeeds.
+    let active_terminal = terminal(&handle, &proof, &active);
+    let active_succeeded = match active_terminal.state {
+        OperationState::Succeeded => true,
+        OperationState::Failed => {
+            let detail = handle
+                .failure_detail(&proof, &id(&a), &active.operation_id)
+                .unwrap();
+            assert_eq!(detail.scope, DomainScope::Project);
+            assert_eq!(detail.code, "storage_unavailable");
+            false
+        }
+        state => panic!("metadata lock must succeed or report its storage failure: {state:?}"),
+    };
     assert_eq!(
         terminal(&handle, &proof, &queued[0]).state,
         OperationState::Cancelled
@@ -386,7 +397,7 @@ fn real_sqlite_contention_keeps_cache_and_cancel_fast_with_bounded_admission() {
         );
     }
     let snapshot = handle.cached_snapshot(&proof).unwrap();
-    assert!(
+    assert_eq!(
         snapshot
             .snapshot
             .projects
@@ -395,7 +406,8 @@ fn real_sqlite_contention_keeps_cache_and_cancel_fast_with_bounded_admission() {
             .unwrap()
             .navigation
             .favorite,
-        "cancelled A job must not undo active A's successful change"
+        active_succeeded,
+        "cancelled queued A must preserve the actual active A outcome"
     );
     assert!(
         snapshot

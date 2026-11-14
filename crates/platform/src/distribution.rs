@@ -11,6 +11,13 @@ const MIN_WINDOWS_BUILD: u32 = 19045;
 pub struct AppLease {
     _file: File,
 }
+impl Drop for AppLease {
+    fn drop(&mut self) {
+        // Closing only this handle need not release a lock retained by a
+        // duplicated/fork-inherited descriptor. End the logical lease now.
+        let _ = self._file.unlock();
+    }
+}
 impl AppLease {
     pub fn acquire(root: &Path) -> std::io::Result<Self> {
         let file = lease_file(root, "desktop.lock")?;
@@ -30,7 +37,11 @@ impl AppLease {
             Ok(_desktop) => {
                 let file = lease_file(root, "operations.lock")?;
                 match file.try_lock() {
-                    Ok(()) => Ok(true),
+                    Ok(()) => {
+                        // Reuse explicit-release semantics for this brief probe.
+                        let _probe = OperationLease { _file: file };
+                        Ok(true)
+                    }
                     Err(std::fs::TryLockError::WouldBlock) => Ok(false),
                     Err(std::fs::TryLockError::Error(e)) => Err(e),
                 }
@@ -103,6 +114,11 @@ fn lease_file(root: &Path, name: &str) -> std::io::Result<File> {
     Ok(file)
 }
 
+impl Drop for OperationLease {
+    fn drop(&mut self) {
+        let _ = self._file.unlock();
+    }
+}
 impl OperationLease {
     /// Reproducible setup owns configuration across GUI/CLI lifetimes.
     pub fn exclusive(root: &Path) -> std::io::Result<Self> {
@@ -261,6 +277,27 @@ mod tests {
         assert!(!AppLease::stopped(root.path()).unwrap());
         drop(second);
         assert!(AppLease::stopped(root.path()).unwrap());
+    }
+    #[cfg(unix)]
+    #[test]
+    fn lifecycle_leases_unlock_with_duplicate_descriptors_alive() {
+        let root = tempfile::tempdir().unwrap();
+        let app = AppLease::acquire(root.path()).unwrap();
+        let inherited_app = app._file.try_clone().unwrap();
+        drop(app);
+        assert!(AppLease::acquire(root.path()).is_ok());
+        for exclusive in [true, false] {
+            let operation = if exclusive {
+                OperationLease::exclusive(root.path()).unwrap()
+            } else {
+                OperationLease::acquire(root.path()).unwrap()
+            };
+            let inherited = operation._file.try_clone().unwrap();
+            drop(operation);
+            assert!(OperationLease::exclusive(root.path()).is_ok());
+            drop(inherited);
+        }
+        drop(inherited_app);
     }
     #[test]
     fn minimum_macos_is_explicit() {

@@ -643,3 +643,25 @@ bootstrap6 va finalscopedclippy sourcefrozen, unaffectedfixtures reused.
 RemainingGUIgates: trustedworktree/cachetargets, alloldprivateTauriIPCfacade+Discovery
 owner, reconnect/nativeUIflow va actualM7HTTP/request+GUI2clienttargetacceptance.
 MCP/externalgrants/publicautomationstillnotwired. NativeUserKeychain ishlatilmadi.
+
+
+## M13.1 lease release va contention fixture reconciliation
+
+E05.1 run43573248703 Windows actor contention: active Favorite failed because the
+fixture held ProjectStore EXCLUSIVE lock while admitting32 durable receipts,
+exceeding the unchanged3s storage timeout. Test now requires either actual success
+or exact Project/storage_unavailable and checks navigation against that outcome;
+queued cancellation,32capacity,500ms cached-read/cancel bounds remain unchanged.
+Focused contention1 and actor-test clippy passedmacOS; Windowsnewbranch CI pending.
+65b389b run43573361613 meanwhile completed successmacOS+Windows.
+
+487bbeb run43573828659 macOS infrastructure failed immediate lease reacquisition.
+Close-only descriptor lifetime flaw reproduced deterministically with retained
+try_clone FD: manager2/platform1 regressions failbeforefix. ManagerLock and
+OperationLease/AppLease now explicitly unlock at logical lifetime end; managerguard
+stays inside last OwnerLeaseArc includingWorkspacePermit, not earlyOwnerDrop.
+Concurrentfork inheritance as originalCItrigger is inferred, not traced.
+Focused endpoint2/platformdistribution9/infrastructure11passed(1subprocessfixture
+ignored) and scoped platform+manageralltargetsclippy passed. No timeout/sleepretry
+added to lease productcode/tests. New actual Windows/Mac CI remains required;
+noGUI/credential/minimumOS pass inferred. Unaffected product suites not rerunlocally.

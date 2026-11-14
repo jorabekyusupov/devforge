@@ -103,8 +103,17 @@ pub struct Owner {
     endpoint: Endpoint,
     lease: Arc<OwnerLease>,
 }
+/// Logical ownership must release the OS lock explicitly. A fork/duplicated
+/// descriptor can retain an open-file-description after our File closes, even
+/// with CLOEXEC (the child may not have reached exec yet).
+struct ManagerLock(File);
+impl Drop for ManagerLock {
+    fn drop(&mut self) {
+        let _ = self.0.unlock();
+    }
+}
 struct OwnerLease {
-    _lock: File,
+    _lock: ManagerLock,
     _operation: OperationLease,
     workspace_claimed: AtomicBool,
 }
@@ -112,7 +121,7 @@ struct OwnerLease {
 /// not hold OperationLease: legacy modules retain their original shared/exclusive
 /// policies, including config setup's exclusive lease.
 pub struct LegacyExclusion {
-    _lock: File,
+    _lock: ManagerLock,
 }
 impl LegacyExclusion {
     pub fn acquire(root: &Path) -> Result<Self> {
@@ -120,7 +129,7 @@ impl LegacyExclusion {
         Ok(Self { _lock: lock })
     }
 }
-fn acquire_manager_lock(root: &Path) -> Result<(PathBuf, PathBuf, File)> {
+fn acquire_manager_lock(root: &Path) -> Result<(PathBuf, PathBuf, ManagerLock)> {
     let root = root_path(root)?;
     let directory = root.join("control");
     crate::transport::os::ensure_private_dir(&directory)?;
@@ -139,7 +148,7 @@ fn acquire_manager_lock(root: &Path) -> Result<(PathBuf, PathBuf, File)> {
         std::fs::TryLockError::WouldBlock => Error::Busy,
         std::fs::TryLockError::Error(error) => Error::Io(error),
     })?;
-    Ok((root, directory, lock))
+    Ok((root, directory, ManagerLock(lock)))
 }
 /// One-use in-process authority to construct this owner's Workspace worker.
 /// It cannot be cloned or decoded from wire input. The worker retains its OS
@@ -187,5 +196,43 @@ impl Owner {
             endpoint: self.endpoint.clone(),
             _lease: self.lease.clone(),
         })
+    }
+}
+
+#[cfg(all(test, unix))]
+mod lock_release_tests {
+    use super::*;
+
+    #[test]
+    fn legacy_exclusion_releases_lock_with_duplicate_descriptor_alive() {
+        let root = tempfile::Builder::new()
+            .prefix("df-lease-")
+            .tempdir_in("/tmp")
+            .unwrap();
+        let legacy = LegacyExclusion::acquire(root.path()).unwrap();
+        let inherited = legacy._lock.0.try_clone().unwrap();
+        drop(legacy);
+        let next = LegacyExclusion::acquire(root.path()).unwrap();
+        drop(next);
+        drop(inherited);
+    }
+
+    #[test]
+    fn final_workspace_permit_releases_owner_lock_with_duplicate_descriptor_alive() {
+        let root = tempfile::Builder::new()
+            .prefix("df-lease-")
+            .tempdir_in("/tmp")
+            .unwrap();
+        let owner = Owner::acquire(root.path()).unwrap();
+        let inherited = owner.lease._lock.0.try_clone().unwrap();
+        let permit = owner.claim_workspace().unwrap();
+        drop(owner);
+        // The worker must keep ownership and installer protection until cleanup.
+        assert!(matches!(Owner::acquire(root.path()), Err(Error::Busy)));
+        assert!(OperationLease::exclusive(root.path()).is_err());
+        drop(permit);
+        let next = Owner::acquire(root.path()).unwrap();
+        drop(next);
+        drop(inherited);
     }
 }

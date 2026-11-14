@@ -4,6 +4,8 @@
 
 ## 2026-11-14
 
+- **M13.1 logical lease release:** retainedduplicateFD regressions manager2/platform1 red→green; explicitunlock atlastlogicalowner, WorkspacePermit lifetime preserved. Platform9/infrastructure11/scopedclippy pass. Windowscontentionfixture now asserts exactstoragefailure orsuccess underunchanged3stimeout; focused1pass. OriginalCI43573828659Mac/43573248703Windows failures preserved, newnativeCIpending. [Execution](execution-status.md).
+
 - **M13.1.5 payload+SDK:** private8MiBcommand/inRAMchunking,16MiBwaitingbytes, immutablefullsnapshotpaging, RustonlypinnedNativeClient/noautoStore.5payload/9actor/7controller/4SDK/1authmetadata/6bootstrap+clippy green.1MiBNULcodec/1000rowsnapshot actual, notCoreHTTP/GUIproof. Windowsdetached4unavailable oldharness clarified; newordinarypipecomponent actualCIpending. [Execution](execution-status.md).
 
 - **E10.1 framework matrix:** actualmanagedPHP8.4/Laravel12+13 realCollector/mail19events green; fresh11Composeradvisoryblocked, guardunchanged.9Python/lint/examplebuild/clippy, source/runtime/lock/binaryprovenance; postrunreportredactionmatrixnotrerun. [Results](companion-compatibility-results.md), widernative/DBmatrixunverified.
