@@ -117,6 +117,11 @@ struct OwnerLease {
     _operation: OperationLease,
     workspace_claimed: AtomicBool,
 }
+/// Retains the singleton/install leases for owner services other than Workspace.
+/// Private composition authority only: no decoder and no additional owner lock.
+pub(crate) struct OwnerGuard {
+    _lease: Arc<OwnerLease>,
+}
 /// Transitional legacy CLI exclusion only. This is not a manager owner and does
 /// not hold OperationLease: legacy modules retain their original shared/exclusive
 /// policies, including config setup's exclusive lease.
@@ -187,6 +192,11 @@ impl Owner {
     }
     pub fn endpoint(&self) -> &Endpoint {
         &self.endpoint
+    }
+    pub(crate) fn retain_lease(&self) -> OwnerGuard {
+        OwnerGuard {
+            _lease: self.lease.clone(),
+        }
     }
     pub fn claim_workspace(&self) -> Result<WorkspacePermit> {
         if self.lease.workspace_claimed.swap(true, Ordering::AcqRel) {

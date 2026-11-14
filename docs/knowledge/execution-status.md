@@ -795,3 +795,22 @@ facadewrites: CLIexact-route1passed anddesktoplibrarycargo check passed. Strict4
 0errors/0warnings onthatstagedtree. No unrelatedruntime/native/frontendtests
 repeated; temporaryarchivecleanedafterchecks. This verifiesconsumercompilation,
 notnativeTerminal.app/Windowsinteraction.
+
+
+## M13.1.9 external grant registry foundation
+
+[Foundation](../architecture/external-grants.md): owner/freshDesktopAuthority-only
+issuance/list/revoke, serverrandomclient/grantidentity, opaque256bitcredentialonce,
+SHA256onlyatrest. FourScopebits independentplusLogContent/InspectorQueries/
+MailContent/SourceArtifacts/DatabaseQuery independentinformationrights; bare
+Observer safemetadataonly. Root/OSuser/projectcanonicalpath+FSidentity/current
+requestrevisionchecks, max256retainedgrants/30dayTTL. Serverclockhighwater+
+durableexpired/revoked preventobservedexpiryresurrection. NoNativeStorelookup.
+
+RootreviewfoundmissingOwnerlifetimeguard; registry nowretainsArcOwnerGuarduntilDB/
+filedrop, noearlyOwnerDropunlock. Isolatedexactstaged8fixtures andmanagerlibclippy
+passedmacOSARM64; sourcegenerationpreviousactorWIPcompileerrors separated, not
+countedasgrantfailures/pass. Existingprojects dependency promoteddev→production
+withoutversionorlockchange. Noexternalactor/CLI/MCP/GUIgrantissuance livewiring,
+SQLsandbox/executiontrust/review orrunningjobrevocation claim. Windowsnativegate
+andpublicschema/exportadoption remainfuture; notwholeM13.1completion.

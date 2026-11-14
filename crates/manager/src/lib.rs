@@ -70,3 +70,8 @@ pub mod controller;
 pub mod native_client;
 
 pub mod payload;
+
+pub mod external_auth;
+
+#[cfg(test)]
+extern crate self as devforge_manager;

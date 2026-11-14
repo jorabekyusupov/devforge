@@ -29,6 +29,8 @@ mavzuni tanlang, so'ng faqat tegishli hujjatlar va ularning manbalarini o'qing.
 
 ## Manba va yuritish
 
+- [External grant foundation](../architecture/external-grants.md) - owner-issued project scopes, independent information rights, hash-only credentials va durable revoke/expiry.
+
 - [Terminal snapshots](../architecture/terminal-snapshots.md) - exact foreground shell coexistence, private runtime config va frozen metadata.
 
 - [E02 environment metadata](../architecture/environment-report.md) - repository expected versus registered configuration, portability va explicitly unverified health.

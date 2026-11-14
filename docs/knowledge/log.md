@@ -4,6 +4,8 @@
 
 ## 2026-11-14
 
+- **M13.1.9 externalgrants:** ownerissuedprojectscopes+independentcontentrights, opaquehash-onlytoken, durableexpiry/revoke, OwnerGuard lifetimefix. Isolatedstaged8tests+managerlibclippy pass; noexternalactor/CLI/MCP/GUIwiring/NativeStoreclaim. [Foundation](../architecture/external-grants.md).
+
 - **M13.1.8 terminal snapshot:** readonlyschema/frozenmetadata/privateINI+shims/runtimeleases, persistenttoolauth preserved, exactCLI+desktopterminal guards.7focusedfixtures+route1/scopedclippy; finalstagedconsumer gate tracked. RealnativeGUI/Windows/Xdebug unverified. [Contract](../architecture/terminal-snapshots.md).
 
 - **E02.1 environment report:** boundedexpected/registeredmetadata usingexistingofflineevidence, explicitportability/secret/stalePHP unknowns. 6integration+1unit/workspaceclippy pass; QAname/envregistrationfalsematchesfixed. NoCLI/UI/nativeproof. [Contract](../architecture/environment-report.md), [execution](execution-status.md).
