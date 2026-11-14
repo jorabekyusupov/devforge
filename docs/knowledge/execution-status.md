@@ -912,3 +912,27 @@ filters +subjectexpectation1 passed, then10actorintegration passed withnewbacken
 983Windowsjunctionfixture stillfailedsyntax; rawcmd /D /V:OFF /S /C+raw_arg fixed
 quote strategy nowmatchesexistingWindows-passingprobe. Macguard1/clippy passed;
 newWindowsproofpending, no skip/permissionbypass. Failurehistorypreserved.
+
+
+## E05.2 bounded runtime cleanup preview and drill inventory
+
+[Results](cleanup-preview-results.md): blocked/review_candidate/unknown withexact
+installedreceiptmetadata, allregisteredactive/inactivepins, derivedweb/proxy/tools,
+DB/cache/pendinggenerations andpinnedworktreerefs. Missing/unresolved/truncated/
+unknownownership preventsReviewCandidate. Existing-filekernellease observation
+creates/chmods nothing, explicitunlock; missing/unsafe/inaccessible→unknown.
+Logicalsize notallocated/freeable; noapplytoken/delete/replay. Futureapplymust
+relock/revalidateallfacts. E06ownedreceipt namespace andpendinggenerationassociated
+retainedreasons nowincludedinstorageinventory; no DBpayload/credentialreads.
+
+QAfoundfalsecandidatebyfullPackageequality: physicalkeyexcludesURL/SHA/maps.
+TwoREDrepros(inactivecollision andderivedwebprefilter) fixedusingphysicalkeys+
+explicitcollision_unverified; fullinstalledreceiptmatch remains exact. New2+
+affectedoldreference2 passed; initiallease1/metadata4/preview5/storage9 reused
+whereunchanged. Scopedruntime/projects/workspacelib/testsclippy androotselected
+fmt passed. No managedruntimeexecution/NativeStore/network/PGMySQL/GUI/userscan.
+Windows/Intel newlease execution/reviewUI/apply/physicaldrillcleanup/retention remain.
+
+Phase reconciliation also updated actor/controller ADRs toalready-published
+nativefacade resource/recovery/ephemeralread/large-result semantics; nonewmanager
+code stagedwiththiscleanupfeature. Existingbody-sensitivepolicyhistory retained.

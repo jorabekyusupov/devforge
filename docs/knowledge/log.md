@@ -4,6 +4,8 @@
 
 ## 2026-11-14
 
+- **E05.2 preview:** allregisteredphysicalrefs/read-onlylease observations, unknownblocksreviewcandidate, E06ownedreceiptinventory. QAphysical-key/derivedwebfalsecandidates RED→GREEN2+affected2, unchangedlease1/metadata4/preview5/storage9reused; scopedclippy/fmt. Noapply/delete/GUI. Actor/controllerdocreconciliationincluded. [Results](cleanup-preview-results.md).
+
 - **M13.1.11 privatefacade:** native read/access/discovery/ops-bykey, ephemeralboundedpolls+sharedlargeimages, truthfullargewrites/recovery, volatileknownsecretbodies, finiteDebuggerScope. Scoped6/2/10/7+adapter/subjects/SDKcases/clippy pass; newclientlease15tests, Windowsrawcmdfixturefollowup. GUI/default/NativeStore notflipped. [Facade](../architecture/manager-desktop-facade.md), [migration](../architecture/manager-desktop-migration.md), [execution](execution-status.md).
 
 - **TP03 accumulatedCI:** bothnativeRuststeps-greenancestor→HEAD baseline, docs-onlyexcluded, boundedAPI/HTTP/historyambiguity FULL notparentdiff.29selectorfixtures+actualreadonlyREST/YAMLreview; firstmigrationFULL/remotegatepending. [Contract](../architecture/ci-validated-baseline.md).

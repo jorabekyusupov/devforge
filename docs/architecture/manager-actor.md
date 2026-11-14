@@ -48,10 +48,11 @@ root-level receipt namespaces; an OperationIdentity alone is not authorization.
 An exhaustive Command classifier verifies the subject before any receipt write:
 project-specific command IDs must equal the supplied project ID, and genuinely
 global commands require the reserved `desktop-root` namespace (not a project).
-Worktree record/source commands and cache-instance start/stop need trusted owner
-resolution; raw commands for those are explicitly UnsupportedSubject in this
-slice rather than accepting a caller-provided project label. Their existing UI
-routes remain unchanged. This is an audit/cancellation correctness boundary even
+The initial actor slice rejected worktree/cache resource commands without trusted
+owner resolution. The native facade now resolves their persisted source/project
+owners and revalidates them at execution; a caller-provided label is insufficient.
+Existing UI routes are not switched by that backend extension. This remains an
+audit/cancellation correctness boundary even
 for a full desktop owner, independently of later external-grant isolation.
 
 Admission rechecks authority after waiting for the admission mutex, after an
@@ -70,6 +71,12 @@ A capacity rejection writes no Queued row. A disconnected/full channel after a
 receipt write is terminalized as Interrupted instead of leaving a Queued
 operation with no delivery. An owner/process failure is reconciled on the next
 startup; persisted commands are never replayed.
+The native [desktop facade](manager-desktop-facade.md) extends this same worker
+with typed read/access work. Pure polling reads instead use bounded ephemeral
+RAM receipts (no operations SQL row), with explicit ReadExpired after eviction/
+expiry/restart. Secret binding and known raw HTTP/path/YAML command bodies use
+random durable markers and bounded volatile comparison, not an offline secret
+verifier. Fixed-metadata commands keep their durable digest semantics.
 
 Commands are bounded at8MiB serialized input and exist only in memory. The
 worker runs ordinary `Workspace::execute`, preserving its domain validations and
@@ -106,6 +113,8 @@ path; the worker persists the eventual terminal observation. A successful
 metadata operation remains Succeeded if it wins a late cancellation race. A
 queued canceled job never calls Workspace::execute. Cancellation of A does not
 set B's bit. Existing commands still own their cooperative cancellation behavior.
+Background read work has separate active_reads status and does not set global
+mutation busy/progress. Queued user effects still set busy while awaiting a read.
 
 ## Durable receipts and transient results
 
@@ -130,9 +139,10 @@ included. `failure_detail()` requires the same fresh authority and receipt subje
 as other privileged reads. Missing/invalid detail after eviction or restart is
 explicit ResultUnavailable; coarse failure receipts remain queryable.
 
-A global operation that creates a project and then reports a different project
-ID needs an explicit trusted partial-create mapping before GUI migration. This
-slice rejects mismatched failure subject metadata instead of relabeling it.
+CreateProject and WorktreeCreate now attach a separately proven recovery child
+association after trusted before/after, selected metadata and filesystem-identity
+checks. Receipts retain the root/source namespace. Arbitrary mismatched failure
+subject metadata is still rejected rather than relabeled.
 
 Idempotency lookup is keyed by server-derived client, project and key, and binds
 the request fingerprint. A duplicate returns the same operation receipt; changed
@@ -143,10 +153,12 @@ On startup, old Queued becomes Interrupted; old Running/CancelRequested becomes
 Unknown. No old command is executed and no stored PID implies a running service.
 Recovery or a fresh attempt requires an explicit caller decision and new key.
 
-Successful result Values and validated failure details share one in-memory
-outcome cache: at most64KiB per outcome,128 entries and1MiB total retained bytes,
-with oldest outcomes evicted. A successful
-side effect whose result is too large stays Succeeded with `result_output_limit`;
+Small successful Values and validated failure details share one in-memory
+outcome cache: at most64KiB per outcome,128 entries and1MiB total retained bytes.
+Larger successful mutation results and native read results use the facade's
+shared bounded64MiB image/128MiB aggregate cache and paged delivery. A successful
+side effect whose result exceeds even that budget stays Succeeded with an explicit
+`result_output_limit`;
 it is not falsely labeled rolled back. Missing results after eviction/restart
 return explicit ResultUnavailable. Response consumers retain their own memory;
 these are actor retention bounds, not a global process memory limit.

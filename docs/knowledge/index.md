@@ -29,6 +29,8 @@ mavzuni tanlang, so'ng faqat tegishli hujjatlar va ularning manbalarini o'qing.
 
 ## Manba va yuritish
 
+- [E05.2 cleanup preview](cleanup-preview-results.md) - physical-key refs, read-only lease observation va E06 retained receipt inventory; apply/delete yo‘q.
+
 - [Private desktop facade](../architecture/manager-desktop-facade.md) - owner read/access, bounded images, ephemeral polling, operations va trusted recovery.
 - [Thin-client migration gates](../architecture/manager-desktop-migration.md) - 20 handler parity, implemented client lease va qolgan UI/auth/native adoption.
 

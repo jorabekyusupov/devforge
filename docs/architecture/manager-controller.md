@@ -48,6 +48,11 @@ submit, status, result, failure_detail, cancel and quit. No role, provisioning,
 explicit-start, arbitrary shell or external-grant issuer exists on the wire.
 Admission routes to the existing actor, including its validated project/global
 subjects and idempotency policy. An auth token alone cannot bypass those rules.
+The native desktop facade adds typed receipt-backed reads/access, coalesced
+discovery wake, a bounded owner-only operations list and large result image
+delivery. Pure read receipts are ephemeral rather than poll-written SQL history;
+user effects retain durable receipt semantics. These remain native desktop
+methods, not externally granted tools. See [facade ownership](manager-desktop-facade.md).
 
 Request work runs on blocking workers outside the listener event loop. Native
 credential verification uses an explicit existing-key request only. Cache checks

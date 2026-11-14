@@ -308,7 +308,7 @@ fn metadata_only_db_fixture_distinguishes_selected_binding_retained_generation_a
     assert!(
         generations
             .iter()
-            .any(|r| r.retained_reason == "retained_generation")
+            .any(|r| r.retained_reason == "pending_generation_or_unverified_retained")
     );
     assert!(generations.iter().all(|r| r.logical_bytes.is_none()));
     assert!(
@@ -401,4 +401,72 @@ fn worktree_archive_requires_matching_receipt_and_source_registry_and_stays_in_o
         .unwrap();
     assert_eq!(unknown.ownership, "unknown");
     assert!(unknown.logical_bytes.is_none());
+}
+
+#[test]
+fn restore_drill_receipt_associates_pending_generation_without_reading_database_payloads() {
+    let temp = tempfile::tempdir().unwrap();
+    let w = fixture(temp.path());
+    let p = project(&w, &temp.path().join("repo"));
+    let instance = "a".repeat(32);
+    let id = "b".repeat(32);
+    let backup = "c".repeat(32);
+    let database = format!("df_{}_12345678", p.id);
+    let db =
+        rusqlite::Connection::open(temp.path().join("data/projects/projects.sqlite3")).unwrap();
+    db.execute("INSERT INTO instances VALUES(?1,?2)", rusqlite::params![instance, serde_json::json!({"id":instance,"package":p.php,"port":1,"admin":"fixture","secret_ref":"PRIVATE_SECRET_REF","ready":false}).to_string()]).unwrap();
+    db.execute("INSERT INTO database_binding_history VALUES(?1,?2,?3)", rusqlite::params![p.id,"drill",serde_json::json!({"project_id":p.id,"instance_id":instance,"database":database,"role":"PRIVATE_ROLE","secret_ref":"PRIVATE_SECRET_REF","ready":false}).to_string()]).unwrap();
+    let base = temp.path().join("data/projects/restore-drills");
+    let child = base.join(&p.id);
+    fs::create_dir_all(&child).unwrap();
+    fs::write(
+        base.join(".devforge-restore-drill-owner"),
+        b"devforge-restore-drills-v1\n",
+    )
+    .unwrap();
+    fs::write(child.join(".devforge-restore-drill-owner"), p.id.as_bytes()).unwrap();
+    let receipt = serde_json::json!({"schema":1,"id":id,"project_id":p.id,"project_revision":p.revision,"backup_id":backup,"backup_sha256":"d".repeat(64),"engine":"postgresql","version":"18.6.0","created":1,"outcome":"passed","error":null,"generation":{"instance_id":instance,"database":database,"restore_verified":true},"activation_performed":false,"cleanup":"retained_requires_review"});
+    let path = child.join(format!("{id}.json"));
+    fs::write(&path, receipt.to_string()).unwrap();
+    let inventory = w.storage_inventory(StorageLimits::default());
+    let generation = inventory
+        .resources
+        .iter()
+        .find(|r| r.category == "database_generation")
+        .unwrap();
+    assert_eq!(
+        generation.retained_reason,
+        "restore_drill_candidate_retained_requires_review"
+    );
+    assert!(generation.logical_bytes.is_none());
+    let item = inventory
+        .resources
+        .iter()
+        .find(|r| r.category == "restore_drill_receipt")
+        .unwrap();
+    assert_eq!(item.ownership, "restore_drill_owner_markers_and_receipt");
+    assert_eq!(
+        item.retained_reason,
+        "drill_candidate_retained_requires_review"
+    );
+    let output = serde_json::to_string(&inventory).unwrap();
+    assert!(!output.contains("PRIVATE_SECRET_REF"));
+    assert!(!output.contains("PRIVATE_ROLE"));
+    fs::write(&path, "x".repeat(16385)).unwrap();
+    let inventory = w.storage_inventory(StorageLimits::default());
+    assert!(
+        inventory
+            .resources
+            .iter()
+            .any(|r| r.category == "restore_drill_receipt" && r.ownership == "unknown")
+    );
+    fs::write(&path, receipt.to_string()).unwrap();
+    fs::write(child.join(".devforge-restore-drill-owner"), b"wrong").unwrap();
+    let inventory = w.storage_inventory(StorageLimits::default());
+    assert!(
+        !inventory
+            .resources
+            .iter()
+            .any(|r| r.category == "restore_drill_receipt" && r.ownership != "unknown")
+    );
 }

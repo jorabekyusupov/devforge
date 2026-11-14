@@ -109,6 +109,7 @@ pub(crate) fn open_metadata_file(path: &Path, limit: u64) -> Option<fs::File> {
     Some(file)
 }
 
+type GenerationKey = (String, String, String);
 struct ResourceKey {
     category: &'static str,
     id: String,
@@ -316,6 +317,143 @@ impl<'a> Scan<'a> {
                 r.problems.push("special_file_not_followed");
             }
         }
+    }
+    fn drill_receipts(
+        &mut self,
+        generations: &BTreeMap<GenerationKey, (Binding, bool)>,
+    ) -> BTreeSet<GenerationKey> {
+        use devforge_projects::backup::drill::{DrillOutcome, DrillReceipt};
+        let base = Path::new("projects/restore-drills");
+        if matches!(self.metadata(base), Err("missing")) {
+            return BTreeSet::new();
+        }
+        let mut candidates = BTreeSet::new();
+        if !self.marker(
+            "projects/restore-drills/.devforge-restore-drill-owner",
+            b"devforge-restore-drills-v1\n",
+        ) {
+            self.problem("restore_drill_ownership_unverified");
+            self.unknown("restore_drill_receipts", base);
+            return candidates;
+        }
+        let mut bytes_read = 0usize;
+        'projects: for project_path in self.children(base) {
+            if project_path.file_name().and_then(|s| s.to_str())
+                == Some(".devforge-restore-drill-owner")
+            {
+                continue;
+            }
+            let project = project_path
+                .file_name()
+                .and_then(|s| s.to_str())
+                .unwrap_or_default();
+            if !valid_id(project)
+                || self
+                    .metadata_bytes(&project_path.join(".devforge-restore-drill-owner"), 64)
+                    .as_deref()
+                    != Some(project.as_bytes())
+            {
+                self.unknown("restore_drill_receipts", &project_path);
+                continue;
+            }
+            for path in self.children(&project_path) {
+                if path.file_name().and_then(|s| s.to_str())
+                    == Some(".devforge-restore-drill-owner")
+                {
+                    continue;
+                }
+                if self.out.resources.len() >= self.limits.max_resources {
+                    self.problem("resource_limit");
+                    break 'projects;
+                }
+                let id = path
+                    .file_stem()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or_default();
+                let remaining = (4usize * 1024 * 1024).saturating_sub(bytes_read);
+                if remaining == 0 {
+                    self.problem("restore_drill_receipt_byte_limit");
+                    break 'projects;
+                }
+                let bytes =
+                    if valid_id(id) && path.extension().and_then(|s| s.to_str()) == Some("json") {
+                        self.metadata_bytes(&path, remaining.min(16384) as u64)
+                    } else {
+                        None
+                    };
+                bytes_read += bytes.as_ref().map_or(0, Vec::len);
+                if bytes_read > 4 * 1024 * 1024 {
+                    self.problem("restore_drill_receipt_byte_limit");
+                    break 'projects;
+                }
+                let receipt = bytes.and_then(|b| serde_json::from_slice::<DrillReceipt>(&b).ok());
+                let receipt = receipt.filter(|r| {
+                    r.schema == 1
+                        && r.id == id
+                        && r.project_id == project
+                        && !r.activation_performed
+                        && valid_id(&r.backup_id)
+                        && valid_id(&r.generation.instance_id)
+                        && r.backup_sha256.len() == 64
+                        && r.backup_sha256.bytes().all(|b| b.is_ascii_hexdigit())
+                        && r.version.len() <= 64
+                        && !r.version.is_empty()
+                        && r.generation.database.starts_with(&format!("df_{project}_"))
+                        && r.generation.database.len() <= 64
+                        && r.generation
+                            .database
+                            .bytes()
+                            .all(|b| b.is_ascii_alphanumeric() || b == b'_')
+                        && match r.outcome {
+                            DrillOutcome::Passed => {
+                                r.generation.restore_verified && r.error.is_none()
+                            }
+                            DrillOutcome::Provisioning => {
+                                !r.generation.restore_verified && r.error.is_none()
+                            }
+                            _ => !r.generation.restore_verified && r.error.is_some(),
+                        }
+                });
+                let Some(receipt) = receipt else {
+                    self.unknown("restore_drill_receipt", &path);
+                    continue;
+                };
+                let key = (
+                    project.into(),
+                    receipt.generation.instance_id.clone(),
+                    receipt.generation.database.clone(),
+                );
+                let known = generations
+                    .get(&key)
+                    .is_some_and(|(binding, active)| !active && !binding.ready);
+                if known {
+                    candidates.insert(key);
+                }
+                self.resource(
+                    ResourceKey {
+                        category: "restore_drill_receipt",
+                        id: receipt.id,
+                        project: Some(project.into()),
+                        workspace: None,
+                    },
+                    "restore_drill_owner_markers_and_receipt",
+                    if known {
+                        "drill_candidate_retained_requires_review"
+                    } else {
+                        "drill_generation_reference_unverified"
+                    },
+                    vec![reference(
+                        "restore_drill_candidate",
+                        &opaque(&format!(
+                            "{}/{}",
+                            receipt.generation.instance_id, receipt.generation.database
+                        )),
+                    )],
+                    Some(&path),
+                );
+            }
+        }
+        candidates
     }
     fn unknown(&mut self, category: &'static str, path: &Path) {
         self.resource(
@@ -542,7 +680,8 @@ impl Workspace {
                     scan.unknown("database_instance", &path);
                 }
             }
-            for ((project, instance, database), (_, active)) in
+            let drill_candidates = scan.drill_receipts(&generations);
+            for ((project, instance, database), (binding, active)) in
                 generations.into_iter().take(limits.max_resources)
             {
                 let id = opaque(&format!("{project}/{instance}/{database}"));
@@ -556,6 +695,14 @@ impl Workspace {
                     "binding_registry",
                     if active {
                         "active_binding"
+                    } else if drill_candidates.contains(&(
+                        project.clone(),
+                        instance.clone(),
+                        database.clone(),
+                    )) {
+                        "restore_drill_candidate_retained_requires_review"
+                    } else if !binding.ready {
+                        "pending_generation_or_unverified_retained"
                     } else {
                         "retained_generation"
                     },

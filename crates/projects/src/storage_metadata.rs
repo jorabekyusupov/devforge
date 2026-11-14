@@ -156,6 +156,14 @@ fn query<T: DeserializeOwned>(
 }
 impl ProjectStore {
     pub fn storage_metadata(&self, limits: Limits) -> Metadata {
+        self.storage_metadata_scope(limits, false)
+    }
+    /// Includes forgotten/archived registry rows and retained bindings. This
+    /// bounded opt-in does not change the active-only inventory API.
+    pub fn storage_metadata_all_registered(&self, limits: Limits) -> Metadata {
+        self.storage_metadata_scope(limits, true)
+    }
+    fn storage_metadata_scope(&self, limits: Limits, all_registered: bool) -> Metadata {
         let mut out = Metadata {
             complete: true,
             ..Default::default()
@@ -174,7 +182,7 @@ impl ProjectStore {
             self,
             Table {
                 name: "projects",
-                filter: "WHERE active=1",
+                filter: if all_registered { "" } else { "WHERE active=1" },
                 order: "id",
             },
             limits,
@@ -204,7 +212,11 @@ impl ProjectStore {
             self,
             Table {
                 name: "database_bindings",
-                filter: "WHERE project_id IN (SELECT id FROM projects WHERE active=1)",
+                filter: if all_registered {
+                    ""
+                } else {
+                    "WHERE project_id IN (SELECT id FROM projects WHERE active=1)"
+                },
                 order: "project_id",
             },
             limits,
@@ -214,7 +226,11 @@ impl ProjectStore {
             self,
             Table {
                 name: "database_binding_history",
-                filter: "WHERE project_id IN (SELECT id FROM projects WHERE active=1)",
+                filter: if all_registered {
+                    ""
+                } else {
+                    "WHERE project_id IN (SELECT id FROM projects WHERE active=1)"
+                },
                 order: "project_id,binding_key",
             },
             limits,
@@ -324,5 +340,32 @@ mod tests {
         });
         assert!(snapshot.problems.contains(&"metadata_record_byte_limit"));
         assert_eq!(snapshot.bytes_read, 0);
+    }
+    #[test]
+    fn all_registered_opt_in_preserves_active_default_and_all_bounds() {
+        let temp = tempfile::tempdir().unwrap();
+        let store = ProjectStore::open(temp.path().join("metadata")).unwrap();
+        store
+            .connection
+            .execute(
+                "INSERT INTO projects VALUES('inactive','inactive',0,1,?1)",
+                ["x".repeat(8192)],
+            )
+            .unwrap();
+        assert!(store.storage_metadata(Limits::default()).complete);
+        assert_eq!(store.storage_metadata(Limits::default()).rows_examined, 0);
+        let all = store.storage_metadata_all_registered(Limits {
+            max_record_bytes: 32,
+            ..Default::default()
+        });
+        assert_eq!(all.rows_examined, 1);
+        assert!(!all.complete);
+        assert!(all.problems.contains(&"metadata_record_byte_limit"));
+        assert_eq!(all.bytes_read, 0);
+        let invalid = store.storage_metadata_all_registered(Limits {
+            max_rows: 0,
+            ..Default::default()
+        });
+        assert!(invalid.problems.contains(&"invalid_metadata_limits"));
     }
 }

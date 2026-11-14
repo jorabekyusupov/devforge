@@ -143,6 +143,59 @@ struct Receipt {
     resource_hashes: BTreeMap<String, String>,
 }
 
+/// An instant kernel-lock observation, not permission to remove a package.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RemovalLeaseState {
+    Held,
+    UnheldAtObservation,
+    Missing,
+    Unknown,
+}
+#[derive(Debug, Clone, Copy, Serialize)]
+pub struct RemovalLeaseObservation {
+    pub state: RemovalLeaseState,
+    pub reason: &'static str,
+}
+fn ordinary_observation(meta: &fs::Metadata, directory: bool) -> bool {
+    if meta.file_type().is_symlink()
+        || (directory && !meta.is_dir())
+        || (!directory && !meta.is_file())
+    {
+        return false;
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        if meta.uid() != unsafe { libc::geteuid() } || (!directory && meta.nlink() != 1) {
+            return false;
+        }
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::MetadataExt;
+        if meta.file_attributes() & 0x400 != 0 {
+            return false;
+        }
+    }
+    true
+}
+fn observation_file(path: &Path) -> std::io::Result<File> {
+    let mut options = OpenOptions::new();
+    options.read(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK | libc::O_CLOEXEC);
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::OpenOptionsExt;
+        // Win32 FILE_FLAG_OPEN_REPARSE_POINT; do not follow the final component.
+        options.custom_flags(0x0020_0000);
+    }
+    options.open(path)
+}
 pub struct PackageStore {
     root: PathBuf,
     limits: Limits,
@@ -547,6 +600,83 @@ impl PackageStore {
         resource.check()?;
         Ok(resource)
     }
+    /// Does not create/chmod files or read lease contents. Missing/unverifiable
+    /// files are unknown, never evidence of absence of users. Apply must acquire
+    /// its own exclusive lease and revalidate all references later.
+    pub fn observe_removal_lease(&self, package: &Package) -> RemovalLeaseObservation {
+        let observed = |state, reason| RemovalLeaseObservation { state, reason };
+        let Ok(key) = package.key() else {
+            return observed(RemovalLeaseState::Unknown, "invalid_package");
+        };
+        for path in [&self.root, &self.root.join("leases")] {
+            if !fs::symlink_metadata(path).is_ok_and(|meta| ordinary_observation(&meta, true)) {
+                return observed(RemovalLeaseState::Unknown, "lease_namespace_unverified");
+            }
+        }
+        let marker = self.root.join(".devforge-runtime-store");
+        if !fs::symlink_metadata(&marker)
+            .is_ok_and(|meta| ordinary_observation(&meta, false) && meta.len() <= 64)
+        {
+            return observed(RemovalLeaseState::Unknown, "runtime_marker_unverified");
+        }
+        let marker_bytes = observation_file(&marker).and_then(|file| {
+            let meta = file.metadata()?;
+            if !ordinary_observation(&meta, false) || meta.len() > 64 {
+                return Err(std::io::Error::from(std::io::ErrorKind::PermissionDenied));
+            }
+            let mut bytes = Vec::new();
+            file.take(65).read_to_end(&mut bytes)?;
+            Ok(bytes)
+        });
+        if marker_bytes.ok().as_deref() != Some(b"devforge-runtime-store-v1\n") {
+            return observed(RemovalLeaseState::Unknown, "runtime_marker_unverified");
+        }
+        let path = self.root.join("leases").join(key);
+        let before = match fs::symlink_metadata(&path) {
+            Ok(meta) => meta,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                return observed(
+                    RemovalLeaseState::Missing,
+                    "lease_file_missing_racy_observation",
+                );
+            }
+            Err(_) => return observed(RemovalLeaseState::Unknown, "lease_metadata_unavailable"),
+        };
+        if !ordinary_observation(&before, false) || before.len() != 0 {
+            return observed(RemovalLeaseState::Unknown, "lease_file_unverified");
+        }
+        let Ok(file) = observation_file(&path) else {
+            return observed(RemovalLeaseState::Unknown, "lease_open_unavailable");
+        };
+        let Ok(after) = file.metadata() else {
+            return observed(RemovalLeaseState::Unknown, "lease_handle_unverified");
+        };
+        if !ordinary_observation(&after, false) || after.len() != 0 {
+            return observed(RemovalLeaseState::Unknown, "lease_handle_unverified");
+        }
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::MetadataExt;
+            if before.dev() != after.dev() || before.ino() != after.ino() {
+                return observed(RemovalLeaseState::Unknown, "lease_changed_during_open");
+            }
+        }
+        match file.try_lock() {
+            Ok(()) => {
+                if file.unlock().is_err() {
+                    return observed(RemovalLeaseState::Unknown, "lease_unlock_unavailable");
+                }
+                observed(
+                    RemovalLeaseState::UnheldAtObservation,
+                    "exclusive_probe_released_revalidation_required",
+                )
+            }
+            Err(std::fs::TryLockError::WouldBlock) => {
+                observed(RemovalLeaseState::Held, "kernel_lease_held")
+            }
+            Err(_) => observed(RemovalLeaseState::Unknown, "kernel_lease_probe_unavailable"),
+        }
+    }
     pub fn remove(&self, package: &Package) -> Result<()> {
         let _lock = self.lock()?;
         let _lease = self.lease(&package.key()?, true)?;
@@ -669,6 +799,56 @@ fn verify_architecture(path: &Path, target: Target) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn removal_lease_observation_is_existing_only_and_releases_probe() {
+        let temp = tempfile::tempdir().unwrap();
+        let store = PackageStore::open(temp.path().join("store"), Limits::default()).unwrap();
+        let package = Package {
+            kind: "fixture".into(),
+            version: "1".into(),
+            variant: "test".into(),
+            target: Target::MacosArm64,
+            url: "https://example.invalid".into(),
+            sha256: "a".repeat(64),
+            archive: Archive::File {
+                path: "resource".into(),
+            },
+            executables: BTreeMap::new(),
+            resources: BTreeMap::from([("resource".into(), "resource".into())]),
+        };
+        let path = store.root.join("leases").join(package.key().unwrap());
+        assert_eq!(
+            store.observe_removal_lease(&package).state,
+            RemovalLeaseState::Missing
+        );
+        assert!(!path.exists());
+        let shared = store.lease(&package.key().unwrap(), false).unwrap();
+        assert_eq!(
+            store.observe_removal_lease(&package).state,
+            RemovalLeaseState::Held
+        );
+        shared.unlock().unwrap();
+        drop(shared);
+        assert_eq!(
+            store.observe_removal_lease(&package).state,
+            RemovalLeaseState::UnheldAtObservation
+        );
+        let exclusive = store.lease(&package.key().unwrap(), true).unwrap();
+        exclusive.unlock().unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::symlink;
+            fs::remove_file(&path).unwrap();
+            let outside = temp.path().join("outside");
+            fs::write(&outside, b"canary").unwrap();
+            symlink(&outside, &path).unwrap();
+            assert_eq!(
+                store.observe_removal_lease(&package).state,
+                RemovalLeaseState::Unknown
+            );
+            assert_eq!(fs::read(&outside).unwrap(), b"canary");
+        }
+    }
     #[test]
     fn cancellation_interrupts_a_pending_network_future() {
         let cancel = Cancellation::default();

@@ -1,5 +1,6 @@
 //! Shared daily-workspace orchestration. No Tauri or UI types, no credentials in DTOs.
 pub mod catalog;
+pub mod cleanup_preview;
 mod configuration;
 pub mod debugging;
 pub mod discovery;
