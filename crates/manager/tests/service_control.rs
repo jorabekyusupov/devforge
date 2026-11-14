@@ -427,6 +427,86 @@ fn request(project: &str, action: &str, key: &str) -> Request<MutationInput> {
 }
 
 #[test]
+fn execution_policy_requires_execution_authority_and_keeps_retained_output_grant_scoped() {
+    use devforge_control::mutations::{ExecutionArguments, ExecutionCommandInput};
+    use devforge_manager::external_client::ExecutionClient;
+    let mut rig = Rig::new(None);
+    let ordinary = rig.grant(0, false);
+    let full = rig.grant(0, true);
+    let project = id(&rig.projects[0].id);
+    let request = env_request(
+        project.as_str(),
+        1,
+        "run-version",
+        MutationInput::ExecutePhp(ExecutionCommandInput {
+            args: ExecutionArguments::new(vec!["--version".into()]).unwrap(),
+            limits: None,
+        }),
+    );
+    let mut denied = ExecutionClient::connect(
+        rig.endpoint.clone(),
+        ExternalCredential::from_wire(ordinary.credential.expose_secret()).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        denied.plan(&request).unwrap().error().unwrap().code,
+        ErrorCode::Unauthorized
+    );
+    assert_eq!(
+        denied
+            .output(id("missing-output"), &project, &id("unknown-op"))
+            .unwrap()
+            .error()
+            .unwrap()
+            .code,
+        ErrorCode::Unauthorized
+    );
+    let mut capable = ExecutionClient::connect(
+        rig.endpoint.clone(),
+        ExternalCredential::from_wire(full.credential.expose_secret()).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        capable.plan(&request).unwrap().error().unwrap().code,
+        ErrorCode::PreconditionFailed
+    );
+    assert_eq!(
+        capable
+            .output(id("missing-output"), &project, &id("unknown-op"))
+            .unwrap()
+            .error()
+            .unwrap()
+            .code,
+        ErrorCode::Unauthorized
+    );
+    assert_eq!(
+        capable
+            .output(
+                id("foreign-output"),
+                &id(&rig.projects[1].id),
+                &id("unknown-op")
+            )
+            .unwrap()
+            .error()
+            .unwrap()
+            .code,
+        ErrorCode::ProjectMismatch
+    );
+    rig.native
+        .revoke_external_grant(&full.record.grant_id)
+        .unwrap();
+    assert_eq!(
+        capable
+            .output(id("revoked-output"), &project, &id("unknown-op"))
+            .unwrap()
+            .error()
+            .unwrap()
+            .code,
+        ErrorCode::GrantRevoked
+    );
+}
+
+#[test]
 fn native_pending_review_and_grant_scoped_operation_controls_never_accept_external_authority() {
     use devforge_manager::service_control::{ReviewState, ReviewTarget};
     let mut rig = Rig::new(None);

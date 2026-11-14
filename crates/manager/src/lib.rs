@@ -92,4 +92,5 @@ mod database_control;
 mod diagnostics;
 mod domain_control;
 mod environment_control;
+mod execution_control;
 pub mod service_control;

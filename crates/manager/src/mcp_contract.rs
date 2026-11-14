@@ -42,6 +42,7 @@ pub struct Protocol {
     environment_actions: bool,
     database_actions: bool,
     domain_actions: bool,
+    execution_actions: bool,
 }
 pub enum Action {
     Reply(Value),
@@ -54,6 +55,35 @@ pub enum Action {
     Database(DatabaseCall),
     Domain(DomainCall),
     Diagnostics(DiagnosticsCall),
+    Execution(ExecutionCall),
+}
+pub enum ExecutionInput {
+    Plan(Request<MutationInput>),
+    Apply {
+        request: Request<MutationInput>,
+        review: Digest,
+    },
+    Lookup {
+        idempotency_key: Id,
+    },
+    Output {
+        operation_id: Id,
+    },
+    Cancel {
+        operation_id: Id,
+    },
+}
+pub struct ExecutionCall {
+    pub input: ExecutionInput,
+    pub request_id: Id,
+    pub project_id: Id,
+    id: Value,
+    version: Version,
+}
+impl ExecutionCall {
+    pub fn jsonrpc_id(&self) -> &Value {
+        &self.id
+    }
 }
 pub struct DiagnosticsCall {
     pub request: Request<devforge_control::tools::ToolInput>,
@@ -219,6 +249,7 @@ impl Protocol {
             environment_actions: false,
             database_actions: false,
             domain_actions: false,
+            execution_actions: false,
         }
     }
     /// Surface selection only; grants and native exact-plan approval remain
@@ -271,6 +302,11 @@ impl Protocol {
             Self::with_database_surfaces(project, service, runtime, environment, database);
         protocol.domain_actions = domain;
         protocol
+    }
+    /// Surface selection is not permission or project trust.
+    pub fn with_execution_actions(mut self, enabled: bool) -> Self {
+        self.execution_actions = enabled;
+        self
     }
     pub fn receive(&mut self, value: Value) -> Action {
         let Some(object) = value.as_object() else {
@@ -414,6 +450,15 @@ impl Protocol {
             };
         }
         if method == "tools/call"
+            && self.execution_actions
+            && let Some(execution) = self.execution_tool(&params, id.clone(), version)
+        {
+            return match execution {
+                Ok(call) => Action::Execution(call),
+                Err(()) => Action::Reply(rpc_error(Some(id), -32602, "Invalid params", None)),
+            };
+        }
+        if method == "tools/call"
             && self.runtime_actions
             && let Some(runtime) = self.runtime_tool(&params, id.clone(), version)
         {
@@ -481,7 +526,7 @@ impl Protocol {
                     return Action::Reply(rpc_success(
                         id,
                         version,
-                        json!({"tools":tool_definitions(self.service_actions,self.runtime_actions,self.environment_actions,self.database_actions,self.domain_actions)}),
+                        json!({"tools":tool_definitions(self.service_actions,self.runtime_actions,self.environment_actions,self.database_actions,self.domain_actions,self.execution_actions)}),
                     ));
                 } else {
                     Err(())
@@ -1046,6 +1091,153 @@ impl Protocol {
             json!({"content":[{"type":"text","text":content.to_string()}],"structuredContent":content,"isError":is_error}),
         )
     }
+    fn execution_tool(
+        &mut self,
+        params: &Value,
+        id: Value,
+        version: Version,
+    ) -> Option<Result<ExecutionCall, ()>> {
+        use devforge_control::mutations::{ExecutionArguments, ExecutionTool};
+        let name = params.get("name").and_then(Value::as_str)?;
+        let args = params
+            .get("arguments")
+            .cloned()
+            .unwrap_or_else(|| json!({}));
+        let lookup = name == "operations.status" && args.get("idempotency_key").is_some();
+        if !lookup
+            && !matches!(
+                name,
+                "execution.php"
+                    | "execution.artisan"
+                    | "execution.composer"
+                    | "execution.node"
+                    | "execution.npm"
+                    | "execution.git"
+                    | "execution.managed_test_job"
+                    | "execution.output"
+                    | "execution.cancel"
+            )
+        {
+            return None;
+        }
+        if !keys(params, &["name", "arguments"]) {
+            return Some(Err(()));
+        }
+        self.counter = self.counter.wrapping_add(1);
+        let request_id = Id::new(format!("mcp-{}", self.counter)).expect("fixed request ID");
+        let result = (|| {
+            if lookup {
+                #[derive(Deserialize)]
+                #[serde(deny_unknown_fields)]
+                struct Lookup {
+                    idempotency_key: Id,
+                }
+                let parsed: Lookup = serde_json::from_value(args).map_err(|_| ())?;
+                return Ok(ExecutionInput::Lookup {
+                    idempotency_key: parsed.idempotency_key,
+                });
+            }
+            if matches!(name, "execution.output" | "execution.cancel") {
+                #[derive(Deserialize)]
+                #[serde(deny_unknown_fields)]
+                struct Output {
+                    operation_id: Id,
+                }
+                let parsed: Output = serde_json::from_value(args).map_err(|_| ())?;
+                return Ok(if name == "execution.cancel" {
+                    ExecutionInput::Cancel {
+                        operation_id: parsed.operation_id,
+                    }
+                } else {
+                    ExecutionInput::Output {
+                        operation_id: parsed.operation_id,
+                    }
+                });
+            }
+            #[derive(Deserialize)]
+            #[serde(deny_unknown_fields)]
+            struct Args {
+                action: String,
+                expected_revision: u64,
+                idempotency_key: Id,
+                args: ExecutionArguments,
+                tool: Option<ExecutionTool>,
+                limits: Option<MutationLimits>,
+                review: Option<Digest>,
+            }
+            let parsed: Args = serde_json::from_value(args).map_err(|_| ())?;
+            if parsed.expected_revision > devforge_control::limits::SafeInt::MAX
+                || parsed
+                    .limits
+                    .as_ref()
+                    .is_some_and(|limits| limits.timeout_ms.get() > 300_000)
+                || !matches!(parsed.action.as_str(), "plan" | "apply")
+                || (parsed.action == "apply") != parsed.review.is_some()
+                || (name == "execution.managed_test_job") != parsed.tool.is_some()
+            {
+                return Err(());
+            }
+            let mut arguments = json!({"args":parsed.args,"limits":parsed.limits});
+            if let Some(tool) = parsed.tool {
+                arguments["tool"] = json!(tool);
+            }
+            let input = serde_json::from_value(json!({"tool":name,"arguments":arguments}))
+                .map_err(|_| ())?;
+            let request = Request {
+                api_version: Default::default(),
+                request_id: request_id.clone(),
+                project_id: self.project.clone(),
+                expected_revision: Some(parsed.expected_revision),
+                idempotency_key: Some(parsed.idempotency_key),
+                input,
+            };
+            Ok(match parsed.review {
+                Some(review) => ExecutionInput::Apply { request, review },
+                None => ExecutionInput::Plan(request),
+            })
+        })();
+        Some(result.map(|input| ExecutionCall {
+            input,
+            request_id,
+            project_id: self.project.clone(),
+            id,
+            version,
+        }))
+    }
+    pub fn complete_execution(call: ExecutionCall, result: Result<Value, ErrorCode>) -> Value {
+        let invalid = if matches!(call.input, ExecutionInput::Apply { .. }) {
+            ErrorCode::AdmissionUnconfirmed
+        } else {
+            ErrorCode::InvalidInput
+        };
+        let content = result
+            .and_then(|value| {
+                if value.get("api_version") != Some(&json!(1))
+                    || value.get("request_id") != Some(&json!(call.request_id))
+                    || value.get("ok").and_then(Value::as_bool).is_none_or(|ok| {
+                        ok != value.get("data").is_some() || ok == value.get("error").is_some()
+                    })
+                {
+                    Err(invalid)
+                } else {
+                    Ok(value)
+                }
+            })
+            .unwrap_or_else(|code| {
+                serde_json::to_value(Response::<Value>::failure(
+                    call.request_id,
+                    None,
+                    code.fault(),
+                ))
+                .expect("fixed error envelope")
+            });
+        let is_error = content.get("ok") != Some(&Value::Bool(true));
+        rpc_success(
+            call.id,
+            call.version,
+            json!({"content":[{"type":"text","text":content.to_string()}],"structuredContent":content,"isError":is_error}),
+        )
+    }
     fn runtime_tool(
         &mut self,
         params: &Value,
@@ -1516,8 +1708,12 @@ fn tool_definitions(
     environment_actions: bool,
     database_actions: bool,
     domain_actions: bool,
+    execution: bool,
 ) -> Vec<Value> {
     let mut definitions = read_tool_definitions();
+    if execution {
+        definitions.extend(execution_tool_definitions());
+    }
     definitions.extend(diagnostics_tool_definitions());
     if service_actions {
         definitions.extend(service_tool_definitions());
@@ -1538,7 +1734,8 @@ fn tool_definitions(
         || runtime_actions
         || environment_actions
         || database_actions
-        || domain_actions)
+        || domain_actions
+        || execution)
         && let Some(status) = definitions
             .iter_mut()
             .find(|tool| tool["name"] == "operations.status")
@@ -1555,6 +1752,21 @@ fn read_tool_definitions() -> Vec<Value> {
     TOOLS.into_iter().map(|name|json!({"name":name,"description":match name{"health.health"=>"Granted project metadata health","services.status"=>"Granted project cached managed service status","projects.list"=>"List only the granted project metadata","projects.get"=>"Inspect the granted project metadata",_=>"Observe only the external client's own operation"},"inputSchema":if name==TOOLS[4]{json!({"type":"object","properties":{"operation_id":{"type":"string","minLength":1,"maxLength":128,"pattern":"^[A-Za-z0-9_.:-]+$"}},"required":["operation_id"],"additionalProperties":false})}else{json!({"type":"object","properties":{},"additionalProperties":false})},"annotations":{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true,"openWorldHint":false}})).collect()
 }
 
+fn execution_tool_definitions() -> Vec<Value> {
+    use devforge_control::export::Wire;
+    use devforge_control::mutations::{ExecutionCommandInput, ManagedTestInput};
+    ["execution.php","execution.artisan","execution.composer","execution.node","execution.npm","execution.git","execution.managed_test_job","execution.output","execution.cancel"].into_iter().map(|name|{
+        let output=name=="execution.output";let cancel=name=="execution.cancel";
+        let mut schema=if output||cancel{json!({"type":"object","properties":{"operation_id":Id::schema()},"required":["operation_id"],"additionalProperties":false})}else if name=="execution.managed_test_job"{ManagedTestInput::schema()}else{ExecutionCommandInput::schema()};
+        if !output&&!cancel {
+            schema["properties"]["limits"]["anyOf"][0]["properties"]["timeout_ms"]["maximum"]=json!(300000);
+            schema["allOf"]=json!([{"if":{"properties":{"action":{"const":"apply"}}},"then":{"required":["review"]},"else":{"not":{"required":["review"]}}}]);
+            schema["properties"]["action"]=json!({"enum":["plan","apply"]});schema["properties"]["expected_revision"]=json!({"type":"integer","minimum":0,"maximum":devforge_control::limits::SafeInt::MAX});schema["properties"]["idempotency_key"]=Id::schema();schema["properties"]["review"]=Digest::schema();
+            let required=schema["required"].as_array_mut().expect("fixed input schema");required.extend([json!("action"),json!("expected_revision"),json!("idempotency_key")]);
+        }
+        json!({"name":name,"description":if cancel{"Request cancellation of only this original external client’s operation through existing operations.cancel. Requires current Observer+ProjectManage grants. No rollback guarantee; inspect terminal status/output."}else if output{"Read only the original client's and original grant's retained redacted execution output and exit code; unavailable output is an explicit error."}else if name=="execution.managed_test_job"{"Plan/apply an exact native-reviewed managed test command using an actual isolated TestDataContext. Missing context refuses execution; never uses the active development database. Arguments may contain secrets and stay private. Current ExecutionTest grant, exact revision and native approval are mandatory. Limits bound cooperative timeout/output; cancellation does not undo effects. Keep the original key after uncertainty or volatile idempotency_unverifiable and reconcile operations.status; never silently replay."}else{"Plan/apply one exact native-reviewed managed tool invocation (no unrestricted shell). Arguments are sensitive private input, not authority. Current ExecutionTest grant, exact revision and native approval required. Limits bound cooperative timeout/output; cancellation does not undo effects. Preserve original key after uncertainty or volatile idempotency_unverifiable and reconcile operations.status; never silently replay."},"inputSchema":schema,"annotations":{"readOnlyHint":output,"destructiveHint":!output,"idempotentHint":true,"openWorldHint":!output}})
+    }).collect()
+}
 fn service_tool_definitions() -> Vec<Value> {
     use devforge_control::export::Wire;
     ["services.plan","services.start","services.stop","services.restart"].into_iter().map(|name|{

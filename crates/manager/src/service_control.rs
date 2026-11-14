@@ -32,6 +32,11 @@ use zeroize::Zeroizing;
 pub type ServicePlanReply = Response<PlanReceipt>;
 pub type ServiceApplyReply = Response<MutationReceipt>;
 pub type ServiceLookupReply = Response<Option<MutationReceipt>>;
+pub use crate::execution_control::{ExecutionContextSummary, ExecutionLog, ExecutionOutput};
+pub type ExecutionPlanReply = Response<PlanReceipt>;
+pub type ExecutionApplyReply = Response<MutationReceipt>;
+pub type ExecutionLookupReply = Response<Option<MutationReceipt>>;
+pub type ExecutionOutputReply = Response<ExecutionOutput>;
 /// Native-owner review summaries. Never serialize the retained canonical request:
 /// YAML text, private core plans and external credentials remain manager-owned.
 #[derive(Clone, Serialize, Deserialize)]
@@ -69,6 +74,14 @@ pub enum ReviewState {
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum ReviewTarget {
+    Execution {
+        tool: devforge_control::mutations::ExecutionTool,
+        arg_count: u64,
+        managed_test: bool,
+        timeout_ms: u64,
+        context: ExecutionContextSummary,
+        safe_arguments: Vec<String>,
+    },
     Service {
         action: String,
     },
@@ -140,7 +153,7 @@ const PLAN_TTL: Duration = Duration::from_secs(300);
 const MAX_PLANS: usize = 128;
 const MAX_PLAN_BYTES: usize = 1_048_576;
 pub(crate) struct Services {
-    grants: Arc<Grants>,
+    pub(crate) grants: Arc<Grants>,
     plans: Mutex<VecDeque<Arc<Intent>>>,
     environment_versions: Mutex<crate::environment_control::Versions>,
     domain_preparations: Mutex<VecDeque<DomainPreparation>>,
@@ -172,6 +185,7 @@ struct Intent {
     claimed: Mutex<Option<Id>>,
     cancellation: Mutex<Option<Cancellation>>,
     bytes: usize,
+    execution: Option<crate::execution_control::ExecutionReadResult>,
     environment: Option<crate::environment_control::EnvironmentIntent>,
     public_digest: Option<Digest>,
     public_fingerprint: Option<Digest>,
@@ -187,6 +201,7 @@ pub(crate) struct ServiceJob {
 impl ServiceJob {
     pub(crate) fn sensitive(&self) -> bool {
         matches!(self.intent.request.input, MutationInput::YamlSave(_))
+            || self.intent.execution.is_some()
     }
     pub(crate) fn client(&self) -> &Id {
         &self.intent.client
@@ -245,7 +260,7 @@ impl ServiceJob {
                 &self.intent.peer,
                 &self.intent.credential,
                 &current,
-                &required(&self.intent.request.input)?,
+                &intent_required(&self.intent)?,
                 &[],
                 self.intent.request.expected_revision,
             )
@@ -280,7 +295,7 @@ impl ServiceJob {
                 &self.intent.peer,
                 &self.intent.credential,
                 binding,
-                &required(&self.intent.request.input)?,
+                &intent_required(&self.intent)?,
                 &[],
                 self.intent.request.expected_revision,
             )
@@ -310,7 +325,9 @@ impl ServiceJob {
         if initial {
             cached_preflight(snapshot, &self.intent.request)?;
         }
-        let backend = if let Some(domain) = &self.intent.domain {
+        let backend = if self.intent.execution.is_some() {
+            self.intent.backend.clone()
+        } else if let Some(domain) = &self.intent.domain {
             if domain_snapshot_digest(snapshot, &self.intent.request)? != domain.snapshot_digest {
                 return Err(ErrorCode::ReviewMismatch);
             }
@@ -331,8 +348,9 @@ impl ServiceJob {
         };
         let grant = proof.control_grant()?;
         let trust = ProjectTrust::record(current);
-        let bytes =
-            serde_json::to_vec(&self.intent.request).map_err(|_| ErrorCode::InvalidInput)?;
+        let bytes = Zeroizing::new(
+            serde_json::to_vec(&self.intent.request).map_err(|_| ErrorCode::InvalidInput)?,
+        );
         let prepared = prepare_mutation(
             &bytes,
             MutationContext {
@@ -442,6 +460,48 @@ impl ServiceJob {
             Ok(())
         };
         let command = match dispatch {
+            Dispatch::Execution {
+                project_id,
+                request,
+            } => {
+                let expected = self
+                    .intent
+                    .execution
+                    .as_ref()
+                    .ok_or_else(|| ws_error(ErrorCode::Unauthorized))?;
+                let fresh = workspace.execution_preflight(&project_id, &request)?;
+                let proof = self
+                    .policy
+                    .authorize_execution(
+                        &self.intent.peer,
+                        &self.intent.credential,
+                        &current,
+                        &fresh,
+                        self.intent.request.expected_revision,
+                    )
+                    .map_err(ws_error)?;
+                if crate::execution_control::backend(
+                    &before,
+                    &current,
+                    &self.intent.request,
+                    &proof,
+                    &fresh,
+                )
+                .map_err(ws_error)?
+                    != self.intent.backend
+                {
+                    return Err(ws_error(ErrorCode::ReviewMismatch));
+                }
+                let output = workspace.execute_managed_execution(
+                    &project_id,
+                    &request,
+                    &expected.facts,
+                    &self.cancellation,
+                    &check,
+                )?;
+                return serde_json::to_value(output)
+                    .map_err(|_| ws_error(ErrorCode::OutputLimitExceeded));
+            }
             Dispatch::Command(command) => command,
             Dispatch::DomainSystem {
                 project_id,
@@ -723,7 +783,7 @@ impl Services {
             return Err(ErrorCode::ReviewMismatch);
         }
         let backend = domain_backend(&view.snapshot, &binding, &request, &proof, &prepared)?;
-        let fingerprint = sha256(&fingerprint_material(&request, &binding)?)?;
+        let fingerprint = request_fingerprint(&request, &binding)?;
         let mut plans = self
             .plans
             .lock()
@@ -770,6 +830,7 @@ impl Services {
             claimed: Mutex::new(None),
             cancellation: Mutex::new(None),
             bytes,
+            execution: None,
             environment: None,
             public_digest: Some(crate::environment_control::opaque()?),
             public_fingerprint: None,
@@ -978,7 +1039,7 @@ impl Services {
             &request.input,
             request.expected_revision,
         )?;
-        let fingerprint = sha256(&fingerprint_material(&request, &binding)?)?;
+        let fingerprint = request_fingerprint(&request, &binding)?;
         let backend = database_backend(&view.snapshot, &binding, &request, &proof, &data)?;
         let mut plans = self
             .plans
@@ -1031,6 +1092,7 @@ impl Services {
             claimed: Mutex::new(None),
             cancellation: Mutex::new(None),
             bytes,
+            execution: None,
             environment: None,
             public_digest: Some(crate::environment_control::opaque()?),
             public_fingerprint: None,
@@ -1325,6 +1387,7 @@ impl Services {
             claimed: Mutex::new(None),
             cancellation: Mutex::new(None),
             bytes,
+            execution: None,
             environment: Some(crate::environment_control::EnvironmentIntent { data, expected_sha }),
             public_digest: Some(crate::environment_control::opaque()?),
             public_fingerprint: Some(crate::environment_control::opaque()?),
@@ -1378,6 +1441,10 @@ impl Services {
                 | "domain_apply"
                 | "domain_lookup"
                 | "diagnostics_read"
+                | "execution_plan"
+                | "execution_apply"
+                | "execution_lookup"
+                | "execution_output"
         )
     }
     pub(crate) fn request(
@@ -1413,6 +1480,58 @@ impl Services {
             Err(_) => return respond::<PlanReceipt>(id, Err(ErrorCode::InvalidInput), None),
         };
         match wire {
+            Wire::ExecutionPlan {
+                credential,
+                request,
+            } => respond(
+                id,
+                execution_only(&request.input).and_then(|_| {
+                    credential
+                        .parse()
+                        .and_then(|c| self.plan(peer, c, *request, actor))
+                }),
+                None,
+            ),
+            Wire::ExecutionApply {
+                credential,
+                request,
+                review,
+            } => {
+                let result = execution_only(&request.input).and_then(|_| {
+                    credential
+                        .parse()
+                        .and_then(|c| self.apply(peer, c, *request, review, actor))
+                });
+                let operation = result.as_ref().ok().map(|r| r.operation_id.clone());
+                respond(id, result, operation)
+            }
+            Wire::ExecutionLookup {
+                credential,
+                request_id,
+                project_id,
+                idempotency_key,
+            } => {
+                let result = credential
+                    .parse()
+                    .and_then(|c| self.lookup(&peer, &c, &project_id, &idempotency_key, actor));
+                let operation = result
+                    .as_ref()
+                    .ok()
+                    .and_then(|r| r.as_ref().map(|r| r.operation_id.clone()));
+                respond(request_id, result, operation)
+            }
+            Wire::ExecutionOutput {
+                credential,
+                request_id,
+                project_id,
+                operation_id,
+            } => respond(
+                request_id,
+                credential.parse().and_then(|c| {
+                    self.execution_output(&peer, &c, &project_id, &operation_id, actor)
+                }),
+                Some(operation_id),
+            ),
             Wire::DomainRead {
                 credential,
                 request_id,
@@ -1788,6 +1907,28 @@ impl Services {
                 ReviewState::Pending
             };
             let target = match &intent.request.input {
+                input if crate::execution_control::is_execution(input) => {
+                    let request = crate::execution_control::request(input)?;
+                    let facts = &intent
+                        .execution
+                        .as_ref()
+                        .ok_or(ErrorCode::PreconditionFailed)?
+                        .facts;
+                    let credential = intent.credential.expose_secret();
+                    let safe_arguments = facts
+                        .argument_preview(&request.args)
+                        .into_iter()
+                        .map(|text| text.replace(credential, "[REDACTED]"))
+                        .collect();
+                    ReviewTarget::Execution {
+                        tool: crate::execution_control::tool(input)?,
+                        arg_count: request.args.len() as u64,
+                        managed_test: request.managed_test,
+                        timeout_ms: request.timeout_ms,
+                        context: facts.native_summary(),
+                        safe_arguments,
+                    }
+                }
                 MutationInput::Start(_) | MutationInput::Stop(_) | MutationInput::Restart(_) => {
                     ReviewTarget::Service {
                         action: intent.request.input.workspace_command().into(),
@@ -1881,7 +2022,7 @@ impl Services {
                 effects,
                 target,
                 operation_id,
-                required_scopes: required(&intent.request.input)?,
+                required_scopes: intent_required(intent)?,
                 revalidation_required: true,
                 machine_confirmation_required: intent.domain.is_some(),
             });
@@ -1988,7 +2129,24 @@ impl Services {
             &intent.request.input,
             intent.request.expected_revision,
         )?;
-        let current_digest = if let Some(domain) = &intent.domain {
+        let current_digest = if intent.execution.is_some() {
+            let data =
+                self.read_execution(actor, &intent.peer, &intent.credential, &intent.request)?;
+            let proof = self.authorize_execution(
+                &intent.peer,
+                &intent.credential,
+                &current,
+                &data.facts,
+                intent.request.expected_revision,
+            )?;
+            crate::execution_control::backend(
+                &view.snapshot,
+                &current,
+                &intent.request,
+                &proof,
+                &data.facts,
+            )?
+        } else if let Some(domain) = &intent.domain {
             let data = self.read_domain(
                 actor,
                 &intent.peer,
@@ -2046,7 +2204,7 @@ impl Services {
             .cloned()
             .ok_or(ErrorCode::ReviewExpired)
     }
-    fn authorize(
+    pub(crate) fn authorize(
         &self,
         peer: &PeerIdentity,
         credential: &ExternalCredential,
@@ -2071,6 +2229,11 @@ impl Services {
         actor: &ActorHandle,
     ) -> Result<PlanReceipt, ErrorCode> {
         required(&request.input)?;
+        if Zeroizing::new(serde_json::to_vec(&request).map_err(|_| ErrorCode::InvalidInput)?).len()
+            > crate::MAX_REQUEST_BYTES
+        {
+            return Err(ErrorCode::InvalidInput);
+        }
         let view = actor
             .external_snapshot()
             .map_err(|_| ErrorCode::StorageUnavailable)?;
@@ -2084,8 +2247,30 @@ impl Services {
             request.expected_revision,
         )?;
         cached_preflight(&view.snapshot, &request)?;
-        let fingerprint = sha256(&fingerprint_material(&request, &binding)?)?;
-        let backend = state_digest(&view.snapshot, &binding, &request, &proof)?;
+        let fingerprint = request_fingerprint(&request, &binding)?;
+        let execution = if crate::execution_control::is_execution(&request.input) {
+            Some(self.read_execution(actor, &peer, &credential, &request)?)
+        } else {
+            None
+        };
+        let backend = if let Some(data) = &execution {
+            let proof = self.authorize_execution(
+                &peer,
+                &credential,
+                &binding,
+                &data.facts,
+                request.expected_revision,
+            )?;
+            crate::execution_control::backend(
+                &view.snapshot,
+                &binding,
+                &request,
+                &proof,
+                &data.facts,
+            )?
+        } else {
+            state_digest(&view.snapshot, &binding, &request, &proof)?
+        };
         let mut plans = self
             .plans
             .lock()
@@ -2100,7 +2285,11 @@ impl Services {
             .as_encoded_bytes()
             .len()
             .saturating_mul(4)
-            .saturating_add(4096);
+            .saturating_add(4096)
+            .saturating_add(
+                Zeroizing::new(serde_json::to_vec(&request).map_err(|_| ErrorCode::InvalidInput)?)
+                    .len(),
+            );
         if plans.len() >= MAX_PLANS
             || bytes > MAX_PLAN_BYTES.saturating_sub(plans.iter().map(|p| p.bytes).sum())
         {
@@ -2118,6 +2307,7 @@ impl Services {
             backend.clone(),
             expires_at,
         )?;
+        let sensitive_execution = execution.is_some();
         let intent = Arc::new(Intent {
             request,
             binding,
@@ -2134,9 +2324,18 @@ impl Services {
             claimed: Mutex::new(None),
             cancellation: Mutex::new(None),
             bytes,
+            execution,
             environment: None,
-            public_digest: None,
-            public_fingerprint: None,
+            public_digest: if sensitive_execution {
+                Some(crate::environment_control::opaque()?)
+            } else {
+                None
+            },
+            public_fingerprint: if sensitive_execution {
+                Some(crate::environment_control::opaque()?)
+            } else {
+                None
+            },
             database: None,
             domain: None,
         });
@@ -2164,7 +2363,7 @@ impl Services {
             current.root(),
             request.expected_revision.ok_or(ErrorCode::InvalidInput)?,
         )?;
-        let fingerprint = sha256(&fingerprint_material(&request, &old)?)?;
+        let fingerprint = request_fingerprint(&request, &old)?;
         if let Some((receipt, stored, revision)) = actor
             .external_find(
                 proof.client_id(),
@@ -2176,7 +2375,8 @@ impl Services {
             )
             .map_err(actor_error)?
         {
-            if matches!(request.input, MutationInput::YamlSave(_))
+            if (matches!(request.input, MutationInput::YamlSave(_))
+                || crate::execution_control::is_execution(&request.input))
                 && stored.starts_with("volatile-secret-v1:")
             {
                 if !actor
@@ -2187,7 +2387,9 @@ impl Services {
                 }
                 return mutation_receipt(receipt, revision);
             }
-            if stored != fingerprint.as_str() || matches!(request.input, MutationInput::YamlSave(_))
+            if stored != fingerprint.as_str()
+                || matches!(request.input, MutationInput::YamlSave(_))
+                || crate::execution_control::is_execution(&request.input)
             {
                 return Err(ErrorCode::IdempotencyConflict);
             }
@@ -2278,8 +2480,26 @@ impl Services {
             .transpose()
     }
 }
+fn request_fingerprint(
+    request: &Request<MutationInput>,
+    binding: &ProjectBinding,
+) -> Result<Digest, ErrorCode> {
+    let material = Zeroizing::new(fingerprint_material(request, binding)?);
+    sha256(&material)
+}
+fn execution_only(input: &MutationInput) -> Result<(), ErrorCode> {
+    crate::execution_control::request(input).map(|_| ())
+}
+fn intent_required(intent: &Intent) -> Result<Vec<Scope>, ErrorCode> {
+    if let Some(data) = &intent.execution {
+        Ok(crate::execution_control::required(&data.facts))
+    } else {
+        required(&intent.request.input)
+    }
+}
 fn required(input: &MutationInput) -> Result<Vec<Scope>, ErrorCode> {
     match input {
+        input if crate::execution_control::is_execution(input) => Ok(vec![Scope::ExecutionTest]),
         MutationInput::Start(_) | MutationInput::Restart(_) => {
             Ok(vec![Scope::ProjectManage, Scope::ExecutionTest])
         }
@@ -2416,7 +2636,7 @@ fn selection_projection(snapshot: &Snapshot, project: &Id) -> Result<RuntimeSele
         },
     })
 }
-fn project_binding(snapshot: &Snapshot, id: &Id) -> Result<ProjectBinding, ErrorCode> {
+pub(crate) fn project_binding(snapshot: &Snapshot, id: &Id) -> Result<ProjectBinding, ErrorCode> {
     let row = snapshot
         .projects
         .iter()
@@ -2429,7 +2649,7 @@ fn project_binding(snapshot: &Snapshot, id: &Id) -> Result<ProjectBinding, Error
     }
     ProjectBinding::from_registered(id.clone(), &row.project.path, row.project.revision)
 }
-fn state_digest(
+pub(crate) fn state_digest(
     snapshot: &Snapshot,
     binding: &ProjectBinding,
     request: &Request<MutationInput>,
@@ -2486,7 +2706,7 @@ fn mutation_receipt(receipt: Receipt, revision: u64) -> Result<MutationReceipt, 
         revision: SafeInt::new(revision)?,
     })
 }
-fn actor_error(error: crate::actor::ActorError) -> ErrorCode {
+pub(crate) fn actor_error(error: crate::actor::ActorError) -> ErrorCode {
     match error {
         crate::actor::ActorError::Busy => ErrorCode::Busy,
         crate::actor::ActorError::IdempotencyConflict => ErrorCode::IdempotencyConflict,
@@ -2818,6 +3038,31 @@ impl<'de> Deserialize<'de> for Token {
 #[derive(Deserialize)]
 #[serde(tag = "method", rename_all = "snake_case", deny_unknown_fields)]
 enum Wire {
+    #[serde(rename = "execution_plan")]
+    ExecutionPlan {
+        credential: Token,
+        request: Box<Request<MutationInput>>,
+    },
+    #[serde(rename = "execution_apply")]
+    ExecutionApply {
+        credential: Token,
+        request: Box<Request<MutationInput>>,
+        review: Digest,
+    },
+    #[serde(rename = "execution_lookup")]
+    ExecutionLookup {
+        credential: Token,
+        request_id: Id,
+        project_id: Id,
+        idempotency_key: Id,
+    },
+    #[serde(rename = "execution_output")]
+    ExecutionOutput {
+        credential: Token,
+        request_id: Id,
+        project_id: Id,
+        operation_id: Id,
+    },
     #[serde(rename = "domain_read")]
     DomainRead {
         credential: Token,

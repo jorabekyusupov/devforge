@@ -967,3 +967,96 @@ fn diagnostics_cli_metadata_filters_and_page_bounds_reject_before_state_or_io() 
         assert_eq!(entry["metadata_only"], true);
     }
 }
+
+#[test]
+fn execution_cli_requires_bounded_private_stdin_and_never_secret_argv() {
+    for args in [
+        vec!["api", "execution", "--help"],
+        vec!["api", "execution", "plan", "--help"],
+        vec!["api", "execution", "managed-test-job", "--help"],
+    ] {
+        let (_, _, output, _) = invoke(&args);
+        assert!(output.status.success());
+    }
+    for args in [
+        vec![
+            "api",
+            "execution",
+            "php",
+            "project",
+            "--args",
+            "secret-argv-canary",
+        ],
+        vec!["api", "execution", "php", "project", "secret-argv-canary"],
+        vec![
+            "api",
+            "execution",
+            "plan",
+            "shell",
+            "project",
+            "--revision",
+            "1",
+            "--idempotency-key",
+            "k",
+            "--input-stdin",
+            "--credential-file",
+            "/not-read",
+        ],
+        vec![
+            "api",
+            "execution",
+            "plan",
+            "php",
+            "project",
+            "--revision",
+            "1",
+            "--idempotency-key",
+            "k",
+            "--credential-stdin",
+        ],
+        vec![
+            "api",
+            "execution",
+            "output",
+            "missing",
+            "--project",
+            "project",
+            "--input-stdin",
+            "--credential-file",
+            "/not-read",
+        ],
+    ] {
+        let (_, _, output, value) = invoke(&args);
+        assert!(!output.status.success());
+        assert!(!value.to_string().contains("secret-argv-canary"));
+    }
+    let (_, _, _, caps) = invoke(&["api", "capabilities"]);
+    let commands = caps["data"]["commands"].as_array().unwrap();
+    let command = commands
+        .iter()
+        .find(|v| v["name"] == "execution php")
+        .unwrap();
+    assert_eq!(command["execution_requires_native_approval"], true);
+    assert_eq!(
+        command["required_scopes"],
+        serde_json::json!(["execution_test"])
+    );
+    let (_, _, _, schema) = invoke(&["api", "schema"]);
+    let input = schema["data"]["input"]["oneOf"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|input| input["properties"]["command"]["const"] == "execution php")
+        .unwrap();
+    assert!(
+        input["required"]
+            .as_array()
+            .unwrap()
+            .contains(&serde_json::json!("stdin_input"))
+    );
+    assert_eq!(
+        input["properties"]["stdin_input"]["properties"]["args"]["maxItems"],
+        64
+    );
+    assert!(input["properties"].get("args").is_none());
+}

@@ -8,6 +8,72 @@ use crate::{
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::path::PathBuf;
+use zeroize::Zeroize;
+
+/// Arguments remain explicit data for fixed native tool executables. They are
+/// not shell text and must never be printed or persisted as request material.
+#[derive(Clone, Serialize)]
+#[serde(transparent)]
+pub struct ExecutionArguments(Vec<String>);
+impl ExecutionArguments {
+    pub fn new(mut args: Vec<String>) -> Result<Self> {
+        if args.len() > 64
+            || args
+                .iter()
+                .any(|arg| arg.len() > 4096 || arg.contains('\0'))
+            || args.iter().map(String::len).sum::<usize>() > 16_384
+        {
+            args.zeroize();
+            return Err(ErrorCode::InvalidInput);
+        }
+        Ok(Self(args))
+    }
+    pub fn as_slice(&self) -> &[String] {
+        &self.0
+    }
+}
+impl std::fmt::Debug for ExecutionArguments {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("ExecutionArguments([REDACTED])")
+    }
+}
+impl Drop for ExecutionArguments {
+    fn drop(&mut self) {
+        self.0.zeroize();
+    }
+}
+impl<'de> Deserialize<'de> for ExecutionArguments {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> std::result::Result<Self, D::Error> {
+        Self::new(Vec::<String>::deserialize(d)?)
+            .map_err(|_| serde::de::Error::custom("invalid_execution_arguments"))
+    }
+}
+impl Wire for ExecutionArguments {
+    fn schema() -> Value {
+        json!({"type":"array","maxItems":64,"items":{"type":"string","maxLength":4096,"pattern":"^[^\\u0000]*$"},"description":"At most 16384 UTF-8 bytes across all arguments"})
+    }
+    fn ts() -> String {
+        "Array<string>".into()
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ExecutionTool {
+    Php,
+    Artisan,
+    Composer,
+    Node,
+    Npm,
+    Git,
+}
+impl Wire for ExecutionTool {
+    fn schema() -> Value {
+        json!({"type":"string","enum":["php","artisan","composer","node","npm","git"]})
+    }
+    fn ts() -> String {
+        "\"php\" | \"artisan\" | \"composer\" | \"node\" | \"npm\" | \"git\"".into()
+    }
+}
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(transparent)]
@@ -121,6 +187,8 @@ impl Default for MutationLimits {
     }
 }
 contract!(ServiceActionInput{limits:Option<MutationLimits>});
+contract!(ExecutionCommandInput{args:ExecutionArguments,limits:Option<MutationLimits>});
+contract!(ManagedTestInput{tool:ExecutionTool,args:ExecutionArguments,limits:Option<MutationLimits>});
 contract!(PackageInput{package_id:Id,limits:Option<MutationLimits>});
 contract!(ConfigureInput{name:ProjectName,php:Id,node:Id,domain:DomainName,https:bool,vite:bool,queue:bool,limits:Option<MutationLimits>});
 contract!(EnvironmentPlanInput{write_env:bool,limits:Option<MutationLimits>});
@@ -171,6 +239,13 @@ mutation_set! {
     Start("services.start",ServiceActionInput,MutationReceipt,"start"),
     Stop("services.stop",ServiceActionInput,MutationReceipt,"stop"),
     Restart("services.restart",ServiceActionInput,MutationReceipt,"restart"),
+    ExecutePhp("execution.php",ExecutionCommandInput,MutationReceipt,"managed_execution"),
+    ExecuteArtisan("execution.artisan",ExecutionCommandInput,MutationReceipt,"managed_execution"),
+    ExecuteComposer("execution.composer",ExecutionCommandInput,MutationReceipt,"managed_execution"),
+    ExecuteNode("execution.node",ExecutionCommandInput,MutationReceipt,"managed_execution"),
+    ExecuteNpm("execution.npm",ExecutionCommandInput,MutationReceipt,"managed_execution"),
+    ExecuteGit("execution.git",ExecutionCommandInput,MutationReceipt,"managed_execution"),
+    ManagedTest("execution.managed_test_job",ManagedTestInput,MutationReceipt,"managed_execution"),
     RuntimeInstall("runtimes.install",PackageInput,MutationReceipt,"install"),
     RuntimeRemove("runtimes.remove",PackageInput,MutationReceipt,"remove_runtime"),
     Configure("runtimes.select",ConfigureInput,MutationReceipt,"configure"),
@@ -383,6 +458,8 @@ pub fn declarations() -> Vec<String> {
     collect!(
         MutationLimits,
         ServiceActionInput,
+        ExecutionCommandInput,
+        ManagedTestInput,
         PackageInput,
         ConfigureInput,
         EnvironmentPlanInput,
@@ -417,5 +494,27 @@ mod path_tests {
             fingerprint_material(&request, &binding),
             Err(ErrorCode::InvalidInput)
         );
+    }
+}
+
+#[cfg(test)]
+mod execution_tests {
+    use super::*;
+    #[test]
+    fn finite_execution_arguments_are_bounded_redacted_and_keep_canonical_roundtrip() {
+        let args = ExecutionArguments::new(vec![
+            "--password=LOW_ENTROPY_CANARY".into(),
+            "tests/check.php".into(),
+        ])
+        .unwrap();
+        assert!(!format!("{args:?}").contains("LOW_ENTROPY_CANARY"));
+        let wire = serde_json::to_vec(&args).unwrap();
+        let decoded: ExecutionArguments = serde_json::from_slice(&wire).unwrap();
+        assert_eq!(args.as_slice(), decoded.as_slice());
+        assert!(ExecutionArguments::new(vec!["x".into(); 65]).is_err());
+        assert!(ExecutionArguments::new(vec!["x".repeat(4097)]).is_err());
+        assert!(ExecutionArguments::new(vec!["x".repeat(4096); 5]).is_err());
+        assert!(ExecutionArguments::new(vec!["a\0b".into()]).is_err());
+        assert!(serde_json::from_str::<ExecutionTool>("\"shell\"").is_err());
     }
 }

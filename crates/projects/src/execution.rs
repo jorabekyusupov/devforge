@@ -785,6 +785,34 @@ pub struct ExecutionResult {
     pub dropped_bytes: u64,
 }
 impl Invocation {
+    pub fn redact_supplied_arguments(&mut self, arguments: &[String]) -> Result<()> {
+        let mut values = self.context.sensitive.clone();
+        for argument in arguments {
+            if !argument.is_empty() && !values.contains(argument) {
+                values.push(argument.clone());
+            }
+            if let Some((_, value)) = argument.split_once('=')
+                && !value.is_empty()
+                && !values.iter().any(|known| known == value)
+            {
+                values.push(value.into());
+            }
+        }
+        if values.len() > 128 || values.iter().any(|value| value.len() > 16384) {
+            return Err(E::InvalidEnvironment);
+        }
+        self.context.sensitive = values;
+        Ok(())
+    }
+    pub fn limit_captured_output(&mut self, bytes: usize) -> Result<()> {
+        if !(4096..=65536).contains(&bytes) {
+            return Err(E::InvalidEnvironment);
+        }
+        self.spec.logs.memory_bytes = bytes;
+        self.spec.logs.file_bytes = bytes as u64;
+        self.spec.logs.files = 1;
+        Ok(())
+    }
     pub fn id(&self) -> &str {
         &self.spec.id
     }
@@ -823,6 +851,18 @@ impl Invocation {
         cancel: &Cancellation,
         check: &dyn Fn() -> Result<()>,
     ) -> Result<ExecutionResult> {
+        self.run_cancellable_checked_timeout(logs, cancel, Duration::from_secs(310), check)
+    }
+    pub fn run_cancellable_checked_timeout(
+        &self,
+        logs: impl AsRef<std::path::Path>,
+        cancel: &Cancellation,
+        timeout: Duration,
+        check: &dyn Fn() -> Result<()>,
+    ) -> Result<ExecutionResult> {
+        if timeout.is_zero() || timeout > Duration::from_secs(3600) {
+            return Err(E::InvalidEnvironment);
+        }
         if cancel.is_cancelled() {
             return Err(E::ExecutionFailed);
         }
@@ -833,7 +873,7 @@ impl Invocation {
         if let Some(budget) = &self.profile_budget {
             supervisor.attach_file_budget(&self.spec.id, budget.clone())?;
         }
-        let until = std::time::Instant::now() + Duration::from_secs(310);
+        let until = std::time::Instant::now() + timeout;
         let state = loop {
             let state = supervisor.snapshot(&self.spec.id)?;
             if matches!(

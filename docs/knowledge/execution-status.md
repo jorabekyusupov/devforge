@@ -1430,3 +1430,9 @@ downloads/securitypermissions untouched; no real OS helper. Windows native new
 bridge/UI/privatefile and signing/minimumOS gates remain. Deferred report files
 and namespaces preserved outside this delivery. Next is M13.6a managed exec/test
 with necessary isolation, per user-approved order.
+
+M13.8a baselinebc9c6a2 [run43622856038](https://github.com/jorabekyusupov/devforge/actions/runs/43622856038)
+passed both macOS/Windows tests/builds. Actual Windows Server2025 privateexport2,
+Tauri compensation/privacy2, pending native authority2 and agents UI unit13
+passed. [Proof](../evidence/m138a-connections/ci-bc9c6a2.json) preserves the
+distinction from actual native Windows UI, signing/minimum OS and real OS writes.

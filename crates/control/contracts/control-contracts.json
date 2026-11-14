@@ -21,7 +21,8 @@
     "storage_unavailable",
     "admission_unconfirmed",
     "precondition_failed",
-    "idempotency_unverifiable"
+    "idempotency_unverifiable",
+    "result_unavailable"
   ],
   "live_available": false,
   "mutation_request_schema": {
@@ -257,6 +258,711 @@
               },
               "tool": {
                 "const": "services.restart"
+              }
+            },
+            "required": [
+              "tool",
+              "arguments"
+            ],
+            "type": "object"
+          },
+          "project_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "type": "string"
+          },
+          "request_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "api_version",
+          "request_id",
+          "project_id",
+          "input",
+          "expected_revision",
+          "idempotency_key"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "api_version": {
+            "const": 1
+          },
+          "expected_revision": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "idempotency_key": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "type": "string"
+          },
+          "input": {
+            "additionalProperties": false,
+            "properties": {
+              "arguments": {
+                "additionalProperties": false,
+                "properties": {
+                  "args": {
+                    "description": "At most 16384 UTF-8 bytes across all arguments",
+                    "items": {
+                      "maxLength": 4096,
+                      "pattern": "^[^\\u0000]*$",
+                      "type": "string"
+                    },
+                    "maxItems": 64,
+                    "type": "array"
+                  },
+                  "limits": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "max_output_bytes": {
+                            "maximum": 262144,
+                            "minimum": 1,
+                            "type": "integer"
+                          },
+                          "timeout_ms": {
+                            "maximum": 1800000,
+                            "minimum": 1,
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "timeout_ms",
+                          "max_output_bytes"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "args"
+                ],
+                "type": "object"
+              },
+              "tool": {
+                "const": "execution.php"
+              }
+            },
+            "required": [
+              "tool",
+              "arguments"
+            ],
+            "type": "object"
+          },
+          "project_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "type": "string"
+          },
+          "request_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "api_version",
+          "request_id",
+          "project_id",
+          "input",
+          "expected_revision",
+          "idempotency_key"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "api_version": {
+            "const": 1
+          },
+          "expected_revision": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "idempotency_key": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "type": "string"
+          },
+          "input": {
+            "additionalProperties": false,
+            "properties": {
+              "arguments": {
+                "additionalProperties": false,
+                "properties": {
+                  "args": {
+                    "description": "At most 16384 UTF-8 bytes across all arguments",
+                    "items": {
+                      "maxLength": 4096,
+                      "pattern": "^[^\\u0000]*$",
+                      "type": "string"
+                    },
+                    "maxItems": 64,
+                    "type": "array"
+                  },
+                  "limits": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "max_output_bytes": {
+                            "maximum": 262144,
+                            "minimum": 1,
+                            "type": "integer"
+                          },
+                          "timeout_ms": {
+                            "maximum": 1800000,
+                            "minimum": 1,
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "timeout_ms",
+                          "max_output_bytes"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "args"
+                ],
+                "type": "object"
+              },
+              "tool": {
+                "const": "execution.artisan"
+              }
+            },
+            "required": [
+              "tool",
+              "arguments"
+            ],
+            "type": "object"
+          },
+          "project_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "type": "string"
+          },
+          "request_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "api_version",
+          "request_id",
+          "project_id",
+          "input",
+          "expected_revision",
+          "idempotency_key"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "api_version": {
+            "const": 1
+          },
+          "expected_revision": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "idempotency_key": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "type": "string"
+          },
+          "input": {
+            "additionalProperties": false,
+            "properties": {
+              "arguments": {
+                "additionalProperties": false,
+                "properties": {
+                  "args": {
+                    "description": "At most 16384 UTF-8 bytes across all arguments",
+                    "items": {
+                      "maxLength": 4096,
+                      "pattern": "^[^\\u0000]*$",
+                      "type": "string"
+                    },
+                    "maxItems": 64,
+                    "type": "array"
+                  },
+                  "limits": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "max_output_bytes": {
+                            "maximum": 262144,
+                            "minimum": 1,
+                            "type": "integer"
+                          },
+                          "timeout_ms": {
+                            "maximum": 1800000,
+                            "minimum": 1,
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "timeout_ms",
+                          "max_output_bytes"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "args"
+                ],
+                "type": "object"
+              },
+              "tool": {
+                "const": "execution.composer"
+              }
+            },
+            "required": [
+              "tool",
+              "arguments"
+            ],
+            "type": "object"
+          },
+          "project_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "type": "string"
+          },
+          "request_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "api_version",
+          "request_id",
+          "project_id",
+          "input",
+          "expected_revision",
+          "idempotency_key"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "api_version": {
+            "const": 1
+          },
+          "expected_revision": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "idempotency_key": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "type": "string"
+          },
+          "input": {
+            "additionalProperties": false,
+            "properties": {
+              "arguments": {
+                "additionalProperties": false,
+                "properties": {
+                  "args": {
+                    "description": "At most 16384 UTF-8 bytes across all arguments",
+                    "items": {
+                      "maxLength": 4096,
+                      "pattern": "^[^\\u0000]*$",
+                      "type": "string"
+                    },
+                    "maxItems": 64,
+                    "type": "array"
+                  },
+                  "limits": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "max_output_bytes": {
+                            "maximum": 262144,
+                            "minimum": 1,
+                            "type": "integer"
+                          },
+                          "timeout_ms": {
+                            "maximum": 1800000,
+                            "minimum": 1,
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "timeout_ms",
+                          "max_output_bytes"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "args"
+                ],
+                "type": "object"
+              },
+              "tool": {
+                "const": "execution.node"
+              }
+            },
+            "required": [
+              "tool",
+              "arguments"
+            ],
+            "type": "object"
+          },
+          "project_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "type": "string"
+          },
+          "request_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "api_version",
+          "request_id",
+          "project_id",
+          "input",
+          "expected_revision",
+          "idempotency_key"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "api_version": {
+            "const": 1
+          },
+          "expected_revision": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "idempotency_key": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "type": "string"
+          },
+          "input": {
+            "additionalProperties": false,
+            "properties": {
+              "arguments": {
+                "additionalProperties": false,
+                "properties": {
+                  "args": {
+                    "description": "At most 16384 UTF-8 bytes across all arguments",
+                    "items": {
+                      "maxLength": 4096,
+                      "pattern": "^[^\\u0000]*$",
+                      "type": "string"
+                    },
+                    "maxItems": 64,
+                    "type": "array"
+                  },
+                  "limits": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "max_output_bytes": {
+                            "maximum": 262144,
+                            "minimum": 1,
+                            "type": "integer"
+                          },
+                          "timeout_ms": {
+                            "maximum": 1800000,
+                            "minimum": 1,
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "timeout_ms",
+                          "max_output_bytes"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "args"
+                ],
+                "type": "object"
+              },
+              "tool": {
+                "const": "execution.npm"
+              }
+            },
+            "required": [
+              "tool",
+              "arguments"
+            ],
+            "type": "object"
+          },
+          "project_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "type": "string"
+          },
+          "request_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "api_version",
+          "request_id",
+          "project_id",
+          "input",
+          "expected_revision",
+          "idempotency_key"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "api_version": {
+            "const": 1
+          },
+          "expected_revision": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "idempotency_key": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "type": "string"
+          },
+          "input": {
+            "additionalProperties": false,
+            "properties": {
+              "arguments": {
+                "additionalProperties": false,
+                "properties": {
+                  "args": {
+                    "description": "At most 16384 UTF-8 bytes across all arguments",
+                    "items": {
+                      "maxLength": 4096,
+                      "pattern": "^[^\\u0000]*$",
+                      "type": "string"
+                    },
+                    "maxItems": 64,
+                    "type": "array"
+                  },
+                  "limits": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "max_output_bytes": {
+                            "maximum": 262144,
+                            "minimum": 1,
+                            "type": "integer"
+                          },
+                          "timeout_ms": {
+                            "maximum": 1800000,
+                            "minimum": 1,
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "timeout_ms",
+                          "max_output_bytes"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "args"
+                ],
+                "type": "object"
+              },
+              "tool": {
+                "const": "execution.git"
+              }
+            },
+            "required": [
+              "tool",
+              "arguments"
+            ],
+            "type": "object"
+          },
+          "project_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "type": "string"
+          },
+          "request_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "api_version",
+          "request_id",
+          "project_id",
+          "input",
+          "expected_revision",
+          "idempotency_key"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "api_version": {
+            "const": 1
+          },
+          "expected_revision": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "idempotency_key": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "type": "string"
+          },
+          "input": {
+            "additionalProperties": false,
+            "properties": {
+              "arguments": {
+                "additionalProperties": false,
+                "properties": {
+                  "args": {
+                    "description": "At most 16384 UTF-8 bytes across all arguments",
+                    "items": {
+                      "maxLength": 4096,
+                      "pattern": "^[^\\u0000]*$",
+                      "type": "string"
+                    },
+                    "maxItems": 64,
+                    "type": "array"
+                  },
+                  "limits": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "max_output_bytes": {
+                            "maximum": 262144,
+                            "minimum": 1,
+                            "type": "integer"
+                          },
+                          "timeout_ms": {
+                            "maximum": 1800000,
+                            "minimum": 1,
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "timeout_ms",
+                          "max_output_bytes"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "tool": {
+                    "enum": [
+                      "php",
+                      "artisan",
+                      "composer",
+                      "node",
+                      "npm",
+                      "git"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "tool",
+                  "args"
+                ],
+                "type": "object"
+              },
+              "tool": {
+                "const": "execution.managed_test_job"
               }
             },
             "required": [
@@ -11174,84 +11880,612 @@
       "effects": [
         "trusted_project_code_execution"
       ],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "args": {
+            "description": "At most 16384 UTF-8 bytes across all arguments",
+            "items": {
+              "maxLength": 4096,
+              "pattern": "^[^\\u0000]*$",
+              "type": "string"
+            },
+            "maxItems": 64,
+            "type": "array"
+          },
+          "limits": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "max_output_bytes": {
+                    "maximum": 262144,
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "timeout_ms": {
+                    "maximum": 1800000,
+                    "minimum": 1,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "timeout_ms",
+                  "max_output_bytes"
+                ],
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "args"
+        ],
+        "type": "object"
+      },
       "live_available": false,
       "name": "execution.php",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "operation_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "type": "string"
+          },
+          "project_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "type": "string"
+          },
+          "revision": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "state": {
+            "enum": [
+              "queued",
+              "running",
+              "cancel_requested",
+              "succeeded",
+              "failed",
+              "cancelled",
+              "interrupted",
+              "unknown"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id",
+          "operation_id",
+          "state",
+          "revision"
+        ],
+        "type": "object"
+      },
       "policy": "project_grant",
       "required_scopes": [
         "execution_test"
       ],
-      "review_required": false,
-      "schema_status": "planned",
+      "review_required": true,
+      "schema_status": "typed_mutation",
       "unavailable_error": "unsupported_capability"
     },
     {
       "effects": [
         "trusted_project_code_execution"
       ],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "args": {
+            "description": "At most 16384 UTF-8 bytes across all arguments",
+            "items": {
+              "maxLength": 4096,
+              "pattern": "^[^\\u0000]*$",
+              "type": "string"
+            },
+            "maxItems": 64,
+            "type": "array"
+          },
+          "limits": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "max_output_bytes": {
+                    "maximum": 262144,
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "timeout_ms": {
+                    "maximum": 1800000,
+                    "minimum": 1,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "timeout_ms",
+                  "max_output_bytes"
+                ],
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "args"
+        ],
+        "type": "object"
+      },
       "live_available": false,
       "name": "execution.artisan",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "operation_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "type": "string"
+          },
+          "project_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "type": "string"
+          },
+          "revision": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "state": {
+            "enum": [
+              "queued",
+              "running",
+              "cancel_requested",
+              "succeeded",
+              "failed",
+              "cancelled",
+              "interrupted",
+              "unknown"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id",
+          "operation_id",
+          "state",
+          "revision"
+        ],
+        "type": "object"
+      },
       "policy": "project_grant",
       "required_scopes": [
         "execution_test"
       ],
-      "review_required": false,
-      "schema_status": "planned",
+      "review_required": true,
+      "schema_status": "typed_mutation",
       "unavailable_error": "unsupported_capability"
     },
     {
       "effects": [
         "trusted_project_code_execution"
       ],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "args": {
+            "description": "At most 16384 UTF-8 bytes across all arguments",
+            "items": {
+              "maxLength": 4096,
+              "pattern": "^[^\\u0000]*$",
+              "type": "string"
+            },
+            "maxItems": 64,
+            "type": "array"
+          },
+          "limits": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "max_output_bytes": {
+                    "maximum": 262144,
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "timeout_ms": {
+                    "maximum": 1800000,
+                    "minimum": 1,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "timeout_ms",
+                  "max_output_bytes"
+                ],
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "args"
+        ],
+        "type": "object"
+      },
       "live_available": false,
       "name": "execution.composer",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "operation_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "type": "string"
+          },
+          "project_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "type": "string"
+          },
+          "revision": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "state": {
+            "enum": [
+              "queued",
+              "running",
+              "cancel_requested",
+              "succeeded",
+              "failed",
+              "cancelled",
+              "interrupted",
+              "unknown"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id",
+          "operation_id",
+          "state",
+          "revision"
+        ],
+        "type": "object"
+      },
       "policy": "project_grant",
       "required_scopes": [
         "execution_test"
       ],
-      "review_required": false,
-      "schema_status": "planned",
+      "review_required": true,
+      "schema_status": "typed_mutation",
       "unavailable_error": "unsupported_capability"
     },
     {
       "effects": [
         "trusted_project_code_execution"
       ],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "args": {
+            "description": "At most 16384 UTF-8 bytes across all arguments",
+            "items": {
+              "maxLength": 4096,
+              "pattern": "^[^\\u0000]*$",
+              "type": "string"
+            },
+            "maxItems": 64,
+            "type": "array"
+          },
+          "limits": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "max_output_bytes": {
+                    "maximum": 262144,
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "timeout_ms": {
+                    "maximum": 1800000,
+                    "minimum": 1,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "timeout_ms",
+                  "max_output_bytes"
+                ],
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "args"
+        ],
+        "type": "object"
+      },
       "live_available": false,
       "name": "execution.node",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "operation_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "type": "string"
+          },
+          "project_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "type": "string"
+          },
+          "revision": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "state": {
+            "enum": [
+              "queued",
+              "running",
+              "cancel_requested",
+              "succeeded",
+              "failed",
+              "cancelled",
+              "interrupted",
+              "unknown"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id",
+          "operation_id",
+          "state",
+          "revision"
+        ],
+        "type": "object"
+      },
       "policy": "project_grant",
       "required_scopes": [
         "execution_test"
       ],
-      "review_required": false,
-      "schema_status": "planned",
+      "review_required": true,
+      "schema_status": "typed_mutation",
       "unavailable_error": "unsupported_capability"
     },
     {
       "effects": [
         "trusted_project_code_execution"
       ],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "args": {
+            "description": "At most 16384 UTF-8 bytes across all arguments",
+            "items": {
+              "maxLength": 4096,
+              "pattern": "^[^\\u0000]*$",
+              "type": "string"
+            },
+            "maxItems": 64,
+            "type": "array"
+          },
+          "limits": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "max_output_bytes": {
+                    "maximum": 262144,
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "timeout_ms": {
+                    "maximum": 1800000,
+                    "minimum": 1,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "timeout_ms",
+                  "max_output_bytes"
+                ],
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "args"
+        ],
+        "type": "object"
+      },
       "live_available": false,
       "name": "execution.npm",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "operation_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "type": "string"
+          },
+          "project_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "type": "string"
+          },
+          "revision": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "state": {
+            "enum": [
+              "queued",
+              "running",
+              "cancel_requested",
+              "succeeded",
+              "failed",
+              "cancelled",
+              "interrupted",
+              "unknown"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id",
+          "operation_id",
+          "state",
+          "revision"
+        ],
+        "type": "object"
+      },
       "policy": "project_grant",
       "required_scopes": [
         "execution_test"
       ],
-      "review_required": false,
-      "schema_status": "planned",
+      "review_required": true,
+      "schema_status": "typed_mutation",
       "unavailable_error": "unsupported_capability"
     },
     {
       "effects": [
         "trusted_project_code_execution"
       ],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "args": {
+            "description": "At most 16384 UTF-8 bytes across all arguments",
+            "items": {
+              "maxLength": 4096,
+              "pattern": "^[^\\u0000]*$",
+              "type": "string"
+            },
+            "maxItems": 64,
+            "type": "array"
+          },
+          "limits": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "max_output_bytes": {
+                    "maximum": 262144,
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "timeout_ms": {
+                    "maximum": 1800000,
+                    "minimum": 1,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "timeout_ms",
+                  "max_output_bytes"
+                ],
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "args"
+        ],
+        "type": "object"
+      },
       "live_available": false,
       "name": "execution.git",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "operation_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "type": "string"
+          },
+          "project_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "type": "string"
+          },
+          "revision": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "state": {
+            "enum": [
+              "queued",
+              "running",
+              "cancel_requested",
+              "succeeded",
+              "failed",
+              "cancelled",
+              "interrupted",
+              "unknown"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id",
+          "operation_id",
+          "state",
+          "revision"
+        ],
+        "type": "object"
+      },
       "policy": "project_grant",
       "required_scopes": [
         "execution_test"
       ],
-      "review_required": false,
-      "schema_status": "planned",
+      "review_required": true,
+      "schema_status": "typed_mutation",
       "unavailable_error": "unsupported_capability"
     },
     {
@@ -11702,14 +12936,114 @@
       "effects": [
         "trusted_project_code_execution"
       ],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "args": {
+            "description": "At most 16384 UTF-8 bytes across all arguments",
+            "items": {
+              "maxLength": 4096,
+              "pattern": "^[^\\u0000]*$",
+              "type": "string"
+            },
+            "maxItems": 64,
+            "type": "array"
+          },
+          "limits": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "max_output_bytes": {
+                    "maximum": 262144,
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "timeout_ms": {
+                    "maximum": 1800000,
+                    "minimum": 1,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "timeout_ms",
+                  "max_output_bytes"
+                ],
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tool": {
+            "enum": [
+              "php",
+              "artisan",
+              "composer",
+              "node",
+              "npm",
+              "git"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "tool",
+          "args"
+        ],
+        "type": "object"
+      },
       "live_available": false,
       "name": "execution.managed_test_job",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "operation_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "type": "string"
+          },
+          "project_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "type": "string"
+          },
+          "revision": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "state": {
+            "enum": [
+              "queued",
+              "running",
+              "cancel_requested",
+              "succeeded",
+              "failed",
+              "cancelled",
+              "interrupted",
+              "unknown"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id",
+          "operation_id",
+          "state",
+          "revision"
+        ],
+        "type": "object"
+      },
       "policy": "project_grant",
       "required_scopes": [
         "execution_test"
       ],
-      "review_required": false,
-      "schema_status": "planned",
+      "review_required": true,
+      "schema_status": "typed_mutation",
       "unavailable_error": "unsupported_capability"
     },
     {

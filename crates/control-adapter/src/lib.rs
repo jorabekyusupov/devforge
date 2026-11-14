@@ -39,6 +39,10 @@ impl<'a> BackendContext<'a> {
 }
 /// Configuration planning is a read-only domain method, not a Command mutation.
 pub enum Dispatch {
+    Execution {
+        project_id: String,
+        request: devforge_workspace::execution_control::ExecutionRequest,
+    },
     Command(Box<Command>),
     ConfigurationPlan {
         project_id: String,
@@ -91,6 +95,43 @@ pub fn map_mutation(
     }
     let id = current.project_id().as_str().to_owned();
     let command = match &prepared.request().input {
+        MutationInput::ExecutePhp(_)
+        | MutationInput::ExecuteArtisan(_)
+        | MutationInput::ExecuteComposer(_)
+        | MutationInput::ExecuteNode(_)
+        | MutationInput::ExecuteNpm(_)
+        | MutationInput::ExecuteGit(_)
+        | MutationInput::ManagedTest(_) => {
+            backend_review(prepared, context)?;
+            use devforge_control::mutations::ExecutionTool as C;
+            use devforge_workspace::execution_control::{ExecutionRequest, ExecutionTool as W};
+            let (tool, args, test) = match &prepared.request().input {
+                MutationInput::ExecutePhp(p) => (C::Php, &p.args, false),
+                MutationInput::ExecuteArtisan(p) => (C::Artisan, &p.args, false),
+                MutationInput::ExecuteComposer(p) => (C::Composer, &p.args, false),
+                MutationInput::ExecuteNode(p) => (C::Node, &p.args, false),
+                MutationInput::ExecuteNpm(p) => (C::Npm, &p.args, false),
+                MutationInput::ExecuteGit(p) => (C::Git, &p.args, false),
+                MutationInput::ManagedTest(p) => (p.tool, &p.args, true),
+                _ => unreachable!(),
+            };
+            return Ok(Dispatch::Execution {
+                project_id: id,
+                request: ExecutionRequest {
+                    tool: match tool {
+                        C::Php => W::Php,
+                        C::Artisan => W::Artisan,
+                        C::Composer => W::Composer,
+                        C::Node => W::Node,
+                        C::Npm => W::Npm,
+                        C::Git => W::Git,
+                    },
+                    args: args.as_slice().to_vec(),
+                    timeout_ms: prepared.request().input.limits().timeout_ms.get(),
+                    managed_test: test,
+                },
+            });
+        }
         MutationInput::Start(_) => Command::Start { id },
         MutationInput::Stop(_) => Command::Stop { id },
         MutationInput::Restart(_) => Command::Restart { id },

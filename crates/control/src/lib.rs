@@ -35,6 +35,7 @@ pub enum ErrorCode {
     AdmissionUnconfirmed,
     PreconditionFailed,
     IdempotencyUnverifiable,
+    ResultUnavailable,
 }
 impl fmt::Display for ErrorCode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

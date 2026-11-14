@@ -8,6 +8,46 @@ use std::io::{self, IsTerminal, Read};
 use zeroize::Zeroizing;
 
 const COMMANDS: &[(&str, &str)] = &[
+    (
+        "execution plan",
+        "devforge api execution plan TOOL PROJECT_ID --revision N --idempotency-key KEY --input-stdin --credential-file ABSOLUTE_PATH",
+    ),
+    (
+        "execution php",
+        "devforge api execution php PROJECT_ID --revision N --idempotency-key KEY --review TICKET --input-stdin --credential-file ABSOLUTE_PATH",
+    ),
+    (
+        "execution artisan",
+        "devforge api execution artisan PROJECT_ID --revision N --idempotency-key KEY --review TICKET --input-stdin --credential-file ABSOLUTE_PATH",
+    ),
+    (
+        "execution composer",
+        "devforge api execution composer PROJECT_ID --revision N --idempotency-key KEY --review TICKET --input-stdin --credential-file ABSOLUTE_PATH",
+    ),
+    (
+        "execution node",
+        "devforge api execution node PROJECT_ID --revision N --idempotency-key KEY --review TICKET --input-stdin --credential-file ABSOLUTE_PATH",
+    ),
+    (
+        "execution npm",
+        "devforge api execution npm PROJECT_ID --revision N --idempotency-key KEY --review TICKET --input-stdin --credential-file ABSOLUTE_PATH",
+    ),
+    (
+        "execution git",
+        "devforge api execution git PROJECT_ID --revision N --idempotency-key KEY --review TICKET --input-stdin --credential-file ABSOLUTE_PATH",
+    ),
+    (
+        "execution managed-test-job",
+        "devforge api execution managed-test-job PROJECT_ID --revision N --idempotency-key KEY --review TICKET --input-stdin --credential-file ABSOLUTE_PATH",
+    ),
+    (
+        "execution output",
+        "devforge api execution output OPERATION_ID --project PROJECT_ID --credential-file ABSOLUTE_PATH",
+    ),
+    (
+        "execution lookup",
+        "devforge api execution lookup KEY --project PROJECT_ID --credential-file ABSOLUTE_PATH",
+    ),
     ("health", "devforge api health"),
     ("status", "devforge api status --credential-stdin"),
     (
@@ -395,14 +435,14 @@ fn metadata(words: &[String]) -> Result<Option<Value>, ErrorCode> {
         .as_slice()
     {
         ["capabilities"] => Ok(Some(
-            json!({"api_version":API_VERSION,"owner_autostart":false,"native_desktop_authority":false,"external_grant_required":true,"project_visibility":"credential-bound project only","commands":COMMANDS.iter().filter(|(name,_)| !matches!(*name,"schema"|"capabilities")).map(|(name,_)|json!({"name":name,"implemented":true,"requires_connection":true,"requires_grant":*name!="health","required_scopes":match *name {"health"=>vec![],"operation cancel"=>vec!["observer","project_manage"],"env apply"|"env plan apply"=>vec!["project_manage","sensitive_operation","execution_test"],"env yaml-save"|"env plan yaml-save"|"database bind"|"database restore"|"database plan bind"|"database plan restore"|"domain apply"|"domain apply plan"|"domain cleanup"|"domain cleanup plan"|"domain cleanup apply"=>vec!["project_manage","sensitive_operation"],"service start"|"service restart"|"runtime select"=>vec!["project_manage","execution_test"],"service stop"|"runtime install"=>vec!["project_manage"],"service plan"|"runtime plan"=>vec!["project_manage"],_=>vec!["observer"]},"execution_requires_native_approval":name.starts_with("service ")||name.starts_with("runtime ")||matches!(*name,"env apply"|"env yaml-save"|"env plan apply"|"env plan yaml-save"|"database bind"|"database restore"|"database plan bind"|"database plan restore"|"domain apply"|"domain apply plan"|"domain cleanup plan"|"domain cleanup apply"),"native_machine_confirmation_required":matches!(*name,"domain apply"|"domain apply plan"|"domain cleanup"|"domain cleanup plan"|"domain cleanup apply"),"metadata_only":matches!(*name,"health doctor"|"logs search"|"inspector request"|"mail list"),"scope_by_action":if *name=="service plan"{json!({"start":["project_manage","execution_test"],"stop":["project_manage"],"restart":["project_manage","execution_test"]})}else if *name=="runtime plan"{json!({"install":["project_manage"],"select":["project_manage","execution_test"]})}else{Value::Null},"partial_effects":if matches!(*name,"service plan"|"service start"|"service restart"){json!(["configured_database_cache_smtp_may_remain_running_after_failure_or_cancel","restart_may_have_stopped_selected_session_before_later_denial"])}else{json!([])},"effect":match *name{"operation cancel"=>"cancel_owned_operation","service start"|"service stop"|"service restart"=>"reviewed_owned_service_lifecycle","runtime install"=>"reviewed_shared_cache_write_without_pin_switch","runtime select"=>"reviewed_php_node_selection_with_possible_session_restart","env apply"=>"reviewed_existing_configuration_backend_writes","env yaml-save"=>"reviewed_yaml_and_private_core_history_write","database bind"=>"reviewed_owned_database_binding_write","database restore"=>"reviewed_owned_backup_restore","domain apply"|"domain cleanup apply"=>"native_confirmed_project_scoped_system_integration",_=>"read_only"}})).collect::<Vec<_>>(),"deferred":["general_execution_tools","content_reads","other_project_mutations"],"planning_inventory_is_live":false}),
+            json!({"api_version":API_VERSION,"owner_autostart":false,"native_desktop_authority":false,"external_grant_required":true,"project_visibility":"credential-bound project only","commands":COMMANDS.iter().filter(|(name,_)| !matches!(*name,"schema"|"capabilities")).map(|(name,_)|json!({"name":name,"implemented":true,"requires_connection":true,"requires_grant":*name!="health","required_scopes":match *name {"health"=>vec![],"operation cancel"=>vec!["observer","project_manage"],"env apply"|"env plan apply"=>vec!["project_manage","sensitive_operation","execution_test"],"env yaml-save"|"env plan yaml-save"|"database bind"|"database restore"|"database plan bind"|"database plan restore"|"domain apply"|"domain apply plan"|"domain cleanup"|"domain cleanup plan"|"domain cleanup apply"=>vec!["project_manage","sensitive_operation"],"execution plan"|"execution php"|"execution artisan"|"execution composer"|"execution node"|"execution npm"|"execution git"|"execution managed-test-job"=>vec!["execution_test"],"execution output"=>vec!["observer","execution_test"],"service start"|"service restart"|"runtime select"=>vec!["project_manage","execution_test"],"service stop"|"runtime install"=>vec!["project_manage"],"service plan"|"runtime plan"=>vec!["project_manage"],_=>vec!["observer"]},"execution_requires_native_approval":(name.starts_with("execution ")&&!matches!(*name,"execution output"|"execution lookup"))||name.starts_with("service ")||name.starts_with("runtime ")||matches!(*name,"env apply"|"env yaml-save"|"env plan apply"|"env plan yaml-save"|"database bind"|"database restore"|"database plan bind"|"database plan restore"|"domain apply"|"domain apply plan"|"domain cleanup plan"|"domain cleanup apply"),"native_machine_confirmation_required":matches!(*name,"domain apply"|"domain apply plan"|"domain cleanup"|"domain cleanup plan"|"domain cleanup apply"),"metadata_only":matches!(*name,"health doctor"|"logs search"|"inspector request"|"mail list"),"scope_by_action":if *name=="service plan"{json!({"start":["project_manage","execution_test"],"stop":["project_manage"],"restart":["project_manage","execution_test"]})}else if *name=="runtime plan"{json!({"install":["project_manage"],"select":["project_manage","execution_test"]})}else{Value::Null},"partial_effects":if matches!(*name,"service plan"|"service start"|"service restart"){json!(["configured_database_cache_smtp_may_remain_running_after_failure_or_cancel","restart_may_have_stopped_selected_session_before_later_denial"])}else{json!([])},"context_may_require_sensitive_operation":name.starts_with("execution ")&&!matches!(*name,"execution output"|"execution lookup"),"effect":match *name{"execution php"|"execution artisan"|"execution composer"|"execution node"|"execution npm"|"execution git"|"execution managed-test-job"=>"reviewed_trusted_project_code_execution","operation cancel"=>"cancel_owned_operation","service start"|"service stop"|"service restart"=>"reviewed_owned_service_lifecycle","runtime install"=>"reviewed_shared_cache_write_without_pin_switch","runtime select"=>"reviewed_php_node_selection_with_possible_session_restart","env apply"=>"reviewed_existing_configuration_backend_writes","env yaml-save"=>"reviewed_yaml_and_private_core_history_write","database bind"=>"reviewed_owned_database_binding_write","database restore"=>"reviewed_owned_backup_restore","domain apply"|"domain cleanup apply"=>"native_confirmed_project_scoped_system_integration",_=>"read_only"}})).collect::<Vec<_>>(),"deferred":["unrestricted_shell","content_reads","other_project_mutations"],"planning_inventory_is_live":false}),
         )),
         ["schema"] => Ok(Some(schema())),
         _ => Ok(None),
     }
 }
 fn exit_codes() -> Value {
-    json!({"0":"success","2":"invalid_input_or_unsupported_version","3":"unauthorized_or_grant_denied","4":"owner_or_storage_unavailable","5":"conflict_or_busy","6":"unsupported_or_bounded_output","7":"timeout_interrupted_unconfirmed_or_unverifiable"})
+    json!({"0":"success","2":"invalid_input_or_unsupported_version","3":"unauthorized_or_grant_denied","4":"owner_or_storage_unavailable","5":"conflict_or_busy","6":"unsupported_or_bounded_output","7":"timeout_interrupted_unconfirmed_unverifiable_or_result_unavailable"})
 }
 fn exit_code(code: ErrorCode) -> i32 {
     match code {
@@ -425,7 +465,8 @@ fn exit_code(code: ErrorCode) -> i32 {
         ErrorCode::TimedOut
         | ErrorCode::Interrupted
         | ErrorCode::AdmissionUnconfirmed
-        | ErrorCode::IdempotencyUnverifiable => 7,
+        | ErrorCode::IdempotencyUnverifiable
+        | ErrorCode::ResultUnavailable => 7,
     }
 }
 fn schema() -> Value {
@@ -437,7 +478,7 @@ fn schema() -> Value {
             ("request_id".to_owned(),id.clone()),
         ]);
         let mut required = vec!["command"];
-        if *name=="project inspect" || name.starts_with("operation ") || name.starts_with("service ") || name.starts_with("runtime ") ||name.starts_with("env ") ||name.starts_with("database ") ||name.starts_with("domain ") {
+        if *name=="project inspect" || name.starts_with("operation ") || name.starts_with("service ") || name.starts_with("runtime ") ||name.starts_with("env ") ||name.starts_with("database ") ||name.starts_with("domain ") ||name.starts_with("execution ") {
             properties.insert("project_id".into(),id.clone());
             required.push("project_id");
         }
@@ -449,6 +490,21 @@ fn schema() -> Value {
             use devforge_control::export::Wire;
             properties.insert("project_id".into(),id.clone());required.push("project_id");properties.insert("page".into(),devforge_control::limits::PageRequest::schema());properties.insert("expected_revision".into(),json!({"type":"integer","minimum":0,"maximum":devforge_control::limits::SafeInt::MAX}));
             if *name=="logs search"{properties.insert("level".into(),json!({"type":"string","maxLength":32}));}else if *name=="inspector request"{properties.insert("context_id".into(),id.clone());}
+        }
+        if name.starts_with("execution ") {
+            use devforge_control::{export::Wire,mutations::{ExecutionCommandInput,ManagedTestInput}};
+            properties.insert("credential_file".into(),json!({"type":"string","description":"Explicit absolute protected credential file; never a bearer value"}));required.push("credential_file");
+            match *name {
+                "execution output"=>{properties.insert("operation_id".into(),id.clone());required.push("operation_id");},
+                "execution lookup"=>{properties.insert("idempotency_key".into(),id.clone());required.push("idempotency_key");},
+                _=>{
+                    properties.insert("expected_revision".into(),json!({"type":"integer","minimum":0,"maximum":devforge_control::limits::SafeInt::MAX}));properties.insert("idempotency_key".into(),id.clone());required.extend(["expected_revision","idempotency_key","stdin_input"]);
+                    let mut command=ExecutionCommandInput::schema();command["properties"]["limits"]["anyOf"][0]["properties"]["timeout_ms"]["maximum"]=json!(300000);
+                    let mut managed=ManagedTestInput::schema();managed["properties"]["limits"]["anyOf"][0]["properties"]["timeout_ms"]["maximum"]=json!(300000);
+                    let payload=if *name=="execution plan"{properties.insert("tool".into(),json!({"enum":["php","artisan","composer","node","npm","git","managed-test-job"]}));required.push("tool");json!({"oneOf":[command,managed]})}else if *name=="execution managed-test-job"{managed}else{command};properties.insert("stdin_input".into(),payload);
+                    if *name!="execution plan"{properties.insert("review".into(),json!({"type":"string","pattern":"^[0-9a-f]{64}$"}));required.push("review");}
+                }
+            }
         }
         if name.starts_with("service ") {
             properties.insert("expected_revision".into(),json!({"type":"integer","minimum":0,"maximum":devforge_control::limits::SafeInt::MAX}));
@@ -488,7 +544,7 @@ fn schema() -> Value {
         if *name=="runtime plan"{input["oneOf"]=json!([{"properties":{"action":{"const":"install"}},"required":["package_id"],"not":{"anyOf":[{"required":["php"]},{"required":["node"]}]}},{"properties":{"action":{"const":"select"}},"required":["php","node"],"not":{"required":["package_id"]}}]);}
         input
     }).collect::<Vec<_>>();
-    let mut value = json!({"api_version":API_VERSION,"scope":"implemented JSON CLI and reviewed service and runtime install/PHP-Node and masked environment/YAML and owned database bind/restore and finite project domain/HTTPS and first metadata diagnostics slice; other operations remain unavailable","response":{"$schema":"https://json-schema.org/draft/2020-12/schema","type":"object","additionalProperties":false,"required":["api_version","request_id","ok","warnings"],"properties":{"api_version":{"const":API_VERSION},"request_id":{"type":"string","pattern":"^[A-Za-z0-9_.:-]+$","minLength":1,"maxLength":128},"operation_id":{"type":"string"},"ok":{"type":"boolean"},"data":{},"error":{"type":"object","additionalProperties":false,"required":["code","retryable"],"properties":{"code":{"enum":devforge_control::export::ERRORS},"retryable":{"type":"boolean"}}},"warnings":{"type":"array","items":{"enum":devforge_control::export::ERRORS}}},"oneOf":[{"properties":{"ok":{"const":true}},"required":["data"],"not":{"required":["error"]}},{"properties":{"ok":{"const":false}},"required":["error"],"not":{"required":["data"]}}]},"commands":COMMANDS.iter().map(|(name,example)|json!({"name":name,"example":example})).collect::<Vec<_>>(),"exit_codes":exit_codes()});
+    let mut value = json!({"api_version":API_VERSION,"scope":"implemented JSON CLI and reviewed service and runtime install/PHP-Node and masked environment/YAML and owned database bind/restore and finite project domain/HTTPS and first metadata diagnostics and reviewed finite execution slice; other operations remain unavailable","response":{"$schema":"https://json-schema.org/draft/2020-12/schema","type":"object","additionalProperties":false,"required":["api_version","request_id","ok","warnings"],"properties":{"api_version":{"const":API_VERSION},"request_id":{"type":"string","pattern":"^[A-Za-z0-9_.:-]+$","minLength":1,"maxLength":128},"operation_id":{"type":"string"},"ok":{"type":"boolean"},"data":{},"error":{"type":"object","additionalProperties":false,"required":["code","retryable"],"properties":{"code":{"enum":devforge_control::export::ERRORS},"retryable":{"type":"boolean"}}},"warnings":{"type":"array","items":{"enum":devforge_control::export::ERRORS}}},"oneOf":[{"properties":{"ok":{"const":true}},"required":["data"],"not":{"required":["error"]}},{"properties":{"ok":{"const":false}},"required":["error"],"not":{"required":["data"]}}]},"commands":COMMANDS.iter().map(|(name,example)|json!({"name":name,"example":example})).collect::<Vec<_>>(),"exit_codes":exit_codes()});
     value["input"] = json!({"$schema":"https://json-schema.org/draft/2020-12/schema","description":"Logical CLI arguments; bearer credentials are private stdin transport, never JSON fields.","oneOf":inputs});
     value
 }
@@ -556,6 +612,140 @@ fn emit(response: Response<Value>) {
         serde_json::to_string(&response).expect("JSON control envelope")
     );
 }
+fn execution_live(invocation: &Invocation) -> Result<(Value, i32), ErrorCode> {
+    use devforge_manager::{
+        Endpoint, credential_file::CredentialFile, external_client::BoundExecutionClient,
+    };
+    if invocation.credential_stdin
+        || invocation.has_diagnostics_options()
+        || invocation.package.is_some()
+        || invocation.php.is_some()
+        || invocation.node.is_some()
+        || invocation.instance.is_some()
+        || invocation.backup.is_some()
+        || invocation.plan.is_some()
+        || invocation.write_env
+    {
+        return Err(ErrorCode::InvalidInput);
+    }
+    enum Call {
+        Plan(String),
+        Apply(String),
+        Output(Id),
+        Lookup(Id),
+    }
+    let words = invocation
+        .words
+        .iter()
+        .map(String::as_str)
+        .collect::<Vec<_>>();
+    let (project, call) = match words.as_slice() {
+        ["execution", "plan", tool, project] if invocation.project.is_none() => {
+            (Id::new(*project)?, Call::Plan((*tool).into()))
+        }
+        ["execution", "output", operation] => (
+            invocation.project.clone().ok_or(ErrorCode::InvalidInput)?,
+            Call::Output(Id::new(*operation)?),
+        ),
+        ["execution", "lookup", key] => (
+            invocation.project.clone().ok_or(ErrorCode::InvalidInput)?,
+            Call::Lookup(Id::new(*key)?),
+        ),
+        ["execution", tool, project] if invocation.project.is_none() => {
+            (Id::new(*project)?, Call::Apply((*tool).into()))
+        }
+        _ => return Err(ErrorCode::InvalidInput),
+    };
+    let writing = matches!(call, Call::Plan(_) | Call::Apply(_));
+    let applying = matches!(call, Call::Apply(_));
+    if invocation.input_stdin != writing
+        || invocation.review.is_some() != applying
+        || writing != (invocation.revision.is_some() && invocation.idempotency.is_some())
+        || !writing && (invocation.revision.is_some() || invocation.idempotency.is_some())
+    {
+        return Err(ErrorCode::InvalidInput);
+    }
+    let input = if let Call::Plan(tool) | Call::Apply(tool) = &call {
+        let tool = match tool.as_str() {
+            "php" => "execution.php",
+            "artisan" => "execution.artisan",
+            "composer" => "execution.composer",
+            "node" => "execution.node",
+            "npm" => "execution.npm",
+            "git" => "execution.git",
+            "managed-test-job" => "execution.managed_test_job",
+            _ => return Err(ErrorCode::UnsupportedCapability),
+        };
+        let stdin = io::stdin();
+        if stdin.is_terminal() {
+            return Err(ErrorCode::InvalidInput);
+        }
+        let mut bytes = Zeroizing::new(Vec::new());
+        stdin
+            .lock()
+            .take(devforge_manager::MAX_REQUEST_BYTES as u64 + 1)
+            .read_to_end(&mut bytes)
+            .map_err(|_| ErrorCode::InvalidInput)?;
+        if bytes.len() > devforge_manager::MAX_REQUEST_BYTES {
+            return Err(ErrorCode::OutputLimitExceeded);
+        }
+        // Deserialize directly into the canonical zeroizing argument wrapper.
+        let raw = Zeroizing::new(
+            std::str::from_utf8(&bytes)
+                .map_err(|_| ErrorCode::InvalidInput)?
+                .to_owned(),
+        );
+        let envelope = Zeroizing::new(format!(
+            "{{\"tool\":\"{tool}\",\"arguments\":{}}}",
+            raw.as_str()
+        ));
+        Some(
+            serde_json::from_str::<MutationInput>(&envelope)
+                .map_err(|_| ErrorCode::InvalidInput)?,
+        )
+    } else {
+        None
+    };
+    let loaded = CredentialFile::load(
+        invocation
+            .credential_file
+            .as_ref()
+            .ok_or(ErrorCode::Unauthorized)?,
+    )?;
+    if loaded.project_id() != &project {
+        return Err(ErrorCode::ProjectMismatch);
+    }
+    let root = devforge_platform::app_data_dir().map_err(|_| ErrorCode::StorageUnavailable)?;
+    let mut client = BoundExecutionClient::connect(
+        Endpoint::existing(&root).map_err(|_| ErrorCode::StorageUnavailable)?,
+        loaded,
+    )?;
+    match call {
+        Call::Output(operation) => {
+            service_response(client.output(invocation.request.clone(), &operation)?)
+        }
+        Call::Lookup(key) => service_response(client.lookup(invocation.request.clone(), &key)?),
+        Call::Plan(_) | Call::Apply(_) => {
+            let request = Request {
+                api_version: Default::default(),
+                request_id: invocation.request.clone(),
+                project_id: project,
+                expected_revision: invocation.revision,
+                idempotency_key: invocation.idempotency.clone(),
+                input: input.expect("validated input"),
+            };
+            if applying {
+                service_response(client.apply(
+                    &request,
+                    invocation.review.as_ref().expect("validated review"),
+                )?)
+            } else {
+                service_response(client.plan(&request)?)
+            }
+        }
+    }
+}
+
 fn diagnostics_live(invocation: &Invocation) -> Result<(Value, i32), ErrorCode> {
     use devforge_control::tools::{HealthInput, InspectorInput, LogInput, MailInput, ToolInput};
     use devforge_manager::{
@@ -1188,6 +1378,9 @@ fn live(invocation: &Invocation) -> Result<(Value, i32), ErrorCode> {
         .iter()
         .map(String::as_str)
         .collect::<Vec<_>>();
+    if words.first() == Some(&"execution") {
+        return execution_live(invocation);
+    }
     if matches!(
         words.as_slice(),
         ["health", "doctor", ..] | ["logs", ..] | ["inspector", ..] | ["mail", ..]
