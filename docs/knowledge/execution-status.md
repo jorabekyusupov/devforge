@@ -1624,3 +1624,23 @@ ReportViews/locales in the original worktree are outside this phase.
 A07 initial macOS and Windows CI run 43885806975 stopped at the same stale
 typed-mutation count (22 versus 23). The focused contract fixture now includes the
 new artifact ID and passes locally; final platform evidence comes from the new PR run.
+
+## A08 — managed local-site HTTP probe and test receipt metadata (2026-11-16)
+
+A08 provides an explicitly enabled, ExecutionTest-authorized managed-site GET,
+loopback-pinned authority, no redirect following, managed-CA TLS verification,
+bounded response metadata and a generated request context. Laravel companion
+propagation permits a matching A05 source observation; incoming headers can be
+spoofed and establish association rather than causality. The existing own-operation
+execution output now exposes bounded A01 test-receipt metadata without paths or
+database contents. See [diagnostics contract](../architecture/metadata-diagnostics.md)
+for authorization, concurrency and in-flight GET limitations.
+
+Local synthetic source tests cover path, loopback/redirect, trusted and untrusted
+TLS, timeout and cancellation gates. `packages/laravel-inspector/tests/probe_context.php`
+uses an actual Laravel Request/middleware, and the optional ignored
+`actual_probe_laravel_capture_and_activity_observation` test exercised HTTP →
+Laravel companion → Inspector collector → A05 metadata source on macOS using a
+read-only offline Laravel vendor. It did not exercise the managed Serving session
+or complete manager/SDK end-to-end. The PR CI records macOS and Windows results;
+actual Windows native Laravel/Serving evidence is not inferred from CI.

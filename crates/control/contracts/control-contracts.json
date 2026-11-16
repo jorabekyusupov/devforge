@@ -5675,6 +5675,55 @@
     ],
     "type": "object"
   },
+  "site_probe_input_schema": {
+    "additionalProperties": false,
+    "properties": {
+      "path": {
+        "maxLength": 1024,
+        "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]*$",
+        "type": "string"
+      }
+    },
+    "required": [
+      "path"
+    ],
+    "type": "object"
+  },
+  "site_probe_output_schema": {
+    "additionalProperties": false,
+    "properties": {
+      "context_id": {
+        "maxLength": 128,
+        "minLength": 1,
+        "pattern": "^[A-Za-z0-9_.:-]+$",
+        "type": "string"
+      },
+      "elapsed_ms": {
+        "maximum": 9007199254740991,
+        "minimum": 0,
+        "type": "integer"
+      },
+      "redirect": {
+        "type": "boolean"
+      },
+      "status": {
+        "maximum": 65535,
+        "minimum": 0,
+        "type": "integer"
+      },
+      "tls": {
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "status",
+      "elapsed_ms",
+      "context_id",
+      "tls",
+      "redirect"
+    ],
+    "type": "object"
+  },
   "support_preview_input_schema": {
     "additionalProperties": false,
     "properties": {},

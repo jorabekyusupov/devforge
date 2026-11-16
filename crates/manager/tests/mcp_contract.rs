@@ -312,3 +312,82 @@ fn mail_show_and_activity_filters_are_scoped_and_unambiguous() {
         assert!(!value.to_string().contains("private"));
     }
 }
+
+#[test]
+fn site_probe_surface_is_opt_in_and_rejects_host_or_query_arguments() {
+    use devforge_manager::mcp_contract::ActivityInput;
+    let args = json!({"name":"site.probe","arguments":{"path":"/status"}});
+    let mut disabled = Protocol::new(id("project-a"));
+    assert_eq!(
+        reply(disabled.receive(modern(json!(1), "tools/call", args.clone())))["error"]["code"],
+        -32602
+    );
+    let mut enabled = Protocol::new(id("project-a")).with_site_probe_actions(true);
+    let listed = reply(enabled.receive(modern(json!(2), "tools/list", json!({}))));
+    let tool = listed["result"]["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|v| v["name"] == "site.probe")
+        .unwrap();
+    assert_eq!(tool["annotations"]["readOnlyHint"], false);
+    assert!(
+        matches!(enabled.receive(modern(json!(3), "tools/call", args)), Action::Activity(call) if matches!(call.input, ActivityInput::SiteProbe(_)))
+    );
+    for arguments in [
+        json!({"path":"/", "host":"evil.test"}),
+        json!({"path":"/", "url":"http://evil.test"}),
+        json!({"path":"/", "context_id":"forged"}),
+        json!({"path":"/", "query":"secret"}),
+        json!({"path":"/?secret=value"}),
+        json!({"path":"https://evil.test/"}),
+        json!({"path":"//evil.test/"}),
+        json!({"path":"/#fragment"}),
+    ] {
+        let response = reply(enabled.receive(modern(
+            json!(4),
+            "tools/call",
+            json!({"name":"site.probe","arguments":arguments}),
+        )));
+        assert_eq!(response["error"]["code"], -32602);
+    }
+}
+
+#[test]
+fn execution_output_preserves_scoped_test_receipt_metadata_in_mcp() {
+    use devforge_manager::mcp_contract::ExecutionInput;
+    use devforge_workspace::execution_control::{ExecutionOutput, TestArtifactMetadata};
+    let mut protocol = Protocol::new(id("project-a")).with_execution_actions(true);
+    let call = match protocol.receive(modern(
+        json!(99),
+        "tools/call",
+        json!({"name":"execution.output","arguments":{"operation_id":"owned-operation"}}),
+    )) {
+        Action::Execution(call) => call,
+        _ => panic!("expected execution output call"),
+    };
+    assert!(matches!(call.input, ExecutionInput::Output { .. }));
+    let output = ExecutionOutput {
+        success: true,
+        exit_code: Some(0),
+        logs: vec![],
+        dropped_bytes: 0,
+        truncated: false,
+        test_artifact: Some(TestArtifactMetadata {
+            kind: "isolated_test_receipt".into(),
+            state: "completed".into(),
+            success: true,
+            exit_code: Some(0),
+        }),
+    };
+    let response = devforge_control::Response::success(call.request_id.clone(), None, output);
+    let response = Protocol::complete_execution(call, Ok(serde_json::to_value(response).unwrap()));
+    assert_eq!(response["result"]["isError"], false);
+    let artifact = &response["result"]["structuredContent"]["data"]["test_artifact"];
+    assert_eq!(
+        artifact,
+        &json!({"kind":"isolated_test_receipt","state":"completed","success":true,"exit_code":0})
+    );
+    assert!(!artifact.to_string().contains("database.sqlite"));
+    assert!(!artifact.to_string().contains("test-job-"));
+}

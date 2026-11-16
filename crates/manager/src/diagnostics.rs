@@ -28,6 +28,7 @@ const WINDOW_BYTES: usize = 8 * 1024 * 1024;
 #[derive(Clone)]
 pub(crate) enum ReadMode {
     Registration,
+    SiteProbeTarget,
     Window(devforge_workspace::activity_metadata::ActivityKind),
     WindowAfter(
         devforge_workspace::activity_metadata::ActivityKind,
@@ -49,6 +50,7 @@ pub(crate) struct ReadResult {
     pub binding: ProjectBinding,
     pub window: Option<devforge_workspace::activity_metadata::MetadataWindow>,
     pub epoch: Option<String>,
+    pub target: Option<devforge_workspace::http_probe::HttpProbeTarget>,
 }
 impl MetadataRead {
     pub(crate) fn execute(self, workspace: &devforge_workspace::Workspace) {
@@ -62,7 +64,12 @@ impl MetadataRead {
             // Deadline-bound activity reads already run the same scoped check
             // immediately before and after source IO inside the workspace.
             // Avoid duplicating those checks on the single actor thread.
-            if self.deadline_bound {
+            if self.deadline_bound
+                && !matches!(
+                    self.mode,
+                    ReadMode::Registration | ReadMode::SiteProbeTarget
+                )
+            {
                 if self.cancelled.load(Ordering::Acquire) {
                     return Err(crate::service_control::ws_error(ErrorCode::Interrupted));
                 }
@@ -72,8 +79,13 @@ impl MetadataRead {
             let binding =
                 crate::service_control::domain_registration_binding(workspace, &self.project)
                     .map_err(crate::service_control::ws_error)?;
+            let mut target = None;
             let (window, epoch) = match &self.mode {
                 ReadMode::Registration => (None, None),
+                ReadMode::SiteProbeTarget => {
+                    target = Some(workspace.http_probe_target(self.project.as_str())?);
+                    (None, None)
+                }
                 ReadMode::Window(kind) => (
                     Some(workspace.activity_metadata(self.project.as_str(), kind, &check)?),
                     None,
@@ -94,13 +106,19 @@ impl MetadataRead {
             };
             // Registration has no workspace source wrapper to perform the
             // authorization; normal non-deadline callers retain their old gate.
-            if !self.deadline_bound || matches!(self.mode, ReadMode::Registration) {
+            if !self.deadline_bound
+                || matches!(
+                    self.mode,
+                    ReadMode::Registration | ReadMode::SiteProbeTarget
+                )
+            {
                 check()?;
             }
             Ok(ReadResult {
                 binding,
                 window,
                 epoch,
+                target,
             })
         };
         let _ = self.reply.send(run());
@@ -510,6 +528,7 @@ impl Diagnostics {
         value: Value,
         actor: &ActorHandle,
         rejected: Option<ErrorCode>,
+        transport_deadline: Instant,
     ) -> Value {
         let id = value
             .get("request")
@@ -529,7 +548,7 @@ impl Diagnostics {
         {
             Err(ErrorCode::UnsupportedVersion)
         } else {
-            self.activity_inner(&peer, value, actor)
+            self.activity_inner(&peer, value, actor, transport_deadline)
         };
         serde_json::to_value(match result {
             Ok(data) => Response::success(id, None, data),
@@ -541,12 +560,131 @@ impl Diagnostics {
         peer: &PeerIdentity,
         value: Value,
         actor: &ActorHandle,
+        transport_deadline: Instant,
     ) -> Result<Value, ErrorCode> {
         let method = value
             .get("method")
             .and_then(Value::as_str)
             .ok_or(ErrorCode::InvalidInput)?;
         match method {
+            "site_probe" => {
+                #[derive(Deserialize)]
+                #[serde(deny_unknown_fields)]
+                struct ProbeWire {
+                    method: String,
+                    credential: Token,
+                    request: Request<SiteProbeInput>,
+                }
+                let wire: ProbeWire =
+                    serde_json::from_value(value).map_err(|_| ErrorCode::InvalidInput)?;
+                if wire.method != "site_probe" || wire.request.idempotency_key.is_some() {
+                    return Err(ErrorCode::InvalidInput);
+                }
+                if self
+                    .waiters
+                    .try_update(Ordering::AcqRel, Ordering::Acquire, |v| {
+                        (v < 4).then_some(v + 1)
+                    })
+                    .is_err()
+                {
+                    return Err(ErrorCode::Busy);
+                }
+                let _permit = WaitPermit(&self.waiters);
+                // The client transport times out after five seconds. Reserve the
+                // last three seconds for network IO and one for final checks.
+                // No socket may start after the one-second admission window.
+                let started = Instant::now();
+                let (admission, overall) = site_probe_deadlines(started, transport_deadline)?;
+                let credential =
+                    ExternalCredential::from_wire(&wire.credential.0).map_err(grant_error)?;
+                let bound = self.activity_credential_project(peer, &credential, admission)?;
+                if bound != wire.request.project_id {
+                    return Err(ErrorCode::ProjectMismatch);
+                }
+                let initial = self.query_until(
+                    actor,
+                    peer,
+                    &credential,
+                    &wire.request.project_id,
+                    ReadMode::Registration,
+                    (None, wire.request.expected_revision, Some(admission)),
+                )?;
+                let binding = initial.binding;
+                self.authorize_site_probe(
+                    peer,
+                    &credential,
+                    &binding,
+                    wire.request.expected_revision,
+                )?;
+                let snapshot = self.query_until(
+                    actor,
+                    peer,
+                    &credential,
+                    &wire.request.project_id,
+                    ReadMode::SiteProbeTarget,
+                    (None, Some(binding.revision()), Some(admission)),
+                )?;
+                if snapshot.binding.root() != binding.root() {
+                    return Err(ErrorCode::ProjectMismatch);
+                }
+                let target = snapshot.target.ok_or(ErrorCode::PreconditionFailed)?;
+                self.authorize_site_probe(peer, &credential, &binding, Some(binding.revision()))?;
+                let context = crate::environment_control::opaque()?;
+                let context = &context.as_str()[..32];
+                let checks = AtomicUsize::new(0);
+                let check = || -> devforge_workspace::Result<()> {
+                    let deadline = if checks.fetch_add(1, Ordering::AcqRel) == 0 {
+                        admission
+                    } else {
+                        overall
+                    };
+                    if Instant::now() >= deadline {
+                        return Err(crate::service_control::ws_error(ErrorCode::TimedOut));
+                    }
+                    if self.stopping.load(Ordering::Acquire) {
+                        return Err(crate::service_control::ws_error(ErrorCode::Interrupted));
+                    }
+                    self.authorize_site_probe(
+                        peer,
+                        &credential,
+                        &binding,
+                        Some(binding.revision()),
+                    )
+                    .map_err(crate::service_control::ws_error)?;
+                    if self.stopping.load(Ordering::Acquire) {
+                        return Err(crate::service_control::ws_error(ErrorCode::Interrupted));
+                    }
+                    if Instant::now() >= deadline {
+                        return Err(crate::service_control::ws_error(ErrorCode::TimedOut));
+                    }
+                    Ok(())
+                };
+                let result = target
+                    .probe(wire.request.input.path.as_str(), context, &check)
+                    .map_err(crate::service_control::environment_error)?;
+                let current = self.query_until(
+                    actor,
+                    peer,
+                    &credential,
+                    &wire.request.project_id,
+                    ReadMode::SiteProbeTarget,
+                    (None, Some(binding.revision()), Some(overall)),
+                )?;
+                if current.binding.root() != binding.root()
+                    || current.target.as_ref() != Some(&target)
+                {
+                    return Err(ErrorCode::RevisionConflict);
+                }
+                self.authorize_site_probe(peer, &credential, &binding, Some(binding.revision()))?;
+                serde_json::to_value(SiteProbeOutput {
+                    status: result.status,
+                    elapsed_ms: SafeInt::new(result.elapsed_ms)?,
+                    context_id: Id::new(result.context_id)?,
+                    tls: result.tls,
+                    redirect: result.redirect,
+                })
+                .map_err(|_| ErrorCode::StorageUnavailable)
+            }
             "support_preview" | "support_read" => {
                 #[derive(Deserialize)]
                 #[serde(deny_unknown_fields)]
@@ -1031,6 +1169,37 @@ impl Diagnostics {
     }
     /// This is only an internal peer/token lookup, not authorization. All
     /// subsequent registration/source/output grant checks remain mandatory.
+    fn authorize_site_probe(
+        &self,
+        peer: &PeerIdentity,
+        credential: &ExternalCredential,
+        binding: &ProjectBinding,
+        revision: Option<u64>,
+    ) -> Result<(), ErrorCode> {
+        if self.stopping.load(Ordering::Acquire) {
+            return Err(ErrorCode::Interrupted);
+        }
+        let mut registry = self.grants.registry.try_lock().map_err(|e| match e {
+            std::sync::TryLockError::WouldBlock => ErrorCode::Busy,
+            std::sync::TryLockError::Poisoned(_) => ErrorCode::StorageUnavailable,
+        })?;
+        registry
+            .as_mut()
+            .ok_or(ErrorCode::Interrupted)?
+            .authorize(
+                peer,
+                credential,
+                binding,
+                &[
+                    devforge_control::Scope::Observer,
+                    devforge_control::Scope::ExecutionTest,
+                ],
+                &[],
+                revision,
+            )
+            .map_err(grant_error)?;
+        Ok(())
+    }
     fn activity_credential_project(
         &self,
         peer: &PeerIdentity,
@@ -1335,6 +1504,24 @@ impl Diagnostics {
         }
         result
     }
+}
+// Three seconds of transport budget are reserved for the bounded HTTP request
+// and one second for final checks/response. A handler that started late cannot
+// reset the deadline captured at listener acceptance.
+fn site_probe_deadlines(now: Instant, transport: Instant) -> Result<(Instant, Instant), ErrorCode> {
+    let admission = transport
+        .checked_sub(Duration::from_secs(4))
+        .ok_or(ErrorCode::TimedOut)?;
+    let overall = transport
+        .checked_sub(Duration::from_secs(1))
+        .ok_or(ErrorCode::TimedOut)?;
+    if now >= admission {
+        return Err(ErrorCode::TimedOut);
+    }
+    Ok((
+        (now + Duration::from_secs(1)).min(admission),
+        (now + Duration::from_secs(4)).min(overall),
+    ))
 }
 fn activity_scope(
     stream: ActivityStream,
@@ -1858,6 +2045,22 @@ mod mail_cache_tests {
     use devforge_workspace::activity_metadata::{
         MailContentDetail, MetadataItem, MetadataRow, MetadataWindow,
     };
+    #[test]
+    fn delayed_probe_worker_cannot_reset_transport_admission_deadline() {
+        let accepted = Instant::now();
+        let transport = accepted + crate::IO_TIMEOUT;
+        let (admission, overall) = site_probe_deadlines(accepted, transport).unwrap();
+        assert_eq!(admission, accepted + Duration::from_secs(1));
+        assert_eq!(overall, accepted + Duration::from_secs(4));
+        assert_eq!(
+            site_probe_deadlines(accepted + Duration::from_secs(1), transport).unwrap_err(),
+            ErrorCode::TimedOut
+        );
+        assert_eq!(
+            site_probe_deadlines(accepted + Duration::from_secs(6), transport).unwrap_err(),
+            ErrorCode::TimedOut
+        );
+    }
     #[test]
     fn support_artifact_expiry_obeys_wall_and_monotonic_clocks() {
         let mut artifact = SupportArtifact {

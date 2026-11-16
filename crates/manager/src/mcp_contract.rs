@@ -44,6 +44,7 @@ pub struct Protocol {
     domain_actions: bool,
     execution_actions: bool,
     support_export_actions: bool,
+    site_probe_actions: bool,
 }
 pub enum Action {
     Reply(Value),
@@ -108,6 +109,7 @@ impl DiagnosticsCall {
 pub enum ActivityInput {
     Mark(Request<devforge_control::tools::ActivityMarkInput>),
     Wait(Request<devforge_control::tools::ActivityWaitInput>),
+    SiteProbe(Request<devforge_control::tools::SiteProbeInput>),
     SupportPreview(Request<devforge_control::tools::SupportPreviewInput>),
     SupportRead(Request<devforge_control::tools::SupportReadInput>),
 }
@@ -278,6 +280,7 @@ impl Protocol {
             domain_actions: false,
             execution_actions: false,
             support_export_actions: false,
+            site_probe_actions: false,
         }
     }
     /// Surface selection only; grants and native exact-plan approval remain
@@ -334,6 +337,10 @@ impl Protocol {
     /// Surface selection is not permission or project trust.
     pub fn with_execution_actions(mut self, enabled: bool) -> Self {
         self.execution_actions = enabled;
+        self
+    }
+    pub fn with_site_probe_actions(mut self, enabled: bool) -> Self {
+        self.site_probe_actions = enabled;
         self
     }
     pub fn with_support_export_actions(mut self, enabled: bool) -> Self {
@@ -575,7 +582,7 @@ impl Protocol {
                     return Action::Reply(rpc_success(
                         id,
                         version,
-                        json!({"tools":tool_definitions(self.service_actions,self.runtime_actions,self.environment_actions,self.database_actions,self.domain_actions,self.execution_actions,self.support_export_actions)}),
+                        json!({"tools":tool_definitions(self.service_actions,self.runtime_actions,self.environment_actions,self.database_actions,self.domain_actions,self.execution_actions,(self.support_export_actions,self.site_probe_actions))}),
                     ));
                 } else {
                     Err(())
@@ -635,8 +642,11 @@ impl Protocol {
         let name = params.get("name").and_then(Value::as_str)?;
         if !matches!(
             name,
-            "activity.mark" | "activity.wait" | "support.preview" | "support.read"
+            "activity.mark" | "activity.wait" | "support.preview" | "support.read" | "site.probe"
         ) {
+            return None;
+        }
+        if name == "site.probe" && !self.site_probe_actions {
             return None;
         }
         if !keys(params, &["name", "arguments"]) {
@@ -646,7 +656,9 @@ impl Protocol {
             .get("arguments")
             .cloned()
             .unwrap_or_else(|| json!({}));
-        let allowed: &[&str] = if name == "support.preview" {
+        let allowed: &[&str] = if name == "site.probe" {
+            &["path"]
+        } else if name == "support.preview" {
             &[]
         } else if name == "support.read" {
             &["artifact_id"]
@@ -664,6 +676,19 @@ impl Protocol {
             &["bookmark", "timeout_ms", "context_id"]
         };
         if !keys(&arguments, allowed)
+            || (name == "site.probe"
+                && arguments
+                    .get("path")
+                    .and_then(Value::as_str)
+                    .is_none_or(|path| {
+                        path.is_empty()
+                            || path.len() > 1024
+                            || !path.starts_with('/')
+                            || path.starts_with("//")
+                            || path
+                                .bytes()
+                                .any(|b| b <= 0x20 || b >= 0x7f || matches!(b, b'?' | b'#' | b'\\'))
+                    }))
             || ["subject", "recipient", "sender", "since"]
                 .iter()
                 .any(|k| arguments.get(k).is_some_and(Value::is_null))
@@ -693,7 +718,19 @@ impl Protocol {
             idempotency_key: None,
             input,
         };
-        let input = if name == "support.preview" {
+        let input = if name == "site.probe" {
+            match serde_json::from_value::<devforge_control::tools::SiteProbeInput>(arguments) {
+                Ok(input) => ActivityInput::SiteProbe(Request {
+                    api_version: Default::default(),
+                    request_id: request_id.clone(),
+                    project_id: self.project.clone(),
+                    expected_revision: None,
+                    idempotency_key: None,
+                    input,
+                }),
+                Err(_) => return Some(Err(())),
+            }
+        } else if name == "support.preview" {
             match serde_json::from_value::<devforge_control::tools::SupportPreviewInput>(arguments)
             {
                 Ok(input) => ActivityInput::SupportPreview(Request {
@@ -2010,9 +2047,13 @@ fn tool_definitions(
     database_actions: bool,
     domain_actions: bool,
     execution: bool,
-    support_export: bool,
+    (support_export, site_probe): (bool, bool),
 ) -> Vec<Value> {
     let mut definitions = read_tool_definitions();
+    if site_probe {
+        use devforge_control::export::Wire;
+        definitions.push(json!({"name":"site.probe","description":"Send one bounded GET to the bound managed project site; application state may change. Requires ExecutionTest and a separately enabled surface. The caller supplies only a path, never host, query, credentials or headers. Redirects are not followed, TLS is validated, and no body or response headers are returned. The server-generated trace context is an association hint that can be spoofed; it does not prove causation. An admitted GET can take effect even if the client times out, access is revoked, or the site restarts; do not retry automatically.","inputSchema":devforge_control::tools::SiteProbeInput::schema(),"annotations":{"readOnlyHint":false,"destructiveHint":false,"idempotentHint":false,"openWorldHint":false}}));
+    }
     if support_export {
         use devforge_control::export::Wire;
         definitions.push(json!({"name":"support.export","description":"Plan or apply a local export of the exact retained support preview. Requires Observer and SensitiveOperation grants and native owner approval of the exact plan. Destination is manager-owned; no caller path or automatic sharing.","inputSchema":{"type":"object","additionalProperties":false,"properties":{"action":{"enum":["plan","apply"]},"artifact_id":Id::schema(),"expected_revision":devforge_control::limits::SafeInt::schema(),"idempotency_key":Id::schema(),"review":Digest::schema(),"limits":MutationLimits::schema()},"required":["action","artifact_id","expected_revision","idempotency_key"]},"annotations":{"readOnlyHint":false,"destructiveHint":false,"idempotentHint":true,"openWorldHint":false}}));

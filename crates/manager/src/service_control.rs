@@ -1605,6 +1605,7 @@ impl Services {
                 | "domain_apply"
                 | "domain_lookup"
                 | "diagnostics_read"
+                | "site_probe"
                 | "support_preview"
                 | "support_read"
                 | "activity_mark"
@@ -1624,17 +1625,24 @@ impl Services {
         value: Value,
         actor: &ActorHandle,
         rejected: Option<ErrorCode>,
+        deadline: Instant,
     ) -> Value {
         if value.get("method").and_then(Value::as_str) == Some("diagnostics_read") {
             return self.diagnostics.request(peer, value, actor, rejected);
         }
         if matches!(
             value.get("method").and_then(Value::as_str),
-            Some("activity_mark" | "activity_wait" | "support_preview" | "support_read")
+            Some(
+                "activity_mark"
+                    | "activity_wait"
+                    | "support_preview"
+                    | "support_read"
+                    | "site_probe"
+            )
         ) {
             return self
                 .diagnostics
-                .activity_request(peer, value, actor, rejected);
+                .activity_request(peer, value, actor, rejected, deadline);
         }
         let id = value
             .get("request")

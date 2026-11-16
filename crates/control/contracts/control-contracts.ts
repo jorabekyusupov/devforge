@@ -81,6 +81,16 @@ export interface ActivityWaitOutput {
   timed_out: boolean;
   continuity: "unverified";
 }
+export interface SiteProbeInput {
+  path: string;
+}
+export interface SiteProbeOutput {
+  status: number;
+  elapsed_ms: number;
+  context_id: string;
+  tls: boolean;
+  redirect: boolean;
+}
 export interface SupportPreviewInput {}
 export interface SupportReadInput {
   artifact_id: string;

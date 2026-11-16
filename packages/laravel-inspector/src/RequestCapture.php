@@ -5,7 +5,8 @@ final class RequestCapture
     public function __construct(private Capture $capture) {}
     public function handle($request, \Closure $next)
     {
-        $this->capture->begin('request', $request->method().' [unmatched route]');
+        $context = $request->header('X-DevForge-Context');
+        $this->capture->begin('request', $request->method().' [unmatched route]', is_string($context) ? $context : null);
         $status = 500;
         try { $response = $next($request); $status = $response->getStatusCode(); return $response; }
         catch (\Throwable $error) {

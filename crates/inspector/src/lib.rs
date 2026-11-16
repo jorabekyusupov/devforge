@@ -629,7 +629,18 @@ pub fn materialize(project: &Path) -> Result<PathBuf> {
                     }
                     _ => None,
                 };
-                if known.get(name) != Some(&hash) && pre_cache != Some(hash.as_str()) {
+                // The exact A04/A07 release precedes probe correlation. Keep
+                // user-modified source outside this narrow upgrade allowlist.
+                let pre_probe = match name {
+                    "src/Capture.php" => {
+                        Some("2b756a8bc8228b92c23236492ed94525363ce6db35d4aee4497ca5bf90ded0ab")
+                    }
+                    _ => None,
+                };
+                if known.get(name) != Some(&hash)
+                    && pre_cache != Some(hash.as_str())
+                    && pre_probe != Some(hash.as_str())
+                {
                     return Err(Error);
                 }
                 upgrade = true;
@@ -796,6 +807,50 @@ mod tests {
         assert!(materialize(temp.path()).is_err());
         assert_eq!(
             fs::read_to_string(root.join("src/Capture.php")).unwrap(),
+            "user edit"
+        );
+    }
+    #[test]
+    fn pre_probe_owned_bundle_upgrades_without_adopting_user_edits() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join(".devforge/laravel-inspector");
+        fs::create_dir_all(root.join("src")).unwrap();
+        for (name, body) in [
+            (
+                "composer.json",
+                include_str!("../../../packages/laravel-inspector/composer.json"),
+            ),
+            (
+                "src/RequestCapture.php",
+                include_str!("../tests/fixtures/pre-probe/src/RequestCapture.php"),
+            ),
+            (
+                "src/Capture.php",
+                include_str!("../tests/fixtures/pre-probe/src/Capture.php"),
+            ),
+            (
+                "src/InspectorServiceProvider.php",
+                include_str!(
+                    "../../../packages/laravel-inspector/src/InspectorServiceProvider.php"
+                ),
+            ),
+        ] {
+            fs::write(root.join(name), body).unwrap();
+        }
+        fs::write(root.join(".devforge-owned"), b"laravel-inspector-v1").unwrap();
+        materialize(temp.path()).unwrap();
+        assert_eq!(
+            fs::read_to_string(root.join("src/Capture.php")).unwrap(),
+            include_str!("../../../packages/laravel-inspector/src/Capture.php")
+        );
+        assert_eq!(
+            fs::read_to_string(root.join("src/RequestCapture.php")).unwrap(),
+            include_str!("../../../packages/laravel-inspector/src/RequestCapture.php")
+        );
+        fs::write(root.join("src/RequestCapture.php"), "user edit").unwrap();
+        assert!(materialize(temp.path()).is_err());
+        assert_eq!(
+            fs::read_to_string(root.join("src/RequestCapture.php")).unwrap(),
             "user edit"
         );
     }

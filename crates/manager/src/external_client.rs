@@ -1477,6 +1477,12 @@ impl DiagnosticsClient {
     ) -> std::result::Result<Response<devforge_control::tools::ToolOutput>, ErrorCode> {
         diagnostics_read(&mut self.inner, request)
     }
+    pub fn site_probe(
+        &mut self,
+        request: &Request<devforge_control::tools::SiteProbeInput>,
+    ) -> std::result::Result<Response<devforge_control::tools::SiteProbeOutput>, ErrorCode> {
+        site_probe(&mut self.inner, request)
+    }
     pub fn support_preview(
         &mut self,
         request: &Request<devforge_control::tools::SupportPreviewInput>,
@@ -1599,6 +1605,24 @@ fn support_export_lookup(
     }
     Ok(reply)
 }
+fn site_probe(
+    client: &mut ServiceClient,
+    request: &Request<devforge_control::tools::SiteProbeInput>,
+) -> std::result::Result<Response<devforge_control::tools::SiteProbeOutput>, ErrorCode> {
+    if request.idempotency_key.is_some()
+        || request
+            .expected_revision
+            .is_some_and(|v| v > devforge_control::limits::SafeInt::MAX)
+    {
+        return Err(ErrorCode::InvalidInput);
+    }
+    client.exchange(
+        &request.request_id,
+        json!({"method":"site_probe","request":request}),
+        false,
+    )
+}
+
 fn support_preview(
     client: &mut ServiceClient,
     request: &Request<devforge_control::tools::SupportPreviewInput>,
@@ -1749,6 +1773,15 @@ impl BoundDiagnosticsClient {
             return Err(ErrorCode::ProjectMismatch);
         }
         diagnostics_read(self.transport(), request)
+    }
+    pub fn site_probe(
+        &mut self,
+        request: &Request<devforge_control::tools::SiteProbeInput>,
+    ) -> std::result::Result<Response<devforge_control::tools::SiteProbeOutput>, ErrorCode> {
+        if &request.project_id != self.project() {
+            return Err(ErrorCode::ProjectMismatch);
+        }
+        site_probe(self.transport(), request)
     }
     pub fn support_preview(
         &mut self,
