@@ -1567,3 +1567,9 @@ final revalidation has up to 1 second plus SQLite's 250 ms busy bound. It still
 fails closed if no source sample or final authorization completes. The affected
 fixtures retain a separate 1 ms truthful-short-budget assertion. The subsequent
 PR CI records platform results for the final commit.
+
+A05 mark additionally resolves the credential-bound project before any actor
+lookup, closing an error-code distinction between existing and nonexistent
+foreign project IDs. A focused fixture checks both IDs, unknown credentials and
+expired/revoked grants with no Inspector source creation. Subsequent grant and
+source checks remain mandatory; this does not change older diagnostics routes.

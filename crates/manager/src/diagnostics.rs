@@ -461,6 +461,13 @@ impl Diagnostics {
                 let kind = activity_kind(input.stream, input.detail, input.context_id.as_ref())?;
                 let content = activity_scope(input.stream, input.detail);
                 let deadline = Instant::now() + Duration::from_secs(4);
+                // Resolve the credential-bound project before asking the actor
+                // anything about a client-supplied project identifier. This
+                // makes existing and nonexistent foreign project IDs identical.
+                let bound = self.activity_credential_project(peer, &credential, deadline)?;
+                if bound != wire.request.project_id {
+                    return Err(ErrorCode::ProjectMismatch);
+                }
                 let registration = self.query_until(
                     actor,
                     peer,
@@ -755,6 +762,36 @@ impl Diagnostics {
                 }
             }
             _ => Err(ErrorCode::InvalidInput),
+        }
+    }
+    /// This is only an internal peer/token lookup, not authorization. All
+    /// subsequent registration/source/output grant checks remain mandatory.
+    fn activity_credential_project(
+        &self,
+        peer: &PeerIdentity,
+        credential: &ExternalCredential,
+        deadline: Instant,
+    ) -> Result<Id, ErrorCode> {
+        loop {
+            if self.stopping.load(Ordering::Acquire) {
+                return Err(ErrorCode::Interrupted);
+            }
+            match self.grants.registry.try_lock() {
+                Ok(registry) => {
+                    return registry
+                        .as_ref()
+                        .ok_or(ErrorCode::Interrupted)?
+                        .credential_project(peer, credential)
+                        .map_err(grant_error);
+                }
+                Err(std::sync::TryLockError::WouldBlock) if Instant::now() < deadline => {
+                    std::thread::sleep(Duration::from_millis(10));
+                }
+                Err(std::sync::TryLockError::WouldBlock) => return Err(ErrorCode::Busy),
+                Err(std::sync::TryLockError::Poisoned(_)) => {
+                    return Err(ErrorCode::StorageUnavailable);
+                }
+            }
         }
     }
     fn activity_identity(

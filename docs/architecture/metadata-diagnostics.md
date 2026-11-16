@@ -159,8 +159,10 @@ bulk source access is implied.
 ## A05 activity checkpoints and bounded wait (2026-11-16)
 
 `activity.mark` records an opaque manager-held checkpoint for one registered
-project, client and grant, selecting Inspector or logs and optional context. A
-missing collector store fails noncreating precondition. `activity.wait` observes
+project, client and grant, selecting Inspector or logs and optional context. The
+credential-bound project is resolved before any requested-project lookup, so
+existing and nonexistent foreign project IDs cannot be distinguished. A missing
+collector store fails noncreating precondition. `activity.wait` observes
 only records whose project sequence is greater than that checkpoint, returns the
 earliest matching observed event and an advanced bookmark, or a typed timeout.
 The caller may narrow a context-free mark to an Inspector context after an action;

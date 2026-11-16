@@ -2856,6 +2856,81 @@ fn a05_mark_wait_scopes_prior_events_and_revalidates_grants() {
         )
         .unwrap();
     let context = "c".repeat(32);
+    // An A credential must not reveal whether an unrelated project ID is
+    // registered, and an invalid credential must fail before any source IO.
+    for foreign_project in [&rig.projects[1].id, &"f".repeat(32)] {
+        let denied = a05_mark(
+            &rig.endpoint,
+            &observer,
+            foreign_project,
+            "inspector",
+            false,
+            Some(&context),
+        );
+        assert_eq!(
+            denied["error"]["code"], "project_mismatch",
+            "unrelated project identity must not be disclosed: {denied}"
+        );
+    }
+    let invalid = ExternalCredential::from_wire(&"0".repeat(64)).unwrap();
+    let denied = a05_call(
+        &rig.endpoint,
+        &invalid,
+        &project.id,
+        "activity_mark",
+        json!({
+            "stream":"inspector", "detail":false, "context_id":context,
+        }),
+    );
+    assert_eq!(denied["error"]["code"], "unauthorized", "{denied}");
+    let expired = rig
+        .native
+        .issue_external_grant(
+            &id(&project.id),
+            &[Scope::Observer],
+            Duration::from_millis(10),
+        )
+        .unwrap();
+    thread::sleep(Duration::from_millis(30));
+    let expired_result = a05_mark(
+        &rig.endpoint,
+        &expired,
+        &project.id,
+        "inspector",
+        false,
+        Some(&context),
+    );
+    assert_eq!(
+        expired_result["error"]["code"], "grant_expired",
+        "{expired_result}"
+    );
+    let revoked_grant = rig
+        .native
+        .issue_external_grant(
+            &id(&project.id),
+            &[Scope::Observer],
+            Duration::from_secs(600),
+        )
+        .unwrap();
+    rig.native
+        .revoke_external_grant(&revoked_grant.record.grant_id)
+        .unwrap();
+    let revoked_result = a05_mark(
+        &rig.endpoint,
+        &revoked_grant,
+        &project.id,
+        "inspector",
+        false,
+        Some(&context),
+    );
+    assert_eq!(
+        revoked_result["error"]["code"], "grant_revoked",
+        "{revoked_result}"
+    );
+    assert!(
+        !rig.root.path().join("inspector").exists(),
+        "denials must occur before source IO"
+    );
     let missing = a05_mark(
         &rig.endpoint,
         &observer,
