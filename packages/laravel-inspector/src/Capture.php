@@ -54,6 +54,12 @@ final class Capture
         $this->events[] = ['kind' => $kind, 'context' => $this->scope['id'], 'name' => $this->cleanString($name), 'duration_ms' => max(0, $milliseconds), 'data' => $this->clean($data)];
         if (count($this->events) >= 20 || $kind === 'dump') $this->flush();
     }
+    /** Only the finite operation is captured, never the key, value, store or tags. */
+    public function cache(string $operation): void
+    {
+        if (!in_array($operation, ['hit', 'miss', 'write', 'forget'], true)) return;
+        $this->emit('cache', $operation);
+    }
     public function log(string $level, string $message, array $context = [], ?\Throwable $exception = null): void
     {
         $own = $this->scope === null;

@@ -274,6 +274,9 @@ impl Diagnostics {
             ToolInput::Log(p) if p.content == Some(true) || p.query.is_some() => {
                 Some(devforge_control::InformationScope::LogContent)
             }
+            ToolInput::Inspector(p) if p.detail == Some(true) => {
+                Some(devforge_control::InformationScope::InspectorQueries)
+            }
             _ => None,
         };
         let credential = ExternalCredential::from_wire(&wire.credential.0).map_err(grant_error)?;
@@ -460,6 +463,9 @@ fn kind(
 ) -> Result<devforge_workspace::activity_metadata::ActivityKind, ErrorCode> {
     use devforge_workspace::activity_metadata::ActivityKind;
     match input {
+        ToolInput::Inspector(p) if p.detail == Some(true) => Ok(ActivityKind::InspectorDetail {
+            context: p.context_id.as_ref().map(|v| v.as_str().into()),
+        }),
         ToolInput::Inspector(p) => Ok(ActivityKind::Inspector {
             context: p.context_id.as_ref().map(|v| v.as_str().into()),
         }),
@@ -483,7 +489,9 @@ fn filter_digest(input: &ToolInput) -> Result<Digest, ErrorCode> {
         ToolInput::Log(p) => {
             json!({"tool":input.tool(),"level":p.level,"content":p.content,"query":p.query,"since":p.since})
         }
-        ToolInput::Inspector(p) => json!({"tool":input.tool(),"context":p.context_id}),
+        ToolInput::Inspector(p) => {
+            json!({"tool":input.tool(),"context":p.context_id,"detail":p.detail})
+        }
         ToolInput::Mail(_) => json!({"tool":input.tool()}),
         _ => return Err(ErrorCode::UnsupportedCapability),
     };
@@ -546,15 +554,43 @@ fn project(
             let items = rows
                 .iter()
                 .map(|row| {
-                    let MetadataItem::Inspector {
-                        context_id,
-                        method,
-                        status,
-                        queries,
-                        elapsed_ms,
-                    } = &row.item
-                    else {
-                        return Err(ErrorCode::StorageUnavailable);
+                    let (context_id, method, status, queries, elapsed_ms, detail) = match &row.item
+                    {
+                        MetadataItem::Inspector {
+                            context_id,
+                            method,
+                            status,
+                            queries,
+                            elapsed_ms,
+                        } => (context_id, method, status, queries, elapsed_ms, None),
+                        MetadataItem::InspectorDetail {
+                            context_id,
+                            method,
+                            status,
+                            queries,
+                            elapsed_ms,
+                            detail,
+                        } => {
+                            let value = InspectorDetail {
+                                kind: Id::new(&detail.kind)?,
+                                observed_at: SafeInt::new(detail.observed_at)?,
+                                text: devforge_control::limits::Text::new(detail.text.clone())?,
+                                duration_ms: detail.duration_ms.map(SafeInt::new).transpose()?,
+                                truncated: detail.truncated,
+                                capture_truncated: detail.capture_truncated,
+                                sql_ms: detail.sql_ms.map(SafeInt::new).transpose()?,
+                                peak_memory_bytes: detail
+                                    .peak_memory_bytes
+                                    .map(SafeInt::new)
+                                    .transpose()?,
+                                repeated_count: detail
+                                    .repeated_count
+                                    .map(SafeInt::new)
+                                    .transpose()?,
+                            };
+                            (context_id, method, status, queries, elapsed_ms, Some(value))
+                        }
+                        _ => return Err(ErrorCode::StorageUnavailable),
                     };
                     Ok(InspectorItem {
                         context_id: Id::new(context_id)?,
@@ -562,6 +598,7 @@ fn project(
                         status: *status,
                         queries: SafeInt::new(*queries)?,
                         elapsed_ms: SafeInt::new(*elapsed_ms)?,
+                        detail,
                     })
                 })
                 .collect::<Result<_, _>>()?;

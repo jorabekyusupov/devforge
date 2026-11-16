@@ -314,6 +314,7 @@ fn run() -> Result<()> {
     let inputs = [
         ToolInput::Health(HealthInput { page: None }),
         ToolInput::Inspector(InspectorInput {
+            detail: None,
             page: None,
             context_id: None,
         }),

@@ -116,3 +116,40 @@ revoke/cursor isolation, metadata privacy, redacted-query inference, legacy and
 Bearer patterns, Unicode/control normalization and cached doctor evidence. Exact
 platform CI and limitations are recorded in the PR; no native UI or OS credential
 service acceptance is claimed by these tests.
+
+
+## A04 scoped Inspector detail (2026-11-16)
+
+`inspector.request` remains metadata-only by default. Explicit `detail=true`
+requires InspectorQueries for the registered project. The existing read gate
+checks the right and the frozen project revision before source IO, at queued
+execution, and before returning output. Windows and cursors are bound to client,
+grant, project, revision, detail mode and context; an unrelated grant or mode
+cannot reuse a cursor. The reader is read-only and noncreating, with the existing
+200-event/256 KiB retained-source boundary and a distinct detail epoch.
+
+Each detail row represents one captured request, job, query, cache or dump event.
+HTTP request data is the normalized method, status, captured duration and available
+profile metrics; the request URL and headers are not projected from request events. Query names are normalized to
+remove literal values and comments, including MySQL `#` tails; repeated_count is
+only the count of identical normalized SQL in the same context and retained window,
+not proof of N+1 or complete history. Dump returns a bounded best-effort masked projection; oversized or invalid
+payloads are withheld. Cache reports only hit/miss/write/forget; keys, values, tags and store names
+are not captured. Masking is conservative and cannot guarantee identification of
+all arbitrary secrets embedded in unstructured names.
+
+Detail `duration_ms` is present only for measured request/job/query events;
+cache/dump durations are unknown. The mandatory outer `elapsed_ms`/`queries` are
+legacy request-summary fields and may contain placeholders for non-request events;
+consumers of detail rows should use the optional nested metrics. `truncated` denotes
+projection text truncation, while `capture_truncated` records the collector flag
+only when present (absence is unknown). Window row/byte truncation remains separate.
+Captured sql_ms and peak_memory_bytes are optional. All timestamps use Unix ms.
+
+The companion now captures finite cache operations in an active context without
+reading event keys or values. Exact earlier owned companion versions remain safely
+upgradable; modified user files are refused. The focused offline Laravel 13 cache
+repository/dispatcher fixture and affected Rust source, grant/cursor and SDK/MCP
+checks are recorded in the A04 PR. The macOS actual producer fixture is not Windows
+native producer evidence; JSON CLI Inspector remains metadata-only. No A05 work or
+bulk source access is implied.

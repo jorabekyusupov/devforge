@@ -17,6 +17,11 @@ final class InspectorServiceProvider extends ServiceProvider
         $events->listen(\Illuminate\Routing\Events\RouteMatched::class, fn ($event) => $capture->requestName($event->request->method().' '.$event->route->uri()));
         $events->listen(\Illuminate\Foundation\Http\Events\RequestHandled::class, fn ($event) => $capture->finish(['status' => $event->response->getStatusCode()]));
         $events->listen(\Illuminate\Database\Events\QueryExecuted::class, fn ($event) => $capture->query($event->sql, (float)$event->time, $event->connectionName));
+        // Cache event objects carry keys, values and tags. Never inspect or forward them.
+        $events->listen(\Illuminate\Cache\Events\CacheHit::class, fn () => $capture->cache('hit'));
+        $events->listen(\Illuminate\Cache\Events\CacheMissed::class, fn () => $capture->cache('miss'));
+        $events->listen(\Illuminate\Cache\Events\KeyWritten::class, fn () => $capture->cache('write'));
+        $events->listen(\Illuminate\Cache\Events\KeyForgotten::class, fn () => $capture->cache('forget'));
         $events->listen(\Illuminate\Log\Events\MessageLogged::class, function ($event) use ($capture) {
             $exception = $event->context['exception'] ?? null;
             $message = $exception instanceof \Illuminate\Database\QueryException ? get_class($exception) : (is_string($event->message) ? $event->message : get_debug_type($event->message));

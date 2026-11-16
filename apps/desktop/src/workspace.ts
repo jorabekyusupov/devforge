@@ -201,7 +201,7 @@ export interface HttpsReview {
   applied: boolean;
 }
 export type InspectionKind =
-  "request" | "query" | "job" | "log" | "dump" | "exception";
+  "request" | "query" | "job" | "log" | "dump" | "exception" | "cache";
 export interface InspectionEvent {
   sequence: number;
   received_ms: number;

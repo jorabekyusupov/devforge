@@ -15,6 +15,9 @@ pub enum ActivityKind {
     Inspector {
         context: Option<String>,
     },
+    InspectorDetail {
+        context: Option<String>,
+    },
     Logs {
         level: Option<String>,
         since: Option<u64>,
@@ -31,6 +34,10 @@ impl std::fmt::Debug for ActivityKind {
         match self {
             Self::Inspector { context } => f
                 .debug_struct("Inspector")
+                .field("context", context)
+                .finish(),
+            Self::InspectorDetail { context } => f
+                .debug_struct("InspectorDetail")
                 .field("context", context)
                 .finish(),
             Self::Logs { level, since } => f
@@ -56,6 +63,7 @@ impl ActivityKind {
     fn tag(&self) -> &'static str {
         match self {
             Self::Inspector { .. } => "inspector",
+            Self::InspectorDetail { .. } => "inspector_detail",
             Self::Logs { .. } => "logs",
             Self::LogContent { .. } => "logs_content",
             Self::Mail => "mail",
@@ -64,6 +72,9 @@ impl ActivityKind {
     pub fn validate(&self) -> Result<(), Error> {
         match self {
             Self::Inspector {
+                context: Some(context),
+            }
+            | Self::InspectorDetail {
                 context: Some(context),
             } if !super::valid_id(context) => Err(Error::InvalidInput),
             Self::Logs {
@@ -88,6 +99,18 @@ impl ActivityKind {
     }
 }
 #[derive(Clone, Serialize)]
+pub struct InspectorDetailItem {
+    pub kind: String,
+    pub observed_at: u64,
+    pub text: String,
+    pub duration_ms: Option<u64>,
+    pub truncated: bool,
+    pub capture_truncated: Option<bool>,
+    pub repeated_count: Option<u64>,
+    pub sql_ms: Option<u64>,
+    pub peak_memory_bytes: Option<u64>,
+}
+#[derive(Clone, Serialize)]
 pub struct MetadataRow {
     pub sequence: u64,
     pub item: MetadataItem,
@@ -101,6 +124,14 @@ pub enum MetadataItem {
         status: Option<u16>,
         queries: u64,
         elapsed_ms: u64,
+    },
+    InspectorDetail {
+        context_id: String,
+        method: String,
+        status: Option<u16>,
+        queries: u64,
+        elapsed_ms: u64,
+        detail: InspectorDetailItem,
     },
     Log {
         event_id: String,
@@ -369,7 +400,10 @@ pub fn read(root: &Path, id: &str, kind: &ActivityKind) -> Result<MetadataWindow
     } else {
         200
     };
-    let byte_limit = if matches!(kind, ActivityKind::Inspector { .. }) {
+    let byte_limit = if matches!(
+        kind,
+        ActivityKind::Inspector { .. } | ActivityKind::InspectorDetail { .. }
+    ) {
         256 * 1024
     } else {
         16 * 1024 * 1024
@@ -475,6 +509,14 @@ fn read_events(
     CASE WHEN json_valid(body) THEN CASE WHEN json_type(body,'$.data.query_count')='integer' THEN json_extract(body,'$.data.query_count') ELSE 0 END END,
     CASE WHEN json_valid(body) THEN CASE WHEN json_type(body,'$.duration_ms') IN ('integer','real') THEN json_extract(body,'$.duration_ms') END END
     ,CASE WHEN ?5 AND json_valid(body) AND json_extract(body,'$.kind') IN ('log','exception') AND json_type(body,'$.data.message')='text' THEN substr(json_extract(body,'$.data.message'),1,4096) END
+    ,CASE WHEN ?6 AND json_valid(body) AND json_extract(body,'$.kind') IN ('query','job','dump','cache') AND json_type(body,'$.name')='text' THEN substr(json_extract(body,'$.name'),1,4096) END,
+    CASE WHEN ?6 AND json_valid(body) AND json_extract(body,'$.kind')='dump' THEN json_type(body,'$.data') END,
+    CASE WHEN ?6 AND json_valid(body) AND json_extract(body,'$.kind') IN ('request','job') AND json_type(body,'$.data.sql_ms') IN ('real','integer') AND json_extract(body,'$.data.sql_ms') BETWEEN 0 AND 86400000 THEN json_extract(body,'$.data.sql_ms') END,
+    CASE WHEN ?6 AND json_valid(body) AND json_extract(body,'$.kind') IN ('request','job') AND json_type(body,'$.data.peak_memory_bytes')='integer' AND json_extract(body,'$.data.peak_memory_bytes') BETWEEN 0 AND 9007199254740990 THEN json_extract(body,'$.data.peak_memory_bytes') END,
+    CASE WHEN ?6 AND json_valid(body) AND json_extract(body,'$.kind') IN ('request','job') THEN CASE json_type(body,'$.data.truncated') WHEN 'true' THEN 1 WHEN 'false' THEN 0 END END,
+    CASE WHEN ?6 AND json_valid(body) AND json_extract(body,'$.kind')='dump' THEN
+      CASE json_type(body,'$.data') WHEN 'null' THEN 'null' WHEN 'true' THEN 'true' WHEN 'false' THEN 'false'
+      ELSE CASE WHEN octet_length(CAST(json_extract(body,'$.data') AS TEXT)) <= 8192 THEN json_quote(json_extract(body,'$.data')) END END END
     FROM events WHERE project=?1 AND sequence>=?2 AND sequence<=?3 AND received>=?4 ORDER BY sequence DESC"#;
     let mut statement = connection.prepare(sql)?;
     let mut rows = statement.query(params![
@@ -482,7 +524,8 @@ fn read_events(
         window.low_water as i64,
         window.high_water as i64,
         cutoff as i64,
-        matches!(kind, ActivityKind::LogContent { .. })
+        matches!(kind, ActivityKind::LogContent { .. }),
+        matches!(kind, ActivityKind::InspectorDetail { .. })
     ])?;
     let mut content_bytes = 2usize; // JSON array brackets
     while let Some(row) = rows.next()? {
@@ -492,7 +535,17 @@ fn read_events(
             return Err(Error::Corrupt);
         }
         let event = row.get::<_, Option<String>>(3)?.ok_or(Error::Corrupt)?;
-        if !["request", "query", "job", "log", "dump", "exception"].contains(&event.as_str()) {
+        if ![
+            "request",
+            "query",
+            "job",
+            "log",
+            "dump",
+            "exception",
+            "cache",
+        ]
+        .contains(&event.as_str())
+        {
             return Err(Error::Corrupt);
         }
         let context = row.get::<_, Option<String>>(4)?.ok_or(Error::Corrupt)?;
@@ -521,6 +574,77 @@ fn read_events(
                         status: row.get::<_, Option<u16>>(7)?,
                         queries: queries as u64,
                         elapsed_ms: elapsed.ceil() as u64,
+                    },
+                });
+            }
+            ActivityKind::InspectorDetail { context: filter }
+                if matches!(
+                    event.as_str(),
+                    "request" | "job" | "query" | "dump" | "cache"
+                ) =>
+            {
+                if filter.as_ref().is_some_and(|v| v != &context) {
+                    continue;
+                }
+                let elapsed = row.get::<_, Option<f64>>(9)?.ok_or(Error::Corrupt)?;
+                let queries = row.get::<_, Option<i64>>(8)?.ok_or(Error::Corrupt)?;
+                if !elapsed.is_finite()
+                    || !(0.0..=86_400_000.0).contains(&elapsed)
+                    || !(0..=SAFE_MAX as i64).contains(&queries)
+                {
+                    return Err(Error::Corrupt);
+                }
+                let method = if event == "request" {
+                    row.get::<_, Option<String>>(6)?.ok_or(Error::Corrupt)?
+                } else {
+                    "N/A".into()
+                };
+                let name = row.get::<_, Option<String>>(11)?.unwrap_or_default();
+                let (text, truncated) = match event.as_str() {
+                    "request" => (method.clone(), false),
+                    "query" => safe_query(&name),
+                    "job" => safe_job(&name),
+                    "cache" => {
+                        let text = if ["hit", "miss", "write", "forget"].contains(&name.as_str()) {
+                            name.clone()
+                        } else {
+                            "unknown".into()
+                        };
+                        (text, false)
+                    }
+                    "dump" => {
+                        let kind = row
+                            .get::<_, Option<String>>(12)?
+                            .unwrap_or_else(|| "unknown".into());
+                        safe_dump(&kind, row.get::<_, Option<String>>(16)?.as_deref())
+                    }
+                    _ => unreachable!(),
+                };
+                let measured_duration =
+                    (!matches!(event.as_str(), "cache" | "dump")).then_some(elapsed.ceil() as u64);
+                window.rows.push(MetadataRow {
+                    sequence,
+                    item: MetadataItem::InspectorDetail {
+                        context_id: context,
+                        method,
+                        status: row.get::<_, Option<u16>>(7)?,
+                        queries: queries as u64,
+                        elapsed_ms: elapsed.ceil() as u64,
+                        detail: InspectorDetailItem {
+                            kind: event,
+                            observed_at: received,
+                            text,
+                            duration_ms: measured_duration,
+                            truncated,
+                            capture_truncated: row.get::<_, Option<i64>>(15)?.map(|v| v == 1),
+                            repeated_count: None,
+                            sql_ms: row
+                                .get::<_, Option<f64>>(13)?
+                                .map(|value| value.ceil() as u64),
+                            peak_memory_bytes: row
+                                .get::<_, Option<i64>>(14)?
+                                .map(|value| value as u64),
+                        },
                     },
                 });
             }
@@ -594,7 +718,115 @@ fn read_events(
             _ => {}
         }
     }
+    // Like profile::analyze, repetition is scoped to one captured context and
+    // normalized SQL. This is bounded-window evidence, not a global N+1 claim.
+    if matches!(kind, ActivityKind::InspectorDetail { .. }) {
+        let mut counts = std::collections::BTreeMap::<(String, String), u64>::new();
+        for row in &window.rows {
+            if let MetadataItem::InspectorDetail {
+                context_id, detail, ..
+            } = &row.item
+                && detail.kind == "query"
+            {
+                *counts
+                    .entry((context_id.clone(), detail.text.clone()))
+                    .or_default() += 1;
+            }
+        }
+        for row in &mut window.rows {
+            if let MetadataItem::InspectorDetail {
+                context_id, detail, ..
+            } = &mut row.item
+                && detail.kind == "query"
+            {
+                detail.repeated_count = counts
+                    .get(&(context_id.clone(), detail.text.clone()))
+                    .copied();
+            }
+        }
+    }
     Ok(())
+}
+
+fn safe_query(value: &str) -> (String, bool) {
+    use std::sync::LazyLock;
+    static QUOTED: LazyLock<regex::Regex> = LazyLock::new(|| {
+        // Consume backslash escapes and unterminated quoted tails conservatively.
+        regex::Regex::new(r#"(?s)"(?:""|\\.|[^"\\])*"?|`(?:``|\\.|[^`\\])*`?"#).unwrap()
+    });
+    // MySQL treats # as a line comment. Conservatively suppress the tail
+    // even when another dialect uses # as an operator; never return its text.
+    let no_hash_comments = value
+        .lines()
+        .map(|line| line.split('#').next().unwrap_or_default())
+        .collect::<Vec<_>>()
+        .join("\n");
+    let quoted = QUOTED.replace_all(&no_hash_comments, "?");
+    let sql = super::sanitize::sql(&quoted);
+    let truncated = value.contains('#') || value.len() > 2048 || sql.len() > 2048;
+    (redact_message(&sql), truncated)
+}
+/// Dump values are explicitly authorized content, but bounded and redacted.
+/// Unknown unlabeled secrets cannot be recognized reliably.
+fn safe_dump(kind: &str, raw: Option<&str>) -> (String, bool) {
+    fn exceeds(value: &serde_json::Value, depth: usize) -> bool {
+        if depth >= 6 {
+            return true;
+        }
+        match value {
+            serde_json::Value::Array(items) => {
+                items.len() > 40 || items.iter().any(|v| exceeds(v, depth + 1))
+            }
+            serde_json::Value::Object(items) => {
+                items.len() > 40 || items.values().any(|v| exceeds(v, depth + 1))
+            }
+            serde_json::Value::String(value) => value.len() > 2048,
+            _ => false,
+        }
+    }
+    fn mask_strings(value: serde_json::Value) -> serde_json::Value {
+        match value {
+            serde_json::Value::String(value) => serde_json::Value::String(redact_message(&value)),
+            serde_json::Value::Array(items) => {
+                serde_json::Value::Array(items.into_iter().map(mask_strings).collect())
+            }
+            serde_json::Value::Object(items) => serde_json::Value::Object(
+                items
+                    .into_iter()
+                    .map(|(k, v)| (redact_message(&k), mask_strings(v)))
+                    .collect(),
+            ),
+            value => value,
+        }
+    }
+    let Some(value) = raw
+        .filter(|v| v.len() <= 32768)
+        .and_then(|v| serde_json::from_str::<serde_json::Value>(v).ok())
+    else {
+        return (format!("dump {kind}: [WITHHELD]"), true);
+    };
+    let truncated = exceeds(&value, 0);
+    let safe = mask_strings(super::sanitize::value(value, "\0", 0));
+    let Ok(text) = serde_json::to_string(&safe) else {
+        return (format!("dump {kind}: [WITHHELD]"), true);
+    };
+    let prefix = format!("dump {kind}: ");
+    if prefix.len() + text.len() > 2048 {
+        return (format!("{prefix}[WITHHELD]"), true);
+    }
+    (format!("{prefix}{text}"), truncated)
+}
+
+fn safe_job(value: &str) -> (String, bool) {
+    let valid = !value.is_empty()
+        && value.len() <= 128
+        && value
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'\\');
+    if !valid {
+        return ("[REDACTED]".into(), value.len() > 128);
+    }
+    (redact_message(value), false)
 }
 
 // This is bounded best-effort masking, not a guarantee that arbitrary secrets
@@ -670,6 +902,127 @@ mod tests {
             data,
         }
     }
+    #[test]
+    fn inspector_detail_is_project_scoped_bounded_and_redacts_legacy_values() {
+        let (_temp, root, store) = fixture();
+        let a = "a".repeat(32);
+        let b = "b".repeat(32);
+        let context = "c".repeat(32);
+        let stamp = now().unwrap() as i64;
+        let write = |project: &str, kind: &str, name: &str, data: serde_json::Value| {
+            let body = serde_json::json!({"kind":kind,"context":context,"name":name,"duration_ms":10.0,"data":data}).to_string();
+            store
+                .connection
+                .execute(
+                    "INSERT INTO events(project,received,body) VALUES(?1,?2,?3)",
+                    params![project, stamp, body],
+                )
+                .unwrap();
+        };
+        write(
+            &a,
+            "request",
+            "GET /private?token=REQUEST_SECRET",
+            serde_json::json!({"status":200,"query_count":5,"sql_ms":45.2,"peak_memory_bytes":12345,"truncated":true,"headers":"HEADER_SECRET"}),
+        );
+        write(
+            &a,
+            "job",
+            "App\\Jobs\\Example",
+            serde_json::json!({"truncated":false}),
+        );
+        for _ in 0..5 {
+            write(
+                &a,
+                "query",
+                "select * from users where email='SQL_SECRET' and id=42",
+                serde_json::json!({"bindings":["BINDING_SECRET"]}),
+            );
+        }
+        write(
+            &a,
+            "cache",
+            "hit",
+            serde_json::json!({"key":"CACHE_KEY_SECRET"}),
+        );
+        write(
+            &a,
+            "dump",
+            "array",
+            serde_json::json!({"message":"safe diagnostic","token":"DUMP_SECRET","nested":{"password":"NESTED_SECRET","visible":"safe-child"}}),
+        );
+        write(&a, "dump", "string", serde_json::json!("x".repeat(9000)));
+        write(&b, "query", "select FOREIGN_SECRET", serde_json::json!({}));
+        let detail = ActivityKind::InspectorDetail {
+            context: Some(context.clone()),
+        };
+        let window = read(&root, &a, &detail).unwrap();
+        assert_eq!(window.rows.len(), 10);
+        for input in [
+            r#"SELECT "prefix\"SHORT_CANARY""#,
+            r"SELECT `prefix\`SHORT_CANARY`",
+            r#"SELECT "unterminated SHORT_CANARY"#,
+            r"SELECT `unterminated SHORT_CANARY",
+        ] {
+            assert!(!safe_query(input).0.contains("SHORT_CANARY"));
+        }
+        let (mysql_query, truncated) = safe_query("SELECT 1 # PRIVATE_COMMENT_CANARY\n FROM users");
+        assert!(
+            truncated
+                && !mysql_query.contains("PRIVATE_COMMENT_CANARY")
+                && mysql_query.contains("FROM users")
+        );
+        let text = serde_json::to_string(&window).unwrap();
+        for secret in [
+            "REQUEST_SECRET",
+            "HEADER_SECRET",
+            "SQL_SECRET",
+            "BINDING_SECRET",
+            "DUMP_SECRET",
+            "NESTED_SECRET",
+            "CACHE_KEY_SECRET",
+            "FOREIGN_SECRET",
+        ] {
+            assert!(!text.contains(secret), "leaked {secret}");
+        }
+        let queries = window
+            .rows
+            .iter()
+            .filter_map(|r| match &r.item {
+                MetadataItem::InspectorDetail { detail, .. } if detail.kind == "query" => {
+                    Some(detail)
+                }
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        assert!(window.rows.iter().any(|r| matches!(&r.item,MetadataItem::InspectorDetail{detail,..} if detail.kind=="request" && detail.sql_ms==Some(46) && detail.peak_memory_bytes==Some(12345) && detail.capture_truncated==Some(true))));
+        assert!(window.rows.iter().any(|r| matches!(&r.item,MetadataItem::InspectorDetail{detail,..} if detail.kind=="job" && detail.capture_truncated==Some(false))));
+        assert!(queries.iter().all(|d| d.capture_truncated.is_none()));
+        assert_eq!(queries.len(), 5);
+        assert!(
+            queries
+                .iter()
+                .all(|d| d.repeated_count == Some(5) && d.text.contains('?'))
+        );
+        assert!(window.rows.iter().any(|r|matches!(&r.item,MetadataItem::InspectorDetail{detail,..} if detail.kind=="dump" && detail.text.contains("[REDACTED]") && detail.text.contains("safe diagnostic") && detail.text.contains("safe-child"))));
+        assert!(window.rows.iter().any(|r|matches!(&r.item,MetadataItem::InspectorDetail{detail,..} if detail.kind=="dump" && detail.truncated && detail.text.contains("[WITHHELD]"))));
+        assert_ne!(
+            epoch(&root, &a, &detail).unwrap(),
+            epoch(
+                &root,
+                &a,
+                &ActivityKind::Inspector {
+                    context: Some(context)
+                }
+            )
+            .unwrap()
+        );
+        let missing = tempfile::tempdir().unwrap();
+        let missing_root = fs::canonicalize(missing.path()).unwrap();
+        assert!(read(&missing_root, &a, &detail).unwrap().missing);
+        assert!(!missing_root.join("inspector").exists());
+    }
+
     #[test]
     fn content_window_caps_serialized_projection_and_reports_truncation() {
         let (_temp, root, mut store) = fixture();

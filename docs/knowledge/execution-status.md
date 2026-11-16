@@ -1512,3 +1512,23 @@ Focused inspector, shared contract, client/MCP and manager tests, scoped clippy,
 format and strict knowledge checks cover this slice; exact macOS/Windows CI belongs
 to the PR. Existing deferred ReportViews/locales remain excluded. A04 has not
 started. See [metadata contract](../architecture/metadata-diagnostics.md).
+
+
+## A04 — scoped Inspector detail (2026-11-16)
+
+A04 builds on A03 in `codex/a04-inspector-detail`. Detail requires the independent
+InspectorQueries grant and is checked at registration, queued source read and output.
+Metadata remains Observer-only; project, grant, revision, context and detail mode
+bind the cursor. Source reads do not create collector state, and the existing
+200-event/256 KiB retained source limit applies. Five event kinds are projected;
+SQL literals/comments and cache keys/values are withheld, as are request URL/headers
+and oversized or invalid dump payloads. Repeated query count is bounded-window evidence, not a full-history
+or N+1 proof. Missing capture truncation and unmeasured duration remain unknown.
+
+The active-scope cache producer captures only hit/miss/write/forget, and safely
+upgrades known pre-A04 owned files without adopting user edits. A synthetic scoped
+manager test and source/privacy tests cover permissions, cross-project/revoke/cursor,
+redaction, event/profile metrics and truncation; an offline Laravel 13 repository
+fixture exercises the actual cache event producer on macOS. Exact PR CI records
+macOS/Windows affected checks. No Windows native Laravel producer, A05 work or
+unbounded dump payload is claimed.

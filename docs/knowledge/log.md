@@ -4,6 +4,8 @@
 
 ## 2026-11-16
 
+- **A04 Inspector details:** explicit InspectorQueries gate, bounded redacted request/job/query/cache/dump projections and captured profile/repetition evidence, scoped cursors. Cache producer captures finite operations without keys/values; old owned companion upgrade preserved. Dump payload/URL remain withheld and missing capture completeness remains unknown. [Contract](../architecture/metadata-diagnostics.md), [execution](execution-status.md).
+
 - **A03 log and health diagnostics:** LogContent-scoped noncreating bounded log projection, masking before search, grant/revision rechecks and cursor isolation; cached doctor adds evidence/impact codes. Masking is best effort for recognizable patterns, not a guarantee against arbitrary secrets. [Contract](../architecture/metadata-diagnostics.md), [execution](execution-status.md).
 
 - **A02 information rights:** canonical five-value contract, explicit native-owner SDK/controller/Tauri DTO selection with legacy empty default, central read authorization reused by metadata admission/dequeue/output. All five independent rights and zero-reader denial, native issuance/persistence/revoke/forgery, unchanged metadata policy checked. Visible permission UI and content/SQL handlers remain later packets. [Grant contract](../architecture/external-grants.md), [metadata](../architecture/metadata-diagnostics.md), [execution](execution-status.md).

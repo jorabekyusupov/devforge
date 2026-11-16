@@ -52,6 +52,7 @@ pub enum Kind {
     Request,
     Query,
     Job,
+    Cache,
     Log,
     Dump,
     Exception,
@@ -199,6 +200,10 @@ impl Store {
             || b.events.iter().any(|e| {
                 !valid_id(&e.context)
                     || e.name.len() > 8192
+                    || (e.kind == Kind::Cache
+                        && (!["hit", "miss", "write", "forget"].contains(&e.name.as_str())
+                            || !e.data.is_null()
+                            || e.duration_ms != 0.0))
                     || !e.duration_ms.is_finite()
                     || e.duration_ms < 0.0
                     || e.duration_ms > 86_400_000.0
@@ -612,7 +617,19 @@ pub fn materialize(project: &Path) -> Result<PathBuf> {
                     .iter()
                     .map(|b| format!("{b:02x}"))
                     .collect::<String>();
-                if known.get(name) != Some(&hash) {
+                // A04 added cache capture to these exact shipped files. Keep
+                // both the earlier legacy and immediate pre-cache version safe
+                // to upgrade, without adopting arbitrary user modifications.
+                let pre_cache = match name {
+                    "src/Capture.php" => {
+                        Some("2f0d6f39e3bfb9c8aedaeb694faa7be7f534cb18f654275b46974d5b950d22f0")
+                    }
+                    "src/InspectorServiceProvider.php" => {
+                        Some("e78681d94614090f2c1af834aa38806d55ead39f762c5315765c1793d656002a")
+                    }
+                    _ => None,
+                };
+                if known.get(name) != Some(&hash) && pre_cache != Some(hash.as_str()) {
                     return Err(Error);
                 }
                 upgrade = true;
@@ -671,6 +688,116 @@ mod tests {
                 data: serde_json::json!({"bindings":["private-binding"],"password":"private-password","message":"token=secret-value"}),
             }],
         }
+    }
+    #[test]
+    fn cache_ingestion_accepts_only_finite_operations_without_payloads() {
+        let temp = tempfile::tempdir().unwrap();
+        let mut store = Store::open(temp.path()).unwrap();
+        let project = "a".repeat(32);
+        let context = "c".repeat(32);
+        let event = |name: &str, data: Value| Event {
+            kind: Kind::Cache,
+            context: context.clone(),
+            name: name.into(),
+            duration_ms: 0.0,
+            data,
+        };
+        let request = |events| Batch {
+            schema: 1,
+            project_id: project.clone(),
+            id: uuid::Uuid::new_v4().simple().to_string(),
+            events,
+        };
+        store
+            .insert(
+                request(vec![
+                    event("hit", Value::Null),
+                    event("miss", Value::Null),
+                    event("write", Value::Null),
+                    event("forget", Value::Null),
+                ]),
+                &"f".repeat(64),
+            )
+            .unwrap();
+        assert_eq!(store.list(&project).unwrap().len(), 4);
+        assert!(
+            store
+                .insert(
+                    request(vec![event("PRIVATE_KEY", Value::Null)]),
+                    &"f".repeat(64)
+                )
+                .is_err()
+        );
+        assert!(
+            store
+                .insert(
+                    request(vec![event(
+                        "hit",
+                        serde_json::json!({"key":"PRIVATE_KEY","value":"PRIVATE_VALUE"})
+                    )]),
+                    &"f".repeat(64)
+                )
+                .is_err()
+        );
+        let serialized = serde_json::to_string(&store.list(&project).unwrap()).unwrap();
+        assert!(!serialized.contains("PRIVATE_KEY") && !serialized.contains("PRIVATE_VALUE"));
+    }
+    #[test]
+    fn pre_cache_owned_bundle_upgrades_without_adopting_user_edits() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join(".devforge/laravel-inspector");
+        fs::create_dir_all(root.join("src")).unwrap();
+        for (name, body) in [
+            (
+                "composer.json",
+                include_str!("../../../packages/laravel-inspector/composer.json"),
+            ),
+            (
+                "src/RequestCapture.php",
+                include_str!("../../../packages/laravel-inspector/src/RequestCapture.php"),
+            ),
+            (
+                "src/Capture.php",
+                include_str!("../tests/fixtures/pre-cache/src/Capture.php"),
+            ),
+            (
+                "src/InspectorServiceProvider.php",
+                include_str!("../tests/fixtures/pre-cache/src/InspectorServiceProvider.php"),
+            ),
+        ] {
+            fs::write(root.join(name), body).unwrap();
+        }
+        fs::write(root.join(".devforge-owned"), b"laravel-inspector-v1").unwrap();
+        materialize(temp.path()).unwrap();
+        assert_eq!(
+            fs::read_to_string(root.join("src/Capture.php")).unwrap(),
+            include_str!("../../../packages/laravel-inspector/src/Capture.php")
+        );
+        assert_eq!(
+            fs::read_to_string(root.join("src/InspectorServiceProvider.php")).unwrap(),
+            include_str!("../../../packages/laravel-inspector/src/InspectorServiceProvider.php")
+        );
+        let backups: Vec<_> = fs::read_dir(temp.path().join(".devforge"))
+            .unwrap()
+            .filter_map(|e| {
+                let e = e.unwrap();
+                e.file_name()
+                    .to_string_lossy()
+                    .starts_with("laravel-inspector-backup-")
+                    .then_some(e.path())
+            })
+            .collect();
+        assert_eq!(backups.len(), 1);
+        assert_eq!(
+            fs::read_to_string(backups[0].join("src/Capture.php")).unwrap(),
+            include_str!("../tests/fixtures/pre-cache/src/Capture.php")
+        );
+        fs::write(root.join("src/Capture.php"), "user edit").unwrap();
+        assert!(materialize(temp.path()).is_err());
+        assert_eq!(
+            fs::read_to_string(root.join("src/Capture.php")).unwrap(),
+            "user edit"
+        );
     }
     #[test]
     fn native_transport_auth_origin_scope_replay_retention_and_shutdown() {

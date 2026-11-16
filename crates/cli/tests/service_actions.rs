@@ -1617,6 +1617,10 @@ fn diagnostics_mcp_defaults_are_readonly_metadata_and_legacy_health_is_preserved
             tool["inputSchema"]["properties"].get("query").is_some(),
             name == "logs.search"
         );
+        assert_eq!(
+            tool["inputSchema"]["properties"].get("detail").is_some(),
+            name == "inspector.request"
+        );
     }
     let doctor = mcp.call("tools/call", json!({"name":"health.doctor","arguments":{}}));
     assert_eq!(doctor["result"]["isError"], false);
@@ -1636,6 +1640,7 @@ fn diagnostics_mcp_defaults_are_readonly_metadata_and_legacy_health_is_preserved
         ("logs.search", json!({"query":null})),
         ("logs.search", json!({"content":null})),
         ("logs.search", json!({"since":null})),
+        ("inspector.request", json!({"detail":null})),
         ("mail.list", json!({"subject":"private-mail-filter-canary"})),
         ("mail.list", json!({"recipient":null})),
     ] {
@@ -1643,6 +1648,39 @@ fn diagnostics_mcp_defaults_are_readonly_metadata_and_legacy_health_is_preserved
         assert_eq!(reply["error"]["code"], -32602);
         assert!(!reply.to_string().contains("private-mail-filter-canary"));
     }
+    // Inspector details require their own explicit right, independent of management.
+    let denied_detail = mcp.call(
+        "tools/call",
+        json!({"name":"inspector.request","arguments":{"detail":true}}),
+    );
+    assert_eq!(denied_detail["result"]["isError"], true);
+    assert_eq!(
+        denied_detail["result"]["structuredContent"]["error"]["code"],
+        "unauthorized"
+    );
+    let inspector_grant = fixture
+        .native
+        .issue_external_grant_with_information(
+            &Id::new(&fixture.project).unwrap(),
+            &[Scope::Observer],
+            &[devforge_control::InformationScope::InspectorQueries],
+            Duration::from_secs(300),
+        )
+        .unwrap();
+    let mut inspector_client = Mcp::with_grant(&fixture, [false; 6], &inspector_grant);
+    let allowed_detail = inspector_client.call(
+        "tools/call",
+        json!({"name":"inspector.request","arguments":{"detail":true}}),
+    );
+    assert_eq!(
+        allowed_detail["result"]["isError"], false,
+        "{allowed_detail}"
+    );
+    assert_eq!(
+        allowed_detail["result"]["structuredContent"]["data"]["data"]["freshness"]["window"]["source_missing"],
+        true
+    );
+    inspector_client.close();
     // Full management/execution alone never confers log content rights.
     let denied = mcp.call(
         "tools/call",
