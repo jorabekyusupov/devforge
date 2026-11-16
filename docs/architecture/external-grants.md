@@ -1,6 +1,6 @@
 # M13.1 external grant registry foundation
 
-Status: isolated backend implementation; original fixture evidence plus scoped clock-hardening fixtures and library clippy passed on macOS ARM64. No public
+Initial foundation evidence (historical): isolated backend implementation; original fixture evidence plus scoped clock-hardening fixtures and library clippy passed on macOS ARM64. No public
 CLI/MCP dispatcher, GUI consent flow, external client connection or native
 credential-service behavior is established by this module.
 
@@ -128,3 +128,43 @@ protected-record transaction only afterward; decode/late-authorization failure
 cannot roll back the security latch. Healthy issuance and recovery still require
 fresh authority before their grant-enabling commits. A controlled delayed-clock
 fixture forces this late-expiry edge independently of normal disk speed.
+
+
+## A02 explicit content rights (2026-11-16)
+
+The canonical `devforge_control::InformationScope` now exports the existing five
+values in JSON schema and TypeScript. The old manager import remains a re-export;
+persisted values and registry schema are unchanged. Native-only owner issuance
+accepts an explicit independent selection through
+`NativeClient::issue_external_grant_with_information`, controller and registry.
+The old method and omitted field still mean `[]`; no scope is auto-added. SDK
+checks the returned project, scopes and exact information selection. Unknown,
+duplicate or Observer-less information requests fail closed. Tokens remain Rust-only.
+
+Tauri's existing issue request accepts the optional selection and its safe grant
+DTO/list retains selected rights; AgentApi types match. This is a contract/bridge
+change, not a visible permission-checkbox UI: that UI stays in A13. Existing
+Settings creates the same metadata-only grants unless an owner explicitly supplies
+information rights through the native API. No agent can issue its own grant.
+
+`ExternalRegistry::authorize_read` is the central finite read gate: `None` means
+Observer metadata, `Some(right)` additionally requires exactly that content right.
+It reuses project/root/FS identity, OS peer, revocation, expiry and revision checks.
+Diagnostics now uses it at admission, queued checks and before output. Future
+content adapters must use their specific right at the same boundaries before
+source/filter IO. Information rights do not permit execution or project management.
+
+No A03–A07 reader is installed by A02. Existing log query/mail subject/recipient
+filters (including empty values) still fail before any source read even with a
+content grant. SourceArtifacts permits no bulk file access; DatabaseQuery installs
+no SQL runner and establishes no sandbox or constrained DB role by itself.
+
+Focused checks: synthetic reader counters cover all five matching rights and zero
+reads for missing/other-right, foreign project, revoked and expired grants; native
+SDK/IPC proves default/explicit selection, duplicate/invalid dependency refusal,
+agent forgery denial, list/restart persistence and revoke. Existing metadata
+cursor/redaction/noncreating-read regression passed. Parser/DTO coverage is in the
+native desktop Rust test; TypeScript and generated contract consistency checks
+cover the additive bridge shape. macOS local evidence is backend/IPC only, not a
+native consent UI or OS credential proof. macOS/Windows CI is recorded by the PR;
+no live content/SQL or additional platform-native behavior is claimed.

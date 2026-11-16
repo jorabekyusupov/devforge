@@ -7,7 +7,7 @@ use crate::{
     external_control::{Server as Grants, grant_error},
 };
 use devforge_control::{
-    Digest, ErrorCode, Id, ProjectBinding, Request, Response, Scope,
+    Digest, ErrorCode, Id, ProjectBinding, Request, Response,
     limits::{Cursor, CursorContext, SafeInt},
     tools::*,
 };
@@ -235,7 +235,7 @@ impl Diagnostics {
                 .map_err(|_| crate::service_control::ws_error(ErrorCode::StorageUnavailable))?
                 .as_mut()
                 .ok_or_else(|| crate::service_control::ws_error(ErrorCode::Interrupted))?
-                .authorize(&peer, &credential, &binding, &[Scope::Observer], &[], None)
+                .authorize_read(&peer, &credential, &binding, None, None)
                 .map_err(|e| crate::service_control::ws_error(grant_error(e)))?;
             Ok(())
         });
@@ -283,12 +283,11 @@ impl Diagnostics {
             .map_err(|_| ErrorCode::StorageUnavailable)?;
         let registry = grants.as_mut().ok_or(ErrorCode::Interrupted)?;
         let proof = registry
-            .authorize(
+            .authorize_read(
                 peer,
                 &credential,
                 &registration.binding,
-                &[Scope::Observer],
-                &[],
+                None,
                 wire.request.expected_revision,
             )
             .map_err(grant_error)?;
@@ -408,12 +407,11 @@ impl Diagnostics {
         let proof = grants
             .as_mut()
             .ok_or(ErrorCode::Interrupted)?
-            .authorize(
+            .authorize_read(
                 peer,
                 &credential,
                 &registration.binding,
-                &[Scope::Observer],
-                &[],
+                None,
                 wire.request.expected_revision,
             )
             .map_err(grant_error)?;

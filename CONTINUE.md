@@ -20,8 +20,17 @@ Actual ARM64 PHP8.4.27/Laravel13.42.0 normal bootstrap migration/create/delete p
 two dev DB canaries, source env/APP_KEY and both HEAD/dirty states. No OS sandbox;
 Windows actual Laravel and broader PHPUnit/Artisan profiles remain unverified.
 
-Next planned package is A02 explicit content rights. Do not start it from this A01
-handoff. Subsequent order remains diagnostics/correlation/wait/mail/artifacts ->
+## A02 completed slice
+Five canonical information rights now support explicit native-owner SDK/controller/
+Tauri request and safe DTO/list selection. Legacy/default grants stay empty; no
+automatic scope broadening. Metadata uses the central authorize_read gate for
+admission/dequeue/output. All-five denial-before-reader and native issuance/list/
+restart/revoke/forgery checks pass; existing metadata filters remain refused even
+with a content grant. Visible permission UI (A13) and rich content/SQL readers
+(A03 onward) are not included. See docs/architecture/external-grants.md.
+
+Next planned package is A03 log/health diagnostics after the accepted A02 contract.
+Do not start it from this A02 handoff. Subsequent order remains diagnostics/correlation/wait/mail/artifacts ->
 advanced debug/HTTP/workspaces/recovery -> HTTP MCP -> remaining UX/docs -> final
 capability/client/OS acceptance -> M14 -> M15. E/D conditions remain unchanged.
 

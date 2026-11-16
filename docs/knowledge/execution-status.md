@@ -1471,3 +1471,27 @@ and [actual ARM64 proof](../evidence/a01-isolation/actual-macos-arm64.json).
   Actual Windows Laravel and broader test profiles remain open, not inferred from CI.
 - A02 and other packets have not started. No UI, new provider, package download,
   source grant inheritance, system setting, signing or release changes.
+
+
+## A02 — explicit information rights and read gate (2026-11-16)
+
+User authorized only A02 with relevant checks, push/CI and main merge. Branch
+`codex/a02-content-rights` starts from `935f2c8`; original ReportViews/locales remain
+excluded. [Grant details](../architecture/external-grants.md#a02-explicit-content-rights-2026-11-16).
+
+- Shared LogContent/InspectorQueries/MailContent/SourceArtifacts/DatabaseQuery
+  contract; old SDK import and persisted values retained, no registry migration.
+- Explicit native-owner selection propagates through SDK/controller/registry and
+  Tauri DTO/API. Default and old wire shape stay information=[]; duplicates, unknown
+  rights and missing Observer are refused. No external grant-issuance authority.
+- Metadata uses central read gate at admission/queued checks/output. Content-capable
+  adapters must pass Some(required_right); existing content filters stay denied.
+- Focused all-five synthetic reader denial + public native SDK persistence/revoke/
+  forgery tests and existing metadata policy pass on macOS. Initial restart fixture
+  failed because AutoStart correctly respects Quit inhibition; fixture now explicitly
+  requests restart and compares credential reads against its initial counter.
+- Scoped manager clippy, contract export consistency, TS typecheck and strict
+  knowledge validation cover affected boundaries. CI results belong to exact PR SHA.
+- No rich content/SQL reader, bulk source access, visible permission UI, native
+  consent/credential-service acceptance or A03 work is claimed. Windows CI coverage
+  is portable backend/bridge coverage, not native user-interaction evidence.

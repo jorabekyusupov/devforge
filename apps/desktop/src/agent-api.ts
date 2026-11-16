@@ -1,10 +1,11 @@
 import { invoke } from "@tauri-apps/api/core";
+import type { InformationScope } from "../../../crates/control/contracts/control-contracts";
 
 export type AgentScope = "observer" | "project_manage" | "execution_test" | "sensitive_operation";
 export type AgentConnectionState = "disconnected" | "starting" | "authenticating" | "authentication_required" | "connected" | "quitting" | "unavailable";
 export interface AgentOwner { state: AgentConnectionState; code?: string; }
 export interface AgentProject { id: string; name: string; }
-export interface AgentGrant { grant_id: string; client_id: string; project_id: string; scopes: AgentScope[]; created_at: number; expires_at: number; revoked: boolean; expired: boolean; }
+export interface AgentGrant { grant_id: string; client_id: string; project_id: string; scopes: AgentScope[]; information?: InformationScope[]; created_at: number; expires_at: number; revoked: boolean; expired: boolean; }
 export interface AgentExecutionContext { environment: boolean; database: boolean; cache: boolean; mail: boolean; test_isolated: boolean; }
 export type AgentReviewTarget =
   | { kind: "execution"; tool: "php" | "artisan" | "composer" | "node" | "npm" | "git"; arg_count: number; managed_test: boolean; timeout_ms: number; context: AgentExecutionContext; safe_arguments: string[] }
@@ -29,7 +30,7 @@ export interface AgentReceipt { operation_id: string; client_id: string; project
 export interface AgentOperation { grant_id: string; receipt: AgentReceipt; }
 export interface AgentSnapshot { owner: AgentOwner; projects: AgentProject[]; grants: AgentGrant[]; plans: AgentPlan[]; operations: AgentOperation[]; }
 export interface AgentConfig { grant_id: string; credential_path: string; config_path: string; config_snippet: string; }
-export interface AgentIssue { project_id: string; scopes: AgentScope[]; ttl_seconds: number; }
+export interface AgentIssue { project_id: string; scopes: AgentScope[]; information?: InformationScope[]; ttl_seconds: number; }
 export interface AgentIssueResult { grant: AgentGrant; config: AgentConfig; }
 export interface AgentOperationRef { grant_id: string; operation_id: string; }
 export interface AgentLookup { grant_id: string; idempotency_key: string; }

@@ -211,6 +211,7 @@ impl Server {
         actor: &ActorHandle,
         project: &Id,
         scopes: &[Scope],
+        information: &[devforge_control::InformationScope],
         ttl: Duration,
     ) -> Result<IssuedGrant, ErrorCode> {
         if !scopes.contains(&Scope::Observer)
@@ -234,7 +235,7 @@ impl Server {
         let mut lock = self.registry.try_lock().map_err(|_| ErrorCode::Busy)?;
         let registry = lock.as_mut().ok_or(ErrorCode::Interrupted)?;
         let issued = registry
-            .issue(authority, &trusted_binding, scopes, &[], ttl)
+            .issue(authority, &trusted_binding, scopes, information, ttl)
             .map_err(grant_error)?;
         // SQLite may wait. Verify the registered filesystem identity again
         // before privately delivering a credential; never rebind a replaced
