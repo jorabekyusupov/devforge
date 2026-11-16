@@ -5325,7 +5325,8 @@ fn a09_pending_reviews_hide_auto_actions_and_mask_revoked_or_stale_assignments()
         limits::{SafeInt, Text},
         mutations::{
             DebuggerAssignInput, DebuggerBreakpoint, DebuggerBreakpointsInput, DebuggerCommand,
-            DebuggerControlInput, DebuggerMode, DebuggerModeInput, DebuggerPrimitive, DebuggerSecret,
+            DebuggerControlInput, DebuggerMode, DebuggerModeInput, DebuggerPrimitive,
+            DebuggerSecret,
         },
     };
     use devforge_manager::service_control::{ReviewState, ReviewTarget};
@@ -5438,11 +5439,22 @@ fn a09_pending_reviews_hide_auto_actions_and_mask_revoked_or_stale_assignments()
     // the stopped project's debugger mode off is a separate legitimate action
     // that advances its project revision and invalidates the old review.
     let change = env_request(
-        &project.id, project.revision, "a09-stale-mode",
-        MutationInput::DebuggerMode(DebuggerModeInput { mode: DebuggerMode::Off, runtime_id: None, limits: None }),
+        &project.id,
+        project.revision,
+        "a09-stale-mode",
+        MutationInput::DebuggerMode(DebuggerModeInput {
+            mode: DebuggerMode::Off,
+            runtime_id: None,
+            limits: None,
+        }),
     );
     let mode_plan = two.debugger_plan(&change).unwrap().data().unwrap().clone();
-    let receipt = two.debugger_apply(&change, &mode_plan.digest).unwrap().data().unwrap().clone();
+    let receipt = two
+        .debugger_apply(&change, &mode_plan.digest)
+        .unwrap()
+        .data()
+        .unwrap()
+        .clone();
     assert_eq!(rig.complete(&second, &receipt), OperationState::Succeeded);
     let listed = rig.native.pending_reviews().unwrap();
     let stale = listed
