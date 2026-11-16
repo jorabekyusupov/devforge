@@ -1669,3 +1669,9 @@ export/no-clobber, frontend/locale and relevant transport behavior. A feature-ga
 synthetic paused-debugger fixture is not real Xdebug or native OS acceptance. The
 PR CI records macOS/Windows results; actual Xdebug acceptance is not inferred from
 that fixture. Native UI visual review was unavailable without `agent-desktop`.
+
+Initial A09 CI run 43910072358 failed the Russian and Uzbek agent UI fixtures:
+they expected four checkboxes after two explicit information-right choices were
+added. The fixtures now check all six and verify both new choices default off; the
+focused two-language tests passed locally. Final platform evidence is in the
+subsequent CI run.

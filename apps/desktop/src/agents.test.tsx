@@ -753,7 +753,17 @@ describe("minimal agent settings", () => {
           name: engine.t("agentConnections.createGrant"),
         }),
       ).toBeEnabled();
-      expect(screen.getAllByRole("checkbox")).toHaveLength(4);
+      expect(screen.getAllByRole("checkbox")).toHaveLength(6);
+      expect(
+        screen.getByRole("checkbox", {
+          name: engine.t("agentConnections.information.source_artifacts"),
+        }),
+      ).not.toBeChecked();
+      expect(
+        screen.getByRole("checkbox", {
+          name: engine.t("agentConnections.information.debugger_values"),
+        }),
+      ).not.toBeChecked();
       expect(document.body).not.toHaveTextContent("agentConnections.");
     },
   );
