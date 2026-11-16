@@ -4,6 +4,8 @@
 
 ## 2026-11-16
 
+- **A02 information rights:** canonical five-value contract, explicit native-owner SDK/controller/Tauri DTO selection with legacy empty default, central read authorization reused by metadata admission/dequeue/output. All five independent rights and zero-reader denial, native issuance/persistence/revoke/forgery, unchanged metadata policy checked. Visible permission UI and content/SQL handlers remain later packets. [Grant contract](../architecture/external-grants.md), [metadata](../architecture/metadata-diagnostics.md), [execution](execution-status.md).
+
 - **A01 Laravel test-job isolation:** owned ready child/source/Git/FS binding, exclusive per-job SQLite, credential-free fixed testing context and job-local Laravel caches/storage. Child env/PHPUnit/cached-config/argv overrides refused. Actual ARM64 PHP8.4.27/Laravel13.42.0 normal bootstrap migration/create/delete preserves two dev canaries, source env/APP_KEY and Git/dirty state. Single reviewed PHP test-file slice; no OS sandbox or Windows actual Laravel claim. [Contract](../architecture/managed-execution.md), [execution](execution-status.md).
 
 - **Minimal execution integration:** completed proof histories recorded without temporary workflows; exact M13.6a WIP integrated, missing Git-follow-up lint passed, previous green evidence reused. Real Laravel test isolation and deferred report work remain. [Execution](execution-status.md), [contract](../architecture/managed-execution.md).

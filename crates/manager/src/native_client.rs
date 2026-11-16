@@ -915,11 +915,24 @@ impl NativeClient {
         scopes: &[devforge_control::Scope],
         ttl: Duration,
     ) -> Result<crate::external_auth::IssuedGrant> {
+        self.issue_external_grant_with_information(project, scopes, &[], ttl)
+    }
+    /// Explicit native-owner choice only. Rights are independent; no default,
+    /// dependency broadening or content reader is implied by this issuance.
+    pub fn issue_external_grant_with_information(
+        &mut self,
+        project: &Id,
+        scopes: &[devforge_control::Scope],
+        information: &[devforge_control::InformationScope],
+        ttl: Duration,
+    ) -> Result<crate::external_auth::IssuedGrant> {
         let ttl_ms = u64::try_from(ttl.as_millis()).map_err(|_| Error::InputLimit)?;
-        let mut value = self.authenticated(
-            "external_grant_issue",
-            json!({"project_id":project,"scopes":scopes,"ttl_ms":ttl_ms}),
-        )?;
+        let mut fields = json!({"project_id":project,"scopes":scopes,"ttl_ms":ttl_ms});
+        // Preserve the legacy wire shape for metadata-only issuance.
+        if !information.is_empty() {
+            fields["information"] = json!(information);
+        }
+        let mut value = self.authenticated("external_grant_issue", fields)?;
         let credential = match value.get_mut("credential") {
             Some(Value::String(value)) => Zeroizing::new(std::mem::take(value)),
             _ => return Err(Error::Protocol),
@@ -931,7 +944,11 @@ impl NativeClient {
             credential: String,
         }
         let parsed: Issued = decode(value)?;
-        if !parsed.credential.is_empty() || &parsed.record.project_id != project {
+        if !parsed.credential.is_empty()
+            || &parsed.record.project_id != project
+            || parsed.record.scopes != scopes
+            || parsed.record.information != information
+        {
             return Err(Error::Protocol);
         }
         Ok(crate::external_auth::IssuedGrant {

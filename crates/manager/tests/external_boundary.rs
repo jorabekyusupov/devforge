@@ -79,6 +79,10 @@ struct Running {
 }
 impl Running {
     fn new(root: &Path, store: Arc<MemoryStore>) -> Self {
+        Self::start(root, store, StartIntent::AutoStart)
+    }
+    fn start(root: &Path, store: Arc<MemoryStore>, intent: StartIntent) -> Self {
+        let gets_before = store.gets.load(Ordering::Relaxed);
         let owner = common::acquire(root).unwrap();
         let mut auth = DesktopAuth::new(
             owner.endpoint().clone(),
@@ -96,7 +100,7 @@ impl Running {
         drop(owner);
         let controller = Controller::start(
             root,
-            StartIntent::AutoStart,
+            intent,
             Stores {
                 workspace: Arc::new(MemoryStore::default()),
                 desktop: store.clone(),
@@ -111,7 +115,7 @@ impl Running {
             assert!(Instant::now() < until);
             thread::sleep(Duration::from_millis(10));
         }
-        assert_eq!(store.gets.load(Ordering::Relaxed), 0);
+        assert_eq!(store.gets.load(Ordering::Relaxed), gets_before);
         let client = NativeClient::authenticate_explicit(endpoint.clone(), &key).unwrap();
         Self {
             client,
@@ -431,4 +435,123 @@ fn stdio_file_binding_is_verified_by_manager_and_cannot_enable_cancel_or_foreign
             .is_err()
     );
     assert!(devforge_platform::distribution::AppLease::acquire(root.path()).is_ok());
+}
+
+#[test]
+fn a02_native_selected_content_rights_are_explicit_persisted_and_not_agent_authority() {
+    use devforge_control::InformationScope::*;
+    let root = common::root("df-a02-native-");
+    let a = project(root.path(), "Alpha");
+    let b = project(root.path(), "Bravo");
+    let store = Arc::new(MemoryStore::default());
+    let mut owner = Running::new(root.path(), store.clone());
+    let baseline = owner.issue(&a.id, false);
+    assert!(baseline.record.information.is_empty());
+    let rights = [
+        LogContent,
+        InspectorQueries,
+        MailContent,
+        SourceArtifacts,
+        DatabaseQuery,
+    ];
+    let selected = owner
+        .client
+        .issue_external_grant_with_information(
+            &id(&a.id),
+            &[Scope::Observer],
+            &rights,
+            Duration::from_secs(60),
+        )
+        .unwrap();
+    assert_eq!(selected.record.information, rights);
+    assert_eq!(selected.record.scopes, [Scope::Observer]);
+    assert!(
+        owner
+            .client
+            .issue_external_grant_with_information(
+                &id(&a.id),
+                &[Scope::Observer],
+                &[LogContent, LogContent],
+                Duration::from_secs(60)
+            )
+            .is_err()
+    );
+    assert!(
+        owner
+            .client
+            .issue_external_grant_with_information(
+                &id(&a.id),
+                &[Scope::ProjectManage],
+                &[LogContent],
+                Duration::from_secs(60)
+            )
+            .is_err()
+    );
+    // A bearer cannot select rights for itself through the native-owner route.
+    let forged = owner
+        .transport
+        .request(&json!({"method":"external_grant_issue",
+        "session":baseline.credential.expose_secret(),"project_id":a.id,"scopes":["observer"],
+        "information":["log_content"],"ttl_ms":60000}))
+        .unwrap();
+    assert_eq!(forged["ok"], false);
+    // Even an explicit grant does not silently activate A03/A06 content readers.
+    for input in [
+        json!({"tool":"logs.search","arguments":{"query":""}}),
+        json!({"tool":"mail.list","arguments":{"subject":""}}),
+        json!({"tool":"mail.list","arguments":{"recipient":""}}),
+    ] {
+        let response = owner
+            .transport
+            .request(&json!({"method":"diagnostics_read",
+            "credential":selected.credential.expose_secret(),"request":{"api_version":1,
+                "request_id":"a02-no-new-reader","project_id":a.id,"input":input}}))
+            .unwrap();
+        assert_eq!(response["error"]["code"], "unauthorized");
+    }
+    let listed = owner.client.list_external_grants().unwrap();
+    assert_eq!(
+        listed
+            .iter()
+            .find(|g| g.grant_id == selected.record.grant_id)
+            .unwrap()
+            .information,
+        rights
+    );
+    assert!(
+        !serde_json::to_string(&listed)
+            .unwrap()
+            .contains(selected.credential.expose_secret())
+    );
+    let mut external = owner.external(&selected.credential);
+    failure(
+        call(
+            &mut external,
+            ExternalInput::ProjectGet {
+                project_id: id(&b.id),
+            },
+        ),
+        ErrorCode::ProjectMismatch,
+    );
+    drop(external);
+    drop(owner);
+    let mut restarted = Running::start(root.path(), store, StartIntent::ExplicitUserStart);
+    let listed = restarted.client.list_external_grants().unwrap();
+    assert_eq!(
+        listed
+            .iter()
+            .find(|g| g.grant_id == selected.record.grant_id)
+            .unwrap()
+            .information,
+        rights
+    );
+    restarted
+        .client
+        .revoke_external_grant(&selected.record.grant_id)
+        .unwrap();
+    let mut external = restarted.external(&selected.credential);
+    failure(
+        call(&mut external, ExternalInput::ProjectList {}),
+        ErrorCode::GrantRevoked,
+    );
 }

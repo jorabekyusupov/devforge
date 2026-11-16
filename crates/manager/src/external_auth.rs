@@ -67,16 +67,8 @@ impl std::fmt::Display for Error {
 impl std::error::Error for Error {}
 pub type Result<T> = std::result::Result<T, Error>;
 
-/// Internal policy additions, not yet public tool/schema capabilities.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum InformationScope {
-    LogContent,
-    InspectorQueries,
-    MailContent,
-    SourceArtifacts,
-    DatabaseQuery,
-}
+// Preserve the original SDK path while sharing one canonical contract.
+pub use devforge_control::InformationScope;
 
 /// High-entropy bearer credential. No Clone/Serialize or plaintext Debug.
 pub struct ExternalCredential(Zeroizing<String>);
@@ -530,6 +522,26 @@ impl ExternalRegistry {
             .map_err(storage)?;
         Id::new(project.ok_or(Error::Unauthorized)?).map_err(|_| Error::StorageUnavailable)
     }
+    /// One read boundary for metadata or one explicit content capability.
+    /// Call before source/filter IO, again at dequeue and before returning data.
+    /// This authorization never installs a reader or executes a database query.
+    pub fn authorize_read(
+        &mut self,
+        peer: &PeerIdentity,
+        credential: &ExternalCredential,
+        project: &ProjectBinding,
+        content: Option<InformationScope>,
+        expected_revision: Option<u64>,
+    ) -> Result<AuthorizedExternal> {
+        self.authorize(
+            peer,
+            credential,
+            project,
+            &[Scope::Observer],
+            content.as_slice(),
+            expected_revision,
+        )
+    }
     pub fn authorize(
         &mut self,
         peer: &PeerIdentity,
@@ -978,6 +990,109 @@ mod tests {
         registry
             .issue(&auth.proof(), project, scopes, information, ttl)
             .unwrap()
+    }
+
+    #[test]
+    fn a02_content_read_gate_is_independent_and_denies_before_reader_io() {
+        use std::cell::Cell;
+        let root = test_support::root("df-a02-");
+        let owner = test_support::acquire(root.path()).unwrap();
+        let binding = project(root.path(), "project-a", 1);
+        let foreign = project(root.path(), "project-b", 1);
+        let clock = TestClock::new();
+        let mut registry = ExternalRegistry::open_with_clock(&owner, clock.clone()).unwrap();
+        let mut auth = Auth::new(&owner, Duration::from_secs(600));
+        let rights = [
+            InformationScope::LogContent,
+            InformationScope::InspectorQueries,
+            InformationScope::MailContent,
+            InformationScope::SourceArtifacts,
+            InformationScope::DatabaseQuery,
+        ];
+        let metadata = issue(
+            &mut registry,
+            &mut auth,
+            &binding,
+            &[
+                Scope::Observer,
+                Scope::ProjectManage,
+                Scope::ExecutionTest,
+                Scope::SensitiveOperation,
+            ],
+            &[],
+            Duration::from_secs(30),
+        );
+        let reads = Cell::new(0);
+        let peer = auth.peer.clone();
+        // This is a synthetic reader boundary, never real logs/mail/source/SQL.
+        let read = |registry: &mut ExternalRegistry,
+                    credential: &ExternalCredential,
+                    project: &ProjectBinding,
+                    right: InformationScope|
+         -> Result<()> {
+            registry.authorize_read(&peer, credential, project, Some(right), Some(1))?;
+            reads.set(reads.get() + 1);
+            Ok(())
+        };
+        for right in rights {
+            assert_eq!(
+                read(&mut registry, &metadata.credential, &binding, right),
+                Err(Error::Unauthorized)
+            );
+        }
+        assert_eq!(reads.get(), 0);
+        for right in rights {
+            let selected = registry
+                .issue(
+                    &auth.proof(),
+                    &binding,
+                    &[Scope::Observer],
+                    &[right],
+                    Duration::from_secs(30),
+                )
+                .unwrap();
+            let before = reads.get();
+            assert_eq!(
+                read(&mut registry, &selected.credential, &foreign, right),
+                Err(Error::ProjectMismatch)
+            );
+            for other in rights.into_iter().filter(|other| *other != right) {
+                assert_eq!(
+                    read(&mut registry, &selected.credential, &binding, other),
+                    Err(Error::Unauthorized)
+                );
+            }
+            assert_eq!(reads.get(), before);
+            read(&mut registry, &selected.credential, &binding, right).unwrap();
+            assert_eq!(reads.get(), before + 1);
+            // A prior admission cannot authorize a later output after revoke.
+            registry
+                .revoke(&auth.proof(), &selected.record.grant_id)
+                .unwrap();
+            assert_eq!(
+                read(&mut registry, &selected.credential, &binding, right),
+                Err(Error::Revoked)
+            );
+            assert_eq!(reads.get(), before + 1);
+        }
+        for right in rights {
+            let expiring = registry
+                .issue(
+                    &auth.proof(),
+                    &binding,
+                    &[Scope::Observer],
+                    &[right],
+                    Duration::from_secs(30),
+                )
+                .unwrap();
+            let before = reads.get();
+            clock.set(expiring.record.expires_at);
+            assert_eq!(
+                read(&mut registry, &expiring.credential, &binding, right),
+                Err(Error::Expired)
+            );
+            assert_eq!(reads.get(), before);
+        }
     }
 
     #[test]

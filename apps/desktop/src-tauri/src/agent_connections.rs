@@ -52,6 +52,7 @@ pub struct Grant {
     client_id: Id,
     project_id: Id,
     scopes: Vec<Scope>,
+    information: Vec<devforge_control::InformationScope>,
     created_at: u64,
     expires_at: u64,
     revoked: bool,
@@ -64,6 +65,7 @@ impl From<GrantRecord> for Grant {
             client_id: value.client_id,
             project_id: value.project_id,
             scopes: value.scopes,
+            information: value.information,
             created_at: value.created_at,
             expires_at: value.expires_at,
             revoked: value.revoked,
@@ -190,6 +192,8 @@ pub enum Request {
     Issue {
         project_id: Id,
         scopes: Vec<Scope>,
+        #[serde(default)]
+        information: Vec<devforge_control::InformationScope>,
         ttl_seconds: u64,
     },
     Revoke {
@@ -360,6 +364,7 @@ impl State {
             Request::Issue {
                 project_id,
                 scopes,
+                information,
                 ttl_seconds,
             } => {
                 validate_issue(&scopes, ttl_seconds)?;
@@ -369,9 +374,10 @@ impl State {
                 verify_artifact(&artifact)?;
                 let issued = bridge
                     .agent_owner_action(|client| {
-                        client.issue_external_grant(
+                        client.issue_external_grant_with_information(
                             &project_id,
                             &scopes,
+                            &information,
                             Duration::from_secs(ttl_seconds),
                         )
                     })
@@ -930,11 +936,15 @@ mod tests {
         for request in [
             json!({"action":"state","session":"never-js"}),
             json!({"action":"connect","role":"desktop"}),
-            json!({"action":"issue","project_id":"p","scopes":["observer"],"ttl_seconds":60,"information":["mail_content"]}),
+            json!({"action":"issue","project_id":"p","scopes":["observer"],"ttl_seconds":60,"information":["unknown_content"]}),
             json!({"action":"confirm_machine","digest":"a".repeat(64),"elevate":true}),
         ] {
             assert!(serde_json::from_value::<Request>(request).is_err());
         }
+        let issue: Request = serde_json::from_value(json!({"action":"issue","project_id":"p","scopes":["observer"],"ttl_seconds":60,"information":["mail_content"]})).unwrap();
+        assert!(
+            matches!(issue, Request::Issue {information, ..} if information == [devforge_control::InformationScope::MailContent])
+        );
         assert!(validate_issue(&[Scope::Observer, Scope::SensitiveOperation], 60).is_err());
         assert!(validate_issue(&[Scope::Observer], 2592001).is_err());
         assert!(validate_issue(&[Scope::Observer, Scope::ProjectManage], 60).is_ok());

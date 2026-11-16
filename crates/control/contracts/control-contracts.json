@@ -24,6 +24,16 @@
     "idempotency_unverifiable",
     "result_unavailable"
   ],
+  "information_scope_schema": {
+    "enum": [
+      "log_content",
+      "inspector_queries",
+      "mail_content",
+      "source_artifacts",
+      "database_query"
+    ],
+    "type": "string"
+  },
   "live_available": false,
   "mutation_request_schema": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",

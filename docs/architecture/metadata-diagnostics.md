@@ -72,3 +72,15 @@ The successful flow was not rerun for routine final checks. Windows/native UI,
 minimum OS and richer content/correlation/wait/artifacts remain separate evidence
 and subsequent M13.5/M13.9/M15 work. Publication and source references are in
 [execution status](../knowledge/execution-status.md).
+
+
+## A02 authorization follow-up
+
+The [grant boundary](external-grants.md#a02-explicit-content-rights-2026-11-16)
+now supports explicit native-owner InformationScope selection. Metadata reads use
+its central `authorize_read(None)` gate at admission, dequeue/source and output.
+This does not turn content grants into live readers: the existing query/subject/
+recipient refusal remains before registration/source IO, even for a granted right.
+Log/Inspector/mail/source-artifact/DB content consumers remain later packets.
+The initial statement about no issuance describes the original metadata slice;
+A02 changes issuance only, preserving its metadata-only output/privacy contract.

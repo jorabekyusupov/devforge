@@ -433,6 +433,8 @@ enum Request {
         session: WireToken,
         project_id: Id,
         scopes: Vec<devforge_control::Scope>,
+        #[serde(default)]
+        information: Vec<devforge_control::InformationScope>,
         ttl_ms: u64,
     },
     ExternalGrantList {
@@ -805,6 +807,7 @@ impl Context {
             Request::ExternalGrantIssue {
                 project_id,
                 scopes,
+                information,
                 ttl_ms,
                 ..
             } => {
@@ -813,6 +816,7 @@ impl Context {
                     &self.actor,
                     &project_id,
                     &scopes,
+                    &information,
                     Duration::from_millis(ttl_ms),
                 ) {
                     Ok(issued) => success(

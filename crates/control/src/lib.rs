@@ -9,6 +9,18 @@ use std::{
     path::{Path, PathBuf},
 };
 
+/// Independently selected project content rights. Observer alone never grants
+/// these, and a right does not install a reader or establish a SQL sandbox.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum InformationScope {
+    LogContent,
+    InspectorQueries,
+    MailContent,
+    SourceArtifacts,
+    DatabaseQuery,
+}
+
 pub const API_VERSION: u16 = 1;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
