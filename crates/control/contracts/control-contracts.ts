@@ -57,6 +57,26 @@ export interface InspectorInput {
   context_id?: string | null;
   detail?: boolean | null;
 }
+export interface ActivityMarkInput {
+  stream: "inspector" | "logs";
+  detail: boolean;
+  context_id?: string | null;
+}
+export interface ActivityMarkOutput {
+  bookmark: string;
+}
+export interface ActivityWaitInput {
+  bookmark: string;
+  timeout_ms: number;
+  context_id?: string | null;
+}
+export type ActivityEvent = { stream: "inspector"; data: InspectorItem } | { stream: "logs"; context_id: string; data: LogItem };
+export interface ActivityWaitOutput {
+  bookmark: string;
+  event?: ActivityEvent | null;
+  timed_out: boolean;
+  continuity: "unverified";
+}
 export interface DebuggerInput {
   page?: PageRequest | null;
 }

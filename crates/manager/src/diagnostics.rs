@@ -17,7 +17,7 @@ use std::{
     collections::VecDeque,
     sync::{
         Arc, Mutex,
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicUsize, Ordering},
         mpsc::SyncSender,
     },
     time::{Duration, Instant},
@@ -25,9 +25,15 @@ use std::{
 use zeroize::Zeroizing;
 const TTL: Duration = Duration::from_secs(120);
 const WINDOW_BYTES: usize = 8 * 1024 * 1024;
+#[derive(Clone)]
 pub(crate) enum ReadMode {
     Registration,
     Window(devforge_workspace::activity_metadata::ActivityKind),
+    WindowAfter(
+        devforge_workspace::activity_metadata::ActivityKind,
+        u64,
+        Instant,
+    ),
     Epoch(devforge_workspace::activity_metadata::ActivityKind),
 }
 type Check = Box<dyn Fn(&devforge_workspace::Workspace) -> devforge_workspace::Result<()> + Send>;
@@ -60,6 +66,15 @@ impl MetadataRead {
                 ReadMode::Registration => (None, None),
                 ReadMode::Window(kind) => (
                     Some(workspace.activity_metadata(self.project.as_str(), kind, &check)?),
+                    None,
+                ),
+                ReadMode::WindowAfter(kind, anchor, _) => (
+                    Some(workspace.activity_metadata_with_anchor(
+                        self.project.as_str(),
+                        kind,
+                        *anchor,
+                        &check,
+                    )?),
                     None,
                 ),
                 ReadMode::Epoch(kind) => (
@@ -166,22 +181,55 @@ impl Windows {
         Ok(cursor)
     }
 }
+#[derive(Clone)]
+struct ActivityBookmark {
+    id: Id,
+    client: Id,
+    grant: Id,
+    project: Id,
+    revision: u64,
+    stream: ActivityStream,
+    detail: bool,
+    context: Option<Id>,
+    epoch: String,
+    high_water: u64,
+    expires: Instant,
+}
+struct WaitPermit<'a>(&'a AtomicUsize);
+impl Drop for WaitPermit<'_> {
+    fn drop(&mut self) {
+        self.0.fetch_sub(1, Ordering::AcqRel);
+    }
+}
 pub(crate) struct Diagnostics {
     grants: Arc<Grants>,
     windows: Mutex<Windows>,
+    activity: Mutex<VecDeque<ActivityBookmark>>,
+    waiters: AtomicUsize,
+    stopping: AtomicBool,
 }
 impl Diagnostics {
     pub(crate) fn new(grants: Arc<Grants>) -> Self {
         Self {
             grants,
             windows: Mutex::new(Default::default()),
+            activity: Mutex::new(Default::default()),
+            waiters: AtomicUsize::new(0),
+            stopping: AtomicBool::new(false),
         }
+    }
+    pub(crate) fn interrupt_waits(&self) {
+        self.stopping.store(true, Ordering::Release);
     }
     pub(crate) fn clear(&self) {
         *self
             .windows
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner) = Windows::default();
+        self.activity
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clear();
     }
     pub(crate) fn request(
         self: &Arc<Self>,
@@ -221,20 +269,88 @@ impl Diagnostics {
         mode: ReadMode,
         read_policy: (Option<devforge_control::InformationScope>, Option<u64>),
     ) -> Result<ReadResult, ErrorCode> {
-        let (content, revision) = read_policy;
+        self.query_until(
+            actor,
+            peer,
+            credential,
+            project,
+            mode,
+            (read_policy.0, read_policy.1, None),
+        )
+    }
+    fn query_until(
+        self: &Arc<Self>,
+        actor: &ActorHandle,
+        peer: &PeerIdentity,
+        credential: &ExternalCredential,
+        project: &Id,
+        mode: ReadMode,
+        read_policy: (
+            Option<devforge_control::InformationScope>,
+            Option<u64>,
+            Option<Instant>,
+        ),
+    ) -> Result<ReadResult, ErrorCode> {
+        let mut saw_busy = false;
+        loop {
+            if matches!(&mode, ReadMode::WindowAfter(_, _, deadline) if Instant::now() >= *deadline)
+            {
+                return Err(if saw_busy {
+                    ErrorCode::Busy
+                } else {
+                    ErrorCode::TimedOut
+                });
+            }
+            if read_policy.2.is_some() && self.stopping.load(Ordering::Acquire) {
+                return Err(ErrorCode::Interrupted);
+            }
+            match self.query_once(actor, peer, credential, project, mode.clone(), read_policy) {
+                Err(ErrorCode::Busy) if read_policy.2.is_some_and(|d| Instant::now() < d) => {
+                    saw_busy = true;
+                    std::thread::sleep(Duration::from_millis(10));
+                }
+                result => return result,
+            }
+        }
+    }
+    fn query_once(
+        self: &Arc<Self>,
+        actor: &ActorHandle,
+        peer: &PeerIdentity,
+        credential: &ExternalCredential,
+        project: &Id,
+        mode: ReadMode,
+        read_policy: (
+            Option<devforge_control::InformationScope>,
+            Option<u64>,
+            Option<Instant>,
+        ),
+    ) -> Result<ReadResult, ErrorCode> {
+        let (content, revision, deadline) = read_policy;
         let policy = self.clone();
         let peer = peer.clone();
         let credential =
             ExternalCredential::from_wire(credential.expose_secret()).map_err(grant_error)?;
         let subject = project.clone();
         let check = Box::new(move |workspace: &devforge_workspace::Workspace| {
+            if deadline.is_some() && policy.stopping.load(Ordering::Acquire) {
+                return Err(crate::service_control::ws_error(ErrorCode::Interrupted));
+            }
             let binding = crate::service_control::domain_registration_binding(workspace, &subject)
                 .map_err(crate::service_control::ws_error)?;
-            policy
-                .grants
-                .registry
-                .lock()
-                .map_err(|_| crate::service_control::ws_error(ErrorCode::StorageUnavailable))?
+            let mut registry =
+                if deadline.is_some() {
+                    policy
+                        .grants
+                        .registry
+                        .try_lock()
+                        .map_err(|_| crate::service_control::ws_error(ErrorCode::Busy))?
+                } else {
+                    policy.grants.registry.lock().map_err(|_| {
+                        crate::service_control::ws_error(ErrorCode::StorageUnavailable)
+                    })?
+                };
+            registry
                 .as_mut()
                 .ok_or_else(|| crate::service_control::ws_error(ErrorCode::Interrupted))?
                 .authorize_read(&peer, &credential, &binding, content, revision)
@@ -252,13 +368,430 @@ impl Diagnostics {
                 reply,
             })
             .map_err(|_| ErrorCode::Busy)?;
-        match receiver.recv_timeout(Duration::from_secs(5)) {
+        let limit = deadline
+            .map(|end| {
+                end.saturating_duration_since(Instant::now())
+                    .min(Duration::from_secs(5))
+            })
+            .unwrap_or(Duration::from_secs(5));
+        match receiver.recv_timeout(limit) {
             Ok(result) => result.map_err(crate::service_control::environment_error),
             Err(_) => {
                 cancelled.store(true, Ordering::Release);
                 Err(ErrorCode::TimedOut)
             }
         }
+    }
+    /// The owner thread serves the request; only brief scoped reads are queued
+    /// on the actor. No SQLite transaction or actor work is held while sleeping.
+    pub(crate) fn activity_request(
+        self: &Arc<Self>,
+        peer: PeerIdentity,
+        value: Value,
+        actor: &ActorHandle,
+        rejected: Option<ErrorCode>,
+    ) -> Value {
+        let id = value
+            .get("request")
+            .and_then(|v| v.get("request_id"))
+            .and_then(Value::as_str)
+            .and_then(|v| Id::new(v).ok())
+            .unwrap_or_else(|| Id::new("invalid-request").unwrap());
+        let result = if let Some(code) = rejected {
+            Err(code)
+        } else if self.stopping.load(Ordering::Acquire) {
+            Err(ErrorCode::Interrupted)
+        } else if value
+            .get("request")
+            .and_then(|v| v.get("api_version"))
+            .and_then(Value::as_u64)
+            .is_some_and(|v| v != 1)
+        {
+            Err(ErrorCode::UnsupportedVersion)
+        } else {
+            self.activity_inner(&peer, value, actor)
+        };
+        serde_json::to_value(match result {
+            Ok(data) => Response::success(id, None, data),
+            Err(code) => Response::failure(id, None, code.fault()),
+        }).unwrap_or_else(|_| json!({"api_version":1,"request_id":"invalid-request","ok":false,"error":{"code":"storage_unavailable","retryable":true},"warnings":[]}))
+    }
+    fn activity_inner(
+        self: &Arc<Self>,
+        peer: &PeerIdentity,
+        value: Value,
+        actor: &ActorHandle,
+    ) -> Result<Value, ErrorCode> {
+        let method = value
+            .get("method")
+            .and_then(Value::as_str)
+            .ok_or(ErrorCode::InvalidInput)?;
+        match method {
+            "activity_mark" => {
+                #[derive(Deserialize)]
+                #[serde(deny_unknown_fields)]
+                struct MarkWire {
+                    method: String,
+                    credential: Token,
+                    request: Request<ActivityMarkInput>,
+                }
+                let wire: MarkWire =
+                    serde_json::from_value(value).map_err(|_| ErrorCode::InvalidInput)?;
+                if wire.method != "activity_mark" || wire.request.idempotency_key.is_some() {
+                    return Err(ErrorCode::InvalidInput);
+                }
+                let credential =
+                    ExternalCredential::from_wire(&wire.credential.0).map_err(grant_error)?;
+                let input = wire.request.input;
+                let kind = activity_kind(input.stream, input.detail, input.context_id.as_ref())?;
+                let content = activity_scope(input.stream, input.detail);
+                let deadline = Instant::now() + Duration::from_secs(4);
+                let registration = self.query_until(
+                    actor,
+                    peer,
+                    &credential,
+                    &wire.request.project_id,
+                    ReadMode::Registration,
+                    (content, wire.request.expected_revision, Some(deadline)),
+                )?;
+                let read = self.query_until(
+                    actor,
+                    peer,
+                    &credential,
+                    &wire.request.project_id,
+                    ReadMode::Window(kind),
+                    (
+                        content,
+                        Some(registration.binding.revision()),
+                        Some(deadline),
+                    ),
+                )?;
+                if read.binding.root() != registration.binding.root() {
+                    return Err(ErrorCode::ProjectMismatch);
+                }
+                let source = read.window.ok_or(ErrorCode::StorageUnavailable)?;
+                if source.missing {
+                    return Err(ErrorCode::PreconditionFailed);
+                }
+                let current = self.query_until(
+                    actor,
+                    peer,
+                    &credential,
+                    &wire.request.project_id,
+                    ReadMode::Registration,
+                    (
+                        content,
+                        Some(registration.binding.revision()),
+                        Some(deadline),
+                    ),
+                )?;
+                if current.binding.root() != registration.binding.root() {
+                    return Err(ErrorCode::ProjectMismatch);
+                }
+                let (client, grant) = self.activity_identity(
+                    peer,
+                    &credential,
+                    &current.binding,
+                    content,
+                    Some(registration.binding.revision()),
+                    Some(deadline),
+                )?;
+                let bookmark = ActivityBookmark {
+                    id: opaque_id()?,
+                    client,
+                    grant,
+                    project: wire.request.project_id,
+                    revision: read.binding.revision(),
+                    stream: input.stream,
+                    detail: input.detail,
+                    context: input.context_id,
+                    epoch: source.epoch,
+                    high_water: source.high_water,
+                    expires: Instant::now() + TTL,
+                };
+                if self.stopping.load(Ordering::Acquire) {
+                    return Err(ErrorCode::Interrupted);
+                }
+                let id = bookmark.id.clone();
+                self.save_activity(bookmark)?;
+                serde_json::to_value(ActivityMarkOutput { bookmark: id })
+                    .map_err(|_| ErrorCode::StorageUnavailable)
+            }
+            "activity_wait" => {
+                #[derive(Deserialize)]
+                #[serde(deny_unknown_fields)]
+                struct WaitWire {
+                    method: String,
+                    credential: Token,
+                    request: Request<ActivityWaitInput>,
+                }
+                let wire: WaitWire =
+                    serde_json::from_value(value).map_err(|_| ErrorCode::InvalidInput)?;
+                if wire.method != "activity_wait" || wire.request.idempotency_key.is_some() {
+                    return Err(ErrorCode::InvalidInput);
+                }
+                if self
+                    .waiters
+                    .try_update(Ordering::AcqRel, Ordering::Acquire, |v| {
+                        (v < 4).then_some(v + 1)
+                    })
+                    .is_err()
+                {
+                    return Err(ErrorCode::Busy);
+                }
+                let _permit = WaitPermit(&self.waiters);
+                let mut bookmark = {
+                    let mut all = self.activity.try_lock().map_err(|_| ErrorCode::Busy)?;
+                    all.retain(|v| Instant::now() < v.expires);
+                    all.iter()
+                        .find(|v| v.id == wire.request.input.bookmark)
+                        .cloned()
+                        .ok_or(ErrorCode::CursorExpired)?
+                };
+                if bookmark.project != wire.request.project_id {
+                    return Err(ErrorCode::ProjectMismatch);
+                }
+                if wire
+                    .request
+                    .expected_revision
+                    .is_some_and(|v| v != bookmark.revision)
+                {
+                    return Err(ErrorCode::RevisionConflict);
+                }
+                let narrowed = match (&bookmark.context, &wire.request.input.context_id) {
+                    (Some(old), Some(new)) if old != new => return Err(ErrorCode::CursorExpired),
+                    (None, Some(new)) => {
+                        bookmark.context = Some(new.clone());
+                        true
+                    }
+                    _ => false,
+                };
+                let credential =
+                    ExternalCredential::from_wire(&wire.credential.0).map_err(grant_error)?;
+                let kind =
+                    activity_kind(bookmark.stream, bookmark.detail, bookmark.context.as_ref())?;
+                let content = activity_scope(bookmark.stream, bookmark.detail);
+                let deadline =
+                    Instant::now() + Duration::from_millis(wire.request.input.timeout_ms.get());
+                // Registry SQLite may spend at most 250ms inside one authorization;
+                // reserve the other half of the 500ms grace for that call.
+                let hard_deadline = deadline + Duration::from_millis(250);
+                let read_deadline = deadline + Duration::from_millis(100);
+                // Verify the original client/grant BEFORE any activity source IO.
+                let registration = self.query_until(
+                    actor,
+                    peer,
+                    &credential,
+                    &bookmark.project,
+                    ReadMode::Registration,
+                    (content, Some(bookmark.revision), Some(hard_deadline)),
+                )?;
+                let (client, grant) = self.activity_identity(
+                    peer,
+                    &credential,
+                    &registration.binding,
+                    content,
+                    Some(bookmark.revision),
+                    Some(hard_deadline),
+                )?;
+                if client != bookmark.client || grant != bookmark.grant {
+                    return Err(ErrorCode::Unauthorized);
+                }
+                let mut observed = false;
+                loop {
+                    if self.stopping.load(Ordering::Acquire) {
+                        return Err(ErrorCode::Interrupted);
+                    }
+                    if Instant::now() >= bookmark.expires {
+                        return Err(ErrorCode::CursorExpired);
+                    }
+                    if Instant::now() >= deadline {
+                        if !observed {
+                            return Err(ErrorCode::TimedOut);
+                        }
+                        let current = self.query_until(
+                            actor,
+                            peer,
+                            &credential,
+                            &bookmark.project,
+                            ReadMode::Registration,
+                            (content, Some(bookmark.revision), Some(hard_deadline)),
+                        )?;
+                        let (client, grant) = self.activity_identity(
+                            peer,
+                            &credential,
+                            &current.binding,
+                            content,
+                            Some(bookmark.revision),
+                            Some(hard_deadline),
+                        )?;
+                        if client != bookmark.client || grant != bookmark.grant {
+                            return Err(ErrorCode::Unauthorized);
+                        }
+                        if self.stopping.load(Ordering::Acquire) {
+                            return Err(ErrorCode::Interrupted);
+                        }
+                        if Instant::now() >= bookmark.expires {
+                            return Err(ErrorCode::CursorExpired);
+                        }
+                        self.ensure_activity_live(&wire.request.input.bookmark)?;
+                        if narrowed {
+                            bookmark.id = opaque_id()?;
+                            self.save_activity(bookmark.clone())?;
+                        }
+                        return serde_json::to_value(ActivityWaitOutput {
+                            bookmark: bookmark.id,
+                            event: None,
+                            timed_out: true,
+                            continuity: ActivityContinuity::Unverified,
+                        })
+                        .map_err(|_| ErrorCode::StorageUnavailable);
+                    }
+                    let read = match self.query_until(
+                        actor,
+                        peer,
+                        &credential,
+                        &bookmark.project,
+                        ReadMode::WindowAfter(kind.clone(), bookmark.high_water, deadline),
+                        (content, Some(bookmark.revision), Some(read_deadline)),
+                    ) {
+                        Err(ErrorCode::TimedOut) if observed => continue,
+                        result => result?,
+                    };
+                    let window = read.window.ok_or(ErrorCode::StorageUnavailable)?;
+                    observed = true;
+                    if window.missing
+                        || window.epoch != bookmark.epoch
+                        || window.anchor_present != Some(true)
+                        || window.high_water < bookmark.high_water
+                    {
+                        return Err(ErrorCode::CursorExpired);
+                    }
+                    let (client, grant) = self.activity_identity(
+                        peer,
+                        &credential,
+                        &read.binding,
+                        content,
+                        Some(bookmark.revision),
+                        Some(hard_deadline),
+                    )?;
+                    if client != bookmark.client || grant != bookmark.grant {
+                        return Err(ErrorCode::Unauthorized);
+                    }
+                    if window
+                        .first_omitted
+                        .is_some_and(|sequence| sequence > bookmark.high_water)
+                    {
+                        return Err(ErrorCode::OutputLimitExceeded);
+                    }
+                    if let Some(row) = window
+                        .rows
+                        .iter()
+                        .filter(|row| row.sequence > bookmark.high_water)
+                        .min_by_key(|row| row.sequence)
+                    {
+                        let event = activity_event(&row.item)?;
+                        let current = self.query_until(
+                            actor,
+                            peer,
+                            &credential,
+                            &bookmark.project,
+                            ReadMode::Registration,
+                            (content, Some(bookmark.revision), Some(hard_deadline)),
+                        )?;
+                        let (client, grant) = self.activity_identity(
+                            peer,
+                            &credential,
+                            &current.binding,
+                            content,
+                            Some(bookmark.revision),
+                            Some(hard_deadline),
+                        )?;
+                        if client != bookmark.client || grant != bookmark.grant {
+                            return Err(ErrorCode::Unauthorized);
+                        }
+                        if self.stopping.load(Ordering::Acquire) {
+                            return Err(ErrorCode::Interrupted);
+                        }
+                        if Instant::now() >= bookmark.expires {
+                            return Err(ErrorCode::CursorExpired);
+                        }
+                        self.ensure_activity_live(&wire.request.input.bookmark)?;
+                        let mut advanced = bookmark.clone();
+                        advanced.id = opaque_id()?;
+                        advanced.high_water = row.sequence;
+                        let id = advanced.id.clone();
+                        self.save_activity(advanced)?;
+                        return serde_json::to_value(ActivityWaitOutput {
+                            bookmark: id,
+                            event: Some(event),
+                            timed_out: false,
+                            continuity: ActivityContinuity::Unverified,
+                        })
+                        .map_err(|_| ErrorCode::StorageUnavailable);
+                    }
+                    std::thread::sleep(
+                        Duration::from_millis(100)
+                            .min(deadline.saturating_duration_since(Instant::now())),
+                    );
+                }
+            }
+            _ => Err(ErrorCode::InvalidInput),
+        }
+    }
+    fn activity_identity(
+        &self,
+        peer: &PeerIdentity,
+        credential: &ExternalCredential,
+        binding: &ProjectBinding,
+        content: Option<devforge_control::InformationScope>,
+        revision: Option<u64>,
+        deadline: Option<Instant>,
+    ) -> Result<(Id, Id), ErrorCode> {
+        loop {
+            if self.stopping.load(Ordering::Acquire) {
+                return Err(ErrorCode::Interrupted);
+            }
+            match self.grants.registry.try_lock() {
+                Ok(mut registry) => {
+                    let proof = registry
+                        .as_mut()
+                        .ok_or(ErrorCode::Interrupted)?
+                        .authorize_read(peer, credential, binding, content, revision)
+                        .map_err(grant_error)?;
+                    return Ok((proof.client_id().clone(), proof.grant_id().clone()));
+                }
+                Err(std::sync::TryLockError::WouldBlock)
+                    if deadline.is_some_and(|d| Instant::now() < d) =>
+                {
+                    std::thread::sleep(Duration::from_millis(10))
+                }
+                Err(std::sync::TryLockError::WouldBlock) => return Err(ErrorCode::Busy),
+                Err(std::sync::TryLockError::Poisoned(_)) => {
+                    return Err(ErrorCode::StorageUnavailable);
+                }
+            }
+        }
+    }
+    fn ensure_activity_live(&self, id: &Id) -> Result<(), ErrorCode> {
+        let all = self.activity.try_lock().map_err(|_| ErrorCode::Busy)?;
+        if all
+            .iter()
+            .any(|bookmark| &bookmark.id == id && Instant::now() < bookmark.expires)
+        {
+            Ok(())
+        } else {
+            Err(ErrorCode::CursorExpired)
+        }
+    }
+    fn save_activity(&self, bookmark: ActivityBookmark) -> Result<(), ErrorCode> {
+        let mut all = self.activity.try_lock().map_err(|_| ErrorCode::Busy)?;
+        all.retain(|v| Instant::now() < v.expires);
+        if all.len() >= 128 {
+            all.pop_front();
+        }
+        all.push_back(bookmark);
+        Ok(())
     }
     fn read(
         self: &Arc<Self>,
@@ -446,6 +979,113 @@ impl Diagnostics {
             .map_err(grant_error)?;
         prepared.check_output(&output, &registration.binding, proof.observed_at())?;
         Ok(output)
+    }
+}
+fn activity_scope(
+    stream: ActivityStream,
+    detail: bool,
+) -> Option<devforge_control::InformationScope> {
+    if !detail {
+        return None;
+    }
+    Some(match stream {
+        ActivityStream::Inspector => devforge_control::InformationScope::InspectorQueries,
+        ActivityStream::Logs => devforge_control::InformationScope::LogContent,
+    })
+}
+fn activity_kind(
+    stream: ActivityStream,
+    detail: bool,
+    context: Option<&Id>,
+) -> Result<devforge_workspace::activity_metadata::ActivityKind, ErrorCode> {
+    use devforge_workspace::activity_metadata::ActivityKind;
+    let context = context.map(|v| v.as_str().to_owned());
+    let kind = match (stream, detail) {
+        (ActivityStream::Inspector, false) => ActivityKind::Inspector { context },
+        (ActivityStream::Inspector, true) => ActivityKind::InspectorDetail { context },
+        (ActivityStream::Logs, detail) => ActivityKind::WatchLogs { context, detail },
+    };
+    kind.validate().map_err(|_| ErrorCode::InvalidInput)?;
+    Ok(kind)
+}
+fn activity_event(
+    item: &devforge_workspace::activity_metadata::MetadataItem,
+) -> Result<ActivityEvent, ErrorCode> {
+    use devforge_workspace::activity_metadata::MetadataItem;
+    match item {
+        MetadataItem::Inspector {
+            context_id,
+            method,
+            status,
+            queries,
+            elapsed_ms,
+        } => Ok(ActivityEvent::Inspector {
+            data: InspectorItem {
+                context_id: Id::new(context_id)?,
+                method: devforge_control::limits::Text::new(method.clone())?,
+                status: *status,
+                queries: SafeInt::new(*queries)?,
+                elapsed_ms: SafeInt::new(*elapsed_ms)?,
+                detail: None,
+            },
+        }),
+        MetadataItem::InspectorDetail {
+            context_id,
+            method,
+            status,
+            queries,
+            elapsed_ms,
+            detail,
+        } => Ok(ActivityEvent::Inspector {
+            data: InspectorItem {
+                context_id: Id::new(context_id)?,
+                method: devforge_control::limits::Text::new(method.clone())?,
+                status: *status,
+                queries: SafeInt::new(*queries)?,
+                elapsed_ms: SafeInt::new(*elapsed_ms)?,
+                detail: Some(InspectorDetail {
+                    kind: Id::new(&detail.kind)?,
+                    observed_at: SafeInt::new(detail.observed_at)?,
+                    text: devforge_control::limits::Text::new(detail.text.clone())?,
+                    duration_ms: detail.duration_ms.map(SafeInt::new).transpose()?,
+                    truncated: detail.truncated,
+                    capture_truncated: detail.capture_truncated,
+                    repeated_count: detail.repeated_count.map(SafeInt::new).transpose()?,
+                    sql_ms: detail.sql_ms.map(SafeInt::new).transpose()?,
+                    peak_memory_bytes: detail.peak_memory_bytes.map(SafeInt::new).transpose()?,
+                }),
+            },
+        }),
+        MetadataItem::WatchLog {
+            context_id,
+            event_id,
+            level,
+            code,
+            observed_at,
+            message,
+        } => {
+            let message = message
+                .as_ref()
+                .map(|v| devforge_control::limits::Text::new(v.clone()))
+                .transpose()?;
+            let (message, exception) = if code == "captured_exception" {
+                (None, message)
+            } else {
+                (message, None)
+            };
+            Ok(ActivityEvent::Logs {
+                context_id: Id::new(context_id)?,
+                data: LogItem {
+                    event_id: Id::new(event_id)?,
+                    level: devforge_control::limits::Text::new(level.clone())?,
+                    code: Id::new(code)?,
+                    observed_at: SafeInt::new(*observed_at)?,
+                    message,
+                    exception,
+                },
+            })
+        }
+        _ => Err(ErrorCode::StorageUnavailable),
     }
 }
 fn check_input(input: &ToolInput) -> Result<(), ErrorCode> {

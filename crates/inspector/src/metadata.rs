@@ -27,6 +27,10 @@ pub enum ActivityKind {
         query: Option<String>,
         since: Option<u64>,
     },
+    WatchLogs {
+        context: Option<String>,
+        detail: bool,
+    },
     Mail,
 }
 impl std::fmt::Debug for ActivityKind {
@@ -55,6 +59,11 @@ impl std::fmt::Debug for ActivityKind {
                 .field("query", &query.as_ref().map(|_| "[REDACTED]"))
                 .field("since", since)
                 .finish(),
+            Self::WatchLogs { context, detail } => f
+                .debug_struct("WatchLogs")
+                .field("context", context)
+                .field("detail", detail)
+                .finish(),
             Self::Mail => f.write_str("Mail"),
         }
     }
@@ -66,6 +75,7 @@ impl ActivityKind {
             Self::InspectorDetail { .. } => "inspector_detail",
             Self::Logs { .. } => "logs",
             Self::LogContent { .. } => "logs_content",
+            Self::WatchLogs { .. } => "watch_logs",
             Self::Mail => "mail",
         }
     }
@@ -76,6 +86,10 @@ impl ActivityKind {
             }
             | Self::InspectorDetail {
                 context: Some(context),
+            }
+            | Self::WatchLogs {
+                context: Some(context),
+                ..
             } if !super::valid_id(context) => Err(Error::InvalidInput),
             Self::Logs {
                 level: Some(level), ..
@@ -146,6 +160,14 @@ pub enum MetadataItem {
         observed_at: u64,
         message: String,
     },
+    WatchLog {
+        context_id: String,
+        event_id: String,
+        level: String,
+        code: String,
+        observed_at: u64,
+        message: Option<String>,
+    },
     Mail {
         mail_id: String,
         received_at: u64,
@@ -165,6 +187,10 @@ pub struct MetadataWindow {
     pub origin: &'static str,
     pub source_rows: u64,
     pub source_bytes: u64,
+    #[serde(skip)]
+    pub anchor_present: Option<bool>,
+    #[serde(skip)]
+    pub first_omitted: Option<u64>,
 }
 #[derive(Debug, Clone, Copy)]
 pub enum Error {
@@ -362,6 +388,16 @@ pub fn epoch(root: &Path, id: &str, kind: &ActivityKind) -> Result<String, Error
         .unwrap_or_else(|| hash(format!("metadata-v1:{}:{id}:absent", kind.tag()).as_bytes())))
 }
 pub fn read(root: &Path, id: &str, kind: &ActivityKind) -> Result<MetadataWindow, Error> {
+    read_with_anchor(root, id, kind, None)
+}
+/// Optional project-specific anchor is checked in the same SQLite transaction
+/// as the bounded window. No global sequence watermark leaves the source.
+pub fn read_with_anchor(
+    root: &Path,
+    id: &str,
+    kind: &ActivityKind,
+    anchor: Option<u64>,
+) -> Result<MetadataWindow, Error> {
     let observed_at = now()?;
     let expected_epoch = epoch(root, id, kind)?;
     let mut window = MetadataWindow {
@@ -376,6 +412,8 @@ pub fn read(root: &Path, id: &str, kind: &ActivityKind) -> Result<MetadataWindow
         origin: "retained_native_metadata",
         source_rows: 0,
         source_bytes: 0,
+        anchor_present: None,
+        first_omitted: None,
     };
     let Some(source) = source(root, id, kind)? else {
         window.missing = true;
@@ -391,10 +429,25 @@ pub fn read(root: &Path, id: &str, kind: &ActivityKind) -> Result<MetadataWindow
     )?;
     connection.busy_timeout(Duration::from_millis(100))?;
     let transaction = connection.unchecked_transaction()?;
+    if let Some(anchor) = anchor {
+        if matches!(kind, ActivityKind::Mail) || anchor > SAFE_MAX {
+            return Err(Error::InvalidInput);
+        }
+        window.anchor_present = Some(
+            anchor == 0
+                || transaction.query_row(
+                    "SELECT EXISTS(SELECT 1 FROM events WHERE project=?1 AND sequence=?2)",
+                    params![id, anchor as i64],
+                    |row| row.get::<_, bool>(0),
+                )?,
+        );
+    }
     let mail = matches!(kind, ActivityKind::Mail);
     let row_limit = if matches!(
         kind,
-        ActivityKind::Logs { .. } | ActivityKind::LogContent { .. }
+        ActivityKind::Logs { .. }
+            | ActivityKind::LogContent { .. }
+            | ActivityKind::WatchLogs { .. }
     ) {
         4000
     } else {
@@ -442,10 +495,12 @@ pub fn read(root: &Path, id: &str, kind: &ActivityKind) -> Result<MetadataWindow
         }
         if window.source_rows >= row_limit as u64 {
             window.row_truncated = true;
+            window.first_omitted = Some(sequence as u64);
             break;
         }
         if bytes as u64 > byte_limit - window.source_bytes {
             window.byte_truncated = true;
+            window.first_omitted = Some(sequence as u64);
             break;
         }
         window.source_rows += 1;
@@ -524,7 +579,10 @@ fn read_events(
         window.low_water as i64,
         window.high_water as i64,
         cutoff as i64,
-        matches!(kind, ActivityKind::LogContent { .. }),
+        matches!(
+            kind,
+            ActivityKind::LogContent { .. } | ActivityKind::WatchLogs { detail: true, .. }
+        ),
         matches!(kind, ActivityKind::InspectorDetail { .. })
     ])?;
     let mut content_bytes = 2usize; // JSON array brackets
@@ -648,6 +706,57 @@ fn read_events(
                     },
                 });
             }
+            ActivityKind::WatchLogs {
+                context: filter,
+                detail,
+            } if event == "log" || event == "exception" => {
+                if filter.as_ref().is_some_and(|v| v != &context) {
+                    continue;
+                }
+                let actual = row.get::<_, Option<String>>(5)?.ok_or(Error::Corrupt)?;
+                let message = if *detail {
+                    Some(redact_message(
+                        &row.get::<_, Option<String>>(10)?.unwrap_or_default(),
+                    ))
+                } else {
+                    None
+                };
+                let projected = MetadataRow {
+                    sequence,
+                    item: MetadataItem::WatchLog {
+                        context_id: context,
+                        event_id: format!("event-{sequence}"),
+                        level: actual,
+                        code: if event == "exception" {
+                            "captured_exception"
+                        } else {
+                            "captured_log"
+                        }
+                        .into(),
+                        observed_at: received,
+                        message,
+                    },
+                };
+                let size = serde_json::to_vec(&projected)
+                    .map_err(|_| Error::Corrupt)?
+                    .len()
+                    + 1;
+                if size > 4 * 1024 * 1024 - content_bytes {
+                    window.byte_truncated = true;
+                    window.first_omitted = Some(
+                        window
+                            .first_omitted
+                            .map_or(sequence, |old| old.max(sequence)),
+                    );
+                    window.low_water = window
+                        .rows
+                        .last()
+                        .map_or(window.high_water, |row| row.sequence);
+                    break;
+                }
+                content_bytes += size;
+                window.rows.push(projected);
+            }
             ActivityKind::Logs { level, .. } if event == "log" || event == "exception" => {
                 let actual = row.get::<_, Option<String>>(5)?.ok_or(Error::Corrupt)?;
                 if level.as_ref().is_some_and(|filter| filter != &actual) {
@@ -704,6 +813,11 @@ fn read_events(
                     + 1;
                 if size > 4 * 1024 * 1024 - content_bytes {
                     window.byte_truncated = true;
+                    window.first_omitted = Some(
+                        window
+                            .first_omitted
+                            .map_or(sequence, |old| old.max(sequence)),
+                    );
                     // Do not claim the retained projection reaches the older
                     // source rows that were omitted by this byte budget.
                     window.low_water = window

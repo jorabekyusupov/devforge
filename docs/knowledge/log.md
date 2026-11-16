@@ -4,7 +4,9 @@
 
 ## 2026-11-16
 
-- **A04 Inspector details:** explicit InspectorQueries gate, bounded redacted request/job/query/cache/dump projections and captured profile/repetition evidence, scoped cursors. Cache producer captures finite operations without keys/values; old owned companion upgrade preserved. Dump payload/URL remain withheld and missing capture completeness remains unknown. [Contract](../architecture/metadata-diagnostics.md), [execution](execution-status.md).
+- **A05 observed-event correlation:** project/grant/revision-bound Inspector and log marks, sequence-based bounded wait, optional context narrowing, nonblocking actor/quit and explicit unverified continuity. Project-specific anchor and omitted-row checks distinguish known loss from other-project sequence gaps. [Contract](../architecture/metadata-diagnostics.md), [execution](execution-status.md).
+
+- **A04 Inspector details:** explicit InspectorQueries gate, bounded redacted request/job/query/cache/dump projections and captured profile/repetition evidence, scoped cursors. Cache producer captures finite operations without keys/values; old owned companion upgrade preserved. Dump is bounded/best-effort masked; request URL is withheld and missing capture completeness remains unknown. [Contract](../architecture/metadata-diagnostics.md), [execution](execution-status.md).
 
 - **A03 log and health diagnostics:** LogContent-scoped noncreating bounded log projection, masking before search, grant/revision rechecks and cursor isolation; cached doctor adds evidence/impact codes. Masking is best effort for recognizable patterns, not a guarantee against arbitrary secrets. [Contract](../architecture/metadata-diagnostics.md), [execution](execution-status.md).
 

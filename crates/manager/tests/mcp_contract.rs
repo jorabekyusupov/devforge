@@ -72,7 +72,7 @@ fn legacy_handshake_does_not_supply_metadata_to_modern_requests() {
             .as_array()
             .unwrap()
             .len(),
-        9
+        11
     );
     let mut modern = modern(json!(4), "ping", json!({}));
     modern["params"]["_meta"]
@@ -134,11 +134,11 @@ fn resources_require_authorized_project_projection_and_reject_foreign_uris_and_c
     );
 }
 #[test]
-fn only_nine_read_tools_are_dispatchable_and_notifications_never_mint_authority() {
+fn only_eleven_read_tools_are_dispatchable_and_notifications_never_mint_authority() {
     let mut p = Protocol::new(id("project-a"));
     let listed = reply(p.receive(modern(json!(1), "tools/list", json!({}))));
     let tools = listed["result"]["tools"].as_array().unwrap();
-    assert_eq!(tools.len(), 9);
+    assert_eq!(tools.len(), 11);
     assert!(
         tools
             .iter()
@@ -167,4 +167,39 @@ fn only_nine_read_tools_are_dispatchable_and_notifications_never_mint_authority(
         reply(p.receive(modern(json!(""), "ping", json!({}))))["result"]["resultType"],
         "complete"
     );
+}
+
+#[test]
+fn activity_mark_wait_contract_is_bounded_and_rejects_ambiguous_input() {
+    use devforge_manager::mcp_contract::ActivityInput;
+    let mut p = Protocol::new(id("project-a"));
+    let listed = reply(p.receive(modern(json!(1), "tools/list", json!({}))));
+    let tools = listed["result"]["tools"].as_array().unwrap();
+    for name in ["activity.mark", "activity.wait"] {
+        assert!(
+            tools
+                .iter()
+                .any(|tool| tool["name"] == name && tool["annotations"]["readOnlyHint"] == true)
+        );
+    }
+    let call = p.receive(modern(
+        json!(2),
+        "tools/call",
+        json!({"name":"activity.mark", "arguments":{"stream":"logs","detail":false}}),
+    ));
+    assert!(matches!(call, Action::Activity(call) if matches!(call.input, ActivityInput::Mark(_))));
+    let call = p.receive(modern(json!(3), "tools/call", json!({"name":"activity.wait", "arguments":{"bookmark":"owned","timeout_ms":3000,"context_id":"c".repeat(32)}})));
+    assert!(matches!(call, Action::Activity(call) if matches!(call.input, ActivityInput::Wait(_))));
+    for args in [
+        json!({"name":"activity.mark","arguments":{"stream":"all","detail":false}}),
+        json!({"name":"activity.mark","arguments":{"stream":"inspector","detail":false,"context_id":null}}),
+        json!({"name":"activity.mark","arguments":{"stream":"logs","detail":true,"project_id":"foreign"}}),
+        json!({"name":"activity.wait","arguments":{"bookmark":"owned","timeout_ms":0}}),
+        json!({"name":"activity.wait","arguments":{"bookmark":"owned","timeout_ms":3001}}),
+        json!({"name":"activity.wait","arguments":{"bookmark":"owned","timeout_ms":100,"context_id":null}}),
+        json!({"name":"activity.wait","arguments":{"bookmark":"owned","timeout_ms":100,"context_id":"not-32-hex"}}),
+    ] {
+        let response = reply(p.receive(modern(json!(4), "tools/call", args)));
+        assert_eq!(response["error"]["code"], -32602);
+    }
 }

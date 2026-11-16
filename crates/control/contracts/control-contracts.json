@@ -1,4 +1,355 @@
 {
+  "activity_mark_input_schema": {
+    "additionalProperties": false,
+    "properties": {
+      "context_id": {
+        "anyOf": [
+          {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "detail": {
+        "type": "boolean"
+      },
+      "stream": {
+        "enum": [
+          "inspector",
+          "logs"
+        ],
+        "type": "string"
+      }
+    },
+    "required": [
+      "stream",
+      "detail"
+    ],
+    "type": "object"
+  },
+  "activity_mark_output_schema": {
+    "additionalProperties": false,
+    "properties": {
+      "bookmark": {
+        "maxLength": 128,
+        "minLength": 1,
+        "pattern": "^[A-Za-z0-9_.:-]+$",
+        "type": "string"
+      }
+    },
+    "required": [
+      "bookmark"
+    ],
+    "type": "object"
+  },
+  "activity_wait_input_schema": {
+    "additionalProperties": false,
+    "properties": {
+      "bookmark": {
+        "maxLength": 128,
+        "minLength": 1,
+        "pattern": "^[A-Za-z0-9_.:-]+$",
+        "type": "string"
+      },
+      "context_id": {
+        "anyOf": [
+          {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "timeout_ms": {
+        "maximum": 3000,
+        "minimum": 1,
+        "type": "integer"
+      }
+    },
+    "required": [
+      "bookmark",
+      "timeout_ms"
+    ],
+    "type": "object"
+  },
+  "activity_wait_output_schema": {
+    "additionalProperties": false,
+    "properties": {
+      "bookmark": {
+        "maxLength": 128,
+        "minLength": 1,
+        "pattern": "^[A-Za-z0-9_.:-]+$",
+        "type": "string"
+      },
+      "continuity": {
+        "enum": [
+          "unverified"
+        ],
+        "type": "string"
+      },
+      "event": {
+        "anyOf": [
+          {
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "data": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "context_id": {
+                        "maxLength": 128,
+                        "minLength": 1,
+                        "pattern": "^[A-Za-z0-9_.:-]+$",
+                        "type": "string"
+                      },
+                      "detail": {
+                        "anyOf": [
+                          {
+                            "additionalProperties": false,
+                            "properties": {
+                              "capture_truncated": {
+                                "anyOf": [
+                                  {
+                                    "type": "boolean"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "duration_ms": {
+                                "anyOf": [
+                                  {
+                                    "maximum": 9007199254740991,
+                                    "minimum": 0,
+                                    "type": "integer"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "kind": {
+                                "maxLength": 128,
+                                "minLength": 1,
+                                "pattern": "^[A-Za-z0-9_.:-]+$",
+                                "type": "string"
+                              },
+                              "observed_at": {
+                                "maximum": 9007199254740991,
+                                "minimum": 0,
+                                "type": "integer"
+                              },
+                              "peak_memory_bytes": {
+                                "anyOf": [
+                                  {
+                                    "maximum": 9007199254740991,
+                                    "minimum": 0,
+                                    "type": "integer"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "repeated_count": {
+                                "anyOf": [
+                                  {
+                                    "maximum": 9007199254740991,
+                                    "minimum": 0,
+                                    "type": "integer"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "sql_ms": {
+                                "anyOf": [
+                                  {
+                                    "maximum": 9007199254740991,
+                                    "minimum": 0,
+                                    "type": "integer"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "text": {
+                                "maxLength": 2048,
+                                "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]*$",
+                                "type": "string"
+                              },
+                              "truncated": {
+                                "type": "boolean"
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "observed_at",
+                              "text",
+                              "truncated"
+                            ],
+                            "type": "object"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "elapsed_ms": {
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "method": {
+                        "maxLength": 16,
+                        "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]*$",
+                        "type": "string"
+                      },
+                      "queries": {
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "status": {
+                        "anyOf": [
+                          {
+                            "maximum": 65535,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "context_id",
+                      "method",
+                      "queries",
+                      "elapsed_ms"
+                    ],
+                    "type": "object"
+                  },
+                  "stream": {
+                    "const": "inspector"
+                  }
+                },
+                "required": [
+                  "stream",
+                  "data"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "context_id": {
+                    "maxLength": 128,
+                    "minLength": 1,
+                    "pattern": "^[A-Za-z0-9_.:-]+$",
+                    "type": "string"
+                  },
+                  "data": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "code": {
+                        "maxLength": 128,
+                        "minLength": 1,
+                        "pattern": "^[A-Za-z0-9_.:-]+$",
+                        "type": "string"
+                      },
+                      "event_id": {
+                        "maxLength": 128,
+                        "minLength": 1,
+                        "pattern": "^[A-Za-z0-9_.:-]+$",
+                        "type": "string"
+                      },
+                      "exception": {
+                        "anyOf": [
+                          {
+                            "maxLength": 2048,
+                            "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]*$",
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "level": {
+                        "maxLength": 32,
+                        "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]*$",
+                        "type": "string"
+                      },
+                      "message": {
+                        "anyOf": [
+                          {
+                            "maxLength": 2048,
+                            "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]*$",
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "observed_at": {
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "event_id",
+                      "level",
+                      "code",
+                      "observed_at"
+                    ],
+                    "type": "object"
+                  },
+                  "stream": {
+                    "const": "logs"
+                  }
+                },
+                "required": [
+                  "stream",
+                  "context_id",
+                  "data"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "timed_out": {
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "bookmark",
+      "timed_out",
+      "continuity"
+    ],
+    "type": "object"
+  },
   "api_version": 1,
   "error_codes": [
     "invalid_input",

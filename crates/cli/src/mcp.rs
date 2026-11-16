@@ -6,9 +6,10 @@ use devforge_manager::{
     credential_file::{CredentialFile, LoadedCredential},
     external_client::{BoundActionsClient, BoundExecutionClient, BoundRuntimeClient},
     mcp_contract::{
-        self, Action, DatabaseCall, DatabaseInput, DiagnosticsCall, DomainCall, DomainInput,
-        EnvCall, EnvInput, ExecutionCall, ExecutionInput, MAX_REQUEST_BYTES, MAX_RESPONSE_BYTES,
-        Protocol, RuntimeCall, RuntimeInput, ServiceCall, ServiceInput, ToolCall,
+        self, Action, ActivityCall, ActivityInput, DatabaseCall, DatabaseInput, DiagnosticsCall,
+        DomainCall, DomainInput, EnvCall, EnvInput, ExecutionCall, ExecutionInput,
+        MAX_REQUEST_BYTES, MAX_RESPONSE_BYTES, Protocol, RuntimeCall, RuntimeInput, ServiceCall,
+        ServiceInput, ToolCall,
     },
 };
 use serde_json::{Value, json};
@@ -60,6 +61,7 @@ enum QueuedCall {
     Database(DatabaseCall),
     Domain(DomainCall),
     Diagnostics(DiagnosticsCall),
+    Activity(ActivityCall),
     Execution(ExecutionCall),
 }
 impl QueuedCall {
@@ -72,6 +74,7 @@ impl QueuedCall {
             Self::Database(call) => call.jsonrpc_id(),
             Self::Domain(call) => call.jsonrpc_id(),
             Self::Diagnostics(call) => call.jsonrpc_id(),
+            Self::Activity(call) => call.jsonrpc_id(),
             Self::Execution(call) => call.jsonrpc_id(),
         }
     }
@@ -84,6 +87,7 @@ impl QueuedCall {
             Self::Database(call) => Protocol::complete_database(call, Err(code)),
             Self::Domain(call) => Protocol::complete_domain(call, Err(code)),
             Self::Diagnostics(call) => Protocol::complete_diagnostics(call, Err(code)),
+            Self::Activity(call) => Protocol::complete_activity(call, Err(code)),
             Self::Execution(call) => Protocol::complete_execution(call, Err(code)),
         }
     }
@@ -125,6 +129,14 @@ impl BoundClient {
                     .diagnostics()
                     .read_base(call.request_id.clone(), call.input.clone());
                 Protocol::complete(call, result)
+            }
+            QueuedCall::Activity(call) => {
+                let client = self.client.previous().diagnostics();
+                let result = match &call.input {
+                    ActivityInput::Mark(request) => client.mark(request).and_then(value),
+                    ActivityInput::Wait(request) => client.wait(request).and_then(value),
+                };
+                Protocol::complete_activity(call, result)
             }
             QueuedCall::Diagnostics(call) => {
                 let result = self
@@ -559,6 +571,7 @@ fn transport_loop(
             Action::Diagnostics(call) => {
                 enqueue(QueuedCall::Diagnostics(call), jobs, pending, writer)?
             }
+            Action::Activity(call) => enqueue(QueuedCall::Activity(call), jobs, pending, writer)?,
         }
     }
 }

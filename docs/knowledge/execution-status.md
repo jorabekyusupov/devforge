@@ -1532,3 +1532,27 @@ redaction, event/profile metrics and truncation; an offline Laravel 13 repositor
 fixture exercises the actual cache event producer on macOS. Exact PR CI records
 macOS/Windows affected checks. No Windows native Laravel producer, A05 work or
 unbounded dump payload is claimed.
+
+
+## A05 — correlation checkpoints and bounded wait (2026-11-16)
+
+A05 adds Observer-scoped Inspector/log `activity.mark` and `activity.wait`, with
+explicit InspectorQueries/LogContent required for detail. Marks and advancing
+bookmarks bind the original project, client, grant, revision, stream, detail,
+context and source epoch. New events use sequence after the mark; known anchor loss,
+source replacement, expiry and retained-range truncation are explicit failures.
+Context narrowing links a discovered Inspector context to separately marked logs.
+
+Wait is limited to 3 seconds (plus bounded validation grace), maximum four concurrent
+waits; actor, database and owner quit gate are not held across sleeps. Explicit quit
+interrupts wait. Same MCP stdio session remains serialized. Every result reports
+`continuity=unverified`: polling may miss a transient inserted/deleted or pruned event,
+particularly after an initially empty mark. A timeout means no event observed, not
+proof that no event existed, and correlation does not establish causality.
+
+Focused source/manager tests cover new versus old, wrong grant before source IO,
+project/context/cursor/revoke/expiry, cross-project sequence gaps, clear/retention,
+zero-baseline uncertainty, bounded timeout, concurrent health and shutdown. SDK/MCP
+and actual local stdio fixtures exercise both new tools; default MCP count is 11 and
+all-opt-in 40. Exact CI evidence belongs to the A05 PR. A06 mail wait and A08 HTTP
+probe remain separate. Original ReportViews/locales are excluded.
