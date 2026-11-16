@@ -39,6 +39,9 @@ fn state_digest() -> Digest {
 }
 fn args(name: &str) -> Value {
     match name {
+        "execution.php" | "execution.artisan" | "execution.composer" | "execution.node"
+        | "execution.npm" | "execution.git" => json!({"args":["--version"]}),
+        "execution.managed_test_job" => json!({"tool":"php","args":["-v"]}),
         "runtimes.install" | "runtimes.remove" => json!({"package_id":"php-8.5-arm64"}),
         "runtimes.select" => {
             json!({"name":"Demo","php":"php-8.5-arm64","node":"node24-arm64","domain":"demo.devforge.test","https":true,"vite":true,"queue":false})
@@ -97,7 +100,7 @@ fn every_initial_command_has_typed_mapping_and_can_be_prepared_without_execution
             .iter()
             .filter(|c| c.schema_status == SchemaStatus::TypedMutation)
             .count(),
-        15
+        22
     );
     assert_eq!(
         contracts
