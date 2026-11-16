@@ -499,11 +499,15 @@ impl Mcp {
         )
     }
     fn with_surfaces(fixture: &Fixture, surfaces: [bool; 6]) -> Self {
+        Self::with_grant(fixture, surfaces, &fixture.full)
+    }
+    fn with_grant(fixture: &Fixture, surfaces: [bool; 6], grant: &IssuedGrant) -> Self {
         let [service, runtime, environment, database, domain, execution] = surfaces;
+        let grant_id = grant.record.grant_id.as_str();
         let file = fixture.parent.path().join(format!(
-            "grant-service-{service}-runtime-{runtime}-environment-{environment}-database-{database}-domain-{domain}-execution-{execution}.json"
+            "grant-{grant_id}-service-{service}-runtime-{runtime}-environment-{environment}-database-{database}-domain-{domain}-execution-{execution}.json"
         ));
-        let bytes=zeroize::Zeroizing::new(serde_json::to_vec(&json!({"schema":1,"project_id":fixture.project,"credential":fixture.full.credential.expose_secret()})).unwrap());
+        let bytes=zeroize::Zeroizing::new(serde_json::to_vec(&json!({"schema":1,"project_id":fixture.project,"credential":grant.credential.expose_secret()})).unwrap());
         common::credential_file(&file, &bytes);
         let mut command = Command::new(env!("CARGO_BIN_EXE_devforge"));
         command
@@ -1531,7 +1535,7 @@ fn diagnostics_sdk_rejects_content_filters_before_any_read_transport() {
     use devforge_control::{
         Request,
         limits::Text,
-        tools::{LogInput, MailInput, ToolInput},
+        tools::{MailInput, ToolInput},
     };
     use devforge_manager::{
         Owner, Server, StopSignal, external_auth::ExternalCredential,
@@ -1562,11 +1566,6 @@ fn diagnostics_sdk_rejects_content_filters_before_any_read_transport() {
     )
     .unwrap();
     for input in [
-        ToolInput::Log(LogInput {
-            page: None,
-            query: Some(Text::new(String::new()).unwrap()),
-            level: None,
-        }),
         ToolInput::Mail(MailInput {
             page: None,
             subject: Some(Text::new(String::new()).unwrap()),
@@ -1611,9 +1610,13 @@ fn diagnostics_mcp_defaults_are_readonly_metadata_and_legacy_health_is_preserved
     ] {
         let tool = tools.iter().find(|tool| tool["name"] == name).unwrap();
         assert_eq!(tool["annotations"]["readOnlyHint"], true);
-        for forbidden in ["query", "subject", "recipient"] {
+        for forbidden in ["subject", "recipient"] {
             assert!(tool["inputSchema"]["properties"].get(forbidden).is_none());
         }
+        assert_eq!(
+            tool["inputSchema"]["properties"].get("query").is_some(),
+            name == "logs.search"
+        );
     }
     let doctor = mcp.call("tools/call", json!({"name":"health.doctor","arguments":{}}));
     assert_eq!(doctor["result"]["isError"], false);
@@ -1630,8 +1633,9 @@ fn diagnostics_mcp_defaults_are_readonly_metadata_and_legacy_health_is_preserved
         assert_eq!(data["freshness"]["origin"], "cached");
     }
     for (name, args) in [
-        ("logs.search", json!({"query":""})),
         ("logs.search", json!({"query":null})),
+        ("logs.search", json!({"content":null})),
+        ("logs.search", json!({"since":null})),
         ("mail.list", json!({"subject":"private-mail-filter-canary"})),
         ("mail.list", json!({"recipient":null})),
     ] {
@@ -1639,6 +1643,36 @@ fn diagnostics_mcp_defaults_are_readonly_metadata_and_legacy_health_is_preserved
         assert_eq!(reply["error"]["code"], -32602);
         assert!(!reply.to_string().contains("private-mail-filter-canary"));
     }
+    // Full management/execution alone never confers log content rights.
+    let denied = mcp.call(
+        "tools/call",
+        json!({"name":"logs.search","arguments":{"query":""}}),
+    );
+    assert_eq!(denied["result"]["isError"], true);
+    assert_eq!(
+        denied["result"]["structuredContent"]["error"]["code"],
+        "unauthorized"
+    );
+    let content_grant = fixture
+        .native
+        .issue_external_grant_with_information(
+            &Id::new(&fixture.project).unwrap(),
+            &[Scope::Observer],
+            &[devforge_control::InformationScope::LogContent],
+            Duration::from_secs(300),
+        )
+        .unwrap();
+    let mut authorized = Mcp::with_grant(&fixture, [false; 6], &content_grant);
+    let accepted = authorized.call(
+        "tools/call",
+        json!({"name":"logs.search","arguments":{"query":""}}),
+    );
+    assert_eq!(accepted["result"]["isError"], false, "{accepted}");
+    assert_eq!(
+        accepted["result"]["structuredContent"]["data"]["data"]["freshness"]["window"]["source_missing"],
+        true
+    );
+    authorized.close();
     let (code, mail) = fixture.cli(
         &[
             "api",

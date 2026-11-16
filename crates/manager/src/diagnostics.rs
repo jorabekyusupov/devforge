@@ -219,7 +219,9 @@ impl Diagnostics {
         credential: &ExternalCredential,
         project: &Id,
         mode: ReadMode,
+        read_policy: (Option<devforge_control::InformationScope>, Option<u64>),
     ) -> Result<ReadResult, ErrorCode> {
+        let (content, revision) = read_policy;
         let policy = self.clone();
         let peer = peer.clone();
         let credential =
@@ -235,7 +237,7 @@ impl Diagnostics {
                 .map_err(|_| crate::service_control::ws_error(ErrorCode::StorageUnavailable))?
                 .as_mut()
                 .ok_or_else(|| crate::service_control::ws_error(ErrorCode::Interrupted))?
-                .authorize_read(&peer, &credential, &binding, None, None)
+                .authorize_read(&peer, &credential, &binding, content, revision)
                 .map_err(|e| crate::service_control::ws_error(grant_error(e)))?;
             Ok(())
         });
@@ -268,6 +270,12 @@ impl Diagnostics {
             return Err(ErrorCode::InvalidInput);
         }
         check_input(&wire.request.input)?;
+        let content = match &wire.request.input {
+            ToolInput::Log(p) if p.content == Some(true) || p.query.is_some() => {
+                Some(devforge_control::InformationScope::LogContent)
+            }
+            _ => None,
+        };
         let credential = ExternalCredential::from_wire(&wire.credential.0).map_err(grant_error)?;
         let registration = self.query(
             actor,
@@ -275,6 +283,7 @@ impl Diagnostics {
             &credential,
             &wire.request.project_id,
             ReadMode::Registration,
+            (content, wire.request.expected_revision),
         )?;
         let mut grants = self
             .grants
@@ -287,7 +296,7 @@ impl Diagnostics {
                 peer,
                 &credential,
                 &registration.binding,
-                None,
+                content,
                 wire.request.expected_revision,
             )
             .map_err(grant_error)?;
@@ -334,6 +343,7 @@ impl Diagnostics {
                         &credential,
                         &wire.request.project_id,
                         ReadMode::Epoch(kind(&wire.request.input)?),
+                        (content, wire.request.expected_revision),
                     )?
                     .epoch
                     .ok_or(ErrorCode::CursorExpired)?;
@@ -348,6 +358,7 @@ impl Diagnostics {
                     &credential,
                     &wire.request.project_id,
                     ReadMode::Window(kind(&wire.request.input)?),
+                    (content, wire.request.expected_revision),
                 )?;
                 if read.binding.revision() != registration.binding.revision()
                     || read.binding.root() != registration.binding.root()
@@ -411,7 +422,7 @@ impl Diagnostics {
                 peer,
                 &credential,
                 &registration.binding,
-                None,
+                content,
                 wire.request.expected_revision,
             )
             .map_err(grant_error)?;
@@ -422,10 +433,10 @@ impl Diagnostics {
 fn check_input(input: &ToolInput) -> Result<(), ErrorCode> {
     match input {
         ToolInput::Health(_) => Ok(()),
-        ToolInput::Log(input) if input.query.is_none() => Ok(()),
+        ToolInput::Log(_) => Ok(()),
         ToolInput::Inspector(_) => Ok(()),
         ToolInput::Mail(input) if input.subject.is_none() && input.recipient.is_none() => Ok(()),
-        ToolInput::Log(_) | ToolInput::Mail(_) => Err(ErrorCode::Unauthorized),
+        ToolInput::Mail(_) => Err(ErrorCode::Unauthorized),
         _ => Err(ErrorCode::UnsupportedCapability),
     }
 }
@@ -437,8 +448,16 @@ fn kind(
         ToolInput::Inspector(p) => Ok(ActivityKind::Inspector {
             context: p.context_id.as_ref().map(|v| v.as_str().into()),
         }),
+        ToolInput::Log(p) if p.content == Some(true) || p.query.is_some() => {
+            Ok(ActivityKind::LogContent {
+                level: p.level.as_ref().map(|v| v.as_str().into()),
+                query: p.query.as_ref().map(|v| v.as_str().into()),
+                since: p.since.as_ref().map(|v| v.get()),
+            })
+        }
         ToolInput::Log(p) => Ok(ActivityKind::Logs {
             level: p.level.as_ref().map(|v| v.as_str().into()),
+            since: p.since.as_ref().map(|v| v.get()),
         }),
         ToolInput::Mail(_) => Ok(ActivityKind::Mail),
         _ => Err(ErrorCode::UnsupportedCapability),
@@ -446,7 +465,9 @@ fn kind(
 }
 fn filter_digest(input: &ToolInput) -> Result<Digest, ErrorCode> {
     let value = match input {
-        ToolInput::Log(p) => json!({"tool":input.tool(),"level":p.level}),
+        ToolInput::Log(p) => {
+            json!({"tool":input.tool(),"level":p.level,"content":p.content,"query":p.query,"since":p.since})
+        }
         ToolInput::Inspector(p) => json!({"tool":input.tool(),"context":p.context_id}),
         ToolInput::Mail(_) => json!({"tool":input.tool()}),
         _ => return Err(ErrorCode::UnsupportedCapability),
@@ -539,20 +560,40 @@ fn project(
             let items = rows
                 .iter()
                 .map(|row| {
-                    let MetadataItem::Log {
-                        event_id,
-                        level,
-                        code,
-                        observed_at,
-                    } = &row.item
-                    else {
-                        return Err(ErrorCode::StorageUnavailable);
+                    let (event_id, level, code, observed_at, message) = match &row.item {
+                        MetadataItem::Log {
+                            event_id,
+                            level,
+                            code,
+                            observed_at,
+                        } => (event_id, level, code, observed_at, None),
+                        MetadataItem::LogContent {
+                            event_id,
+                            level,
+                            code,
+                            observed_at,
+                            message,
+                        } => (
+                            event_id,
+                            level,
+                            code,
+                            observed_at,
+                            Some(devforge_control::limits::Text::new(message.clone())?),
+                        ),
+                        _ => return Err(ErrorCode::StorageUnavailable),
+                    };
+                    let (message, exception) = if code == "captured_exception" {
+                        (None, message)
+                    } else {
+                        (message, None)
                     };
                     Ok(LogItem {
                         event_id: Id::new(event_id)?,
                         level: devforge_control::limits::Text::new(level.clone())?,
                         code: Id::new(code)?,
                         observed_at: SafeInt::new(*observed_at)?,
+                        message,
+                        exception,
                     })
                 })
                 .collect::<Result<_, _>>()?;
@@ -630,6 +671,20 @@ fn doctor(actor: &ActorHandle, binding: &ProjectBinding) -> Result<ToolOutput, E
             code: Id::new(code)?,
             retryable,
             next_action: next.map(Id::new).transpose()?,
+            evidence: Some(Id::new(match code {
+                "runtime_missing" => "runtime_not_confirmed_in_snapshot",
+                "service_failed" => "cached_service_failed",
+                "service_stopped" => "cached_service_stopped",
+                "cached_metadata_stale" => "revision_mismatch",
+                "cached_metadata_unavailable" => "snapshot_unavailable",
+                _ => "cached_project_snapshot",
+            })?),
+            impact: Some(Id::new(match code {
+                "runtime_missing" => "runtime_may_be_unavailable",
+                "service_failed" | "service_stopped" => "project_service_unavailable",
+                "cached_metadata_stale" | "cached_metadata_unavailable" => "diagnosis_incomplete",
+                _ => "no_known_issue",
+            })?),
         }],
         next_cursor: None,
     }))

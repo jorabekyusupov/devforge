@@ -495,9 +495,8 @@ fn a02_native_selected_content_rights_are_explicit_persisted_and_not_agent_autho
         "information":["log_content"],"ttl_ms":60000}))
         .unwrap();
     assert_eq!(forged["ok"], false);
-    // Even an explicit grant does not silently activate A03/A06 content readers.
+    // Explicit rights do not activate the later mail content reader.
     for input in [
-        json!({"tool":"logs.search","arguments":{"query":""}}),
         json!({"tool":"mail.list","arguments":{"subject":""}}),
         json!({"tool":"mail.list","arguments":{"recipient":""}}),
     ] {

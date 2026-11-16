@@ -1484,11 +1484,7 @@ fn diagnostics_request(
     use devforge_control::tools::ToolInput;
     match &request.input {
         ToolInput::Health(_) | ToolInput::Inspector(_) => {}
-        ToolInput::Log(input) => {
-            if input.query.is_some() {
-                return Err(ErrorCode::Unauthorized);
-            }
-        }
+        ToolInput::Log(_) => {}
         ToolInput::Mail(input) => {
             if input.subject.is_some() || input.recipient.is_some() {
                 return Err(ErrorCode::Unauthorized);

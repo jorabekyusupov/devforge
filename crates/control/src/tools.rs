@@ -75,7 +75,7 @@ contract!(ServiceInput{page:Option<PageRequest>,service_id:Option<Id>});
 contract!(EnvironmentInput{page:Option<PageRequest>,name:Option<Id>});
 contract!(DomainInput{page:Option<PageRequest>});
 contract!(DatabaseInput{page:Option<PageRequest>});
-contract!(LogInput{page:Option<PageRequest>,query:Option<Text<256>>,level:Option<Text<32>>});
+contract!(LogInput{page:Option<PageRequest>,query:Option<Text<256>>,level:Option<Text<32>>,#[serde(default,skip_serializing_if="Option::is_none")] since:Option<SafeInt>,#[serde(default,skip_serializing_if="Option::is_none")] content:Option<bool>});
 contract!(InspectorInput{page:Option<PageRequest>,context_id:Option<Id>});
 contract!(DebuggerInput{page:Option<PageRequest>});
 contract!(MailInput{page:Option<PageRequest>,subject:Option<Text<256>>,recipient:Option<Text<256>>});
@@ -85,7 +85,7 @@ contract!(WorkspaceInput{page:Option<PageRequest>});
 contract!(OperationInput{page:Option<PageRequest>,operation_id:Id});
 contract!(ArtifactInput{page:Option<PageRequest>,artifact_id:Id});
 
-contract!(HealthItem{code:Id,retryable:bool,next_action:Option<Id>});
+contract!(HealthItem{code:Id,retryable:bool,next_action:Option<Id>,#[serde(default,skip_serializing_if="Option::is_none")] evidence:Option<Id>,#[serde(default,skip_serializing_if="Option::is_none")] impact:Option<Id>});
 contract!(ProjectItem{project_id:Id,name:Text<256>,php:Id,node:Id,composer:Id,revision:SafeInt});
 contract!(RuntimeItem{runtime_id:Id,kind:Text<64>,version:Text<64>,installed:bool,problem:Option<Id>});
 contract!(ServiceItem {
@@ -99,7 +99,7 @@ contract!(EnvironmentItem {
 });
 contract!(DomainItem{url:Text<2048>,certificate_active:bool,system_trusted:bool});
 contract!(DatabaseItem{engine:Text<32>,bound:bool,ready:bool});
-contract!(LogItem{event_id:Id,level:Text<32>,code:Id,observed_at:SafeInt});
+contract!(LogItem{event_id:Id,level:Text<32>,code:Id,observed_at:SafeInt,#[serde(default,skip_serializing_if="Option::is_none")] message:Option<Text<2048>>,#[serde(default,skip_serializing_if="Option::is_none")] exception:Option<Text<2048>>});
 contract!(InspectorItem{context_id:Id,method:Text<16>,status:Option<u16>,queries:SafeInt,elapsed_ms:SafeInt});
 contract!(DebuggerItem{installed:bool,mode:Text<32>,primitive_assignment_supported:bool});
 contract!(MailItem {

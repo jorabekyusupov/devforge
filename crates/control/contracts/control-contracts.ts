@@ -49,6 +49,8 @@ export interface LogInput {
   page?: PageRequest | null;
   query?: string | null;
   level?: string | null;
+  since?: number | null;
+  content?: boolean | null;
 }
 export interface InspectorInput {
   page?: PageRequest | null;
@@ -85,6 +87,8 @@ export interface HealthItem {
   code: string;
   retryable: boolean;
   next_action?: string | null;
+  evidence?: string | null;
+  impact?: string | null;
 }
 export interface ProjectItem {
   project_id: string;
@@ -125,6 +129,8 @@ export interface LogItem {
   level: string;
   code: string;
   observed_at: number;
+  message?: string | null;
+  exception?: string | null;
 }
 export interface InspectorItem {
   context_id: string;

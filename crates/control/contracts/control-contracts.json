@@ -3463,6 +3463,16 @@
               "arguments": {
                 "additionalProperties": false,
                 "properties": {
+                  "content": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "level": {
                     "anyOf": [
                       {
@@ -3617,6 +3627,18 @@
                         "maxLength": 256,
                         "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]*$",
                         "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "since": {
+                    "anyOf": [
+                      {
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
+                        "type": "integer"
                       },
                       {
                         "type": "null"
@@ -5248,6 +5270,32 @@
                   "minLength": 1,
                   "pattern": "^[A-Za-z0-9_.:-]+$",
                   "type": "string"
+                },
+                "evidence": {
+                  "anyOf": [
+                    {
+                      "maxLength": 128,
+                      "minLength": 1,
+                      "pattern": "^[A-Za-z0-9_.:-]+$",
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "impact": {
+                  "anyOf": [
+                    {
+                      "maxLength": 128,
+                      "minLength": 1,
+                      "pattern": "^[A-Za-z0-9_.:-]+$",
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 },
                 "next_action": {
                   "anyOf": [
@@ -9735,6 +9783,16 @@
       "input_schema": {
         "additionalProperties": false,
         "properties": {
+          "content": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "level": {
             "anyOf": [
               {
@@ -9894,6 +9952,18 @@
                 "type": "null"
               }
             ]
+          },
+          "since": {
+            "anyOf": [
+              {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [],
@@ -9999,10 +10069,34 @@
                   "pattern": "^[A-Za-z0-9_.:-]+$",
                   "type": "string"
                 },
+                "exception": {
+                  "anyOf": [
+                    {
+                      "maxLength": 2048,
+                      "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]*$",
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
                 "level": {
                   "maxLength": 32,
                   "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]*$",
                   "type": "string"
+                },
+                "message": {
+                  "anyOf": [
+                    {
+                      "maxLength": 2048,
+                      "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]*$",
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 },
                 "observed_at": {
                   "maximum": 9007199254740991,

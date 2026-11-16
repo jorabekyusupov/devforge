@@ -10,17 +10,54 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub enum ActivityKind {
-    Inspector { context: Option<String> },
-    Logs { level: Option<String> },
+    Inspector {
+        context: Option<String>,
+    },
+    Logs {
+        level: Option<String>,
+        since: Option<u64>,
+    },
+    LogContent {
+        level: Option<String>,
+        query: Option<String>,
+        since: Option<u64>,
+    },
     Mail,
+}
+impl std::fmt::Debug for ActivityKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Inspector { context } => f
+                .debug_struct("Inspector")
+                .field("context", context)
+                .finish(),
+            Self::Logs { level, since } => f
+                .debug_struct("Logs")
+                .field("level", level)
+                .field("since", since)
+                .finish(),
+            Self::LogContent {
+                level,
+                query,
+                since,
+            } => f
+                .debug_struct("LogContent")
+                .field("level", level)
+                .field("query", &query.as_ref().map(|_| "[REDACTED]"))
+                .field("since", since)
+                .finish(),
+            Self::Mail => f.write_str("Mail"),
+        }
+    }
 }
 impl ActivityKind {
     fn tag(&self) -> &'static str {
         match self {
             Self::Inspector { .. } => "inspector",
             Self::Logs { .. } => "logs",
+            Self::LogContent { .. } => "logs_content",
             Self::Mail => "mail",
         }
     }
@@ -29,9 +66,23 @@ impl ActivityKind {
             Self::Inspector {
                 context: Some(context),
             } if !super::valid_id(context) => Err(Error::InvalidInput),
-            Self::Logs { level: Some(level) } if !LEVELS.contains(&level.as_str()) => {
+            Self::Logs {
+                level: Some(level), ..
+            }
+            | Self::LogContent {
+                level: Some(level), ..
+            } if !LEVELS.contains(&level.as_str()) => Err(Error::InvalidInput),
+            Self::LogContent {
+                query: Some(query), ..
+            } if query.chars().count() > 256 || query.chars().any(char::is_control) => {
                 Err(Error::InvalidInput)
             }
+            Self::Logs {
+                since: Some(since), ..
+            }
+            | Self::LogContent {
+                since: Some(since), ..
+            } if *since > SAFE_MAX => Err(Error::InvalidInput),
             _ => Ok(()),
         }
     }
@@ -56,6 +107,13 @@ pub enum MetadataItem {
         level: String,
         code: String,
         observed_at: u64,
+    },
+    LogContent {
+        event_id: String,
+        level: String,
+        code: String,
+        observed_at: u64,
+        message: String,
     },
     Mail {
         mail_id: String,
@@ -303,7 +361,10 @@ pub fn read(root: &Path, id: &str, kind: &ActivityKind) -> Result<MetadataWindow
     connection.busy_timeout(Duration::from_millis(100))?;
     let transaction = connection.unchecked_transaction()?;
     let mail = matches!(kind, ActivityKind::Mail);
-    let row_limit = if matches!(kind, ActivityKind::Logs { .. }) {
+    let row_limit = if matches!(
+        kind,
+        ActivityKind::Logs { .. } | ActivityKind::LogContent { .. }
+    ) {
         4000
     } else {
         200
@@ -316,7 +377,13 @@ pub fn read(root: &Path, id: &str, kind: &ActivityKind) -> Result<MetadataWindow
     let cutoff = if mail {
         0
     } else {
-        observed_at.saturating_sub(86_400_000)
+        let retention = observed_at.saturating_sub(86_400_000);
+        match kind {
+            ActivityKind::Logs { since, .. } | ActivityKind::LogContent { since, .. } => {
+                retention.max(since.unwrap_or(0))
+            }
+            _ => retention,
+        }
     };
     let sql = if mail {
         "SELECT sequence,received,octet_length(summary) FROM messages ORDER BY sequence DESC LIMIT ?1"
@@ -395,7 +462,7 @@ fn read_events(
     cutoff: u64,
     window: &mut MetadataWindow,
 ) -> Result<(), Error> {
-    // Only safe scalar projections leave SQLite. Raw name/data/body never enter Rust.
+    // Raw body never leaves SQLite. Message is selected only for authorized content mode and log/exception rows.
     let sql = r#"SELECT sequence,received,json_valid(body),
     CASE WHEN json_valid(body) THEN json_extract(body,'$.kind') END,
     CASE WHEN json_valid(body) THEN CASE WHEN length(json_extract(body,'$.context'))=32 THEN json_extract(body,'$.context') END END,
@@ -407,14 +474,17 @@ fn read_events(
     CASE WHEN json_valid(body) THEN CASE WHEN json_type(body,'$.data.status')='integer' AND json_extract(body,'$.data.status') BETWEEN 100 AND 599 THEN json_extract(body,'$.data.status') END END,
     CASE WHEN json_valid(body) THEN CASE WHEN json_type(body,'$.data.query_count')='integer' THEN json_extract(body,'$.data.query_count') ELSE 0 END END,
     CASE WHEN json_valid(body) THEN CASE WHEN json_type(body,'$.duration_ms') IN ('integer','real') THEN json_extract(body,'$.duration_ms') END END
+    ,CASE WHEN ?5 AND json_valid(body) AND json_extract(body,'$.kind') IN ('log','exception') AND json_type(body,'$.data.message')='text' THEN substr(json_extract(body,'$.data.message'),1,4096) END
     FROM events WHERE project=?1 AND sequence>=?2 AND sequence<=?3 AND received>=?4 ORDER BY sequence DESC"#;
     let mut statement = connection.prepare(sql)?;
     let mut rows = statement.query(params![
         id,
         window.low_water as i64,
         window.high_water as i64,
-        cutoff as i64
+        cutoff as i64,
+        matches!(kind, ActivityKind::LogContent { .. })
     ])?;
+    let mut content_bytes = 2usize; // JSON array brackets
     while let Some(row) = rows.next()? {
         let sequence = row.get::<_, i64>(0)? as u64;
         let received = row.get::<_, i64>(1)? as u64;
@@ -454,7 +524,7 @@ fn read_events(
                     },
                 });
             }
-            ActivityKind::Logs { level } if event == "log" || event == "exception" => {
+            ActivityKind::Logs { level, .. } if event == "log" || event == "exception" => {
                 let actual = row.get::<_, Option<String>>(5)?.ok_or(Error::Corrupt)?;
                 if level.as_ref().is_some_and(|filter| filter != &actual) {
                     continue;
@@ -474,10 +544,98 @@ fn read_events(
                     },
                 });
             }
+            ActivityKind::LogContent { level, query, .. }
+                if event == "log" || event == "exception" =>
+            {
+                let actual = row.get::<_, Option<String>>(5)?.ok_or(Error::Corrupt)?;
+                if level.as_ref().is_some_and(|filter| filter != &actual) {
+                    continue;
+                }
+                let message =
+                    redact_message(&row.get::<_, Option<String>>(10)?.unwrap_or_default());
+                if query
+                    .as_ref()
+                    .is_some_and(|filter| !message.to_lowercase().contains(&filter.to_lowercase()))
+                {
+                    continue;
+                }
+                let projected = MetadataRow {
+                    sequence,
+                    item: MetadataItem::LogContent {
+                        event_id: format!("event-{sequence}"),
+                        level: actual,
+                        code: if event == "exception" {
+                            "captured_exception"
+                        } else {
+                            "captured_log"
+                        }
+                        .into(),
+                        observed_at: received,
+                        message,
+                    },
+                };
+                let size = serde_json::to_vec(&projected)
+                    .map_err(|_| Error::Corrupt)?
+                    .len()
+                    + 1;
+                if size > 4 * 1024 * 1024 - content_bytes {
+                    window.byte_truncated = true;
+                    // Do not claim the retained projection reaches the older
+                    // source rows that were omitted by this byte budget.
+                    window.low_water = window
+                        .rows
+                        .last()
+                        .map_or(window.high_water, |row| row.sequence);
+                    break;
+                }
+                content_bytes += size;
+                window.rows.push(projected);
+            }
             _ => {}
         }
     }
     Ok(())
+}
+
+// This is bounded best-effort masking, not a guarantee that arbitrary secrets
+// embedded without recognizable structure can be identified.
+fn redact_message(value: &str) -> String {
+    use std::sync::LazyLock;
+    static PAIRS: LazyLock<regex::Regex> = LazyLock::new(|| {
+        regex::Regex::new(
+        r#"(?i)\b(password|passwd|secret|token|authorization|cookie|credential|api[_-]?key|app[_-]?key)\b[\"']?\s*[:=]\s*[\"']?[^\s,;\"']+"#
+    ).unwrap()
+    });
+    static URI_USERINFO: LazyLock<regex::Regex> =
+        LazyLock::new(|| regex::Regex::new(r"(?i)\b([a-z][a-z0-9+.-]*://)[^\s/@]+@").unwrap());
+    static BEARER: LazyLock<regex::Regex> =
+        LazyLock::new(|| regex::Regex::new(r"(?i)\bbearer\s+[^\s,;]+").unwrap());
+    static AUTH_TAIL: LazyLock<regex::Regex> = LazyLock::new(|| {
+        regex::Regex::new(r"(?i)\bauthorization\s*=\s*\[REDACTED\]\s+[^\s,;]+").unwrap()
+    });
+    static REDACTED_TAIL: LazyLock<regex::Regex> = LazyLock::new(|| {
+        regex::Regex::new(r"(?is)\b(password|passwd|secret|token|authorization|cookie|credential|api[_-]?key|app[_-]?key)\s*=\s*\[REDACTED\].*").unwrap()
+    });
+    static LONG_TOKEN: LazyLock<regex::Regex> =
+        LazyLock::new(|| regex::Regex::new(r"\b[A-Za-z0-9_/-]{32,}\b").unwrap());
+    let text = URI_USERINFO.replace_all(value, "${1}[REDACTED]@");
+    let text = AUTH_TAIL.replace_all(&text, "Authorization=[REDACTED]");
+    let text = BEARER.replace_all(&text, "Bearer [REDACTED]");
+    let text = PAIRS.replace_all(&text, "$1=[REDACTED]");
+    let text = LONG_TOKEN.replace_all(&text, "[REDACTED]");
+    let text = super::sanitize::text(&text, "\0");
+    // Old collectors may have masked only the first word of a value.
+    // Suppress the remaining suffix rather than leaking or searching it.
+    let text = REDACTED_TAIL.replace_all(&text, "$1=[REDACTED]");
+    let mut output = String::new();
+    for ch in text.chars() {
+        let ch = if ch.is_control() { ' ' } else { ch };
+        if output.len() + ch.len_utf8() > 2048 {
+            break;
+        }
+        output.push(ch);
+    }
+    output
 }
 
 #[cfg(test)]
@@ -512,6 +670,174 @@ mod tests {
             data,
         }
     }
+    #[test]
+    fn content_window_caps_serialized_projection_and_reports_truncation() {
+        let (_temp, root, mut store) = fixture();
+        let id = "a".repeat(32);
+        let body = serde_json::json!({"kind":"log","context":"c".repeat(32),"name":"error","duration_ms":1.0,"data":{"message":"regular diagnostic ".repeat(120)}}).to_string();
+        let stamp = now().unwrap() as i64;
+        let tx = store.connection.transaction().unwrap();
+        for _ in 0..2200 {
+            tx.execute(
+                "INSERT INTO events(project,received,body) VALUES(?1,?2,?3)",
+                params![id, stamp, body],
+            )
+            .unwrap();
+        }
+        tx.commit().unwrap();
+        let window = read(
+            &root,
+            &id,
+            &ActivityKind::LogContent {
+                level: None,
+                query: None,
+                since: None,
+            },
+        )
+        .unwrap();
+        assert!(window.byte_truncated);
+        assert!(!window.rows.is_empty() && window.rows.len() < 2200);
+        assert_eq!(window.low_water, window.rows.last().unwrap().sequence);
+        assert!(serde_json::to_vec(&window.rows).unwrap().len() <= 4 * 1024 * 1024);
+    }
+
+    #[test]
+    fn content_reader_redacts_before_search_and_keeps_project_scope() {
+        let absent = tempfile::tempdir().unwrap();
+        let absent_root = fs::canonicalize(absent.path()).unwrap();
+        let empty = ActivityKind::LogContent {
+            level: None,
+            since: None,
+            query: None,
+        };
+        assert!(read(&absent_root, &"a".repeat(32), &empty).unwrap().missing);
+        assert!(!absent_root.join("inspector").exists());
+        let (_temp, root, store) = fixture();
+        let a = "a".repeat(32);
+        let b = "b".repeat(32);
+        // Legacy/corrupt producers may have written unsanitized body: the
+        // read boundary must not rely solely on the insertion sanitizer.
+        let stamp = now().unwrap() as i64;
+        for (id, kind, message) in [
+            (&a, "log", "Database failed\nСалом password=PRIVATE_CANARY"),
+            (
+                &a,
+                "exception",
+                "Failure Authorization: Bearer EXCEPTION_SECRET",
+            ),
+            (
+                &a,
+                "log",
+                "Connection postgres://user:shortpass@db.test failed",
+            ),
+            (&b, "log", "FOREIGN_PROJECT_CANARY"),
+            (&a, "request", "REQUEST_PRIVATE_CANARY"),
+        ] {
+            let body = serde_json::json!({"kind":kind,"context":"c".repeat(32),"name":"error","duration_ms":1.0,"data":{"message":message}}).to_string();
+            store
+                .connection
+                .execute(
+                    "INSERT INTO events(project,received,body) VALUES(?1,?2,?3)",
+                    params![id, stamp, body],
+                )
+                .unwrap();
+        }
+        let kind = |query: Option<&str>| ActivityKind::LogContent {
+            level: None,
+            since: None,
+            query: query.map(str::to_owned),
+        };
+        let window = read(&root, &a, &kind(None)).unwrap();
+        assert_eq!(window.rows.len(), 3);
+        assert!(
+            read(&root, &a, &kind(Some("shortpass")))
+                .unwrap()
+                .rows
+                .is_empty()
+        );
+        assert!(read(&root, &a, &kind(Some(&"я".repeat(256)))).is_ok());
+        assert!(read(&root, &a, &kind(Some(&"я".repeat(257)))).is_err());
+        let later = stamp as u64 + 1;
+        assert!(
+            read(
+                &root,
+                &a,
+                &ActivityKind::LogContent {
+                    level: None,
+                    query: None,
+                    since: Some(later)
+                }
+            )
+            .unwrap()
+            .rows
+            .is_empty()
+        );
+        assert!(
+            read(
+                &root,
+                &a,
+                &ActivityKind::Logs {
+                    level: None,
+                    since: Some(later)
+                }
+            )
+            .unwrap()
+            .rows
+            .is_empty()
+        );
+        assert!(
+            !format!("{:?}", kind(Some("PRIVATE_QUERY_CANARY"))).contains("PRIVATE_QUERY_CANARY")
+        );
+        let text = serde_json::to_string(&window).unwrap();
+        for secret in [
+            "PRIVATE_CANARY",
+            "EXCEPTION_SECRET",
+            "FOREIGN_PROJECT_CANARY",
+            "REQUEST_PRIVATE_CANARY",
+            "shortpass",
+        ] {
+            assert!(!text.contains(secret), "leaked {secret}");
+            assert!(
+                read(&root, &a, &kind(Some(secret)))
+                    .unwrap()
+                    .rows
+                    .is_empty()
+            );
+        }
+        assert_eq!(
+            read(&root, &a, &kind(Some("DATABASE"))).unwrap().rows.len(),
+            1
+        );
+        assert!(text.contains("[REDACTED]"));
+        assert!(text.contains("Салом"));
+        if let MetadataItem::LogContent { message, .. } =
+            &read(&root, &a, &kind(Some("DATABASE"))).unwrap().rows[0].item
+        {
+            assert!(!message.chars().any(char::is_control));
+        } else {
+            panic!("wrong projection");
+        }
+        assert!(text.contains("captured_exception"));
+        assert!(!redact_message("password=\"first SECONDSECRET\"").contains("SECONDSECRET"));
+        assert!(!redact_message("password=[REDACTED]\nSECONDSECRET").contains("SECONDSECRET"));
+        assert!(
+            !redact_message("Authorization=[REDACTED] EXCEPTION_SECRET")
+                .contains("EXCEPTION_SECRET")
+        );
+        assert_ne!(
+            epoch(&root, &a, &kind(None)).unwrap(),
+            epoch(
+                &root,
+                &a,
+                &ActivityKind::Logs {
+                    level: None,
+                    since: None
+                }
+            )
+            .unwrap()
+        );
+    }
+
     #[test]
     fn actual_sequences_safe_fields_scope_filters_and_epoch_survive_append_and_clear() {
         let (_temp, root, mut store) = fixture();
@@ -576,7 +902,15 @@ mod tests {
             (method.as_str(), *status, *queries, *elapsed_ms),
             ("POST", Some(201), 3, 2)
         );
-        let logs = read(&root, &a, &ActivityKind::Logs { level: None }).unwrap();
+        let logs = read(
+            &root,
+            &a,
+            &ActivityKind::Logs {
+                level: None,
+                since: None,
+            },
+        )
+        .unwrap();
         assert_eq!(
             logs.rows.iter().map(|r| r.sequence).collect::<Vec<_>>(),
             vec![4, 3]
@@ -601,6 +935,7 @@ mod tests {
                 &root,
                 &a,
                 &ActivityKind::Logs {
+                    since: None,
                     level: Some("warning".into())
                 }
             )
@@ -745,7 +1080,17 @@ mod tests {
                 params![id, now().unwrap() as i64],
             )
             .unwrap();
-        assert!(read(&root, &id, &ActivityKind::Logs { level: None }).is_err());
+        assert!(
+            read(
+                &root,
+                &id,
+                &ActivityKind::Logs {
+                    level: None,
+                    since: None
+                }
+            )
+            .is_err()
+        );
     }
     #[test]
     fn invalid_metadata_filters_and_unsafe_links_fail_without_bootstrap() {
@@ -767,6 +1112,7 @@ mod tests {
                 &absent,
                 &id,
                 &ActivityKind::Logs {
+                    since: None,
                     level: Some("PRIVATE_QUERY".into())
                 }
             ),
@@ -806,10 +1152,17 @@ mod tests {
         let bytes = fs::read(&database).unwrap();
         fs::set_permissions(&directory, fs::Permissions::from_mode(0o500)).unwrap();
         assert_eq!(
-            read(&root, &id, &ActivityKind::Logs { level: None })
-                .unwrap()
-                .rows
-                .len(),
+            read(
+                &root,
+                &id,
+                &ActivityKind::Logs {
+                    level: None,
+                    since: None
+                }
+            )
+            .unwrap()
+            .rows
+            .len(),
             1
         );
         assert_eq!(

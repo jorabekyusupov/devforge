@@ -794,6 +794,8 @@ fn diagnostics_live(invocation: &Invocation) -> Result<(Value, i32), ErrorCode> 
             ToolInput::Log(LogInput {
                 page,
                 query: None,
+                since: None,
+                content: None,
                 level: invocation.level.clone(),
             }),
         ),
