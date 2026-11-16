@@ -1,7 +1,7 @@
 # DevForge current continuation
 
 ## Integrated
-M13.8a main baseline bc9c6a2 passed macOS/Windows CI. The current delivery integrates the first M13.6a execution slice; inspect current HEAD and docs/knowledge/execution-status.md for publication evidence.
+M13.8a main baseline bc9c6a2 passed macOS/Windows CI. The first M13.6a execution slice is integrated as ae1aefe with test-fixture follow-up c6662c9. CI43802189964 passed macOS and Windows. Inspect current HEAD and docs/knowledge/execution-status.md for publication evidence.
 
 The two native proof branches were history-merged using ours only after every changed test/helper byte matched main. Temporary validation workflows were deliberately excluded. Older M7/Xdebug/Windows worktree tips already belonged to main history. Checkpoint checkpoint/limit-20261114-m136a remains a backup, not a wholesale merge: it also contains deferred report work.
 

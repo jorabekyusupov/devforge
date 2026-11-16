@@ -1,0 +1,29 @@
+{
+  "headSha": "c6662c9718c4cffd75361816796ff7c33644bd28",
+  "status": "completed",
+  "conclusion": "success",
+  "url": "https://github.com/jorabekyusupov/devforge/actions/runs/43802189964",
+  "jobs": [
+    {
+      "name": "scope-baseline",
+      "id": 133084797465,
+      "conclusion": "success"
+    },
+    {
+      "name": "xdebug-native",
+      "id": 133084799325,
+      "conclusion": "skipped"
+    },
+    {
+      "name": "check (macos-latest)",
+      "id": 133084839713,
+      "conclusion": "success"
+    },
+    {
+      "name": "check (windows-latest)",
+      "id": 133084839731,
+      "conclusion": "success"
+    }
+  ],
+  "limits": "Hosted Windows backend/unit/build is not Windows10/11 native UI, real Laravel isolation, signing or OS helper acceptance."
+}
