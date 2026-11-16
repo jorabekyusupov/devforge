@@ -2894,7 +2894,23 @@ fn a05_mark_wait_scopes_prior_events_and_revalidates_grants() {
     );
     assert_eq!(marked["ok"], true, "{marked}");
     let bookmark = marked["data"]["bookmark"].as_str().unwrap().to_owned();
-    let timeout = a05_wait(&rig.endpoint, &observer, &project.id, &bookmark, 150);
+    // A 1 ms budget may expire before the first authorized source observation,
+    // especially on loaded Windows. It must never invent an event or a
+    // lossless result, whether it completes the observation or returns a
+    // retryable TimedOut/Busy error.
+    let short = a05_wait(&rig.endpoint, &observer, &project.id, &bookmark, 1);
+    if short["ok"] == true {
+        assert_eq!(short["data"]["timed_out"], true, "{short}");
+        assert!(short["data"]["event"].is_null(), "{short}");
+        assert_eq!(short["data"]["continuity"], "unverified", "{short}");
+    } else {
+        assert!(
+            matches!(short["error"]["code"].as_str(), Some("timed_out" | "busy")),
+            "{short}"
+        );
+        assert!(short["data"].is_null(), "{short}");
+    }
+    let timeout = a05_wait(&rig.endpoint, &observer, &project.id, &bookmark, 1500);
     assert_eq!(timeout["ok"], true, "{timeout}");
     assert_eq!(
         timeout["data"]["timed_out"], true,
@@ -2912,7 +2928,7 @@ fn a05_mark_wait_scopes_prior_events_and_revalidates_grants() {
     let held = rig.root.path().join("inspector/held.sqlite3");
     std::fs::rename(&source, &held).unwrap();
     std::fs::write(&source, b"not-a-sqlite-collector").unwrap();
-    let wrong = a05_wait(&rig.endpoint, &other, &project.id, &bookmark, 150);
+    let wrong = a05_wait(&rig.endpoint, &other, &project.id, &bookmark, 1500);
     assert!(
         matches!(
             wrong["error"]["code"].as_str(),
@@ -2929,7 +2945,7 @@ fn a05_mark_wait_scopes_prior_events_and_revalidates_grants() {
         &observer,
         &rig.projects[1].id,
         &bookmark,
-        150,
+        1500,
     );
     assert!(
         matches!(
@@ -2938,10 +2954,10 @@ fn a05_mark_wait_scopes_prior_events_and_revalidates_grants() {
         ),
         "{foreign}"
     );
-    let tampered = a05_wait(&rig.endpoint, &observer, &project.id, "watch-forged", 150);
+    let tampered = a05_wait(&rig.endpoint, &observer, &project.id, "watch-forged", 1500);
     assert_eq!(tampered["error"]["code"], "cursor_expired", "{tampered}");
     a05_event(&db, &project.id, &"d".repeat(32), "request", "");
-    let no_match = a05_wait(&rig.endpoint, &observer, &project.id, &bookmark, 150);
+    let no_match = a05_wait(&rig.endpoint, &observer, &project.id, &bookmark, 1500);
     assert_eq!(
         no_match["data"]["timed_out"], true,
         "unmatched contexts must not satisfy wait: {no_match}"
@@ -3005,7 +3021,7 @@ fn a05_mark_wait_scopes_prior_events_and_revalidates_grants() {
         advanced, bookmark,
         "a delivered event must advance the bookmark"
     );
-    let no_replay = a05_wait(&rig.endpoint, &observer, &project.id, &advanced, 150);
+    let no_replay = a05_wait(&rig.endpoint, &observer, &project.id, &advanced, 1500);
     assert_eq!(
         no_replay["data"]["timed_out"], true,
         "advanced bookmark must not replay the event: {no_replay}"
@@ -3100,7 +3116,7 @@ fn a05_mark_wait_scopes_prior_events_and_revalidates_grants() {
     let db = rusqlite::Connection::open(&source).unwrap();
     db.execute_batch("CREATE TABLE events(sequence INTEGER PRIMARY KEY AUTOINCREMENT,project TEXT NOT NULL,received INTEGER NOT NULL,body TEXT NOT NULL); PRAGMA user_version=1;").unwrap();
     drop(db);
-    let replaced = a05_wait(&rig.endpoint, &observer, &project.id, &next, 150);
+    let replaced = a05_wait(&rig.endpoint, &observer, &project.id, &next, 1500);
     assert_eq!(
         replaced["error"]["code"], "cursor_expired",
         "source replacement must invalidate marks: {replaced}"
@@ -3108,7 +3124,7 @@ fn a05_mark_wait_scopes_prior_events_and_revalidates_grants() {
     rig.native
         .revoke_external_grant(&observer.record.grant_id)
         .unwrap();
-    let revoked = a05_wait(&rig.endpoint, &observer, &project.id, &bookmark, 150);
+    let revoked = a05_wait(&rig.endpoint, &observer, &project.id, &bookmark, 1500);
     assert_eq!(revoked["error"]["code"], "grant_revoked", "{revoked}");
 }
 
@@ -3139,7 +3155,7 @@ fn a05_log_wait_separates_stream_context_and_reports_retention_loss() {
     let bookmark = mark["data"]["bookmark"].as_str().unwrap().to_owned();
     a05_event(&db, &project.id, &context, "request", "");
     a05_event(&db, &project.id, &"d".repeat(32), "log", "wrong context");
-    let old = a05_wait(&rig.endpoint, &grant, &project.id, &bookmark, 150);
+    let old = a05_wait(&rig.endpoint, &grant, &project.id, &bookmark, 1500);
     assert_eq!(
         old["data"]["timed_out"], true,
         "unrelated stream/context must not match: {old}"
@@ -3150,7 +3166,7 @@ fn a05_log_wait_separates_stream_context_and_reports_retention_loss() {
     assert_eq!(result["data"]["timed_out"], false, "{result}");
     let advanced = result["data"]["bookmark"].as_str().unwrap().to_owned();
     assert_ne!(advanced, bookmark);
-    let no_replay = a05_wait(&rig.endpoint, &grant, &project.id, &advanced, 150);
+    let no_replay = a05_wait(&rig.endpoint, &grant, &project.id, &advanced, 1500);
     assert_eq!(
         no_replay["data"]["timed_out"], true,
         "advanced log bookmark must not replay: {no_replay}"
@@ -3275,7 +3291,7 @@ fn a05_cross_stream_correlation_narrows_to_new_inspector_context() {
         &grant.credential,
         &project.id,
         "activity_wait",
-        json!({"bookmark":log_mark,"timeout_ms":150,"context_id":discovered_context}),
+        json!({"bookmark":log_mark,"timeout_ms":1500,"context_id":discovered_context}),
     );
     assert_eq!(restricted["ok"], true, "{restricted}");
     assert_eq!(
@@ -3307,7 +3323,7 @@ fn a05_cross_stream_correlation_narrows_to_new_inspector_context() {
         &grant.credential,
         &project.id,
         "activity_wait",
-        json!({"bookmark":advanced,"timeout_ms":150,"context_id":foreign}),
+        json!({"bookmark":advanced,"timeout_ms":1500,"context_id":foreign}),
     );
     assert_eq!(
         switched["error"]["code"], "cursor_expired",
@@ -3383,7 +3399,7 @@ fn a05_sparse_other_project_sequences_and_same_file_clear_are_distinguished() {
     a05_event(&db, &project.id, &context, "request", "");
     db.execute("DELETE FROM events WHERE project=?1", [project.id.as_str()])
         .unwrap();
-    let transient = a05_wait(&rig.endpoint, &grant, &project.id, &zero, 150);
+    let transient = a05_wait(&rig.endpoint, &grant, &project.id, &zero, 1500);
     assert_eq!(transient["ok"], true, "{transient}");
     assert_eq!(transient["data"]["timed_out"], true, "{transient}");
     assert_eq!(

@@ -1556,3 +1556,10 @@ zero-baseline uncertainty, bounded timeout, concurrent health and shutdown. SDK/
 and actual local stdio fixtures exercise both new tools; default MCP count is 11 and
 all-opt-in 40. Exact CI evidence belongs to the A05 PR. A06 mail wait and A08 HTTP
 probe remain separate. Original ReportViews/locales are excluded.
+
+Windows CI run 43855253072 failed four A05 fixture assertions because their 150 ms
+budget could expire before the first authorized source observation under runner load.
+The API correctly returned retryable TimedOut rather than inventing a successful
+no-event result. Only the affected A05 tests now use a 1500 ms budget when they
+require an observed timeout; a separate 1 ms case verifies honest short-budget
+behavior. Four affected cases passed locally after this test-only adjustment.

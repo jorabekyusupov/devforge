@@ -185,7 +185,9 @@ its calls while a wait is active; another manager client remains responsive.
 Every result says `continuity=unverified`: polling cannot prove that an event was
 not inserted and deleted or pruned between polls, especially from an initially
 empty project. `timed_out` means no matching event was observed in the polling
-window, not proof no event existed. Sequence after a mark is temporal evidence,
+window, not proof no event existed. If the deadline expires before any source
+read completes, the call returns a retryable `TimedOut` error instead of a
+successful observation. Sequence after a mark is temporal evidence,
 not proof that an action caused it. Context narrows the association; HTTP-probe
 correlation and mail waiting remain A08/A06, respectively. Exact platform/test
 results are recorded by the A05 PR; no unrelated source or bulk data is exposed.
