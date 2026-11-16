@@ -10,10 +10,20 @@ Core5/context1/Git1, manager policy1/affected service1, contracts/args/client5 a
 
 Previously unverified Git follow-up lint is now resolved: cargo clippy --locked -p devforge-projects -p devforge-workspace --lib --test execution_control -- -D warnings passed. No unchanged native flow/full suite was rerun.
 
-## Next necessary work (not done)
-Real Laravel job-specific test-data isolation: reuse owned worktree/Git/FS/source proof and credential-free exact-pin context. Dedicated owned SQLite/receipt; fixed APP_ENV testing, DB path/connection, empty DB_URL/DATABASE_URL, array cache/session and sync queue. Reject .env.testing/PHPUnit force/cached config overrides. Preserve source env/APP_KEY/Git state and two dev canary databases. Strict managed-test refusal remains until this proof exists; no OS sandbox claim.
+## A01 completed slice and next work
+A01 implements reviewed single-file PHP tests under tests/ in an owned ready worktree,
+with source/Git/FS binding, a fresh per-job SQLite/atomic receipt, credential-free
+exact-pin context and fixed testing/cache/session/queue/mail configuration. Laravel
+cache/storage writes stay in the job directory. Child .env, alternate env files,
+PHPUnit XML/cached config and extra/inline argv remain refused, never auto-edited.
+Actual ARM64 PHP8.4.27/Laravel13.42.0 normal bootstrap migration/create/delete preserves
+two dev DB canaries, source env/APP_KEY and both HEAD/dirty states. No OS sandbox;
+Windows actual Laravel and broader PHPUnit/Artisan profiles remain unverified.
 
-Then user-approved order: remaining M13.5 content rights/rich diagnostics/correlation/wait/mail/artifacts -> remaining M13.6 debug/HTTP/workspaces/recovery -> M13.7 HTTP MCP -> M13.8b remaining UX/docs -> M13.9 capability/client/OS reconciliation -> M14 -> M15. E-backlog and planning-only endpoints remain; conditional D-items do not auto-start.
+Next planned package is A02 explicit content rights. Do not start it from this A01
+handoff. Subsequent order remains diagnostics/correlation/wait/mail/artifacts ->
+advanced debug/HTTP/workspaces/recovery -> HTTP MCP -> remaining UX/docs -> final
+capability/client/OS acceptance -> M14 -> M15. E/D conditions remain unchanged.
 
 ## Preserve deferred work
 Untracked ReportViews components/types/test, report-views-results.md and locale namespaces reportView/environmentView/storageView are unmounted/deferred. Do not stage them as execution work. output/ and private credentials/binaries are not added wholesale.

@@ -99,6 +99,36 @@ pub struct Cleanup {
     pub digest: String,
 }
 impl Workspace {
+    /// Bind test execution to an existing owned ready child and its source.
+    pub(crate) fn test_worktree_binding(&self, project: &Project) -> Result<(PathBuf, String)> {
+        let id = project
+            .worktree
+            .as_deref()
+            .ok_or_else(|| error("execution_test_context_unverified"))?;
+        let record = self.worktree_record(id)?;
+        let dir = self.worktree_dir(id)?;
+        let source = self.available_project(&record.input.source_id)?;
+        if record.stage != "ready"
+            || record.project_id.as_deref() != Some(project.id.as_str())
+            || project.path != dir.join("tree")
+            || source.path != record.source_path
+            || source.id == project.id
+            || git::common(&self.root, &source.path)? != record.common_dir
+        {
+            return Err(error("execution_test_context_unverified"));
+        }
+        self.worktree_identity(&record, &project.path)?;
+        let binding = digest(&(
+            &record,
+            project,
+            &source,
+            devforge_projects::discovery::identity(&project.path)?,
+            devforge_projects::discovery::identity(&source.path)?,
+            git::oid(&self.root, &project.path, "HEAD")?,
+            git::oid(&self.root, &source.path, "HEAD")?,
+        ));
+        Ok((dir, binding))
+    }
     pub fn worktree_open(&self, id: &str) -> Result<serde_json::Value> {
         let record = self.worktree_record(id)?;
         let dir = self.worktree_dir(id)?;

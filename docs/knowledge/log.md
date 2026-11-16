@@ -4,6 +4,8 @@
 
 ## 2026-11-16
 
+- **A01 Laravel test-job isolation:** owned ready child/source/Git/FS binding, exclusive per-job SQLite, credential-free fixed testing context and job-local Laravel caches/storage. Child env/PHPUnit/cached-config/argv overrides refused. Actual ARM64 PHP8.4.27/Laravel13.42.0 normal bootstrap migration/create/delete preserves two dev canaries, source env/APP_KEY and Git/dirty state. Single reviewed PHP test-file slice; no OS sandbox or Windows actual Laravel claim. [Contract](../architecture/managed-execution.md), [execution](execution-status.md).
+
 - **Minimal execution integration:** completed proof histories recorded without temporary workflows; exact M13.6a WIP integrated, missing Git-follow-up lint passed, previous green evidence reused. Real Laravel test isolation and deferred report work remain. [Execution](execution-status.md), [contract](../architecture/managed-execution.md).
 
 ## 2026-11-14
