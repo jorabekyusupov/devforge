@@ -808,7 +808,32 @@ fn run_case(root: &Path, archives: &Path, auto_discovery: bool) -> Result<()> {
     Ok(())
 }
 
+fn cli_data_root(root: &Path) -> Result<PathBuf> {
+    Ok(fs::canonicalize(root)?.join("data"))
+}
+
+#[cfg(test)]
+#[test]
+fn cli_data_root_accepts_relative_fixture_path() {
+    let cwd = std::env::current_dir().unwrap();
+    let fixture = tempfile::Builder::new()
+        .prefix("debug fixture ")
+        .tempdir_in(&cwd)
+        .unwrap();
+    let relative = fixture.path().strip_prefix(&cwd).unwrap();
+    assert!(!relative.is_absolute());
+    let actual = cli_data_root(relative).unwrap();
+    assert!(actual.is_absolute());
+    assert_eq!(
+        actual,
+        fs::canonicalize(fixture.path()).unwrap().join("data")
+    );
+}
+
 pub fn cli(root: &Path, executable: &Path) -> Result<()> {
+    // Workflow callers can pass a relative fixture name, while the manager
+    // accepts only absolute data roots.
+    let data_root = cli_data_root(root)?;
     let native: serde_json::Value =
         serde_json::from_slice(&fs::read(root.join("m7-xdebug-native-result.json"))?)?;
     let id = native["project_id"].as_str().unwrap();
@@ -816,7 +841,7 @@ pub fn cli(root: &Path, executable: &Path) -> Result<()> {
     let run = |args: &[&str]| -> Result<serde_json::Value> {
         let output = std::process::Command::new(executable)
             .args(args)
-            .env("DEVFORGE_DATA_DIR", root.join("data"))
+            .env("DEVFORGE_DATA_DIR", &data_root)
             .env("DEVFORGE_TEST_SECRETS", "1")
             .output()?;
         assert!(
