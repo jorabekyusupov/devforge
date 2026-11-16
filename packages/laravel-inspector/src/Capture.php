@@ -19,10 +19,12 @@ final class Capture
             $this->flush();
         });
     }
-    public function begin(string $kind, string $name): void
+    public function begin(string $kind, string $name, ?string $requestContext = null): void
     {
         if ($this->scope !== null) $this->parents[] = [$this->scope, $this->count, $this->offline];
-        $this->scope = ['id' => bin2hex(random_bytes(16)), 'kind' => $kind, 'name' => $name, 'start' => hrtime(true), 'queries' => 0, 'sql_ms' => 0.0, 'exceptions' => []];
+        $id = $kind === 'request' && $requestContext !== null && preg_match('/\A[0-9a-f]{32}\z/D', $requestContext) === 1
+            ? $requestContext : bin2hex(random_bytes(16));
+        $this->scope = ['id' => $id, 'kind' => $kind, 'name' => $name, 'start' => hrtime(true), 'queries' => 0, 'sql_ms' => 0.0, 'exceptions' => []];
         $this->count = 0; $this->offline = false;
     }
     public function active(): bool { return $this->scope !== null && !$this->offline; }

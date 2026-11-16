@@ -258,7 +258,7 @@ impl Controller {
             }
         });
         let result = runtime
-            .block_on(server.run_async_ready(
+            .block_on(server.run_async_ready_with_deadline(
                 self.context.stop.clone(),
                 move |listener| {
                     let _gate = ready_context
@@ -286,14 +286,16 @@ impl Controller {
                     }
                     Ok(())
                 },
-                move |peer, input| {
+                move |peer, input, deadline| {
                     let context = context.clone();
                     async move {
                         // Native credential I/O and any ledger waits are never performed
                         // on the listener event loop. Health never needs the auth mutex.
-                        tokio::task::spawn_blocking(move || context.request(peer, input))
-                            .await
-                            .map_err(|_| crate::Error::HandlerFailed)
+                        tokio::task::spawn_blocking(move || {
+                            context.request_with_deadline(peer, input, deadline)
+                        })
+                        .await
+                        .map_err(|_| crate::Error::HandlerFailed)
                     }
                 },
             ))
@@ -525,7 +527,11 @@ impl Context {
         self.stop.request();
         Ok(())
     }
+    #[cfg(test)]
     fn request(&self, peer: PeerIdentity, input: Value) -> Value {
+        self.request_with_deadline(peer, input, Instant::now() + crate::IO_TIMEOUT)
+    }
+    fn request_with_deadline(&self, peer: PeerIdentity, input: Value, deadline: Instant) -> Value {
         if input
             .get("method")
             .and_then(Value::as_str)
@@ -539,10 +545,14 @@ impl Context {
                         input,
                         &self.actor,
                         Some(devforge_control::ErrorCode::Busy),
+                        deadline,
                     );
                 }
             };
-            let wait = input.get("method").and_then(Value::as_str) == Some("activity_wait");
+            let wait = matches!(
+                input.get("method").and_then(Value::as_str),
+                Some("activity_wait" | "site_probe")
+            );
             let rejected = self
                 .quitting
                 .load(Ordering::Acquire)
@@ -552,7 +562,9 @@ impl Context {
             if wait {
                 drop(_gate);
             }
-            return self.services.request(peer, input, &self.actor, rejected);
+            return self
+                .services
+                .request(peer, input, &self.actor, rejected, deadline);
         }
         if input.get("method").and_then(Value::as_str) == Some("external") {
             let invalid = crate::external_control::invalid_reply(&input);

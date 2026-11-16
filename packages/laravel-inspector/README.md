@@ -29,6 +29,11 @@ bootstrap configuration. Do not automatically edit that application's provider
 policy to bypass its choice.
 
 Request bodies/headers, query bindings and queue payloads are not collected.
+When a managed HTTP probe supplies a 32-character lowercase hexadecimal
+`X-DevForge-Context`, the companion uses it as that request's context ID. Other
+values are ignored in favor of a fresh random ID; the raw header is not captured.
+Any HTTP client can supply this header, so a matching context is an observational
+association, not an authenticated identity or proof that the probe caused an event.
 SQL literals/comments and known credential values/sensitive fields are redacted.
 Objects expose bounded public properties without invoking user serializers;
 output is JSON/text, never captured HTML. Redaction is not a guarantee for unknown

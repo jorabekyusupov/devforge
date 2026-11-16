@@ -132,6 +132,7 @@ fn completed_nonzero_and_success_are_typed_outcomes_and_supplied_argv_never_reac
     let failed = workspace
         .execute_managed_execution(&id, &request, &facts, &Cancellation::default(), &|| Ok(()))
         .unwrap();
+    assert!(failed.test_artifact.is_none());
     assert!(!failed.success);
     assert_eq!(failed.exit_code, Some(7));
     assert!(
@@ -396,6 +397,31 @@ fn laravel_request() -> ExecutionRequest {
         managed_test: true,
     }
 }
+#[test]
+fn owned_test_job_returns_only_scoped_receipt_metadata() {
+    let (_temp, mut workspace, _source, child) = owned_laravel_fixture();
+    let request = laravel_request();
+    let facts = workspace.execution_preflight(&child, &request).unwrap();
+    let output = workspace
+        .execute_managed_execution(&child, &request, &facts, &Cancellation::default(), &|| {
+            Ok(())
+        })
+        .unwrap();
+    let meta = output
+        .test_artifact
+        .as_ref()
+        .expect("owned test job receipt metadata");
+    assert_eq!(meta.kind, "isolated_test_receipt");
+    assert_eq!(meta.state, "completed");
+    assert_eq!(meta.success, output.success);
+    assert_eq!(meta.exit_code, output.exit_code);
+    let json = serde_json::to_value(meta).unwrap();
+    assert_eq!(json.as_object().unwrap().len(), 4);
+    let serialized = json.to_string();
+    assert!(!serialized.contains("database.sqlite"));
+    assert!(!serialized.contains("test-job-"));
+}
+
 #[test]
 fn laravel_jobs_require_owned_child_and_reject_overrides_before_launch() {
     let (_temp, mut workspace, source, child) = owned_laravel_fixture();

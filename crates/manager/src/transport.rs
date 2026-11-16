@@ -102,6 +102,20 @@ impl Server {
         Fut: Future<Output = Result<Value>> + Send + 'static,
         F: FnOnce(ListenerReady) -> Result<()>,
     {
+        self.run_async_ready_with_deadline(stop, ready, move |peer, value, _| handler(peer, value))
+            .await
+    }
+    pub(crate) async fn run_async_ready_with_deadline<H, Fut, F>(
+        self,
+        stop: StopSignal,
+        ready: F,
+        handler: H,
+    ) -> Result<()>
+    where
+        H: Fn(PeerIdentity, Value, std::time::Instant) -> Fut + Send + Sync + 'static,
+        Fut: Future<Output = Result<Value>> + Send + 'static,
+        F: FnOnce(ListenerReady) -> Result<()>,
+    {
         self.endpoint().validate()?;
         let mut listener = os::Listener::bind(self.endpoint())?;
         if let Err(error) = ready(ListenerReady {
@@ -123,16 +137,19 @@ impl Server {
                     let mut stream = match accepted { Ok(s) => s, Err(e) => break Err(e) };
                     let Ok(permit) = slots.clone().try_acquire_owned() else { continue };
                     let handler = handler.clone();
+                    // Capture the deadline at listener acceptance, not when a
+                    // potentially queued blocking handler eventually starts.
+                    let deadline = std::time::Instant::now() + IO_TIMEOUT;
                     connections.spawn(async move {
                         let _permit = permit;
                         // Rejection never reaches the supplied handler.
                         let peer = os::peer(&stream, false)?;
                         let exchange = async {
                             let input = framing::read(&mut stream, MAX_REQUEST_BYTES).await?;
-                            let response = handler(peer, input).await?;
+                            let response = handler(peer, input, deadline).await?;
                             framing::write(&mut stream, &response, MAX_RESPONSE_BYTES).await
                         };
-                        tokio::time::timeout(IO_TIMEOUT, exchange).await.map_err(|_| Error::TimedOut)?
+                        tokio::time::timeout_at(tokio::time::Instant::from_std(deadline), exchange).await.map_err(|_| Error::TimedOut)?
                     });
                 }
                 _ = tokio::time::sleep(Duration::from_millis(20)) => {},

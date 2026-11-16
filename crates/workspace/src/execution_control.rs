@@ -189,12 +189,22 @@ pub struct ExecutionLog {
 }
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct TestArtifactMetadata {
+    pub kind: String,
+    pub state: String,
+    pub success: bool,
+    pub exit_code: Option<i32>,
+}
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ExecutionOutput {
     pub success: bool,
     pub exit_code: Option<i32>,
     pub logs: Vec<ExecutionLog>,
     pub dropped_bytes: u64,
     pub truncated: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub test_artifact: Option<TestArtifactMetadata>,
 }
 fn validate(request: &ExecutionRequest) -> Result<()> {
     if request.args.len() > 64
@@ -671,6 +681,14 @@ impl Workspace {
                     .dropped_bytes
                     .saturating_add(total.saturating_sub(included)),
                 truncated: result.dropped_bytes > 0 || included < total,
+                // This metadata represents the completed private receipt just written
+                // above. It deliberately includes neither its path nor database bytes.
+                test_artifact: job.as_ref().map(|_| TestArtifactMetadata {
+                    kind: "isolated_test_receipt".into(),
+                    state: "completed".into(),
+                    success: result.success,
+                    exit_code: result.exit_code,
+                }),
             };
             if serde_json::to_vec(&output)
                 .map_err(|_| error("execution_output_unavailable"))?

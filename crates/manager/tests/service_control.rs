@@ -4657,3 +4657,88 @@ fn a07_support_export_requires_native_review_and_preserves_exact_preview() {
     );
     assert!(!expired_destination.exists());
 }
+
+#[test]
+fn a08_site_probe_requires_project_execution_grant_and_current_binding() {
+    use devforge_control::{limits::Text, tools::SiteProbeInput};
+    let mut rig = Rig::new(None);
+    let a = rig.projects[0].clone();
+    let b = rig.projects[1].clone();
+    let observer = rig
+        .native
+        .issue_external_grant(&id(&a.id), &[Scope::Observer], Duration::from_secs(600))
+        .unwrap();
+    let execution = rig.grant(0, true);
+    let mut denied = rig.diagnostics(&observer);
+    let mut client = rig.diagnostics(&execution);
+    let req = |project: &str, revision| Request {
+        api_version: Default::default(),
+        request_id: id("a08-probe"),
+        project_id: id(project),
+        expected_revision: revision,
+        idempotency_key: None,
+        input: SiteProbeInput {
+            path: Text::new("/".into()).unwrap(),
+        },
+    };
+    let before = std::fs::read_dir(rig.root.path()).unwrap().count();
+    assert_eq!(
+        denied
+            .site_probe(&req(&a.id, None))
+            .unwrap()
+            .error()
+            .unwrap()
+            .code,
+        ErrorCode::Unauthorized
+    );
+    assert_eq!(
+        client
+            .site_probe(&req(&b.id, None))
+            .unwrap()
+            .error()
+            .unwrap()
+            .code,
+        ErrorCode::ProjectMismatch
+    );
+    assert_eq!(
+        client
+            .site_probe(&req("missing-project", None))
+            .unwrap()
+            .error()
+            .unwrap()
+            .code,
+        ErrorCode::ProjectMismatch
+    );
+    assert_eq!(
+        client
+            .site_probe(&req(&a.id, Some(a.revision + 1)))
+            .unwrap()
+            .error()
+            .unwrap()
+            .code,
+        ErrorCode::RevisionConflict
+    );
+    // A valid grant cannot cause a request to a stopped/nonexistent site.
+    assert_eq!(
+        client
+            .site_probe(&req(&a.id, Some(a.revision)))
+            .unwrap()
+            .error()
+            .unwrap()
+            .code,
+        ErrorCode::PreconditionFailed
+    );
+    rig.native
+        .revoke_external_grant(&execution.record.grant_id)
+        .unwrap();
+    assert_eq!(
+        client
+            .site_probe(&req(&a.id, None))
+            .unwrap()
+            .error()
+            .unwrap()
+            .code,
+        ErrorCode::GrantRevoked
+    );
+    assert_eq!(std::fs::read_dir(rig.root.path()).unwrap().count(), before);
+}

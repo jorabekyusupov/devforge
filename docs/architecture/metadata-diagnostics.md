@@ -270,3 +270,36 @@ Implementation: `crates/workspace/src/support_bundle.rs`,
 are in `mcp_contract.rs` and `external_client.rs`. Local focused tests and the
 PR's macOS/Windows CI are recorded in the phase result; actual native Windows UI
 interaction is not implied by CI.
+
+## A08 managed-site probe and test receipt metadata (2026-11-16)
+
+The separately opted-in `site.probe` sends one bounded GET to the registered,
+currently managed project site. Observer and ExecutionTest authority are checked
+for the bound project; GET can change application state. Callers provide a path,
+not a host, scheme, query, credentials or headers. The manager pins the connection
+to loopback, never follows redirects and returns no response body or headers. HTTPS
+uses the managed CA and verifies the hostname; an HTTP response is not TLS proof.
+The response includes status, elapsed time and a generated 32-hex request context.
+
+The Laravel companion may propagate a syntactically valid `X-DevForge-Context`
+into its request event. This header is untrusted and spoofable: an observed matching
+context supports association, not proof of origin or causation. A05 source polling
+and its unverified continuity semantics still apply. Older known unmodified
+companions can upgrade; user-edited companion files are not overwritten.
+
+The manager checks grant, project binding, revision and serving-session target
+before and after network IO. An already admitted GET can have effects even if a
+grant is revoked or the serving session changes concurrently; a later failure
+cannot undo it. Session/port ownership is not held by an atomic lease while the
+request is in flight. This limitation must not be presented as immediate cancellation
+or guaranteed absence of IO after a concurrent lifecycle change. The client timeout
+starts before server accept, so a client timeout does not prove that a GET had no
+effect; clients must not automatically retry it.
+
+Completed A01 managed-test output includes bounded receipt metadata (kind, state,
+success and exit code) only when its private receipt was written. It contains no
+receipt path or database bytes and is returned through the existing operation-owned
+execution output boundary. Code: `crates/workspace/src/http_probe.rs`,
+`crates/manager/src/diagnostics.rs`, `packages/laravel-inspector/src/RequestCapture.php`
+and `crates/workspace/src/execution_control.rs`. Platform and test evidence are in
+[execution status](../knowledge/execution-status.md).

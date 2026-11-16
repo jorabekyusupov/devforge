@@ -204,6 +204,16 @@ impl Wire for SupportPreviewInput {
         Some("export interface SupportPreviewInput {}\n".into())
     }
 }
+// Only a project-relative path is accepted; host, credentials, query and
+// transport are derived by the manager rather than supplied by the client.
+contract!(SiteProbeInput { path: Text<1024> });
+contract!(SiteProbeOutput {
+    status: u16,
+    elapsed_ms: SafeInt,
+    context_id: Id,
+    tls: bool,
+    redirect: bool
+});
 contract!(SupportReadInput { artifact_id: Id });
 contract!(SupportDoctor {
     code: Id,
@@ -538,6 +548,8 @@ pub fn declarations() -> Vec<String> {
         ActivityWaitInput,
         ActivityEvent,
         ActivityWaitOutput,
+        SiteProbeInput,
+        SiteProbeOutput,
         SupportPreviewInput,
         SupportReadInput,
         SupportDoctor,
