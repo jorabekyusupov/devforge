@@ -784,16 +784,59 @@ fn safe_dump(kind: &str, raw: Option<&str>) -> (String, bool) {
             _ => false,
         }
     }
+    fn looks_sql(value: &str) -> bool {
+        let mut text = value.trim_start();
+        loop {
+            if text.starts_with("--") || text.starts_with('#') {
+                let Some(end) = text.find('\n') else {
+                    return true;
+                };
+                text = text[end + 1..].trim_start();
+            } else if text.starts_with("/*") {
+                let Some(end) = text.find("*/") else {
+                    return true;
+                };
+                text = text[end + 2..].trim_start();
+            } else {
+                break;
+            }
+        }
+        let first = text
+            .split(|c: char| !c.is_ascii_alphabetic())
+            .next()
+            .unwrap_or_default();
+        [
+            "SELECT", "INSERT", "UPDATE", "DELETE", "WITH", "CREATE", "ALTER", "DROP",
+        ]
+        .iter()
+        .any(|keyword| first.eq_ignore_ascii_case(keyword))
+    }
     fn mask_strings(value: serde_json::Value) -> serde_json::Value {
         match value {
-            serde_json::Value::String(value) => serde_json::Value::String(redact_message(&value)),
+            serde_json::Value::String(value) => {
+                if looks_sql(&value) {
+                    serde_json::Value::String("[REDACTED]".into())
+                } else {
+                    serde_json::Value::String(redact_message(&value))
+                }
+            }
             serde_json::Value::Array(items) => {
                 serde_json::Value::Array(items.into_iter().map(mask_strings).collect())
             }
             serde_json::Value::Object(items) => serde_json::Value::Object(
                 items
                     .into_iter()
-                    .map(|(k, v)| (redact_message(&k), mask_strings(v)))
+                    .map(|(k, v)| {
+                        let value = if ["sql", "query", "statement"]
+                            .iter()
+                            .any(|name| k.to_ascii_lowercase().contains(name))
+                        {
+                            serde_json::Value::String("[REDACTED]".into())
+                        } else {
+                            mask_strings(v)
+                        };
+                        (redact_message(&k), value)
+                    })
                     .collect(),
             ),
             value => value,
@@ -949,13 +992,26 @@ mod tests {
             &a,
             "dump",
             "array",
-            serde_json::json!({"message":"safe diagnostic","token":"DUMP_SECRET","nested":{"password":"NESTED_SECRET","visible":"safe-child"}}),
+            serde_json::json!({"message":"safe diagnostic","token":"DUMP_SECRET","nested":{"password":"NESTED_SECRET","visible":"safe-child","sql":"select * from users where email='PRIVATE_SQL_CANARY'","QuErY":{"text":"NESTED_QUERY_CANARY"},"STATEMENT":["STATEMENT_CANARY"],"raw_sql":"-- diagnostic\nselect email='RAW_SQL_CANARY'","query_string":"QUERY_ALIAS_CANARY","sql_statement":{"secret":"SQL_ALIAS_CANARY"}}}),
         );
         write(&a, "dump", "string", serde_json::json!("x".repeat(9000)));
         write(&b, "query", "select FOREIGN_SECRET", serde_json::json!({}));
         let detail = ActivityKind::InspectorDetail {
             context: Some(context.clone()),
         };
+        let sql_string =
+            serde_json::to_string("  SELECT * FROM users WHERE value='SCALAR_SQL_CANARY'").unwrap();
+        for prefix in ["-- diagnostic\n", "# diagnostic\n", "/* diagnostic */ "] {
+            let input =
+                serde_json::to_string(&format!("{prefix}select 'LEADING_COMMENT_CANARY'")).unwrap();
+            assert!(
+                !safe_dump("text", Some(&input))
+                    .0
+                    .contains("LEADING_COMMENT_CANARY")
+            );
+        }
+        let (sanitized, _) = safe_dump("text", Some(&sql_string));
+        assert!(sanitized.contains("[REDACTED]") && !sanitized.contains("SCALAR_SQL_CANARY"));
         let window = read(&root, &a, &detail).unwrap();
         assert_eq!(window.rows.len(), 10);
         for input in [
@@ -980,6 +1036,12 @@ mod tests {
             "BINDING_SECRET",
             "DUMP_SECRET",
             "NESTED_SECRET",
+            "PRIVATE_SQL_CANARY",
+            "NESTED_QUERY_CANARY",
+            "STATEMENT_CANARY",
+            "RAW_SQL_CANARY",
+            "QUERY_ALIAS_CANARY",
+            "SQL_ALIAS_CANARY",
             "CACHE_KEY_SECRET",
             "FOREIGN_SECRET",
         ] {

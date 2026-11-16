@@ -1737,7 +1737,7 @@ fn a04_inspector_details_require_project_scope_and_redact_queries() {
         json!({"kind":"job","context":context,"name":"App\\Jobs\\Run","duration_ms":7.0,"data":{"status":"success","query_count":1}}),
         json!({"kind":"job","context":context,"name":"App\\Jobs\\Complete","duration_ms":7.0,"data":{"status":"success","query_count":0,"truncated":false}}),
         json!({"kind":"cache","context":context,"name":"hit","duration_ms":0.0,"data":{"key":"CACHE_SECRET_CANARY"}}),
-        json!({"kind":"dump","context":context,"name":"array","duration_ms":0.0,"data":{"message":"safe diagnostic","token":"DUMP_SECRET_CANARY","nested":{"password":"NESTED_SECRET_CANARY","visible":"safe-child"}}}),
+        json!({"kind":"dump","context":context,"name":"array","duration_ms":0.0,"data":{"message":"safe diagnostic","token":"DUMP_SECRET_CANARY","nested":{"password":"NESTED_SECRET_CANARY","visible":"safe-child","raw_sql":"select 'DUMP_RAW_SQL_SECRET_CANARY'","query_string":"-- tag\nselect 'DUMP_ALIAS_SECRET_CANARY'","other":"/* trace */ SELECT 'DUMP_COMMENT_SECRET_CANARY'","sql":"select * from users where email='DUMP_SQL_SECRET_CANARY'","query":"select 'DUMP_QUERY_SECRET_CANARY'","statement":"select 'DUMP_STATEMENT_SECRET_CANARY'"}}}),
         json!({"kind":"dump","context":context,"name":"array","duration_ms":0.0,"data":{"oversize":"Z".repeat(9000)}}),
     ];
     let repeated_query = events[1].clone();
@@ -1848,6 +1848,12 @@ fn a04_inspector_details_require_project_scope_and_redact_queries() {
         "PRIVATE_BINDING_CANARY",
         "DUMP_SECRET_CANARY",
         "NESTED_SECRET_CANARY",
+        "DUMP_SQL_SECRET_CANARY",
+        "DUMP_RAW_SQL_SECRET_CANARY",
+        "DUMP_ALIAS_SECRET_CANARY",
+        "DUMP_COMMENT_SECRET_CANARY",
+        "DUMP_QUERY_SECRET_CANARY",
+        "DUMP_STATEMENT_SECRET_CANARY",
         "CACHE_SECRET_CANARY",
         "FOREIGN_SECRET_CANARY",
     ] {
@@ -1907,7 +1913,13 @@ fn a04_inspector_details_require_project_scope_and_redact_queries() {
     );
     assert!(
         !dump.text.as_str().contains("DUMP_SECRET_CANARY")
-            && !dump.text.as_str().contains("NESTED_SECRET_CANARY"),
+            && !dump.text.as_str().contains("NESTED_SECRET_CANARY")
+            && !dump.text.as_str().contains("DUMP_SQL_SECRET_CANARY")
+            && !dump.text.as_str().contains("DUMP_RAW_SQL_SECRET_CANARY")
+            && !dump.text.as_str().contains("DUMP_ALIAS_SECRET_CANARY")
+            && !dump.text.as_str().contains("DUMP_COMMENT_SECRET_CANARY")
+            && !dump.text.as_str().contains("DUMP_QUERY_SECRET_CANARY")
+            && !dump.text.as_str().contains("DUMP_STATEMENT_SECRET_CANARY"),
         "dump secrets must be masked"
     );
     let withheld = details

@@ -134,7 +134,8 @@ profile metrics; the request URL and headers are not projected from request even
 remove literal values and comments, including MySQL `#` tails; repeated_count is
 only the count of identical normalized SQL in the same context and retained window,
 not proof of N+1 or complete history. Dump returns a bounded best-effort masked projection; oversized or invalid
-payloads are withheld. Cache reports only hit/miss/write/forget; keys, values, tags and store names
+payloads are withheld. SQL-labeled dump fields and recognizable SQL-shaped dump
+strings are withheld as well. Cache reports only hit/miss/write/forget; keys, values, tags and store names
 are not captured. Masking is conservative and cannot guarantee identification of
 all arbitrary secrets embedded in unstructured names.
 
