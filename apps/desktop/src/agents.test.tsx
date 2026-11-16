@@ -433,6 +433,62 @@ describe("minimal agent settings", () => {
       ).toHaveFocus(),
     );
   });
+  it("shows the exact support export destination, content digest, and size before approval", async () => {
+    const { api, view } = fixture();
+    const pending = plan();
+    pending.target = {
+      kind: "support_export",
+      destination: "/fixture/exports/support bundle.json",
+      content_sha256: "a".repeat(64),
+      byte_count: 12345,
+    };
+    pending.details = [];
+    pending.machine_confirmation_required = false;
+    view.plans = [pending];
+    const { user } = await mount(api);
+    await screen.findByText("Connected");
+    await user.click(screen.getByRole("button", { name: "Review plan" }));
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveTextContent("/fixture/exports/support bundle.json");
+    expect(dialog).toHaveTextContent("a".repeat(64));
+    expect(dialog).toHaveTextContent("12,345");
+    await user.click(
+      within(dialog).getByRole("checkbox", {
+        name: "I reviewed this project and the exact changes shown.",
+      }),
+    );
+    await user.click(
+      within(dialog).getByRole("button", { name: "Approve reviewed plan" }),
+    );
+    await waitFor(() =>
+      expect(api.approve).toHaveBeenCalledWith(pending.digest),
+    );
+  });
+  it("refuses approval for incomplete support export review data", async () => {
+    const { api, view } = fixture();
+    const pending = plan();
+    pending.target = {
+      kind: "support_export",
+      destination: "/fixture/export",
+      content_sha256: "invalid",
+      byte_count: 4,
+    };
+    pending.details = [];
+    view.plans = [pending];
+    const { user } = await mount(api);
+    await screen.findByText("Connected");
+    await user.click(screen.getByRole("button", { name: "Review plan" }));
+    const dialog = screen.getByRole("dialog");
+    await user.click(
+      within(dialog).getByRole("checkbox", {
+        name: "I reviewed this project and the exact changes shown.",
+      }),
+    );
+    expect(
+      within(dialog).getByRole("button", { name: "Approve reviewed plan" }),
+    ).toBeDisabled();
+    expect(api.approve).not.toHaveBeenCalled();
+  });
   it("fails closed when exact domain review details are unavailable", async () => {
     const { api, view } = fixture();
     const pending = plan();

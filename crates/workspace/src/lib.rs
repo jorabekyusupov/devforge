@@ -19,6 +19,7 @@ pub mod service_control;
 mod services;
 pub mod setup;
 pub mod storage;
+pub mod support_bundle;
 mod system_setup;
 use devforge_core::SecretStore;
 use devforge_projects::{

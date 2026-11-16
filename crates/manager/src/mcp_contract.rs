@@ -43,6 +43,7 @@ pub struct Protocol {
     database_actions: bool,
     domain_actions: bool,
     execution_actions: bool,
+    support_export_actions: bool,
 }
 pub enum Action {
     Reply(Value),
@@ -73,6 +74,14 @@ pub enum ExecutionInput {
     Cancel {
         operation_id: Id,
     },
+    SupportPlan(Request<MutationInput>),
+    SupportApply {
+        request: Request<MutationInput>,
+        review: Digest,
+    },
+    SupportLookup {
+        idempotency_key: Id,
+    },
 }
 pub struct ExecutionCall {
     pub input: ExecutionInput,
@@ -99,6 +108,8 @@ impl DiagnosticsCall {
 pub enum ActivityInput {
     Mark(Request<devforge_control::tools::ActivityMarkInput>),
     Wait(Request<devforge_control::tools::ActivityWaitInput>),
+    SupportPreview(Request<devforge_control::tools::SupportPreviewInput>),
+    SupportRead(Request<devforge_control::tools::SupportReadInput>),
 }
 pub struct ActivityCall {
     pub input: ActivityInput,
@@ -266,6 +277,7 @@ impl Protocol {
             database_actions: false,
             domain_actions: false,
             execution_actions: false,
+            support_export_actions: false,
         }
     }
     /// Surface selection only; grants and native exact-plan approval remain
@@ -322,6 +334,10 @@ impl Protocol {
     /// Surface selection is not permission or project trust.
     pub fn with_execution_actions(mut self, enabled: bool) -> Self {
         self.execution_actions = enabled;
+        self
+    }
+    pub fn with_support_export_actions(mut self, enabled: bool) -> Self {
+        self.support_export_actions = enabled;
         self
     }
     pub fn receive(&mut self, value: Value) -> Action {
@@ -466,6 +482,15 @@ impl Protocol {
             };
         }
         if method == "tools/call"
+            && self.support_export_actions
+            && let Some(support) = self.support_export_tool(&params, id.clone(), version)
+        {
+            return match support {
+                Ok(call) => Action::Execution(call),
+                Err(()) => Action::Reply(rpc_error(Some(id), -32602, "Invalid params", None)),
+            };
+        }
+        if method == "tools/call"
             && self.execution_actions
             && let Some(execution) = self.execution_tool(&params, id.clone(), version)
         {
@@ -550,7 +575,7 @@ impl Protocol {
                     return Action::Reply(rpc_success(
                         id,
                         version,
-                        json!({"tools":tool_definitions(self.service_actions,self.runtime_actions,self.environment_actions,self.database_actions,self.domain_actions,self.execution_actions)}),
+                        json!({"tools":tool_definitions(self.service_actions,self.runtime_actions,self.environment_actions,self.database_actions,self.domain_actions,self.execution_actions,self.support_export_actions)}),
                     ));
                 } else {
                     Err(())
@@ -608,7 +633,10 @@ impl Protocol {
         version: Version,
     ) -> Option<Result<ActivityCall, ()>> {
         let name = params.get("name").and_then(Value::as_str)?;
-        if !matches!(name, "activity.mark" | "activity.wait") {
+        if !matches!(
+            name,
+            "activity.mark" | "activity.wait" | "support.preview" | "support.read"
+        ) {
             return None;
         }
         if !keys(params, &["name", "arguments"]) {
@@ -618,7 +646,11 @@ impl Protocol {
             .get("arguments")
             .cloned()
             .unwrap_or_else(|| json!({}));
-        let allowed: &[&str] = if name == "activity.mark" {
+        let allowed: &[&str] = if name == "support.preview" {
+            &[]
+        } else if name == "support.read" {
+            &["artifact_id"]
+        } else if name == "activity.mark" {
             &[
                 "stream",
                 "detail",
@@ -661,7 +693,32 @@ impl Protocol {
             idempotency_key: None,
             input,
         };
-        let input = if name == "activity.mark" {
+        let input = if name == "support.preview" {
+            match serde_json::from_value::<devforge_control::tools::SupportPreviewInput>(arguments)
+            {
+                Ok(input) => ActivityInput::SupportPreview(Request {
+                    api_version: Default::default(),
+                    request_id: request_id.clone(),
+                    project_id: self.project.clone(),
+                    expected_revision: None,
+                    idempotency_key: None,
+                    input,
+                }),
+                Err(_) => return Some(Err(())),
+            }
+        } else if name == "support.read" {
+            match serde_json::from_value::<devforge_control::tools::SupportReadInput>(arguments) {
+                Ok(input) => ActivityInput::SupportRead(Request {
+                    api_version: Default::default(),
+                    request_id: request_id.clone(),
+                    project_id: self.project.clone(),
+                    expected_revision: None,
+                    idempotency_key: None,
+                    input,
+                }),
+                Err(_) => return Some(Err(())),
+            }
+        } else if name == "activity.mark" {
             match serde_json::from_value::<devforge_control::tools::ActivityMarkInput>(arguments) {
                 Ok(input) => ActivityInput::Mark(envelope(input)),
                 Err(_) => return Some(Err(())),
@@ -1258,6 +1315,80 @@ impl Protocol {
             json!({"content":[{"type":"text","text":content.to_string()}],"structuredContent":content,"isError":is_error}),
         )
     }
+    fn support_export_tool(
+        &mut self,
+        params: &Value,
+        id: Value,
+        version: Version,
+    ) -> Option<Result<ExecutionCall, ()>> {
+        let name = params.get("name").and_then(Value::as_str)?;
+        if !matches!(name, "support.export" | "support.export_lookup") {
+            return None;
+        }
+        if !keys(params, &["name", "arguments"]) {
+            return Some(Err(()));
+        }
+        let args = params
+            .get("arguments")
+            .cloned()
+            .unwrap_or_else(|| json!({}));
+        self.counter = self.counter.wrapping_add(1);
+        let request_id = Id::new(format!("mcp-{}", self.counter)).expect("fixed request ID");
+        let result = (|| {
+            if name == "support.export_lookup" {
+                #[derive(Deserialize)]
+                #[serde(deny_unknown_fields)]
+                struct Lookup {
+                    idempotency_key: Id,
+                }
+                let parsed: Lookup = serde_json::from_value(args).map_err(|_| ())?;
+                return Ok(ExecutionInput::SupportLookup {
+                    idempotency_key: parsed.idempotency_key,
+                });
+            }
+            #[derive(Deserialize)]
+            #[serde(deny_unknown_fields)]
+            struct Args {
+                action: String,
+                expected_revision: u64,
+                idempotency_key: Id,
+                artifact_id: Id,
+                limits: Option<MutationLimits>,
+                review: Option<Digest>,
+            }
+            let parsed: Args = serde_json::from_value(args).map_err(|_| ())?;
+            if parsed.expected_revision > devforge_control::limits::SafeInt::MAX
+                || !matches!(parsed.action.as_str(), "plan" | "apply")
+                || (parsed.action == "apply") != parsed.review.is_some()
+            {
+                return Err(());
+            }
+            let input =
+                MutationInput::SupportExport(devforge_control::mutations::SupportExportInput {
+                    artifact_id: parsed.artifact_id,
+                    limits: parsed.limits,
+                });
+            let request = Request {
+                api_version: Default::default(),
+                request_id: request_id.clone(),
+                project_id: self.project.clone(),
+                expected_revision: Some(parsed.expected_revision),
+                idempotency_key: Some(parsed.idempotency_key),
+                input,
+            };
+            Ok(match parsed.review {
+                Some(review) => ExecutionInput::SupportApply { request, review },
+                None => ExecutionInput::SupportPlan(request),
+            })
+        })();
+        Some(result.map(|input| ExecutionCall {
+            input,
+            request_id,
+            project_id: self.project.clone(),
+            id,
+            version,
+        }))
+    }
     fn execution_tool(
         &mut self,
         params: &Value,
@@ -1372,7 +1503,10 @@ impl Protocol {
         }))
     }
     pub fn complete_execution(call: ExecutionCall, result: Result<Value, ErrorCode>) -> Value {
-        let invalid = if matches!(call.input, ExecutionInput::Apply { .. }) {
+        let invalid = if matches!(
+            call.input,
+            ExecutionInput::Apply { .. } | ExecutionInput::SupportApply { .. }
+        ) {
             ErrorCode::AdmissionUnconfirmed
         } else {
             ErrorCode::InvalidInput
@@ -1876,8 +2010,14 @@ fn tool_definitions(
     database_actions: bool,
     domain_actions: bool,
     execution: bool,
+    support_export: bool,
 ) -> Vec<Value> {
     let mut definitions = read_tool_definitions();
+    if support_export {
+        use devforge_control::export::Wire;
+        definitions.push(json!({"name":"support.export","description":"Plan or apply a local export of the exact retained support preview. Requires Observer and SensitiveOperation grants and native owner approval of the exact plan. Destination is manager-owned; no caller path or automatic sharing.","inputSchema":{"type":"object","additionalProperties":false,"properties":{"action":{"enum":["plan","apply"]},"artifact_id":Id::schema(),"expected_revision":devforge_control::limits::SafeInt::schema(),"idempotency_key":Id::schema(),"review":Digest::schema(),"limits":MutationLimits::schema()},"required":["action","artifact_id","expected_revision","idempotency_key"]},"annotations":{"readOnlyHint":false,"destructiveHint":false,"idempotentHint":true,"openWorldHint":false}}));
+        definitions.push(json!({"name":"support.export_lookup","description":"Look up a prior support export by its original idempotency key; absence is only a point-in-time observation.","inputSchema":{"type":"object","additionalProperties":false,"properties":{"idempotency_key":Id::schema()},"required":["idempotency_key"]},"annotations":{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true,"openWorldHint":false}}));
+    }
     if execution {
         definitions.extend(execution_tool_definitions());
     }
@@ -2094,16 +2234,16 @@ fn domain_tool_definitions() -> Vec<Value> {
 fn activity_tool_definitions() -> Vec<Value> {
     use devforge_control::{
         export::Wire,
-        tools::{ActivityMarkInput, ActivityWaitInput},
+        tools::{ActivityMarkInput, ActivityWaitInput, SupportPreviewInput, SupportReadInput},
     };
-    [("activity.mark", ActivityMarkInput::schema()), ("activity.wait", ActivityWaitInput::schema())].into_iter().map(|(name, mut schema)| {
+    [("activity.mark", ActivityMarkInput::schema()), ("activity.wait", ActivityWaitInput::schema()), ("support.preview", SupportPreviewInput::schema()), ("support.read", SupportReadInput::schema())].into_iter().map(|(name, mut schema)| {
         // Omitted context is supported; explicit null is rejected at MCP boundary.
-        schema["properties"]["context_id"] = json!({"type":"string","minLength":32,"maxLength":32,"pattern":"^[A-Fa-f0-9]{32}$"});
+        if name.starts_with("activity.") { schema["properties"]["context_id"] = json!({"type":"string","minLength":32,"maxLength":32,"pattern":"^[A-Fa-f0-9]{32}$"}); }
         if name == "activity.mark" {
             for key in ["subject", "recipient", "sender"] { schema["properties"][key] = devforge_control::limits::Text::<256>::schema(); }
             schema["properties"]["since"] = devforge_control::limits::SafeInt::schema();
         }
-        json!({"name":name,"description":if name=="activity.mark"{"Create an opaque project- and grant-bound checkpoint before an action. Select inspector, logs or mail; detail requires its explicit information grant. Mail subject/sender/recipient filters require MailContent even when detail=false; since alone is metadata. Context applies only to inspector/logs. Checkpoints expire after 120 seconds, may be evicted, and do not survive manager restart."}else{"Poll for the next observed event for up to the requested 3000ms maximum. No new poll starts after the requested duration; it allows up to 1s grace for an in-flight read and final checks, plus up to 250ms registry contention, subject to scheduling and transport, not hard real-time; that read may return a match. An optional context narrows it; use the returned bookmark for the next call, including after timeout. Checkpoints retain the original 120-second expiry. Stdio calls on one session are serialized; a wait occupies that session until it finishes. Every result reports continuity=unverified: timeout means no matching event was observed by polling, not proof that no transient event occurred. Expired, evicted or replaced sources require a new checkpoint; detected retention gaps are errors, not timeouts."},"inputSchema":schema,"annotations":{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":false,"openWorldHint":false}})
+        json!({"name":name,"description":if name=="support.preview"{"Create a bounded support preview from cached doctor metadata and fixed runbook codes. It excludes environment values, keys, database dumps, log/mail content and arbitrary files. Returns a project/client/grant-bound opaque artifact ID, never a path. No automatic sharing or export."}else if name=="support.read"{"Read the same unexpired support preview through its opaque artifact ID. The handle is bound to the original project, client, grant and revision; it is not a path and does not grant filesystem access."}else if name=="activity.mark"{"Create an opaque project- and grant-bound checkpoint before an action. Select inspector, logs or mail; detail requires its explicit information grant. Mail subject/sender/recipient filters require MailContent even when detail=false; since alone is metadata. Context applies only to inspector/logs. Checkpoints expire after 120 seconds, may be evicted, and do not survive manager restart."}else{"Poll for the next observed event for up to the requested 3000ms maximum. No new poll starts after the requested duration; it allows up to 1s grace for an in-flight read and final checks, plus up to 250ms registry contention, subject to scheduling and transport, not hard real-time; that read may return a match. An optional context narrows it; use the returned bookmark for the next call, including after timeout. Checkpoints retain the original 120-second expiry. Stdio calls on one session are serialized; a wait occupies that session until it finishes. Every result reports continuity=unverified: timeout means no matching event was observed by polling, not proof that no transient event occurred. Expired, evicted or replaced sources require a new checkpoint; detected retention gaps are errors, not timeouts."},"inputSchema":schema,"annotations":{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":name=="support.read","openWorldHint":false}})
     }).collect()
 }
 fn diagnostics_tool_definitions() -> Vec<Value> {

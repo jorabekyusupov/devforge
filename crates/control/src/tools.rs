@@ -188,6 +188,37 @@ impl Wire for ActivityContinuity {
 }
 contract!(ActivityWaitOutput{bookmark:Id,event:Option<ActivityEvent>,timed_out:bool,continuity:ActivityContinuity});
 
+// This preview contains only fixed diagnostic codes; artifact handles are
+// opaque, grant-bound and never represent filesystem paths.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SupportPreviewInput {}
+impl Wire for SupportPreviewInput {
+    fn schema() -> Value {
+        json!({"type":"object","additionalProperties":false,"properties":{},"required":[]})
+    }
+    fn ts() -> String {
+        "SupportPreviewInput".into()
+    }
+    fn declaration() -> Option<String> {
+        Some("export interface SupportPreviewInput {}\n".into())
+    }
+}
+contract!(SupportReadInput { artifact_id: Id });
+contract!(SupportDoctor {
+    code: Id,
+    origin: Origin,
+    observed_at: SafeInt,
+    revision: SafeInt
+});
+contract!(SupportRunbook{evidence:Id,impact:Id,next_action:Option<Id>});
+contract!(SupportBundlePreview{schema_version:u16,doctor:SupportDoctor,runbook:SupportRunbook,omitted:Vec<Id>});
+contract!(SupportPreviewOutput {
+    artifact_id: Id,
+    preview: SupportBundlePreview,
+    expires_at: SafeInt
+});
+
 contract!(DebuggerItem{installed:bool,mode:Text<32>,primitive_assignment_supported:bool});
 private_contract!(MailAttachmentMetadata{name:Text<256>,mime:Text<128>,size:SafeInt});
 private_contract!(MailContentDetail{subject:Text<512>,from:Text<512>,to:Text<1024>,text:Text<8192>,links:Vec<Text<2048>>,attachment_metadata:Vec<MailAttachmentMetadata>,truncated:bool});
@@ -507,6 +538,12 @@ pub fn declarations() -> Vec<String> {
         ActivityWaitInput,
         ActivityEvent,
         ActivityWaitOutput,
+        SupportPreviewInput,
+        SupportReadInput,
+        SupportDoctor,
+        SupportRunbook,
+        SupportBundlePreview,
+        SupportPreviewOutput,
         DebuggerInput,
         MailInput,
         ExecutionInput,

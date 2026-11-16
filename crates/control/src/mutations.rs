@@ -199,6 +199,7 @@ contract!(DatabaseBindInput{instance_id:Id,limits:Option<MutationLimits>});
 contract!(DatabaseRestoreInput{backup_id:Id,limits:Option<MutationLimits>});
 contract!(DomainApplyInput{plan:Digest,limits:Option<MutationLimits>});
 contract!(DomainCleanupInput{plan:Digest,limits:Option<MutationLimits>});
+contract!(SupportExportInput{artifact_id:Id,limits:Option<MutationLimits>});
 contract!(MutationReceipt {
     project_id: Id,
     operation_id: Id,
@@ -256,6 +257,7 @@ mutation_set! {
     DatabaseRestore("database.restore",DatabaseRestoreInput,MutationReceipt,"restore_backup"),
     DomainApply("domains.apply",DomainApplyInput,MutationReceipt,"domain_system_apply"),
     DomainCleanup("domains.cleanup",DomainCleanupInput,MutationReceipt,"domain_system_cleanup"),
+    SupportExport("artifacts.diagnostic_bundle_export",SupportExportInput,MutationReceipt,"support_export"),
     WorkspaceArchive("workspaces.archive",WorkspaceLifecycleInput,MutationReceipt,"worktree_cleanup"),
     WorkspaceRestore("workspaces.restore",WorkspaceLifecycleInput,MutationReceipt,"worktree_archive.restore"),
     WorkspacePurge("workspaces.purge",WorkspaceLifecycleInput,MutationReceipt,"worktree_archive.purge"),
@@ -470,6 +472,7 @@ pub fn declarations() -> Vec<String> {
         DatabaseRestoreInput,
         DomainApplyInput,
         DomainCleanupInput,
+        SupportExportInput,
         MutationReceipt,
         PlanReceipt
     )

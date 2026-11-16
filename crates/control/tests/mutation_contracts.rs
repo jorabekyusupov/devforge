@@ -50,6 +50,7 @@ fn args(name: &str) -> Value {
         "database.bind" => json!({"instance_id":"instance-a"}),
         "database.restore" => json!({"backup_id":"backup-a"}),
         "domains.apply" | "domains.cleanup" => json!({"plan":"a".repeat(64)}),
+        "artifacts.diagnostic_bundle_export" => json!({"artifact_id":"artifact-a"}),
         "environment.yaml_save" => {
             json!({"expected":null,"text":"version: 1\nproject:\n  name: Demo\n"})
         }
@@ -100,7 +101,7 @@ fn every_initial_command_has_typed_mapping_and_can_be_prepared_without_execution
             .iter()
             .filter(|c| c.schema_status == SchemaStatus::TypedMutation)
             .count(),
-        22
+        23
     );
     assert_eq!(
         contracts

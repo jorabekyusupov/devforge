@@ -252,10 +252,26 @@ impl Drop for WaitPermit<'_> {
         self.0.fetch_sub(1, Ordering::AcqRel);
     }
 }
+struct SupportArtifact {
+    id: Id,
+    client: Id,
+    grant: Id,
+    project: Id,
+    revision: u64,
+    bytes: Vec<u8>,
+    expires: Instant,
+    expires_at: u64,
+}
+impl SupportArtifact {
+    fn live_at(&self, now: u64) -> bool {
+        Instant::now() < self.expires && now < self.expires_at
+    }
+}
 pub(crate) struct Diagnostics {
     grants: Arc<Grants>,
     windows: Mutex<Windows>,
     activity: Mutex<VecDeque<ActivityBookmark>>,
+    support: Mutex<VecDeque<SupportArtifact>>,
     waiters: AtomicUsize,
     stopping: AtomicBool,
 }
@@ -265,9 +281,37 @@ impl Diagnostics {
             grants,
             windows: Mutex::new(Default::default()),
             activity: Mutex::new(Default::default()),
+            support: Mutex::new(Default::default()),
             waiters: AtomicUsize::new(0),
             stopping: AtomicBool::new(false),
         }
+    }
+    pub(crate) fn support_bytes(
+        &self,
+        artifact_id: &Id,
+        client: &Id,
+        grant: &Id,
+        project: &Id,
+        revision: u64,
+        now: u64,
+    ) -> Result<Vec<u8>, ErrorCode> {
+        let mut artifacts = self
+            .support
+            .lock()
+            .map_err(|_| ErrorCode::StorageUnavailable)?;
+        artifacts.retain(|a| Instant::now() < a.expires);
+        artifacts
+            .iter()
+            .find(|a| {
+                &a.id == artifact_id
+                    && &a.client == client
+                    && &a.grant == grant
+                    && &a.project == project
+                    && a.revision == revision
+                    && a.live_at(now)
+            })
+            .map(|a| a.bytes.clone())
+            .ok_or(ErrorCode::CursorExpired)
     }
     pub(crate) fn interrupt_waits(&self) {
         self.stopping.store(true, Ordering::Release);
@@ -275,11 +319,17 @@ impl Diagnostics {
     /// Reclaim expired sensitive mail windows and bookmark filters even when idle.
     /// Nonblocking: a busy cache is revisited by the next maintenance tick.
     pub(crate) fn evict_grant_windows(&self, grant: &Id) {
+        if let Ok(mut artifacts) = self.support.lock() {
+            artifacts.retain(|a| &a.grant != grant);
+        }
         if let Ok(mut windows) = self.windows.lock() {
             windows.evict_grant(grant);
         }
     }
     pub(crate) fn expire_cached_state(&self) {
+        if let Ok(mut artifacts) = self.support.try_lock() {
+            artifacts.retain(|a| Instant::now() < a.expires);
+        }
         if let Ok(mut windows) = self.windows.try_lock() {
             windows.prune();
         }
@@ -288,6 +338,9 @@ impl Diagnostics {
         }
     }
     pub(crate) fn clear(&self) {
+        if let Ok(mut artifacts) = self.support.lock() {
+            artifacts.clear();
+        }
         *self
             .windows
             .lock()
@@ -494,6 +547,145 @@ impl Diagnostics {
             .and_then(Value::as_str)
             .ok_or(ErrorCode::InvalidInput)?;
         match method {
+            "support_preview" | "support_read" => {
+                #[derive(Deserialize)]
+                #[serde(deny_unknown_fields)]
+                struct SupportWire {
+                    method: String,
+                    credential: Token,
+                    request: Request<Value>,
+                }
+                let wire: SupportWire =
+                    serde_json::from_value(value).map_err(|_| ErrorCode::InvalidInput)?;
+                if wire.request.idempotency_key.is_some() {
+                    return Err(ErrorCode::InvalidInput);
+                }
+                let artifact_id = if wire.method == "support_preview" {
+                    if wire.request.input != json!({}) {
+                        return Err(ErrorCode::InvalidInput);
+                    }
+                    None
+                } else {
+                    let object = wire
+                        .request
+                        .input
+                        .as_object()
+                        .ok_or(ErrorCode::InvalidInput)?;
+                    if object.len() != 1 {
+                        return Err(ErrorCode::InvalidInput);
+                    }
+                    Some(Id::new(
+                        object
+                            .get("artifact_id")
+                            .and_then(Value::as_str)
+                            .ok_or(ErrorCode::InvalidInput)?,
+                    )?)
+                };
+                let credential =
+                    ExternalCredential::from_wire(&wire.credential.0).map_err(grant_error)?;
+                if self.activity_credential_project(
+                    peer,
+                    &credential,
+                    Instant::now() + Duration::from_secs(4),
+                )? != wire.request.project_id
+                {
+                    return Err(ErrorCode::ProjectMismatch);
+                }
+                let initial = self.query(
+                    actor,
+                    peer,
+                    &credential,
+                    &wire.request.project_id,
+                    ReadMode::Registration,
+                    (None, wire.request.expected_revision),
+                )?;
+                let candidate = if artifact_id.is_none() {
+                    let ToolOutput::Health(health) = doctor(actor, &initial.binding)? else {
+                        return Err(ErrorCode::StorageUnavailable);
+                    };
+                    let item = health.items.first().ok_or(ErrorCode::StorageUnavailable)?;
+                    Some(
+                        devforge_workspace::support_bundle::render(
+                            item.code.as_str(),
+                            health.freshness.observed_at.get(),
+                            health.freshness.revision.get(),
+                        )
+                        .ok_or(ErrorCode::StorageUnavailable)?,
+                    )
+                } else {
+                    None
+                };
+                let current = self.query(
+                    actor,
+                    peer,
+                    &credential,
+                    &wire.request.project_id,
+                    ReadMode::Registration,
+                    (None, Some(initial.binding.revision())),
+                )?;
+                if current.binding.root() != initial.binding.root() {
+                    return Err(ErrorCode::ProjectMismatch);
+                }
+                let mut grants = self
+                    .grants
+                    .registry
+                    .lock()
+                    .map_err(|_| ErrorCode::StorageUnavailable)?;
+                let proof = grants
+                    .as_mut()
+                    .ok_or(ErrorCode::Interrupted)?
+                    .authorize_read(
+                        peer,
+                        &credential,
+                        &current.binding,
+                        None,
+                        Some(initial.binding.revision()),
+                    )
+                    .map_err(grant_error)?;
+                let mut artifacts = self
+                    .support
+                    .lock()
+                    .map_err(|_| ErrorCode::StorageUnavailable)?;
+                artifacts.retain(|a| Instant::now() < a.expires);
+                let (id, bytes, expires_at) = if let Some(id) = artifact_id {
+                    let a = artifacts
+                        .iter()
+                        .find(|a| {
+                            a.id == id
+                                && a.client == *proof.client_id()
+                                && a.grant == *proof.grant_id()
+                                && a.project == wire.request.project_id
+                                && a.revision == current.binding.revision()
+                                && a.live_at(proof.observed_at())
+                        })
+                        .ok_or(ErrorCode::CursorExpired)?;
+                    (a.id.clone(), a.bytes.clone(), a.expires_at)
+                } else {
+                    let id = opaque_id()?;
+                    let bytes = candidate.ok_or(ErrorCode::StorageUnavailable)?;
+                    let expires_at = proof
+                        .observed_at()
+                        .saturating_add(TTL.as_millis() as u64)
+                        .min(proof.expires_at());
+                    if artifacts.len() >= 128 {
+                        artifacts.pop_front();
+                    }
+                    artifacts.push_back(SupportArtifact {
+                        id: id.clone(),
+                        client: proof.client_id().clone(),
+                        grant: proof.grant_id().clone(),
+                        project: wire.request.project_id,
+                        revision: current.binding.revision(),
+                        bytes: bytes.clone(),
+                        expires: Instant::now() + TTL,
+                        expires_at,
+                    });
+                    (id, bytes, expires_at)
+                };
+                let preview: Value =
+                    serde_json::from_slice(&bytes).map_err(|_| ErrorCode::StorageUnavailable)?;
+                Ok(json!({"artifact_id": id, "preview": preview, "expires_at": expires_at}))
+            }
             "activity_mark" => {
                 #[derive(Deserialize)]
                 #[serde(deny_unknown_fields)]
@@ -1666,6 +1858,23 @@ mod mail_cache_tests {
     use devforge_workspace::activity_metadata::{
         MailContentDetail, MetadataItem, MetadataRow, MetadataWindow,
     };
+    #[test]
+    fn support_artifact_expiry_obeys_wall_and_monotonic_clocks() {
+        let mut artifact = SupportArtifact {
+            id: Id::new("artifact").unwrap(),
+            client: Id::new("client").unwrap(),
+            grant: Id::new("grant").unwrap(),
+            project: Id::new("project").unwrap(),
+            revision: 1,
+            bytes: vec![],
+            expires: Instant::now() + Duration::from_secs(60),
+            expires_at: 120,
+        };
+        assert!(artifact.live_at(119));
+        assert!(!artifact.live_at(120));
+        artifact.expires = Instant::now() - Duration::from_millis(1);
+        assert!(!artifact.live_at(119));
+    }
     #[test]
     fn maintenance_prune_releases_expired_sensitive_windows_and_handles() {
         let id = |v| Id::new(v).unwrap();

@@ -74,6 +74,11 @@ pub enum ReviewState {
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum ReviewTarget {
+    SupportExport {
+        destination: String,
+        content_sha256: Digest,
+        byte_count: u64,
+    },
     Execution {
         tool: devforge_control::mutations::ExecutionTool,
         arg_count: u64,
@@ -170,6 +175,7 @@ struct DomainPreparation {
     bytes: usize,
 }
 struct Intent {
+    support_review: Option<SupportReview>,
     request: Request<MutationInput>,
     binding: ProjectBinding,
     fingerprint: Digest,
@@ -191,6 +197,11 @@ struct Intent {
     public_fingerprint: Option<Digest>,
     database: Option<crate::database_control::DatabaseReadResult>,
     domain: Option<crate::domain_control::DomainIntent>,
+}
+struct SupportReview {
+    destination: std::path::PathBuf,
+    content_sha256: Digest,
+    byte_count: u64,
 }
 pub(crate) struct ServiceJob {
     intent: Arc<Intent>,
@@ -341,6 +352,15 @@ impl ServiceJob {
         } else if let Some(environment) = &self.intent.environment {
             verify_document(current, environment.data.document_sha.as_deref())?;
             self.intent.backend.clone()
+        } else if let Some(support) = &self.intent.support_review {
+            support_backend(
+                &self.policy.diagnostics,
+                snapshot,
+                current,
+                &self.intent.request,
+                proof,
+                support,
+            )?
         } else if initial {
             state_digest(snapshot, current, &self.intent.request, proof)?
         } else {
@@ -460,6 +480,147 @@ impl ServiceJob {
             Ok(())
         };
         let command = match dispatch {
+            Dispatch::SupportExport {
+                project_id,
+                artifact_id,
+            } => {
+                if project_id != current.project_id().as_str() {
+                    return Err(ws_error(ErrorCode::ProjectMismatch));
+                }
+                let review = self
+                    .intent
+                    .support_review
+                    .as_ref()
+                    .ok_or_else(|| ws_error(ErrorCode::Unauthorized))?;
+                if review.destination.parent()
+                    != workspace
+                        .projects
+                        .root()
+                        .parent()
+                        .map(|root| root.join("control"))
+                        .as_deref()
+                {
+                    return Err(ws_error(ErrorCode::ProjectMismatch));
+                }
+                check()?;
+                // Serialize the last grant check and the local write with revocation.
+                // Lock order is registry -> support cache, as in diagnostics reads.
+                let mut registry = self
+                    .policy
+                    .grants
+                    .registry
+                    .lock()
+                    .map_err(|_| ws_error(ErrorCode::StorageUnavailable))?;
+                let proof = registry
+                    .as_mut()
+                    .ok_or_else(|| ws_error(ErrorCode::Interrupted))?
+                    .authorize(
+                        &self.intent.peer,
+                        &self.intent.credential,
+                        &current,
+                        &intent_required(&self.intent).map_err(ws_error)?,
+                        &[],
+                        self.intent.request.expected_revision,
+                    )
+                    .map_err(grant_error)
+                    .map_err(ws_error)?;
+                let bytes = self
+                    .policy
+                    .diagnostics
+                    .support_bytes(
+                        &artifact_id,
+                        proof.client_id(),
+                        proof.grant_id(),
+                        current.project_id(),
+                        current.revision(),
+                        proof.observed_at(),
+                    )
+                    .map_err(ws_error)?;
+                if bytes.len() as u64 != review.byte_count
+                    || sha256(&bytes).map_err(ws_error)? != review.content_sha256
+                {
+                    return Err(ws_error(ErrorCode::ReviewMismatch));
+                }
+                self.check_basic().map_err(ws_error)?;
+                // Reachable only from this authenticated, owner-approved job.
+                let parent = review
+                    .destination
+                    .parent()
+                    .ok_or_else(|| ws_error(ErrorCode::InvalidInput))?;
+                if !review.destination.is_absolute()
+                    || std::fs::canonicalize(parent).ok().as_deref() != Some(parent)
+                {
+                    return Err(ws_error(ErrorCode::InvalidInput));
+                }
+                crate::transport::os::validate_private_dir(parent)
+                    .map_err(|_| ws_error(ErrorCode::Unauthorized))?;
+                let stage = parent.join(format!(
+                    ".support-stage-{}",
+                    crate::environment_control::opaque()
+                        .map_err(ws_error)?
+                        .as_str()
+                ));
+                #[cfg(unix)]
+                let mut file = {
+                    let mut options = std::fs::OpenOptions::new();
+                    options.read(true).write(true).create_new(true);
+                    crate::transport::os::secure_lock_options(&mut options);
+                    options
+                        .open(&stage)
+                        .map_err(|_| ws_error(ErrorCode::StorageUnavailable))?
+                };
+                #[cfg(windows)]
+                let mut file = crate::transport::os::create_private_export_file(&stage)
+                    .map_err(|_| ws_error(ErrorCode::StorageUnavailable))?;
+                use std::io::Write;
+                let result: devforge_workspace::Result<()> = (|| {
+                    crate::transport::os::validate_lock(&file)
+                        .map_err(|_| ws_error(ErrorCode::Unauthorized))?;
+                    file.write_all(&bytes)
+                        .and_then(|_| file.sync_all())
+                        .map_err(|_| ws_error(ErrorCode::StorageUnavailable))?;
+                    Ok(())
+                })();
+                drop(file);
+                // Closing the staging handle before publishing also permits Windows sharing.
+                // A hard link publishes complete bytes and refuses an existing destination.
+                let result = result.and_then(|_| {
+                    self.check_basic().map_err(ws_error)?;
+                    let fresh = registry
+                        .as_mut()
+                        .ok_or_else(|| ws_error(ErrorCode::Interrupted))?
+                        .authorize(
+                            &self.intent.peer,
+                            &self.intent.credential,
+                            &current,
+                            &intent_required(&self.intent).map_err(ws_error)?,
+                            &[],
+                            self.intent.request.expected_revision,
+                        )
+                        .map_err(grant_error)
+                        .map_err(ws_error)?;
+                    let current_bytes = self
+                        .policy
+                        .diagnostics
+                        .support_bytes(
+                            &artifact_id,
+                            fresh.client_id(),
+                            fresh.grant_id(),
+                            current.project_id(),
+                            current.revision(),
+                            fresh.observed_at(),
+                        )
+                        .map_err(ws_error)?;
+                    if current_bytes != bytes {
+                        return Err(ws_error(ErrorCode::ReviewMismatch));
+                    }
+                    std::fs::hard_link(&stage, &review.destination)
+                        .map_err(|_| ws_error(ErrorCode::StorageUnavailable))
+                });
+                let _ = std::fs::remove_file(&stage);
+                result?;
+                return Ok(json!({"exported":true}));
+            }
             Dispatch::Execution {
                 project_id,
                 request,
@@ -829,6 +990,7 @@ impl Services {
             approved: AtomicBool::new(false),
             claimed: Mutex::new(None),
             cancellation: Mutex::new(None),
+            support_review: None,
             bytes,
             execution: None,
             environment: None,
@@ -1091,6 +1253,7 @@ impl Services {
             approved: AtomicBool::new(false),
             claimed: Mutex::new(None),
             cancellation: Mutex::new(None),
+            support_review: None,
             bytes,
             execution: None,
             environment: None,
@@ -1386,6 +1549,7 @@ impl Services {
             approved: AtomicBool::new(false),
             claimed: Mutex::new(None),
             cancellation: Mutex::new(None),
+            support_review: None,
             bytes,
             execution: None,
             environment: Some(crate::environment_control::EnvironmentIntent { data, expected_sha }),
@@ -1441,12 +1605,17 @@ impl Services {
                 | "domain_apply"
                 | "domain_lookup"
                 | "diagnostics_read"
+                | "support_preview"
+                | "support_read"
                 | "activity_mark"
                 | "activity_wait"
                 | "execution_plan"
                 | "execution_apply"
                 | "execution_lookup"
                 | "execution_output"
+                | "support_export_plan"
+                | "support_export_apply"
+                | "support_export_lookup"
         )
     }
     pub(crate) fn request(
@@ -1461,7 +1630,7 @@ impl Services {
         }
         if matches!(
             value.get("method").and_then(Value::as_str),
-            Some("activity_mark" | "activity_wait")
+            Some("activity_mark" | "activity_wait" | "support_preview" | "support_read")
         ) {
             return self
                 .diagnostics
@@ -1490,6 +1659,46 @@ impl Services {
             Err(_) => return respond::<PlanReceipt>(id, Err(ErrorCode::InvalidInput), None),
         };
         match wire {
+            Wire::SupportExportPlan {
+                credential,
+                request,
+            } => respond(
+                id,
+                support_only(&request.input).and_then(|_| {
+                    credential
+                        .parse()
+                        .and_then(|c| self.plan(peer, c, *request, actor))
+                }),
+                None,
+            ),
+            Wire::SupportExportApply {
+                credential,
+                request,
+                review,
+            } => {
+                let result = support_only(&request.input).and_then(|_| {
+                    credential
+                        .parse()
+                        .and_then(|c| self.apply(peer, c, *request, review, actor))
+                });
+                let operation = result.as_ref().ok().map(|r| r.operation_id.clone());
+                respond(id, result, operation)
+            }
+            Wire::SupportExportLookup {
+                credential,
+                request_id,
+                project_id,
+                idempotency_key,
+            } => {
+                let result = credential
+                    .parse()
+                    .and_then(|c| self.lookup(&peer, &c, &project_id, &idempotency_key, actor));
+                let operation = result
+                    .as_ref()
+                    .ok()
+                    .and_then(|r| r.as_ref().map(|r| r.operation_id.clone()));
+                respond(request_id, result, operation)
+            }
             Wire::ExecutionPlan {
                 credential,
                 request,
@@ -1951,6 +2160,21 @@ impl Services {
                         action: intent.request.input.workspace_command().into(),
                     }
                 }
+                MutationInput::SupportExport(_) => {
+                    let support = intent
+                        .support_review
+                        .as_ref()
+                        .ok_or(ErrorCode::PreconditionFailed)?;
+                    ReviewTarget::SupportExport {
+                        destination: support
+                            .destination
+                            .to_str()
+                            .ok_or(ErrorCode::InvalidInput)?
+                            .to_owned(),
+                        content_sha256: support.content_sha256.clone(),
+                        byte_count: support.byte_count,
+                    }
+                }
                 MutationInput::RuntimeInstall(input) => ReviewTarget::RuntimeInstall {
                     package_id: input.package_id.clone(),
                 },
@@ -2197,6 +2421,15 @@ impl Services {
                 return Err(ErrorCode::PreconditionFailed);
             }
             environment_backend(&view.snapshot, &current, &intent.request, &proof, &data)?
+        } else if let Some(support) = &intent.support_review {
+            support_backend(
+                &self.diagnostics,
+                &view.snapshot,
+                &current,
+                &intent.request,
+                &proof,
+                support,
+            )?
         } else {
             state_digest(&view.snapshot, &current, &intent.request, &proof)?
         };
@@ -2270,6 +2503,29 @@ impl Services {
         } else {
             None
         };
+        let support_review = if let MutationInput::SupportExport(input) = &request.input {
+            let bytes = self.diagnostics.support_bytes(
+                &input.artifact_id,
+                proof.client_id(),
+                proof.grant_id(),
+                &request.project_id,
+                binding.revision(),
+                proof.observed_at(),
+            )?;
+            let name = sha256(input.artifact_id.as_str().as_bytes())?;
+            let destination = actor
+                .bootstrap_ready_root()
+                .map_err(actor_error)?
+                .join("control")
+                .join(format!("support-{}.json", name.as_str()));
+            Some(SupportReview {
+                destination,
+                content_sha256: sha256(&bytes)?,
+                byte_count: bytes.len() as u64,
+            })
+        } else {
+            None
+        };
         let backend = if let Some(data) = &execution {
             let proof = self.authorize_execution(
                 &peer,
@@ -2284,6 +2540,15 @@ impl Services {
                 &request,
                 &proof,
                 &data.facts,
+            )?
+        } else if let Some(support) = &support_review {
+            support_backend(
+                &self.diagnostics,
+                &view.snapshot,
+                &binding,
+                &request,
+                &proof,
+                support,
             )?
         } else {
             state_digest(&view.snapshot, &binding, &request, &proof)?
@@ -2340,6 +2605,7 @@ impl Services {
             approved: AtomicBool::new(false),
             claimed: Mutex::new(None),
             cancellation: Mutex::new(None),
+            support_review,
             bytes,
             execution,
             environment: None,
@@ -2507,6 +2773,13 @@ fn request_fingerprint(
 fn execution_only(input: &MutationInput) -> Result<(), ErrorCode> {
     crate::execution_control::request(input).map(|_| ())
 }
+fn support_only(input: &MutationInput) -> Result<(), ErrorCode> {
+    if matches!(input, MutationInput::SupportExport(_)) {
+        Ok(())
+    } else {
+        Err(ErrorCode::UnsupportedCapability)
+    }
+}
 fn intent_required(intent: &Intent) -> Result<Vec<Scope>, ErrorCode> {
     if let Some(data) = &intent.execution {
         Ok(crate::execution_control::required(&data.facts))
@@ -2530,6 +2803,7 @@ fn required(input: &MutationInput) -> Result<Vec<Scope>, ErrorCode> {
             Scope::ExecutionTest,
         ]),
         MutationInput::YamlSave(_) => Ok(vec![Scope::ProjectManage, Scope::SensitiveOperation]),
+        MutationInput::SupportExport(_) => Ok(vec![Scope::Observer, Scope::SensitiveOperation]),
         MutationInput::DatabaseBind(_) | MutationInput::DatabaseRestore(_) => {
             Ok(vec![Scope::ProjectManage, Scope::SensitiveOperation])
         }
@@ -2665,6 +2939,31 @@ pub(crate) fn project_binding(snapshot: &Snapshot, id: &Id) -> Result<ProjectBin
         return Err(ErrorCode::ProjectMismatch);
     }
     ProjectBinding::from_registered(id.clone(), &row.project.path, row.project.revision)
+}
+fn support_backend(
+    diagnostics: &crate::diagnostics::Diagnostics,
+    snapshot: &Snapshot,
+    binding: &ProjectBinding,
+    request: &Request<MutationInput>,
+    proof: &AuthorizedExternal,
+    review: &SupportReview,
+) -> Result<Digest, ErrorCode> {
+    let MutationInput::SupportExport(input) = &request.input else {
+        return Err(ErrorCode::InvalidInput);
+    };
+    let bytes = diagnostics.support_bytes(
+        &input.artifact_id,
+        proof.client_id(),
+        proof.grant_id(),
+        &request.project_id,
+        binding.revision(),
+        proof.observed_at(),
+    )?;
+    if bytes.len() as u64 != review.byte_count || sha256(&bytes)? != review.content_sha256 {
+        return Err(ErrorCode::ReviewMismatch);
+    }
+    let destination = review.destination.to_str().ok_or(ErrorCode::InvalidInput)?;
+    sha256(&serde_json::to_vec(&json!({"state":state_digest(snapshot,binding,request,proof)?,"destination":destination,"content_sha256":review.content_sha256,"bytes":review.byte_count})).map_err(|_|ErrorCode::InvalidInput)?)
 }
 pub(crate) fn state_digest(
     snapshot: &Snapshot,
@@ -3055,6 +3354,24 @@ impl<'de> Deserialize<'de> for Token {
 #[derive(Deserialize)]
 #[serde(tag = "method", rename_all = "snake_case", deny_unknown_fields)]
 enum Wire {
+    #[serde(rename = "support_export_plan")]
+    SupportExportPlan {
+        credential: Token,
+        request: Box<Request<MutationInput>>,
+    },
+    #[serde(rename = "support_export_apply")]
+    SupportExportApply {
+        credential: Token,
+        request: Box<Request<MutationInput>>,
+        review: Digest,
+    },
+    #[serde(rename = "support_export_lookup")]
+    SupportExportLookup {
+        credential: Token,
+        request_id: Id,
+        project_id: Id,
+        idempotency_key: Id,
+    },
     #[serde(rename = "execution_plan")]
     ExecutionPlan {
         credential: Token,
