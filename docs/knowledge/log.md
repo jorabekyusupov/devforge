@@ -4,6 +4,8 @@
 
 ## 2026-11-16
 
+- **A09 debugger facade:** independent debugger-values right, scoped session/stack/profile projection, session-bound control and reviewed primitive mutation/export. [Contract](../architecture/metadata-diagnostics.md), [execution](execution-status.md); active breakpoint updates and native acceptance remain explicit limits.
+
 - **A08 local HTTP probe:** scoped managed-site GET and trace association, bounded A01 test-receipt metadata, TLS/redirect boundaries and explicit in-flight limitations. [Contract](../architecture/metadata-diagnostics.md), [execution](execution-status.md).
 
 - **A07 support artifact:** finite cached doctor/runbook preview, grant-bound opaque read and separately approved local export of exact bytes to the private control directory. Content sources, platform limits and validation are recorded in [contract](../architecture/metadata-diagnostics.md) and [execution](execution-status.md).

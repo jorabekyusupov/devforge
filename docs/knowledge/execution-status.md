@@ -1651,3 +1651,21 @@ path, increasing work on A05's bounded deadline. The registration path was resto
 to its prior check pattern while preserving pre/post checks for the new HTTP target.
 The final CI run supplies the platform evidence; the log alone did not identify the
 precise point at which the A05 budget elapsed.
+
+## A09 — scoped Xdebug facade (2026-11-16)
+
+A09 adds explicit debugger opt-in, project/grant-scoped status, stack/profile and
+primitive local values, breakpoint/configuration and finite debugger control,
+native-reviewed install, primitive assignment and profile export. DebuggerValues
+is a new independent information right; old grants do not inherit it. Session
+ID plus revision prevent an old action from targeting a restarted session. Reads
+are bounded and noncreating; masking is best effort. See the [diagnostics
+contract](../architecture/metadata-diagnostics.md) for queued-result semantics,
+active-breakpoint and pause limitations, and in-flight revocation boundaries.
+
+Targeted checks cover source projection, revision and guarded dispatch, persistent
+grant compatibility, scoped manager access, exact owner review, session ABA,
+export/no-clobber, frontend/locale and relevant transport behavior. A feature-gated
+synthetic paused-debugger fixture is not real Xdebug or native OS acceptance. The
+PR CI records macOS/Windows results; actual Xdebug acceptance is not inferred from
+that fixture. Native UI visual review was unavailable without `agent-desktop`.

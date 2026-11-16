@@ -191,7 +191,29 @@ impl Activation {
         mode: Mode,
         source: &Path,
         bps: Vec<Breakpoint>,
-        mut secrets: Vec<String>,
+        secrets: Vec<String>,
+    ) -> Result<Self> {
+        Self::start_inner(path, project, runtime, mode, source, (bps, secrets, true))
+    }
+    /// Agent start never implicitly deletes retained profile history.
+    pub fn start_unpruned(
+        path: &Path,
+        project: &str,
+        runtime: String,
+        mode: Mode,
+        source: &Path,
+        bps: Vec<Breakpoint>,
+        secrets: Vec<String>,
+    ) -> Result<Self> {
+        Self::start_inner(path, project, runtime, mode, source, (bps, secrets, false))
+    }
+    fn start_inner(
+        path: &Path,
+        project: &str,
+        runtime: String,
+        mode: Mode,
+        source: &Path,
+        (bps, mut secrets, prune): (Vec<Breakpoint>, Vec<String>, bool),
     ) -> Result<Self> {
         if mode == Mode::Off {
             return Err(Error::Unavailable);
@@ -215,7 +237,9 @@ impl Activation {
         if !ordinary(&output) || fs::canonicalize(&output)? != output {
             return Err(Error::Unauthorized);
         }
-        crate::store::trim(&output)?;
+        if prune {
+            crate::store::trim(&output)?;
+        }
         let key = format!(
             "{}{}",
             uuid::Uuid::new_v4().simple(),
@@ -268,11 +292,42 @@ impl Activation {
     pub fn request(&self) -> Request {
         self.request.lock().unwrap().clone()
     }
+    #[cfg(feature = "test-support")]
+    pub fn test_set_paused(&self) -> Result<u64> {
+        Ok(self
+            .server
+            .as_ref()
+            .ok_or(Error::Unavailable)?
+            .test_set_paused())
+    }
+
     pub fn control(&self, command: crate::server::Control) -> Result<()> {
         self.server
             .as_ref()
             .ok_or(Error::Unavailable)?
             .control(command)
+    }
+    pub fn control_at_revision(
+        &self,
+        command: crate::server::Control,
+        revision: u64,
+        guard: crate::server::DispatchGuard,
+    ) -> Result<()> {
+        self.server
+            .as_ref()
+            .ok_or(Error::Unavailable)?
+            .control_at_revision(command, revision, guard)
+    }
+    pub fn set_at_revision(
+        &self,
+        value: crate::Assignment,
+        revision: u64,
+        guard: crate::server::DispatchGuard,
+    ) -> Result<()> {
+        self.server
+            .as_ref()
+            .ok_or(Error::Unavailable)?
+            .set_at_revision(value, revision, guard)
     }
     pub fn get(&mut self, base: &str, path: &str) -> Result<()> {
         self.send(
@@ -286,6 +341,24 @@ impl Activation {
         )
     }
     pub fn send(&mut self, base: &str, input: HttpRequest) -> Result<()> {
+        self.send_inner(base, input, None)
+    }
+    /// For externally admitted requests, recheck authority on the background
+    /// worker before connecting and before transmitting any HTTP bytes.
+    pub fn send_guarded(
+        &mut self,
+        base: &str,
+        input: HttpRequest,
+        guard: crate::server::DispatchGuard,
+    ) -> Result<()> {
+        self.send_inner(base, input, Some(guard))
+    }
+    fn send_inner(
+        &mut self,
+        base: &str,
+        input: HttpRequest,
+        guard: Option<crate::server::DispatchGuard>,
+    ) -> Result<()> {
         input.validate()?;
         let path = input.path.as_str();
         if self.request.lock().unwrap().state == "running" {
@@ -328,6 +401,9 @@ impl Activation {
         self.worker = Some(thread::spawn(move || {
             let key = zeroize::Zeroizing::new(key);
             let result = (|| -> Result<u16> {
+                if cancel.load(Ordering::Acquire) || guard.as_ref().is_some_and(|check| !check()) {
+                    return Err(Error::Unauthorized);
+                }
                 let mut stream = TcpStream::connect_timeout(
                     &(Ipv4Addr::LOCALHOST, port).into(),
                     Duration::from_secs(2),
@@ -351,6 +427,9 @@ impl Activation {
                     input.body.len(),
                     input.body
                 ));
+                if cancel.load(Ordering::Acquire) || guard.as_ref().is_some_and(|check| !check()) {
+                    return Err(Error::Unauthorized);
+                }
                 stream.write_all(request.as_bytes())?;
                 let until = Instant::now() + Duration::from_secs(1800);
                 let mut bytes = Vec::new();
@@ -475,6 +554,68 @@ mod tests {
 #[cfg(test)]
 mod http_builder_tests {
     use super::*;
+    #[test]
+    fn guarded_request_checks_authority_before_connect_and_write() {
+        use std::net::TcpListener;
+        use std::sync::atomic::AtomicUsize;
+        let temp = tempfile::tempdir().unwrap();
+        let mut activation = Activation::start(
+            &temp.path().join("activation"),
+            &"a".repeat(32),
+            "runtime".into(),
+            Mode::Profile,
+            temp.path(),
+            vec![],
+            vec![],
+        )
+        .unwrap();
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let base = format!(
+            "http://owned.localhost:{}",
+            listener.local_addr().unwrap().port()
+        );
+        let request = || HttpRequest {
+            method: "GET".into(),
+            path: "/".into(),
+            headers: Default::default(),
+            body: String::new(),
+        };
+        activation
+            .send_guarded(&base, request(), Arc::new(|| false))
+            .unwrap();
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while activation.request().state == "running" && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        assert_eq!(activation.request().error, Some(Error::Unauthorized));
+        assert!(listener.accept().is_err(), "denied guard must not connect");
+        let calls = Arc::new(AtomicUsize::new(0));
+        let seen = calls.clone();
+        activation
+            .send_guarded(
+                &base,
+                request(),
+                Arc::new(move || seen.fetch_add(1, Ordering::SeqCst) == 0),
+            )
+            .unwrap();
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while activation.request().state == "running" && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        assert_eq!(activation.request().error, Some(Error::Unauthorized));
+        assert_eq!(calls.load(Ordering::SeqCst), 2);
+        let (mut stream, _) = listener.accept().expect("first guard admitted connect");
+        stream
+            .set_read_timeout(Some(Duration::from_secs(1)))
+            .unwrap();
+        let mut buf = [0u8; 1];
+        assert_eq!(
+            stream.read(&mut buf).unwrap(),
+            0,
+            "revocation before write must send no bytes"
+        );
+    }
     #[test]
     fn methods_headers_utf8_body_and_trigger_cookie_reach_only_local_transport() {
         use std::net::TcpListener;

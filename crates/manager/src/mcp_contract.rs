@@ -45,6 +45,7 @@ pub struct Protocol {
     execution_actions: bool,
     support_export_actions: bool,
     site_probe_actions: bool,
+    debugger_actions: bool,
 }
 pub enum Action {
     Reply(Value),
@@ -74,6 +75,14 @@ pub enum ExecutionInput {
     },
     Cancel {
         operation_id: Id,
+    },
+    DebuggerPlan(Request<MutationInput>),
+    DebuggerApply {
+        request: Request<MutationInput>,
+        review: Digest,
+    },
+    DebuggerLookup {
+        idempotency_key: Id,
     },
     SupportPlan(Request<MutationInput>),
     SupportApply {
@@ -110,6 +119,8 @@ pub enum ActivityInput {
     Mark(Request<devforge_control::tools::ActivityMarkInput>),
     Wait(Request<devforge_control::tools::ActivityWaitInput>),
     SiteProbe(Request<devforge_control::tools::SiteProbeInput>),
+    DebuggerInspect(Request<devforge_control::tools::DebuggerInspectInput>),
+    DebuggerProfile(Request<devforge_control::tools::DebuggerProfileInput>),
     SupportPreview(Request<devforge_control::tools::SupportPreviewInput>),
     SupportRead(Request<devforge_control::tools::SupportReadInput>),
 }
@@ -281,6 +292,7 @@ impl Protocol {
             execution_actions: false,
             support_export_actions: false,
             site_probe_actions: false,
+            debugger_actions: false,
         }
     }
     /// Surface selection only; grants and native exact-plan approval remain
@@ -337,6 +349,10 @@ impl Protocol {
     /// Surface selection is not permission or project trust.
     pub fn with_execution_actions(mut self, enabled: bool) -> Self {
         self.execution_actions = enabled;
+        self
+    }
+    pub fn with_debugger_actions(mut self, enabled: bool) -> Self {
+        self.debugger_actions = enabled;
         self
     }
     pub fn with_site_probe_actions(mut self, enabled: bool) -> Self {
@@ -489,6 +505,15 @@ impl Protocol {
             };
         }
         if method == "tools/call"
+            && self.debugger_actions
+            && let Some(debugger) = self.debugger_tool(&params, id.clone(), version)
+        {
+            return match debugger {
+                Ok(call) => Action::Execution(call),
+                Err(()) => Action::Reply(rpc_error(Some(id), -32602, "Invalid params", None)),
+            };
+        }
+        if method == "tools/call"
             && self.support_export_actions
             && let Some(support) = self.support_export_tool(&params, id.clone(), version)
         {
@@ -582,7 +607,7 @@ impl Protocol {
                     return Action::Reply(rpc_success(
                         id,
                         version,
-                        json!({"tools":tool_definitions(self.service_actions,self.runtime_actions,self.environment_actions,self.database_actions,self.domain_actions,self.execution_actions,(self.support_export_actions,self.site_probe_actions))}),
+                        json!({"tools":tool_definitions(self.service_actions,self.runtime_actions,self.environment_actions,self.database_actions,self.domain_actions,self.execution_actions,(self.support_export_actions,self.site_probe_actions,self.debugger_actions))}),
                     ));
                 } else {
                     Err(())
@@ -642,8 +667,17 @@ impl Protocol {
         let name = params.get("name").and_then(Value::as_str)?;
         if !matches!(
             name,
-            "activity.mark" | "activity.wait" | "support.preview" | "support.read" | "site.probe"
+            "activity.mark"
+                | "activity.wait"
+                | "support.preview"
+                | "support.read"
+                | "site.probe"
+                | "debugger.inspect"
+                | "debugger.profile"
         ) {
+            return None;
+        }
+        if name.starts_with("debugger.") && !self.debugger_actions {
             return None;
         }
         if name == "site.probe" && !self.site_probe_actions {
@@ -656,7 +690,11 @@ impl Protocol {
             .get("arguments")
             .cloned()
             .unwrap_or_else(|| json!({}));
-        let allowed: &[&str] = if name == "site.probe" {
+        let allowed: &[&str] = if name == "debugger.inspect" {
+            &["detail", "locals"]
+        } else if name == "debugger.profile" {
+            &["profile_id"]
+        } else if name == "site.probe" {
             &["path"]
         } else if name == "support.preview" {
             &[]
@@ -718,7 +756,33 @@ impl Protocol {
             idempotency_key: None,
             input,
         };
-        let input = if name == "site.probe" {
+        let input = if name == "debugger.inspect" {
+            match serde_json::from_value::<devforge_control::tools::DebuggerInspectInput>(arguments)
+            {
+                Ok(input) => ActivityInput::DebuggerInspect(Request {
+                    api_version: Default::default(),
+                    request_id: request_id.clone(),
+                    project_id: self.project.clone(),
+                    expected_revision: None,
+                    idempotency_key: None,
+                    input,
+                }),
+                Err(_) => return Some(Err(())),
+            }
+        } else if name == "debugger.profile" {
+            match serde_json::from_value::<devforge_control::tools::DebuggerProfileInput>(arguments)
+            {
+                Ok(input) => ActivityInput::DebuggerProfile(Request {
+                    api_version: Default::default(),
+                    request_id: request_id.clone(),
+                    project_id: self.project.clone(),
+                    expected_revision: None,
+                    idempotency_key: None,
+                    input,
+                }),
+                Err(_) => return Some(Err(())),
+            }
+        } else if name == "site.probe" {
             match serde_json::from_value::<devforge_control::tools::SiteProbeInput>(arguments) {
                 Ok(input) => ActivityInput::SiteProbe(Request {
                     api_version: Default::default(),
@@ -1352,6 +1416,113 @@ impl Protocol {
             json!({"content":[{"type":"text","text":content.to_string()}],"structuredContent":content,"isError":is_error}),
         )
     }
+    fn debugger_tool(
+        &mut self,
+        params: &Value,
+        id: Value,
+        version: Version,
+    ) -> Option<Result<ExecutionCall, ()>> {
+        use devforge_control::mutations::{
+            DebuggerAssignInput, DebuggerBreakpointsInput, DebuggerControlInput,
+            DebuggerExportInput, DebuggerInstallInput, DebuggerModeInput, DebuggerStartInput,
+        };
+        let name = params.get("name").and_then(Value::as_str)?;
+        if !matches!(
+            name,
+            "debugger.breakpoints"
+                | "debugger.control"
+                | "debugger.lookup"
+                | "debugger.install"
+                | "debugger.mode"
+                | "debugger.start"
+                | "debugger.primitive_assignment"
+                | "debugger.export"
+        ) {
+            return None;
+        }
+        if !keys(params, &["name", "arguments"]) {
+            return Some(Err(()));
+        }
+        let args = params
+            .get("arguments")
+            .cloned()
+            .unwrap_or_else(|| json!({}));
+        self.counter = self.counter.wrapping_add(1);
+        let request_id = Id::new(format!("mcp-{}", self.counter)).expect("fixed request ID");
+        let result = (|| {
+            if name == "debugger.lookup" {
+                #[derive(Deserialize)]
+                #[serde(deny_unknown_fields)]
+                struct Lookup {
+                    idempotency_key: Id,
+                }
+                let parsed: Lookup = serde_json::from_value(args).map_err(|_| ())?;
+                return Ok(ExecutionInput::DebuggerLookup {
+                    idempotency_key: parsed.idempotency_key,
+                });
+            }
+            #[derive(Deserialize)]
+            #[serde(deny_unknown_fields)]
+            struct Args {
+                action: String,
+                expected_revision: u64,
+                idempotency_key: Id,
+                input: Value,
+                review: Option<Digest>,
+            }
+            let parsed: Args = serde_json::from_value(args).map_err(|_| ())?;
+            if parsed.expected_revision > devforge_control::limits::SafeInt::MAX
+                || !matches!(parsed.action.as_str(), "plan" | "apply")
+                || (parsed.action == "apply") != parsed.review.is_some()
+            {
+                return Err(());
+            }
+            let input = match name {
+                "debugger.breakpoints" => MutationInput::DebuggerBreakpoints(
+                    serde_json::from_value::<DebuggerBreakpointsInput>(parsed.input)
+                        .map_err(|_| ())?,
+                ),
+                "debugger.control" => MutationInput::DebuggerControl(
+                    serde_json::from_value::<DebuggerControlInput>(parsed.input).map_err(|_| ())?,
+                ),
+                "debugger.install" => MutationInput::DebuggerInstall(
+                    serde_json::from_value::<DebuggerInstallInput>(parsed.input).map_err(|_| ())?,
+                ),
+                "debugger.mode" => MutationInput::DebuggerMode(
+                    serde_json::from_value::<DebuggerModeInput>(parsed.input).map_err(|_| ())?,
+                ),
+                "debugger.start" => MutationInput::DebuggerStart(
+                    serde_json::from_value::<DebuggerStartInput>(parsed.input).map_err(|_| ())?,
+                ),
+                "debugger.primitive_assignment" => MutationInput::DebuggerAssign(
+                    serde_json::from_value::<DebuggerAssignInput>(parsed.input).map_err(|_| ())?,
+                ),
+                "debugger.export" => MutationInput::DebuggerExport(
+                    serde_json::from_value::<DebuggerExportInput>(parsed.input).map_err(|_| ())?,
+                ),
+                _ => return Err(()),
+            };
+            let request = Request {
+                api_version: Default::default(),
+                request_id: request_id.clone(),
+                project_id: self.project.clone(),
+                expected_revision: Some(parsed.expected_revision),
+                idempotency_key: Some(parsed.idempotency_key),
+                input,
+            };
+            Ok(match parsed.review {
+                Some(review) => ExecutionInput::DebuggerApply { request, review },
+                None => ExecutionInput::DebuggerPlan(request),
+            })
+        })();
+        Some(result.map(|input| ExecutionCall {
+            input,
+            request_id,
+            project_id: self.project.clone(),
+            id,
+            version,
+        }))
+    }
     fn support_export_tool(
         &mut self,
         params: &Value,
@@ -1542,7 +1713,9 @@ impl Protocol {
     pub fn complete_execution(call: ExecutionCall, result: Result<Value, ErrorCode>) -> Value {
         let invalid = if matches!(
             call.input,
-            ExecutionInput::Apply { .. } | ExecutionInput::SupportApply { .. }
+            ExecutionInput::Apply { .. }
+                | ExecutionInput::SupportApply { .. }
+                | ExecutionInput::DebuggerApply { .. }
         ) {
             ErrorCode::AdmissionUnconfirmed
         } else {
@@ -2047,9 +2220,48 @@ fn tool_definitions(
     database_actions: bool,
     domain_actions: bool,
     execution: bool,
-    (support_export, site_probe): (bool, bool),
+    (support_export, site_probe, debugger): (bool, bool, bool),
 ) -> Vec<Value> {
     let mut definitions = read_tool_definitions();
+    if debugger {
+        use devforge_control::export::Wire;
+        definitions.push(json!({"name":"debugger.inspect","description":"Inspect bounded project debugger metadata. Stack and profile metadata require SourceArtifacts; primitive locals require the explicit DebuggerValues information grant. Values are best-effort redacted. No expression evaluation.","inputSchema":devforge_control::tools::DebuggerInspectInput::schema(),"annotations":{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true,"openWorldHint":false}}));
+        definitions.push(json!({"name":"debugger.profile","description":"Read a bounded profiler summary by project-owned profile ID. Requires SourceArtifacts. It does not export files or evaluate expressions.","inputSchema":devforge_control::tools::DebuggerProfileInput::schema(),"annotations":{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true,"openWorldHint":false}}));
+        for (name, schema) in [
+            (
+                "debugger.breakpoints",
+                devforge_control::mutations::DebuggerBreakpointsInput::schema(),
+            ),
+            (
+                "debugger.control",
+                devforge_control::mutations::DebuggerControlInput::schema(),
+            ),
+            (
+                "debugger.install",
+                devforge_control::mutations::DebuggerInstallInput::schema(),
+            ),
+            (
+                "debugger.mode",
+                devforge_control::mutations::DebuggerModeInput::schema(),
+            ),
+            (
+                "debugger.start",
+                devforge_control::mutations::DebuggerStartInput::schema(),
+            ),
+            (
+                "debugger.primitive_assignment",
+                devforge_control::mutations::DebuggerAssignInput::schema(),
+            ),
+            (
+                "debugger.export",
+                devforge_control::mutations::DebuggerExportInput::schema(),
+            ),
+        ] {
+            definitions.push(json!({"name":name,"description":"Plan or submit a finite project-scoped debugger action using an exact plan digest. Install, primitive assignment and export require exact native approval and additional grants. A successful control or assignment operation means queue acceptance only, not that the debugger applied it; observe a later session snapshot and errors. No arbitrary evaluation.","inputSchema":{"type":"object","additionalProperties":false,"properties":{"action":{"enum":["plan","apply"]},"expected_revision":devforge_control::limits::SafeInt::schema(),"idempotency_key":Id::schema(),"review":Digest::schema(),"input":schema},"required":["action","expected_revision","idempotency_key","input"]},"annotations":{"readOnlyHint":false,"destructiveHint":false,"idempotentHint":false,"openWorldHint":false}}));
+        }
+        definitions.push(json!({"name":"debugger.lookup","description":"Look up an owned debugger operation by idempotency key.","inputSchema":{"type":"object","additionalProperties":false,"properties":{"idempotency_key":Id::schema()},"required":["idempotency_key"]},"annotations":{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true,"openWorldHint":false}}));
+    }
+
     if site_probe {
         use devforge_control::export::Wire;
         definitions.push(json!({"name":"site.probe","description":"Send one bounded GET to the bound managed project site; application state may change. Requires ExecutionTest and a separately enabled surface. The caller supplies only a path, never host, query, credentials or headers. Redirects are not followed, TLS is validated, and no body or response headers are returned. The server-generated trace context is an association hint that can be spoofed; it does not prove causation. An admitted GET can take effect even if the client times out, access is revoked, or the site restarts; do not retry automatically.","inputSchema":devforge_control::tools::SiteProbeInput::schema(),"annotations":{"readOnlyHint":false,"destructiveHint":false,"idempotentHint":false,"openWorldHint":false}}));

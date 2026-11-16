@@ -188,6 +188,26 @@ impl Wire for ActivityContinuity {
 }
 contract!(ActivityWaitOutput{bookmark:Id,event:Option<ActivityEvent>,timed_out:bool,continuity:ActivityContinuity});
 
+// Debugger data is split by information scope in the manager. Live values may
+// contain private application data and must never appear in Debug output.
+contract!(DebuggerInspectInput {
+    detail: bool,
+    locals: bool
+});
+contract!(DebuggerProfileInput { profile_id: Id });
+private_contract!(DebuggerFrame { depth: SafeInt, function: Text<512>, file: Option<Text<512>>, line: SafeInt });
+private_contract!(DebuggerLocal { name: Text<512>, kind: Text<512>, value: Text<512> });
+contract!(DebuggerSession { session_id: Id, revision: SafeInt, state: Text<64>, depth: SafeInt, frame_count: SafeInt, variable_count: SafeInt, frames: Vec<DebuggerFrame>, locals: Vec<DebuggerLocal> });
+contract!(DebuggerProfileMetadata {
+    id: Id,
+    created_ms: SafeInt,
+    bytes: SafeInt,
+    oversized: bool
+});
+contract!(DebuggerInspectOutput { project_revision: SafeInt, mode: Text<32>, session: Option<DebuggerSession>, profiles: Vec<DebuggerProfileMetadata>, profile_count: SafeInt });
+private_contract!(DebuggerProfileFunction { file: Text<512>, name: Text<512>, self_ms: f64, inclusive_ms: f64, memory_bytes: i64, calls: SafeInt });
+contract!(DebuggerProfileOutput { total_ms: f64, memory_bytes: i64, functions: Vec<DebuggerProfileFunction>, truncated: bool });
+
 // This preview contains only fixed diagnostic codes; artifact handles are
 // opaque, grant-bound and never represent filesystem paths.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -548,6 +568,15 @@ pub fn declarations() -> Vec<String> {
         ActivityWaitInput,
         ActivityEvent,
         ActivityWaitOutput,
+        DebuggerInspectInput,
+        DebuggerProfileInput,
+        DebuggerFrame,
+        DebuggerLocal,
+        DebuggerSession,
+        DebuggerProfileMetadata,
+        DebuggerInspectOutput,
+        DebuggerProfileFunction,
+        DebuggerProfileOutput,
         SiteProbeInput,
         SiteProbeOutput,
         SupportPreviewInput,

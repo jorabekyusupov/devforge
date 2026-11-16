@@ -137,6 +137,10 @@ impl OsQuitHandle {
     }
 }
 impl Controller {
+    #[cfg(feature = "test-support")]
+    pub fn test_actor_handle(&self) -> ActorHandle {
+        self.context.actor.clone()
+    }
     pub fn start(root: &Path, intent: StartIntent, stores: Stores) -> Result<Self> {
         Self::with_options(root, intent, stores, Options::default())
     }

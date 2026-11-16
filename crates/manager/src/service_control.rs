@@ -74,6 +74,21 @@ pub enum ReviewState {
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum ReviewTarget {
+    DebuggerInstall {
+        php_runtime: String,
+    },
+    DebuggerAssign {
+        name: String,
+        value_type: String,
+        value: String,
+        session_id: String,
+        session_revision: u64,
+    },
+    DebuggerExport {
+        destination: String,
+        content_sha256: Digest,
+        byte_count: u64,
+    },
     SupportExport {
         destination: String,
         content_sha256: Digest,
@@ -176,6 +191,7 @@ struct DomainPreparation {
 }
 struct Intent {
     support_review: Option<SupportReview>,
+    debugger_export: Option<DebuggerExportReview>,
     request: Request<MutationInput>,
     binding: ProjectBinding,
     fingerprint: Digest,
@@ -198,6 +214,11 @@ struct Intent {
     database: Option<crate::database_control::DatabaseReadResult>,
     domain: Option<crate::domain_control::DomainIntent>,
 }
+struct DebuggerExportReview {
+    destination: std::path::PathBuf,
+    content_sha256: Digest,
+    byte_count: u64,
+}
 struct SupportReview {
     destination: std::path::PathBuf,
     content_sha256: Digest,
@@ -206,13 +227,16 @@ struct SupportReview {
 pub(crate) struct ServiceJob {
     intent: Arc<Intent>,
     policy: Arc<Services>,
+    actor: ActorHandle,
     pub(crate) deadline: Instant,
     pub(crate) cancellation: Cancellation,
 }
 impl ServiceJob {
     pub(crate) fn sensitive(&self) -> bool {
-        matches!(self.intent.request.input, MutationInput::YamlSave(_))
-            || self.intent.execution.is_some()
+        matches!(
+            self.intent.request.input,
+            MutationInput::YamlSave(_) | MutationInput::DebuggerAssign(_)
+        ) || self.intent.execution.is_some()
     }
     pub(crate) fn client(&self) -> &Id {
         &self.intent.client
@@ -250,6 +274,51 @@ impl ServiceJob {
             *claim = None;
         }
     }
+    fn debug_dispatch_guard(
+        &self,
+        current: &ProjectBinding,
+        assignment: bool,
+        session_id: String,
+        session_revision: u64,
+    ) -> devforge_workspace::debugging::DispatchGuard {
+        let intent = self.intent.clone();
+        let policy = self.policy.clone();
+        let actor = self.actor.clone();
+        let cancellation = self.cancellation.clone();
+        let deadline = self.deadline;
+        let expected_root = current.root().to_path_buf();
+        let revision = current.revision();
+        Arc::new(move || {
+            if cancellation.is_cancelled()
+                || Instant::now() >= deadline
+                || Instant::now() >= intent.expires
+                || !intent.approved.load(Ordering::Acquire)
+            {
+                return false;
+            }
+            let checked = if assignment {
+                policy.diagnostics.verify_debugger_assignment(
+                    &intent.peer,
+                    &intent.credential,
+                    &intent.request.project_id,
+                    &actor,
+                    (revision, &expected_root, &session_id, session_revision),
+                )
+            } else {
+                policy.diagnostics.verify_debugger_control(
+                    &intent.peer,
+                    &intent.credential,
+                    &intent.request.project_id,
+                    &actor,
+                    (revision, &expected_root, &session_id, session_revision),
+                )
+            };
+            checked.is_ok()
+                && !cancellation.is_cancelled()
+                && Instant::now() < deadline
+                && Instant::now() < intent.expires
+        })
+    }
     pub(crate) fn validate_admission(
         &self,
         snapshot: &Snapshot,
@@ -272,7 +341,7 @@ impl ServiceJob {
                 &self.intent.credential,
                 &current,
                 &intent_required(&self.intent)?,
-                &[],
+                &required_information(&self.intent.request.input),
                 self.intent.request.expected_revision,
             )
             .map_err(grant_error)?;
@@ -307,7 +376,7 @@ impl ServiceJob {
                 &self.intent.credential,
                 binding,
                 &intent_required(&self.intent)?,
-                &[],
+                &required_information(&self.intent.request.input),
                 self.intent.request.expected_revision,
             )
             .map_err(grant_error)
@@ -361,6 +430,8 @@ impl ServiceJob {
                 proof,
                 support,
             )?
+        } else if let Some(export) = &self.intent.debugger_export {
+            debugger_export_backend(snapshot, current, &self.intent.request, proof, export)?
         } else if initial {
             state_digest(snapshot, current, &self.intent.request, proof)?
         } else {
@@ -662,6 +733,251 @@ impl ServiceJob {
                 )?;
                 return serde_json::to_value(output)
                     .map_err(|_| ws_error(ErrorCode::OutputLimitExceeded));
+            }
+            Dispatch::DebuggerInstall { project_id, .. } => {
+                if project_id != current.project_id().as_str() {
+                    return Err(ws_error(ErrorCode::ProjectMismatch));
+                }
+                check()?;
+                return workspace.execute(
+                    devforge_workspace::Command::DebugInstall {
+                        id: project_id,
+                        trusted: true,
+                    },
+                    &self.cancellation,
+                );
+            }
+            Dispatch::DebuggerMode { project_id, input } => {
+                if project_id != current.project_id().as_str() {
+                    return Err(ws_error(ErrorCode::ProjectMismatch));
+                }
+                use devforge_control::mutations::DebuggerMode;
+                let mode = match input.mode {
+                    DebuggerMode::Off => devforge_workspace::debugging::Mode::Off,
+                    DebuggerMode::Debug => devforge_workspace::debugging::Mode::Debug,
+                    DebuggerMode::Profile => devforge_workspace::debugging::Mode::Profile,
+                };
+                check()?;
+                return workspace.debug_mode_reviewed(
+                    &project_id,
+                    mode,
+                    input.runtime_id.map(|v| v.as_str().to_owned()),
+                    current.revision(),
+                );
+            }
+            Dispatch::DebuggerStart { project_id, input } => {
+                if project_id != current.project_id().as_str() {
+                    return Err(ws_error(ErrorCode::ProjectMismatch));
+                }
+                check()?;
+                let intent = self.intent.clone();
+                let policy = self.policy.clone();
+                let actor = self.actor.clone();
+                let cancellation = self.cancellation.clone();
+                let deadline = self.deadline;
+                let root = current.root().to_path_buf();
+                let revision = current.revision();
+                let guard = Arc::new(move |session_id: &str| {
+                    if cancellation.is_cancelled()
+                        || Instant::now() >= deadline
+                        || Instant::now() >= intent.expires
+                        || !intent.approved.load(Ordering::Acquire)
+                    {
+                        return false;
+                    }
+                    let check = policy.diagnostics.verify_debugger_start(
+                        &intent.peer,
+                        &intent.credential,
+                        &intent.request.project_id,
+                        &actor,
+                        (revision, &root, session_id),
+                    );
+                    check.is_ok()
+                        && !cancellation.is_cancelled()
+                        && Instant::now() < deadline
+                        && Instant::now() < intent.expires
+                });
+                return workspace.debug_start_scoped(&project_id, input.path.as_str(), guard);
+            }
+            Dispatch::DebuggerAssign { project_id, input } => {
+                if project_id != current.project_id().as_str() {
+                    return Err(ws_error(ErrorCode::ProjectMismatch));
+                }
+                check()?;
+                let value = devforge_workspace::debugging::Assignment {
+                    name: input.name.as_str().to_owned(),
+                    kind: debugger_primitive(input.kind).to_owned(),
+                    value: input.value.as_str().to_owned(),
+                };
+                let guard = self.debug_dispatch_guard(
+                    &current,
+                    true,
+                    input.session_id.as_str().to_owned(),
+                    input.session_revision.get(),
+                );
+                return workspace.debug_assign_reviewed(
+                    &project_id,
+                    value,
+                    input.session_id.as_str(),
+                    input.session_revision.get(),
+                    guard,
+                );
+            }
+            Dispatch::DebuggerExport { project_id, input } => {
+                if project_id != current.project_id().as_str() {
+                    return Err(ws_error(ErrorCode::ProjectMismatch));
+                }
+                let export = self
+                    .intent
+                    .debugger_export
+                    .as_ref()
+                    .ok_or_else(|| ws_error(ErrorCode::Unauthorized))?;
+                let parent = export
+                    .destination
+                    .parent()
+                    .ok_or_else(|| ws_error(ErrorCode::InvalidInput))?;
+                if workspace
+                    .projects
+                    .root()
+                    .parent()
+                    .map(|root| root.join("control"))
+                    .as_deref()
+                    != Some(parent)
+                    || !export.destination.is_absolute()
+                    || std::fs::canonicalize(parent).ok().as_deref() != Some(parent)
+                {
+                    return Err(ws_error(ErrorCode::ProjectMismatch));
+                }
+                check()?;
+                crate::transport::os::validate_private_dir(parent)
+                    .map_err(|_| ws_error(ErrorCode::Unauthorized))?;
+                let bytes = workspace
+                    .debug_profile_export_preview(&project_id, input.profile_id.as_str())?;
+                if bytes.len() as u64 != export.byte_count
+                    || sha256(&bytes).map_err(ws_error)? != export.content_sha256
+                {
+                    return Err(ws_error(ErrorCode::ReviewMismatch));
+                }
+                let stage = parent.join(format!(
+                    ".profile-stage-{}",
+                    crate::environment_control::opaque()
+                        .map_err(ws_error)?
+                        .as_str()
+                ));
+                #[cfg(unix)]
+                let mut file = {
+                    let mut options = std::fs::OpenOptions::new();
+                    options.read(true).write(true).create_new(true);
+                    crate::transport::os::secure_lock_options(&mut options);
+                    options
+                        .open(&stage)
+                        .map_err(|_| ws_error(ErrorCode::StorageUnavailable))?
+                };
+                #[cfg(windows)]
+                let mut file = crate::transport::os::create_private_export_file(&stage)
+                    .map_err(|_| ws_error(ErrorCode::StorageUnavailable))?;
+                use std::io::Write;
+                let result: devforge_workspace::Result<()> = (|| {
+                    crate::transport::os::validate_lock(&file)
+                        .map_err(|_| ws_error(ErrorCode::Unauthorized))?;
+                    file.write_all(&bytes)
+                        .and_then(|_| file.sync_all())
+                        .map_err(|_| ws_error(ErrorCode::StorageUnavailable))?;
+                    Ok(())
+                })();
+                drop(file);
+                let result = result.and_then(|_| {
+                    self.check_basic().map_err(ws_error)?;
+                    let mut registry = self
+                        .policy
+                        .grants
+                        .registry
+                        .lock()
+                        .map_err(|_| ws_error(ErrorCode::StorageUnavailable))?;
+                    registry
+                        .as_mut()
+                        .ok_or_else(|| ws_error(ErrorCode::Interrupted))?
+                        .authorize(
+                            &self.intent.peer,
+                            &self.intent.credential,
+                            &current,
+                            &intent_required(&self.intent).map_err(ws_error)?,
+                            &required_information(&self.intent.request.input),
+                            self.intent.request.expected_revision,
+                        )
+                        .map_err(grant_error)
+                        .map_err(ws_error)?;
+                    let fresh = workspace
+                        .debug_profile_export_preview(&project_id, input.profile_id.as_str())?;
+                    if fresh != bytes {
+                        return Err(ws_error(ErrorCode::ReviewMismatch));
+                    }
+                    std::fs::hard_link(&stage, &export.destination)
+                        .map_err(|_| ws_error(ErrorCode::StorageUnavailable))
+                });
+                let _ = std::fs::remove_file(&stage);
+                result?;
+                return Ok(json!({"exported":true}));
+            }
+            Dispatch::DebuggerControl { project_id, input } => {
+                use devforge_control::mutations::DebuggerCommand;
+                use devforge_workspace::debugging::Control;
+                if project_id != current.project_id().as_str() {
+                    return Err(ws_error(ErrorCode::ProjectMismatch));
+                }
+                let control = match input.command {
+                    DebuggerCommand::Run => Control::Run,
+                    DebuggerCommand::StepInto => Control::StepInto,
+                    DebuggerCommand::StepOver => Control::StepOver,
+                    DebuggerCommand::StepOut => Control::StepOut,
+                    DebuggerCommand::Stop => Control::Stop,
+                    DebuggerCommand::Detach => Control::Detach,
+                    DebuggerCommand::Frame => Control::Frame {
+                        depth: u32::try_from(
+                            input
+                                .depth
+                                .ok_or_else(|| ws_error(ErrorCode::InvalidInput))?
+                                .get(),
+                        )
+                        .map_err(|_| ws_error(ErrorCode::InvalidInput))?,
+                    },
+                };
+                check()?;
+                let guard = self.debug_dispatch_guard(
+                    &current,
+                    false,
+                    input.session_id.as_str().to_owned(),
+                    input.session_revision.get(),
+                );
+                return workspace.debug_control_guarded(
+                    &project_id,
+                    control,
+                    input.session_id.as_str(),
+                    input.session_revision.get(),
+                    guard,
+                );
+            }
+            Dispatch::DebuggerBreakpoints { project_id, input } => {
+                if project_id != current.project_id().as_str() {
+                    return Err(ws_error(ErrorCode::ProjectMismatch));
+                }
+                let breakpoints = input
+                    .breakpoints
+                    .into_iter()
+                    .map(|item| {
+                        Ok(devforge_workspace::debugging::Breakpoint {
+                            file: item.file.as_str().to_owned(),
+                            line: u32::try_from(item.line.get())
+                                .map_err(|_| ws_error(ErrorCode::InvalidInput))?,
+                        })
+                    })
+                    .collect::<devforge_workspace::Result<Vec<_>>>()?;
+                check()?;
+                return workspace.debug_breakpoints_guarded(
+                    &project_id,
+                    current.revision(),
+                    breakpoints,
+                );
             }
             Dispatch::Command(command) => command,
             Dispatch::DomainSystem {
@@ -991,6 +1307,7 @@ impl Services {
             claimed: Mutex::new(None),
             cancellation: Mutex::new(None),
             support_review: None,
+            debugger_export: None,
             bytes,
             execution: None,
             environment: None,
@@ -1254,6 +1571,7 @@ impl Services {
             claimed: Mutex::new(None),
             cancellation: Mutex::new(None),
             support_review: None,
+            debugger_export: None,
             bytes,
             execution: None,
             environment: None,
@@ -1550,6 +1868,7 @@ impl Services {
             claimed: Mutex::new(None),
             cancellation: Mutex::new(None),
             support_review: None,
+            debugger_export: None,
             bytes,
             execution: None,
             environment: Some(crate::environment_control::EnvironmentIntent { data, expected_sha }),
@@ -1605,6 +1924,11 @@ impl Services {
                 | "domain_apply"
                 | "domain_lookup"
                 | "diagnostics_read"
+                | "debugger_inspect"
+                | "debugger_profile"
+                | "debugger_plan"
+                | "debugger_apply"
+                | "debugger_lookup"
                 | "site_probe"
                 | "support_preview"
                 | "support_read"
@@ -1638,6 +1962,8 @@ impl Services {
                     | "support_preview"
                     | "support_read"
                     | "site_probe"
+                    | "debugger_inspect"
+                    | "debugger_profile"
             )
         ) {
             return self
@@ -1667,6 +1993,46 @@ impl Services {
             Err(_) => return respond::<PlanReceipt>(id, Err(ErrorCode::InvalidInput), None),
         };
         match wire {
+            Wire::DebuggerPlan {
+                credential,
+                request,
+            } => respond(
+                id,
+                debugger_only(&request.input).and_then(|_| {
+                    credential
+                        .parse()
+                        .and_then(|c| self.plan(peer, c, *request, actor))
+                }),
+                None,
+            ),
+            Wire::DebuggerApply {
+                credential,
+                request,
+                review,
+            } => {
+                let result = debugger_only(&request.input).and_then(|_| {
+                    credential
+                        .parse()
+                        .and_then(|c| self.apply(peer, c, *request, review, actor))
+                });
+                let operation = result.as_ref().ok().map(|r| r.operation_id.clone());
+                respond(id, result, operation)
+            }
+            Wire::DebuggerLookup {
+                credential,
+                request_id,
+                project_id,
+                idempotency_key,
+            } => {
+                let result = credential
+                    .parse()
+                    .and_then(|c| self.lookup(&peer, &c, &project_id, &idempotency_key, actor));
+                let operation = result
+                    .as_ref()
+                    .ok()
+                    .and_then(|r| r.as_ref().map(|r| r.operation_id.clone()));
+                respond(request_id, result, operation)
+            }
             Wire::SupportExportPlan {
                 credential,
                 request,
@@ -2115,7 +2481,17 @@ impl Services {
             .map_err(|_| ErrorCode::StorageUnavailable)?;
         let contracts = devforge_control::tools::contracts()?;
         let mut summaries = Vec::with_capacity(plans.len());
+        let debugger_deadline = Instant::now() + Duration::from_secs(3);
         for intent in plans.iter() {
+            if matches!(
+                intent.request.input,
+                MutationInput::DebuggerControl(_)
+                    | MutationInput::DebuggerBreakpoints(_)
+                    | MutationInput::DebuggerMode(_)
+                    | MutationInput::DebuggerStart(_)
+            ) {
+                continue;
+            }
             let receipt = plan_receipt(intent);
             let operation_id = intent
                 .claimed
@@ -2124,6 +2500,11 @@ impl Services {
                 .clone();
             let grant = grants.iter().find(|grant| grant.grant_id == intent.grant);
             let current = project_binding(&view.snapshot, &intent.request.project_id);
+            if matches!(intent.request.input, MutationInput::DebuggerAssign(_))
+                && Instant::now() >= debugger_deadline
+            {
+                return Err(ErrorCode::Busy);
+            }
             let state = if Instant::now() >= intent.expires {
                 ReviewState::Expired
             } else if grant.is_none_or(|grant| grant.revoked || grant.expired) {
@@ -2131,7 +2512,25 @@ impl Services {
             } else if current.as_ref().map_or(true, |current| {
                 current.root() != intent.binding.root()
                     || current.revision() != intent.binding.revision()
-            }) {
+            }) || (matches!(intent.request.input, MutationInput::DebuggerAssign(_))
+                && match self.verify_debugger_request(
+                    &intent.peer,
+                    &intent.credential,
+                    &intent.request,
+                    current.as_ref().map_err(|_| ErrorCode::RevisionConflict)?,
+                    actor,
+                ) {
+                    Ok(()) => false,
+                    Err(
+                        ErrorCode::RevisionConflict
+                        | ErrorCode::PreconditionFailed
+                        | ErrorCode::GrantRevoked
+                        | ErrorCode::GrantExpired
+                        | ErrorCode::Unauthorized,
+                    ) => true,
+                    Err(error) => return Err(error),
+                })
+            {
                 ReviewState::Stale
             } else if operation_id.is_some() {
                 ReviewState::Claimed
@@ -2166,6 +2565,43 @@ impl Services {
                 MutationInput::Start(_) | MutationInput::Stop(_) | MutationInput::Restart(_) => {
                     ReviewTarget::Service {
                         action: intent.request.input.workspace_command().into(),
+                    }
+                }
+                MutationInput::DebuggerInstall(_) => ReviewTarget::DebuggerInstall {
+                    php_runtime: view
+                        .snapshot
+                        .projects
+                        .iter()
+                        .find(|row| row.project.id == intent.request.project_id.as_str())
+                        .ok_or(ErrorCode::PreconditionFailed)?
+                        .project
+                        .php
+                        .clone(),
+                },
+                MutationInput::DebuggerAssign(input) => ReviewTarget::DebuggerAssign {
+                    name: input.name.as_str().to_owned(),
+                    value_type: debugger_primitive(input.kind).to_owned(),
+                    value: if matches!(state, ReviewState::Pending) {
+                        input.value.as_str().to_owned()
+                    } else {
+                        "[REDACTED]".into()
+                    },
+                    session_id: input.session_id.as_str().to_owned(),
+                    session_revision: input.session_revision.get(),
+                },
+                MutationInput::DebuggerExport(_) => {
+                    let export = intent
+                        .debugger_export
+                        .as_ref()
+                        .ok_or(ErrorCode::PreconditionFailed)?;
+                    ReviewTarget::DebuggerExport {
+                        destination: export
+                            .destination
+                            .to_str()
+                            .ok_or(ErrorCode::InvalidInput)?
+                            .to_owned(),
+                        content_sha256: export.content_sha256.clone(),
+                        byte_count: export.byte_count,
                     }
                 }
                 MutationInput::SupportExport(_) => {
@@ -2378,6 +2814,13 @@ impl Services {
             &intent.request.input,
             intent.request.expected_revision,
         )?;
+        self.verify_debugger_request(
+            &intent.peer,
+            &intent.credential,
+            &intent.request,
+            &current,
+            actor,
+        )?;
         let current_digest = if intent.execution.is_some() {
             let data =
                 self.read_execution(actor, &intent.peer, &intent.credential, &intent.request)?;
@@ -2438,6 +2881,22 @@ impl Services {
                 &proof,
                 support,
             )?
+        } else if let Some(export) = &intent.debugger_export {
+            let MutationInput::DebuggerExport(input) = &intent.request.input else {
+                return Err(ErrorCode::InvalidInput);
+            };
+            let bytes = self.diagnostics.debugger_profile_bytes(
+                &intent.peer,
+                &intent.credential,
+                &intent.request.project_id,
+                &input.profile_id,
+                current.revision(),
+                actor,
+            )?;
+            if bytes.len() as u64 != export.byte_count || sha256(&bytes)? != export.content_sha256 {
+                return Err(ErrorCode::ReviewMismatch);
+            }
+            debugger_export_backend(&view.snapshot, &current, &intent.request, &proof, export)?
         } else {
             state_digest(&view.snapshot, &current, &intent.request, &proof)?
         };
@@ -2476,8 +2935,51 @@ impl Services {
             .map_err(|_| ErrorCode::StorageUnavailable)?
             .as_mut()
             .ok_or(ErrorCode::Interrupted)?
-            .authorize(peer, credential, binding, &required(input)?, &[], revision)
+            .authorize(
+                peer,
+                credential,
+                binding,
+                &required(input)?,
+                &required_information(input),
+                revision,
+            )
             .map_err(grant_error)
+    }
+    fn verify_debugger_request(
+        &self,
+        peer: &PeerIdentity,
+        credential: &ExternalCredential,
+        request: &Request<MutationInput>,
+        binding: &ProjectBinding,
+        actor: &ActorHandle,
+    ) -> Result<(), ErrorCode> {
+        match &request.input {
+            MutationInput::DebuggerAssign(input) => self.diagnostics.verify_debugger_assignment(
+                peer,
+                credential,
+                &request.project_id,
+                actor,
+                (
+                    binding.revision(),
+                    binding.root(),
+                    input.session_id.as_str(),
+                    input.session_revision.get(),
+                ),
+            ),
+            MutationInput::DebuggerControl(input) => self.diagnostics.verify_debugger_control(
+                peer,
+                credential,
+                &request.project_id,
+                actor,
+                (
+                    binding.revision(),
+                    binding.root(),
+                    input.session_id.as_str(),
+                    input.session_revision.get(),
+                ),
+            ),
+            _ => Ok(()),
+        }
     }
     pub(crate) fn plan(
         self: &Arc<Self>,
@@ -2505,6 +3007,7 @@ impl Services {
             request.expected_revision,
         )?;
         cached_preflight(&view.snapshot, &request)?;
+        self.verify_debugger_request(&peer, &credential, &request, &binding, actor)?;
         let fingerprint = request_fingerprint(&request, &binding)?;
         let execution = if crate::execution_control::is_execution(&request.input) {
             Some(self.read_execution(actor, &peer, &credential, &request)?)
@@ -2527,6 +3030,36 @@ impl Services {
                 .join("control")
                 .join(format!("support-{}.json", name.as_str()));
             Some(SupportReview {
+                destination,
+                content_sha256: sha256(&bytes)?,
+                byte_count: bytes.len() as u64,
+            })
+        } else {
+            None
+        };
+        let debugger_export = if let MutationInput::DebuggerExport(input) = &request.input {
+            let bytes = self.diagnostics.debugger_profile_bytes(
+                &peer,
+                &credential,
+                &request.project_id,
+                &input.profile_id,
+                binding.revision(),
+                actor,
+            )?;
+            let name = sha256(
+                format!(
+                    "{}:{}",
+                    proof.grant_id().as_str(),
+                    input.profile_id.as_str()
+                )
+                .as_bytes(),
+            )?;
+            let destination = actor
+                .bootstrap_ready_root()
+                .map_err(actor_error)?
+                .join("control")
+                .join(format!("profile-{}.json", name.as_str()));
+            Some(DebuggerExportReview {
                 destination,
                 content_sha256: sha256(&bytes)?,
                 byte_count: bytes.len() as u64,
@@ -2558,6 +3091,8 @@ impl Services {
                 &proof,
                 support,
             )?
+        } else if let Some(export) = &debugger_export {
+            debugger_export_backend(&view.snapshot, &binding, &request, &proof, export)?
         } else {
             state_digest(&view.snapshot, &binding, &request, &proof)?
         };
@@ -2597,7 +3132,18 @@ impl Services {
             backend.clone(),
             expires_at,
         )?;
-        let sensitive_execution = execution.is_some();
+        let sensitive_execution = execution.is_some()
+            || matches!(
+                request.input,
+                MutationInput::DebuggerAssign(_) | MutationInput::DebuggerExport(_)
+            );
+        let auto_approved = matches!(
+            request.input,
+            MutationInput::DebuggerControl(_)
+                | MutationInput::DebuggerBreakpoints(_)
+                | MutationInput::DebuggerMode(_)
+                | MutationInput::DebuggerStart(_)
+        );
         let intent = Arc::new(Intent {
             request,
             binding,
@@ -2610,10 +3156,11 @@ impl Services {
             credential,
             expires_at,
             expires: Instant::now() + PLAN_TTL,
-            approved: AtomicBool::new(false),
+            approved: AtomicBool::new(auto_approved),
             claimed: Mutex::new(None),
             cancellation: Mutex::new(None),
             support_review,
+            debugger_export,
             bytes,
             execution,
             environment: None,
@@ -2667,7 +3214,8 @@ impl Services {
             .map_err(actor_error)?
         {
             if (matches!(request.input, MutationInput::YamlSave(_))
-                || crate::execution_control::is_execution(&request.input))
+                || crate::execution_control::is_execution(&request.input)
+                || matches!(request.input, MutationInput::DebuggerAssign(_)))
                 && stored.starts_with("volatile-secret-v1:")
             {
                 if !actor
@@ -2681,11 +3229,13 @@ impl Services {
             if stored != fingerprint.as_str()
                 || matches!(request.input, MutationInput::YamlSave(_))
                 || crate::execution_control::is_execution(&request.input)
+                || matches!(request.input, MutationInput::DebuggerAssign(_))
             {
                 return Err(ErrorCode::IdempotencyConflict);
             }
             return mutation_receipt(receipt, revision);
         }
+        self.verify_debugger_request(&peer, &credential, &request, &current, actor)?;
         let intent = self.intent(&review)?;
         if let Some(domain) = &intent.domain {
             if domain
@@ -2727,6 +3277,7 @@ impl Services {
         let job = ServiceJob {
             intent,
             policy: self.clone(),
+            actor: actor.clone(),
             deadline: Instant::now()
                 + Duration::from_millis(request.input.limits().timeout_ms.get()),
             cancellation: Cancellation::default(),
@@ -2788,11 +3339,48 @@ fn support_only(input: &MutationInput) -> Result<(), ErrorCode> {
         Err(ErrorCode::UnsupportedCapability)
     }
 }
+fn debugger_only(input: &MutationInput) -> Result<(), ErrorCode> {
+    if matches!(
+        input,
+        MutationInput::DebuggerControl(_)
+            | MutationInput::DebuggerBreakpoints(_)
+            | MutationInput::DebuggerInstall(_)
+            | MutationInput::DebuggerMode(_)
+            | MutationInput::DebuggerStart(_)
+            | MutationInput::DebuggerAssign(_)
+            | MutationInput::DebuggerExport(_)
+    ) {
+        Ok(())
+    } else {
+        Err(ErrorCode::UnsupportedCapability)
+    }
+}
 fn intent_required(intent: &Intent) -> Result<Vec<Scope>, ErrorCode> {
     if let Some(data) = &intent.execution {
         Ok(crate::execution_control::required(&data.facts))
     } else {
         required(&intent.request.input)
+    }
+}
+fn required_information(input: &MutationInput) -> Vec<devforge_control::InformationScope> {
+    match input {
+        MutationInput::DebuggerAssign(_) => {
+            vec![devforge_control::InformationScope::DebuggerValues]
+        }
+        MutationInput::DebuggerExport(_) => {
+            vec![devforge_control::InformationScope::SourceArtifacts]
+        }
+        _ => vec![],
+    }
+}
+fn debugger_primitive(kind: devforge_control::mutations::DebuggerPrimitive) -> &'static str {
+    use devforge_control::mutations::DebuggerPrimitive::*;
+    match kind {
+        String => "string",
+        Int => "int",
+        Float => "float",
+        Bool => "bool",
+        Null => "null",
     }
 }
 fn required(input: &MutationInput) -> Result<Vec<Scope>, ErrorCode> {
@@ -2801,6 +3389,18 @@ fn required(input: &MutationInput) -> Result<Vec<Scope>, ErrorCode> {
         MutationInput::Start(_) | MutationInput::Restart(_) => {
             Ok(vec![Scope::ProjectManage, Scope::ExecutionTest])
         }
+        MutationInput::DebuggerControl(_) | MutationInput::DebuggerStart(_) => {
+            Ok(vec![Scope::ExecutionTest])
+        }
+        MutationInput::DebuggerMode(_) | MutationInput::DebuggerInstall(_) => {
+            Ok(vec![Scope::ProjectManage])
+        }
+        MutationInput::DebuggerAssign(_) | MutationInput::DebuggerExport(_) => Ok(vec![
+            Scope::Observer,
+            Scope::ExecutionTest,
+            Scope::SensitiveOperation,
+        ]),
+        MutationInput::DebuggerBreakpoints(_) => Ok(vec![Scope::ProjectManage]),
         MutationInput::Stop(_) => Ok(vec![Scope::ProjectManage]),
         MutationInput::RuntimeInstall(_) => Ok(vec![Scope::ProjectManage]),
         MutationInput::Configure(_) => Ok(vec![Scope::ProjectManage, Scope::ExecutionTest]),
@@ -2947,6 +3547,16 @@ pub(crate) fn project_binding(snapshot: &Snapshot, id: &Id) -> Result<ProjectBin
         return Err(ErrorCode::ProjectMismatch);
     }
     ProjectBinding::from_registered(id.clone(), &row.project.path, row.project.revision)
+}
+fn debugger_export_backend(
+    snapshot: &Snapshot,
+    binding: &ProjectBinding,
+    request: &Request<MutationInput>,
+    proof: &AuthorizedExternal,
+    export: &DebuggerExportReview,
+) -> Result<Digest, ErrorCode> {
+    let destination = export.destination.to_str().ok_or(ErrorCode::InvalidInput)?;
+    sha256(&serde_json::to_vec(&json!({"state":state_digest(snapshot,binding,request,proof)?,"destination":destination,"content_sha256":export.content_sha256,"bytes":export.byte_count})).map_err(|_|ErrorCode::InvalidInput)?)
 }
 fn support_backend(
     diagnostics: &crate::diagnostics::Diagnostics,
@@ -3362,6 +3972,24 @@ impl<'de> Deserialize<'de> for Token {
 #[derive(Deserialize)]
 #[serde(tag = "method", rename_all = "snake_case", deny_unknown_fields)]
 enum Wire {
+    #[serde(rename = "debugger_plan")]
+    DebuggerPlan {
+        credential: Token,
+        request: Box<Request<MutationInput>>,
+    },
+    #[serde(rename = "debugger_apply")]
+    DebuggerApply {
+        credential: Token,
+        request: Box<Request<MutationInput>>,
+        review: Digest,
+    },
+    #[serde(rename = "debugger_lookup")]
+    DebuggerLookup {
+        credential: Token,
+        request_id: Id,
+        project_id: Id,
+        idempotency_key: Id,
+    },
     #[serde(rename = "support_export_plan")]
     SupportExportPlan {
         credential: Token,

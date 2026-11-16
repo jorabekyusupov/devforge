@@ -17,6 +17,7 @@ use std::{
     thread::{self, JoinHandle},
     time::{Duration, Instant},
 };
+use zeroize::Zeroizing;
 #[derive(Debug, Clone, Serialize)]
 pub struct Frame {
     pub depth: u32,
@@ -42,6 +43,8 @@ pub struct Snapshot {
     pub depth: u32,
     pub error: Option<Error>,
 }
+pub type DispatchGuard = Arc<dyn Fn() -> bool + Send + Sync>;
+
 #[derive(Clone)]
 pub enum Control {
     Run,
@@ -53,6 +56,72 @@ pub enum Control {
     Frame(u32),
     Breakpoints(Vec<Breakpoint>),
     Set(crate::Assignment, u64),
+    /// Agent-side control bound to the observed pause revision.
+    Scoped(Box<Control>, u64, Option<DispatchGuard>),
+}
+fn reject_scoped(
+    state: &Arc<Mutex<Snapshot>>,
+    command: &Control,
+    engine_running: bool,
+    error: Error,
+) {
+    let mut snapshot = state.lock().unwrap();
+    if !engine_running
+        && snapshot.state == "running"
+        && matches!(
+            command,
+            Control::Run
+                | Control::StepInto
+                | Control::StepOver
+                | Control::StepOut
+                | Control::Stop
+                | Control::Detach
+        )
+    {
+        snapshot.state = "paused".into();
+    }
+    snapshot.error = Some(error);
+}
+fn admit_queued(
+    command: Control,
+    state: &Arc<Mutex<Snapshot>>,
+    engine_running: bool,
+) -> Option<(Control, Option<DispatchGuard>)> {
+    match command {
+        Control::Scoped(command, expected, guard) => {
+            // Callback can reach the workspace actor; never hold the snapshot
+            // mutex across it. Revoked/cancelled requests fail closed.
+            if guard.as_ref().is_some_and(|check| !check()) {
+                reject_scoped(state, &command, engine_running, Error::Unauthorized);
+                return None;
+            }
+            let mut snapshot = state.lock().unwrap();
+            if snapshot.revision != expected {
+                // A queued resume reserves the running state before the engine
+                // sees it. If rejected while the engine is still paused, undo
+                // that reservation; do not overwrite a genuinely running engine.
+                if !engine_running
+                    && snapshot.state == "running"
+                    && matches!(
+                        *command,
+                        Control::Run
+                            | Control::StepInto
+                            | Control::StepOver
+                            | Control::StepOut
+                            | Control::Stop
+                            | Control::Detach
+                    )
+                {
+                    snapshot.state = "paused".into();
+                }
+                snapshot.error = Some(Error::InvalidVariable);
+                None
+            } else {
+                Some((*command, guard))
+            }
+        }
+        other => Some((other, None)),
+    }
 }
 pub struct Server {
     state: Arc<Mutex<Snapshot>>,
@@ -170,11 +239,11 @@ impl Connection {
     fn send(&mut self, command: &str) -> Result<u32> {
         self.transaction = self.transaction.checked_add(1).ok_or(Error::Protocol)?;
         let i = self.transaction;
-        let wire = if let Some((prefix, data)) = command.split_once(" -- ") {
+        let wire = Zeroizing::new(if let Some((prefix, data)) = command.split_once(" -- ") {
             format!("{prefix} -i {i} -- {data}\0")
         } else {
             format!("{command} -i {i}\0")
-        };
+        });
         self.stream.write_all(wire.as_bytes())?;
         Ok(i)
     }
@@ -321,11 +390,24 @@ fn conversation(
     let mut running = None;
     while !stop.load(Ordering::Relaxed) {
         if let Ok(command) = rx.try_recv() {
+            let Some((command, guard)) = admit_queued(command, state, running.is_some()) else {
+                continue;
+            };
             if running.is_some() {
                 if matches!(command, Control::Stop | Control::Detach) {
+                    if guard.as_ref().is_some_and(|check| !check()) {
+                        reject_scoped(state, &command, true, Error::Unauthorized);
+                        continue;
+                    }
                     let _ = conn.stream.shutdown(Shutdown::Both);
                     return Ok(());
                 }
+                continue;
+            }
+            // Authorization may change after dequeue. Recheck immediately
+            // before any DBGp action without holding the debugger state lock.
+            if guard.as_ref().is_some_and(|check| !check()) {
+                reject_scoped(state, &command, false, Error::Unauthorized);
                 continue;
             }
             match command {
@@ -356,21 +438,30 @@ fn conversation(
                     }
                     value.validate()?;
                     let depth = state.lock().unwrap().depth;
-                    let literal = value.php_literal()?;
-                    let encoded = STANDARD.encode(literal.as_bytes());
+                    let literal = Zeroizing::new(value.php_literal()?);
+                    let encoded = Zeroizing::new(STANDARD.encode(literal.as_bytes()));
                     let cast = if value.kind == "null" {
                         String::new()
                     } else {
                         format!(" -t {}", value.kind)
                     };
-                    let response = conn.call(
-                        &format!(
-                            "property_set -n {} -d {depth} -c 0{cast} -l {} -- {encoded}",
-                            value.name,
-                            literal.len()
-                        ),
-                        stop,
-                    )?;
+                    let command = Zeroizing::new(format!(
+                        "property_set -n {} -d {depth} -c 0{cast} -l {} -- {}",
+                        value.name,
+                        literal.len(),
+                        encoded.as_str()
+                    ));
+                    if guard.as_ref().is_some_and(|check| !check()) {
+                        state.lock().unwrap().error = Some(Error::Unauthorized);
+                        continue;
+                    }
+                    // The guard may have waited on the actor. A newly paused
+                    // frame must not receive the old assignment.
+                    if state.lock().unwrap().revision != revision {
+                        state.lock().unwrap().error = Some(Error::InvalidVariable);
+                        continue;
+                    }
+                    let response = conn.call(&command, stop)?;
                     if response.attr("success") != "1" {
                         return Err(Error::InvalidVariable);
                     }
@@ -381,6 +472,7 @@ fn conversation(
                     breakpoints(&mut conn, root, &values, &mut ids, stop)?;
                     *bps = values;
                 }
+                Control::Scoped(_, _, _) => return Err(Error::InvalidVariable),
             }
         }
         if let Some(id) = running {
@@ -492,8 +584,65 @@ impl Server {
     pub fn snapshot(&self) -> Snapshot {
         self.state.lock().unwrap().clone()
     }
-    pub fn control(&self, command: Control) -> Result<()> {
+    #[cfg(feature = "test-support")]
+    pub fn test_set_paused(&self) -> u64 {
         let mut state = self.state.lock().unwrap();
+        state.state = "paused".into();
+        state.revision = 1;
+        state.depth = 0;
+        state.variables = vec![Variable {
+            assign: Some("$value".into()),
+            name: "$value".into(),
+            kind: "int".into(),
+            value: "1".into(),
+            children: vec![],
+        }];
+        state.revision
+    }
+
+    pub fn control(&self, command: Control) -> Result<()> {
+        if matches!(command, Control::Scoped(_, _, _)) {
+            return Err(Error::InvalidVariable);
+        }
+        self.control_inner(command, None, None)
+    }
+    /// Admission and queue insertion share the state lock. The worker checks
+    /// the same revision again before dispatching the command to Xdebug.
+    pub fn control_at_revision(
+        &self,
+        command: Control,
+        revision: u64,
+        guard: DispatchGuard,
+    ) -> Result<()> {
+        if matches!(
+            command,
+            Control::Set(_, _) | Control::Breakpoints(_) | Control::Scoped(_, _, _)
+        ) {
+            return Err(Error::InvalidVariable);
+        }
+        self.control_inner(command, Some(revision), Some(guard))
+    }
+    /// Only a manager-reviewed primitive Set may call this method. It keeps
+    /// the same admission/dequeue revision checks as scoped control and still
+    /// validates the variable against the current assignable snapshot.
+    pub fn set_at_revision(
+        &self,
+        value: crate::Assignment,
+        revision: u64,
+        guard: DispatchGuard,
+    ) -> Result<()> {
+        self.control_inner(Control::Set(value, revision), Some(revision), Some(guard))
+    }
+    fn control_inner(
+        &self,
+        command: Control,
+        expected: Option<u64>,
+        guard: Option<DispatchGuard>,
+    ) -> Result<()> {
+        let mut state = self.state.lock().unwrap();
+        if expected.is_some_and(|revision| state.revision != revision) {
+            return Err(Error::InvalidVariable);
+        }
         if let Control::Set(value, revision) = &command {
             if state.revision != *revision {
                 return Err(Error::InvalidVariable);
@@ -520,7 +669,12 @@ impl Server {
                 | Control::Stop
                 | Control::Detach
         );
-        self.tx.try_send(command).map_err(|e| match e {
+        let queued = if let Some(revision) = expected {
+            Control::Scoped(Box::new(command), revision, guard)
+        } else {
+            command
+        };
+        self.tx.try_send(queued).map_err(|e| match e {
             mpsc::TrySendError::Full(_) => Error::Busy,
             mpsc::TrySendError::Disconnected(_) => Error::Unavailable,
         })?;
@@ -560,6 +714,150 @@ mod tests {
         next.control(Control::StepInto).unwrap();
         assert_eq!(next.snapshot().state, "running");
         assert_eq!(next.control(Control::StepOver).err(), Some(Error::Busy));
+    }
+    #[test]
+    fn scoped_control_checks_revision_atomically_and_rejects_assignment() {
+        let root = tempfile::tempdir().unwrap();
+        let server = Server::start(root.path(), "a".repeat(64), vec![], vec![]).unwrap();
+        {
+            let mut state = server.state.lock().unwrap();
+            state.state = "paused".into();
+            state.revision = 3;
+        }
+        assert!(
+            admit_queued(
+                Control::Scoped(Box::new(Control::StepInto), 2, None),
+                &server.state,
+                false
+            )
+            .is_none()
+        );
+        assert_eq!(server.snapshot().error, Some(Error::InvalidVariable));
+        server.state.lock().unwrap().state = "running".into();
+        assert!(
+            admit_queued(
+                Control::Scoped(Box::new(Control::StepInto), 2, None),
+                &server.state,
+                false
+            )
+            .is_none()
+        );
+        assert_eq!(server.snapshot().state, "paused");
+        server.state.lock().unwrap().state = "running".into();
+        assert!(
+            admit_queued(
+                Control::Scoped(Box::new(Control::StepInto), 2, None),
+                &server.state,
+                true
+            )
+            .is_none()
+        );
+        assert_eq!(server.snapshot().state, "running");
+        server.state.lock().unwrap().state = "running".into();
+        assert!(
+            admit_queued(
+                Control::Scoped(Box::new(Control::StepInto), 3, Some(Arc::new(|| false))),
+                &server.state,
+                false
+            )
+            .is_none()
+        );
+        assert_eq!(server.snapshot().state, "paused");
+        assert_eq!(server.snapshot().error, Some(Error::Unauthorized));
+        server.state.lock().unwrap().state = "paused".into();
+        assert_eq!(
+            server
+                .control_at_revision(Control::StepInto, 2, Arc::new(|| true))
+                .err(),
+            Some(Error::InvalidVariable)
+        );
+        assert_eq!(server.snapshot().state, "paused");
+        let assignment = crate::Assignment {
+            name: "$n".into(),
+            kind: "int".into(),
+            value: "1".into(),
+        };
+        assert_eq!(
+            server
+                .control_at_revision(Control::Set(assignment, 3), 3, Arc::new(|| true))
+                .err(),
+            Some(Error::InvalidVariable)
+        );
+        server
+            .control_at_revision(Control::StepInto, 3, Arc::new(|| true))
+            .unwrap();
+        assert_eq!(server.snapshot().state, "running");
+        assert_eq!(
+            server
+                .control_at_revision(Control::StepOver, 3, Arc::new(|| true))
+                .err(),
+            Some(Error::Busy)
+        );
+    }
+    #[test]
+    fn reviewed_primitive_set_checks_scope_and_revision_before_queue() {
+        let root = tempfile::tempdir().unwrap();
+        let server = Server::start(root.path(), "c".repeat(64), vec![], vec![]).unwrap();
+        {
+            let mut state = server.state.lock().unwrap();
+            state.state = "paused".into();
+            state.revision = 3;
+            state.variables = vec![Variable {
+                assign: Some("$n".into()),
+                name: "$n".into(),
+                kind: "int".into(),
+                value: "1".into(),
+                children: vec![],
+            }];
+        }
+        let value = crate::Assignment {
+            name: "$n".into(),
+            kind: "int".into(),
+            value: "42".into(),
+        };
+        assert_eq!(
+            server
+                .set_at_revision(value.clone(), 2, Arc::new(|| true))
+                .err(),
+            Some(Error::InvalidVariable)
+        );
+        let invalid = crate::Assignment {
+            name: "$n".into(),
+            kind: "array".into(),
+            value: "0".into(),
+        };
+        assert_eq!(
+            server.set_at_revision(invalid, 3, Arc::new(|| true)).err(),
+            Some(Error::InvalidVariable)
+        );
+        let foreign = crate::Assignment {
+            name: "$other".into(),
+            kind: "int".into(),
+            value: "0".into(),
+        };
+        assert_eq!(
+            server.set_at_revision(foreign, 3, Arc::new(|| true)).err(),
+            Some(Error::InvalidVariable)
+        );
+        assert!(
+            admit_queued(
+                Control::Scoped(Box::new(Control::Set(value.clone(), 2)), 2, None),
+                &server.state,
+                false
+            )
+            .is_none()
+        );
+        let denied: DispatchGuard = Arc::new(|| false);
+        assert!(
+            admit_queued(
+                Control::Scoped(Box::new(Control::Set(value.clone(), 3)), 3, Some(denied)),
+                &server.state,
+                false
+            )
+            .is_none()
+        );
+        assert_eq!(server.snapshot().error, Some(Error::Unauthorized));
+        server.set_at_revision(value, 3, Arc::new(|| true)).unwrap();
     }
     #[test]
     fn stale_frame_revision_cannot_mutate_a_new_pause() {

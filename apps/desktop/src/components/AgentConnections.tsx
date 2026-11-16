@@ -19,6 +19,8 @@ const scopes: AgentScope[] = [
   "execution_test",
   "sensitive_operation",
 ];
+const informationScopes = ["source_artifacts", "debugger_values"] as const;
+type AgentInformation = (typeof informationScopes)[number];
 type Dialog =
   | { kind: "revoke"; grant: AgentGrant }
   | { kind: "approve" | "domain"; plan: AgentPlan };
@@ -37,6 +39,9 @@ export function AgentConnections({ api }: { api?: AgentApi }) {
   const [selectedScopes, setSelectedScopes] = useState<AgentScope[]>([
     "observer",
   ]);
+  const [selectedInformation, setSelectedInformation] = useState<
+    AgentInformation[]
+  >([]);
   const [ttl, setTtl] = useState(3600);
   const [scopeError, setScopeError] = useState(false);
   const [configuration, setConfiguration] = useState<AgentConfig | null>(null);
@@ -52,6 +57,7 @@ export function AgentConnections({ api }: { api?: AgentApi }) {
     const current = ++generation.current;
     focusAfterAction.current = false;
     setView(null);
+    setSelectedInformation([]);
     setConfiguration(null);
     setDialog(null);
     setConsent(false);
@@ -164,7 +170,10 @@ export function AgentConnections({ api }: { api?: AgentApi }) {
         )
       );
     }
-    if (plan.target.kind === "support_export") {
+    if (
+      plan.target.kind === "support_export" ||
+      plan.target.kind === "debugger_export"
+    ) {
       const target = plan.target;
       return (
         typeof target.destination === "string" &&
@@ -174,6 +183,28 @@ export function AgentConnections({ api }: { api?: AgentApi }) {
         /^[0-9a-f]{64}$/.test(target.content_sha256) &&
         Number.isSafeInteger(target.byte_count) &&
         target.byte_count >= 0
+      );
+    }
+    if (plan.target.kind === "debugger_install") {
+      return (
+        typeof plan.target.php_runtime === "string" &&
+        /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(plan.target.php_runtime)
+      );
+    }
+    if (plan.target.kind === "debugger_assign") {
+      const target = plan.target;
+      return (
+        typeof target.name === "string" &&
+        /^\$[A-Za-z_][A-Za-z0-9_]{0,79}$/.test(target.name) &&
+        ["string", "int", "float", "bool", "null"].includes(
+          target.value_type,
+        ) &&
+        typeof target.value === "string" &&
+        new TextEncoder().encode(target.value).length <= 4096 &&
+        typeof target.session_id === "string" &&
+        /^[a-f0-9]{32}$/.test(target.session_id) &&
+        Number.isSafeInteger(target.session_revision) &&
+        target.session_revision >= 0
       );
     }
     if (
@@ -335,10 +366,15 @@ export function AgentConnections({ api }: { api?: AgentApi }) {
                     const issued = await api.issue({
                       project_id: projectId,
                       scopes: selectedScopes,
+                      ...(selectedInformation.length
+                        ? { information: selectedInformation }
+                        : {}),
                       ttl_seconds: ttl,
                     });
-                    if (generation.current === current)
+                    if (generation.current === current) {
                       setConfiguration(issued.config);
+                      setSelectedInformation([]);
+                    }
                   }, "grantCreated");
                 }}
               >
@@ -353,6 +389,7 @@ export function AgentConnections({ api }: { api?: AgentApi }) {
                         required
                         onChange={(event) => {
                           setProject(event.target.value);
+                          setSelectedInformation([]);
                           setConfiguration(null);
                         }}
                       >
@@ -410,6 +447,35 @@ export function AgentConnections({ api }: { api?: AgentApi }) {
                             }}
                           />
                           <span>{t(`agentConnections.scopes.${scope}`)}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </fieldset>
+                  <fieldset aria-describedby={`${heading}-information-hint`}>
+                    <legend>{t("agentConnections.informationLegend")}</legend>
+                    <p id={`${heading}-information-hint`} className="muted">
+                      {t("agentConnections.informationHint")}
+                    </p>
+                    <div className="agent-scopes">
+                      {informationScopes.map((information) => (
+                        <label className="agent-check" key={information}>
+                          <input
+                            type="checkbox"
+                            name={`agent-information-${information}`}
+                            checked={selectedInformation.includes(information)}
+                            onChange={(event) =>
+                              setSelectedInformation((current) =>
+                                event.target.checked
+                                  ? [...current, information]
+                                  : current.filter(
+                                      (item) => item !== information,
+                                    ),
+                              )
+                            }
+                          />
+                          <span>
+                            {t(`agentConnections.information.${information}`)}
+                          </span>
                         </label>
                       ))}
                     </div>
@@ -488,6 +554,19 @@ export function AgentConnections({ api }: { api?: AgentApi }) {
                           .map((scope) => t(`agentConnections.scopes.${scope}`))
                           .join(" · ")}
                       </p>
+                      {!!grant.information?.length && (
+                        <p>
+                          {t("agentConnections.informationLegend")}
+                          {": "}
+                          {grant.information
+                            .map((item) =>
+                              informationScopes.some((scope) => scope === item)
+                                ? t(`agentConnections.information.${item}`)
+                                : item,
+                            )
+                            .join(" · ")}
+                        </p>
+                      )}
                       <details>
                         <summary>{t("agentConnections.client")}</summary>
                         <code translate="no">{grant.client_id}</code>
@@ -925,6 +1004,36 @@ function PlanReview({ plan, machine }: { plan: AgentPlan; machine: boolean }) {
             </dd>
           </>
         )}
+        {target.kind === "debugger_install" && (
+          <>
+            <dt>{t("agentConnections.debuggerPhpVersion")}</dt>
+            <dd>
+              <code translate="no">{target.php_runtime}</code>
+            </dd>
+          </>
+        )}
+        {target.kind === "debugger_assign" && (
+          <>
+            <dt>{t("agentConnections.debuggerVariable")}</dt>
+            <dd>
+              <code translate="no">{target.name}</code>
+            </dd>
+            <dt>{t("agentConnections.debuggerValueType")}</dt>
+            <dd>
+              <code translate="no">{target.value_type}</code>
+            </dd>
+            <dt>{t("agentConnections.debuggerValue")}</dt>
+            <dd>
+              <code translate="no">{JSON.stringify(target.value)}</code>
+            </dd>
+            <dt>{t("agentConnections.debuggerSession")}</dt>
+            <dd>
+              <code translate="no">{target.session_id}</code>
+            </dd>
+            <dt>{t("agentConnections.debuggerRevision")}</dt>
+            <dd>{target.session_revision}</dd>
+          </>
+        )}
         {target.kind === "runtime_select" && (
           <>
             <dt>PHP</dt>
@@ -955,7 +1064,8 @@ function PlanReview({ plan, machine }: { plan: AgentPlan; machine: boolean }) {
             <dd>{target.byte_count}</dd>
           </>
         )}
-        {target.kind === "support_export" && (
+        {(target.kind === "support_export" ||
+          target.kind === "debugger_export") && (
           <>
             <dt>{t("agentConnections.exportDestination")}</dt>
             <dd>

@@ -203,7 +203,7 @@
   {
     "family": "debugger",
     "existing_core": ["crates/workspace/src/debugging.rs","crates/debugger/src/lib.rs"],
-    "new_adapter": ["capability","install","mode","breakpoints","start","pause","step","continue","stack","scopes","locals","primitive_assignment","profile","history","export"],
+    "new_adapter": ["capability","install","mode","breakpoints","control","start","pause","step","continue","stack","scopes","locals","primitive_assignment","profile","history","export"],
     "new_operations": [],
     "unsupported_operations": ["arbitrary_expression_evaluation","nested_or_object_assignment"],
     "scopes": ["observer","project_manage","execution_test","sensitive_operation"],
@@ -215,6 +215,7 @@
       {"name": "install","core_status": "existing","required_scopes": ["project_manage"],"effects": ["owned_package_write","verified_provider_download_or_sdk_build"],"policy": "project_grant","review_required": true},
       {"name": "mode","core_status": "existing","required_scopes": ["project_manage"],"effects": ["project_write"],"policy": "project_grant","review_required": false},
       {"name": "breakpoints","core_status": "existing","required_scopes": ["project_manage"],"effects": ["project_write"],"policy": "project_grant","review_required": false},
+      {"name": "control","core_status": "existing","required_scopes": ["execution_test"],"effects": ["trusted_project_code_execution"],"policy": "project_grant","review_required": false},
       {"name": "start","core_status": "existing","required_scopes": ["execution_test"],"effects": ["trusted_project_code_execution"],"policy": "project_grant","review_required": false},
       {"name": "pause","core_status": "existing","required_scopes": ["execution_test"],"effects": ["trusted_project_code_execution"],"policy": "project_grant","review_required": false},
       {"name": "step","core_status": "existing","required_scopes": ["execution_test"],"effects": ["trusted_project_code_execution"],"policy": "project_grant","review_required": false},

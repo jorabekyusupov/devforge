@@ -1477,6 +1477,20 @@ impl DiagnosticsClient {
     ) -> std::result::Result<Response<devforge_control::tools::ToolOutput>, ErrorCode> {
         diagnostics_read(&mut self.inner, request)
     }
+    pub fn debugger_inspect(
+        &mut self,
+        request: &Request<devforge_control::tools::DebuggerInspectInput>,
+    ) -> std::result::Result<Response<devforge_control::tools::DebuggerInspectOutput>, ErrorCode>
+    {
+        debugger_inspect(&mut self.inner, request)
+    }
+    pub fn debugger_profile(
+        &mut self,
+        request: &Request<devforge_control::tools::DebuggerProfileInput>,
+    ) -> std::result::Result<Response<devforge_control::tools::DebuggerProfileOutput>, ErrorCode>
+    {
+        debugger_profile(&mut self.inner, request)
+    }
     pub fn site_probe(
         &mut self,
         request: &Request<devforge_control::tools::SiteProbeInput>,
@@ -1496,6 +1510,27 @@ impl DiagnosticsClient {
     ) -> std::result::Result<Response<devforge_control::tools::SupportPreviewOutput>, ErrorCode>
     {
         support_read(&mut self.inner, request)
+    }
+    pub fn debugger_plan(
+        &mut self,
+        request: &Request<MutationInput>,
+    ) -> std::result::Result<Response<PlanReceipt>, ErrorCode> {
+        debugger_action_plan(&mut self.inner, request)
+    }
+    pub fn debugger_apply(
+        &mut self,
+        request: &Request<MutationInput>,
+        review: &Digest,
+    ) -> std::result::Result<Response<MutationReceipt>, ErrorCode> {
+        debugger_action_apply(&mut self.inner, request, review)
+    }
+    pub fn debugger_lookup(
+        &mut self,
+        id: Id,
+        project: &Id,
+        key: &Id,
+    ) -> std::result::Result<Response<Option<MutationReceipt>>, ErrorCode> {
+        debugger_action_lookup(&mut self.inner, id, project, key)
     }
     pub fn support_export_plan(
         &mut self,
@@ -1605,6 +1640,124 @@ fn support_export_lookup(
     }
     Ok(reply)
 }
+fn debugger_action_request(request: &Request<MutationInput>) -> std::result::Result<(), ErrorCode> {
+    if !matches!(
+        request.input,
+        MutationInput::DebuggerControl(_)
+            | MutationInput::DebuggerBreakpoints(_)
+            | MutationInput::DebuggerInstall(_)
+            | MutationInput::DebuggerMode(_)
+            | MutationInput::DebuggerStart(_)
+            | MutationInput::DebuggerAssign(_)
+            | MutationInput::DebuggerExport(_)
+    ) {
+        return Err(ErrorCode::UnsupportedCapability);
+    }
+    if !request
+        .expected_revision
+        .is_some_and(|revision| revision <= devforge_control::limits::SafeInt::MAX)
+        || request.idempotency_key.is_none()
+    {
+        return Err(ErrorCode::InvalidInput);
+    }
+    Ok(())
+}
+fn debugger_action_plan(
+    client: &mut ServiceClient,
+    request: &Request<MutationInput>,
+) -> std::result::Result<Response<PlanReceipt>, ErrorCode> {
+    debugger_action_request(request)?;
+    let reply: Response<PlanReceipt> = client.exchange(
+        &request.request_id,
+        json!({"method":"debugger_plan","request":request}),
+        false,
+    )?;
+    if reply.data().is_some_and(|plan| {
+        plan.project_id != request.project_id
+            || Some(plan.revision.get()) != request.expected_revision
+    }) {
+        return Err(ErrorCode::InvalidInput);
+    }
+    Ok(reply)
+}
+fn debugger_action_apply(
+    client: &mut ServiceClient,
+    request: &Request<MutationInput>,
+    review: &Digest,
+) -> std::result::Result<Response<MutationReceipt>, ErrorCode> {
+    debugger_action_request(request)?;
+    let reply: Response<MutationReceipt> = client.exchange(
+        &request.request_id,
+        json!({"method":"debugger_apply","request":request,"review":review}),
+        true,
+    )?;
+    if reply.data().is_some_and(|receipt| {
+        receipt.project_id != request.project_id
+            || Some(receipt.revision.get()) != request.expected_revision
+            || reply
+                .operation_id()
+                .is_some_and(|id| id != &receipt.operation_id)
+    }) {
+        return Err(ErrorCode::AdmissionUnconfirmed);
+    }
+    Ok(reply)
+}
+fn debugger_action_lookup(
+    client: &mut ServiceClient,
+    id: Id,
+    project: &Id,
+    key: &Id,
+) -> std::result::Result<Response<Option<MutationReceipt>>, ErrorCode> {
+    let reply: Response<Option<MutationReceipt>> = client.exchange(&id, json!({"method":"debugger_lookup","request_id":id,"project_id":project,"idempotency_key":key}), false)?;
+    if reply
+        .data()
+        .and_then(Option::as_ref)
+        .is_some_and(|receipt| {
+            &receipt.project_id != project
+                || reply
+                    .operation_id()
+                    .is_some_and(|id| id != &receipt.operation_id)
+        })
+    {
+        return Err(ErrorCode::InvalidInput);
+    }
+    Ok(reply)
+}
+fn debugger_inspect(
+    client: &mut ServiceClient,
+    request: &Request<devforge_control::tools::DebuggerInspectInput>,
+) -> std::result::Result<Response<devforge_control::tools::DebuggerInspectOutput>, ErrorCode> {
+    if request.idempotency_key.is_some()
+        || request
+            .expected_revision
+            .is_some_and(|v| v > devforge_control::limits::SafeInt::MAX)
+    {
+        return Err(ErrorCode::InvalidInput);
+    }
+    client.exchange(
+        &request.request_id,
+        json!({"method":"debugger_inspect","request":request}),
+        false,
+    )
+}
+fn debugger_profile(
+    client: &mut ServiceClient,
+    request: &Request<devforge_control::tools::DebuggerProfileInput>,
+) -> std::result::Result<Response<devforge_control::tools::DebuggerProfileOutput>, ErrorCode> {
+    if request.idempotency_key.is_some()
+        || request
+            .expected_revision
+            .is_some_and(|v| v > devforge_control::limits::SafeInt::MAX)
+    {
+        return Err(ErrorCode::InvalidInput);
+    }
+    client.exchange(
+        &request.request_id,
+        json!({"method":"debugger_profile","request":request}),
+        false,
+    )
+}
+
 fn site_probe(
     client: &mut ServiceClient,
     request: &Request<devforge_control::tools::SiteProbeInput>,
@@ -1774,6 +1927,26 @@ impl BoundDiagnosticsClient {
         }
         diagnostics_read(self.transport(), request)
     }
+    pub fn debugger_inspect(
+        &mut self,
+        request: &Request<devforge_control::tools::DebuggerInspectInput>,
+    ) -> std::result::Result<Response<devforge_control::tools::DebuggerInspectOutput>, ErrorCode>
+    {
+        if &request.project_id != self.project() {
+            return Err(ErrorCode::ProjectMismatch);
+        }
+        debugger_inspect(self.transport(), request)
+    }
+    pub fn debugger_profile(
+        &mut self,
+        request: &Request<devforge_control::tools::DebuggerProfileInput>,
+    ) -> std::result::Result<Response<devforge_control::tools::DebuggerProfileOutput>, ErrorCode>
+    {
+        if &request.project_id != self.project() {
+            return Err(ErrorCode::ProjectMismatch);
+        }
+        debugger_profile(self.transport(), request)
+    }
     pub fn site_probe(
         &mut self,
         request: &Request<devforge_control::tools::SiteProbeInput>,
@@ -1802,6 +1975,33 @@ impl BoundDiagnosticsClient {
             return Err(ErrorCode::ProjectMismatch);
         }
         support_read(self.transport(), request)
+    }
+    pub fn debugger_plan(
+        &mut self,
+        request: &Request<MutationInput>,
+    ) -> std::result::Result<Response<PlanReceipt>, ErrorCode> {
+        if &request.project_id != self.project() {
+            return Err(ErrorCode::ProjectMismatch);
+        }
+        debugger_action_plan(self.transport(), request)
+    }
+    pub fn debugger_apply(
+        &mut self,
+        request: &Request<MutationInput>,
+        review: &Digest,
+    ) -> std::result::Result<Response<MutationReceipt>, ErrorCode> {
+        if &request.project_id != self.project() {
+            return Err(ErrorCode::ProjectMismatch);
+        }
+        debugger_action_apply(self.transport(), request, review)
+    }
+    pub fn debugger_lookup(
+        &mut self,
+        id: Id,
+        key: &Id,
+    ) -> std::result::Result<Response<Option<MutationReceipt>>, ErrorCode> {
+        let project = self.project().clone();
+        debugger_action_lookup(self.transport(), id, &project, key)
     }
     pub fn support_export_plan(
         &mut self,

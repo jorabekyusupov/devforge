@@ -109,6 +109,21 @@ pub enum Target {
     YamlSave {
         byte_count: u64,
     },
+    DebuggerInstall {
+        php_runtime: String,
+    },
+    DebuggerAssign {
+        name: String,
+        value_type: String,
+        value: String,
+        session_id: String,
+        session_revision: u64,
+    },
+    DebuggerExport {
+        destination: String,
+        content_sha256: Digest,
+        byte_count: u64,
+    },
     SupportExport {
         destination: String,
         content_sha256: Digest,
@@ -971,6 +986,21 @@ mod tests {
             json!({"kind":"support_export","destination":"/fixture/support.json","content_sha256":"a".repeat(64),"byte_count":42})
         );
         assert!(serde_json::from_value::<Target>(json!({"kind":"support_export","destination":"/fixture/support.json","content_sha256":"invalid","byte_count":42})).is_err());
+        let assignment = json!({"kind":"debugger_assign","name":"$value","value_type":"string","value":"exact\nvalue","session_id":"a".repeat(32),"session_revision":7,"private_extra":"not-for-renderer"});
+        let projected: Target = serde_json::from_value(assignment).unwrap();
+        let projected = serde_json::to_value(projected).unwrap();
+        assert_eq!(projected["value"], "exact\nvalue");
+        assert_eq!(projected["value_type"], "string");
+        assert!(projected.get("private_extra").is_none());
+        assert!(serde_json::from_value::<Target>(json!({"kind":"debugger_assign","name":"$value","value_type":"string","session_id":"a".repeat(32),"session_revision":7})).is_err());
+        let export = json!({"kind":"debugger_export","destination":"/fixture/export.json","content_sha256":"b".repeat(64),"byte_count":42});
+        assert!(serde_json::from_value::<Target>(export).is_ok());
+        assert!(
+            serde_json::from_value::<Target>(
+                json!({"kind":"debugger_install","php_runtime":"php-8.4-arm64"})
+            )
+            .is_ok()
+        );
         let execution = json!({"kind":"execution","tool":"php","arg_count":2,"managed_test":true,"timeout_ms":1000,"context":{"environment":false,"database":false,"cache":false,"mail":false,"test_isolated":true},"safe_arguments":["[REDACTED]","owned-script.php"],"raw_arguments":["secret-execution-raw-canary"]});
         let target: Target = serde_json::from_value(execution).unwrap();
         let safe = serde_json::to_string(&target).unwrap();

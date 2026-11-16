@@ -19,6 +19,7 @@ pub enum InformationScope {
     MailContent,
     SourceArtifacts,
     DatabaseQuery,
+    DebuggerValues,
 }
 
 pub const API_VERSION: u16 = 1;
