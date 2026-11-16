@@ -257,6 +257,11 @@ enum Message {
     Database(Box<crate::database_control::DatabaseRead>),
     Domain(Box<crate::domain_control::DomainRead>),
     Metadata(Box<crate::diagnostics::MetadataRead>),
+    #[cfg(feature = "test-support")]
+    TestPaused {
+        project: String,
+        reply: SyncSender<devforge_workspace::Result<(String, u64)>>,
+    },
     Execution(Box<crate::execution_control::ExecutionRead>),
 }
 
@@ -452,6 +457,18 @@ impl ActorHandle {
     ) -> Result<()> {
         self.queue_private(Message::Execution(Box::new(query)))
     }
+    #[cfg(feature = "test-support")]
+    pub fn test_synthetic_paused_debugger(&self, project: &str) -> Result<(String, u64)> {
+        let (reply, receiver) = std::sync::mpsc::sync_channel(1);
+        self.queue_private(Message::TestPaused {
+            project: project.to_owned(),
+            reply,
+        })?;
+        receiver
+            .recv_timeout(Duration::from_secs(5))
+            .map_err(|_| ActorError::WorkerUnavailable)?
+            .map_err(|_| ActorError::WorkerUnavailable)
+    }
     fn queue_private(&self, message: Message) -> Result<()> {
         let state = self
             .shared
@@ -613,6 +630,13 @@ impl ActorHandle {
             MutationInput::DomainApply(_) => MutationOutput::DomainApply(output),
             MutationInput::DomainCleanup(_) => MutationOutput::DomainCleanup(output),
             MutationInput::SupportExport(_) => MutationOutput::SupportExport(output),
+            MutationInput::DebuggerControl(_) => MutationOutput::DebuggerControl(output),
+            MutationInput::DebuggerBreakpoints(_) => MutationOutput::DebuggerBreakpoints(output),
+            MutationInput::DebuggerInstall(_) => MutationOutput::DebuggerInstall(output),
+            MutationInput::DebuggerMode(_) => MutationOutput::DebuggerMode(output),
+            MutationInput::DebuggerStart(_) => MutationOutput::DebuggerStart(output),
+            MutationInput::DebuggerAssign(_) => MutationOutput::DebuggerAssign(output),
+            MutationInput::DebuggerExport(_) => MutationOutput::DebuggerExport(output),
             MutationInput::ExecutePhp(_) => MutationOutput::ExecutePhp(output),
             MutationInput::ExecuteArtisan(_) => MutationOutput::ExecuteArtisan(output),
             MutationInput::ExecuteComposer(_) => MutationOutput::ExecuteComposer(output),
@@ -1481,6 +1505,16 @@ fn worker_loop(
                             project_id: None,
                         }));
                     }
+                    #[cfg(feature = "test-support")]
+                    Message::TestPaused { reply, .. } => {
+                        shared.environment_queued.fetch_sub(1, Ordering::AcqRel);
+                        shared.environment_reads.fetch_sub(1, Ordering::AcqRel);
+                        let _ = reply.send(Err(devforge_workspace::Error {
+                            scope: "workspace",
+                            code: "interrupted".into(),
+                            project_id: None,
+                        }));
+                    }
                     Message::Execution(query) => {
                         shared.environment_queued.fetch_sub(1, Ordering::AcqRel);
                         shared.environment_reads.fetch_sub(1, Ordering::AcqRel);
@@ -1555,6 +1589,13 @@ fn worker_loop(
                 shared.active.store(true, Ordering::Release);
                 query.execute(&workspace);
                 shared.active.store(false, Ordering::Release);
+                shared.environment_reads.fetch_sub(1, Ordering::AcqRel);
+            }
+            #[cfg(feature = "test-support")]
+            Message::TestPaused { project, reply } => {
+                shared.environment_queued.fetch_sub(1, Ordering::AcqRel);
+                let result = workspace.test_synthetic_paused_debugger(&project);
+                let _ = reply.send(result);
                 shared.environment_reads.fetch_sub(1, Ordering::AcqRel);
             }
             Message::Execution(query) => {

@@ -37,6 +37,7 @@ function fixture() {
         client_id: "client-one",
         project_id: input.project_id,
         scopes: input.scopes,
+        information: input.information ?? [],
         created_at: 1000,
         expires_at: 3601000,
         revoked: false,
@@ -173,6 +174,46 @@ describe("minimal agent settings", () => {
       screen.getByRole("textbox", { name: "Client configuration snippet" }),
     ).toHaveAttribute("readonly");
     expect(screen.getByText("/fixture/private/grant.json")).toBeInTheDocument();
+  });
+  it("requires explicit opt-in for debugger and source content and displays the granted rights", async () => {
+    const { api } = fixture();
+    const { user } = await mount(api);
+    await screen.findByText("Connected");
+    const source = screen.getByRole("checkbox", {
+      name: "Read source and profile artifacts",
+    });
+    const values = screen.getByRole("checkbox", {
+      name: "Read paused debugger values",
+    });
+    expect(source).not.toBeChecked();
+    expect(values).not.toBeChecked();
+    await user.click(source);
+    await user.click(values);
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: "Project" }),
+      "project-b",
+    );
+    expect(source).not.toBeChecked();
+    expect(values).not.toBeChecked();
+    await user.click(source);
+    await user.click(values);
+    await user.click(screen.getByRole("button", { name: "Create grant" }));
+    await screen.findByRole("textbox", {
+      name: "Client configuration snippet",
+    });
+    expect(api.issue).toHaveBeenCalledWith({
+      project_id: "project-b",
+      scopes: ["observer"],
+      information: ["source_artifacts", "debugger_values"],
+      ttl_seconds: 3600,
+    });
+    expect(source).not.toBeChecked();
+    expect(values).not.toBeChecked();
+    expect(
+      screen.getByText(
+        "Additional content access: Read source and profile artifacts · Read paused debugger values",
+      ),
+    ).toBeInTheDocument();
   });
   it("keeps revoke explicit and restores the trigger focus after cancellation", async () => {
     const { api, view } = fixture();
@@ -433,6 +474,93 @@ describe("minimal agent settings", () => {
       ).toHaveFocus(),
     );
   });
+  it("shows the exact debugger assignment value and revision before owner approval", async () => {
+    const { api, view } = fixture();
+    const pending = plan();
+    pending.target = {
+      kind: "debugger_assign",
+      name: "$count",
+      value_type: "string",
+      value: "line 1\nline 2",
+      session_id: "a".repeat(32),
+      session_revision: 7,
+    };
+    pending.details = [];
+    view.plans = [pending];
+    const { user } = await mount(api);
+    await screen.findByText("Connected");
+    await user.click(screen.getByRole("button", { name: "Review plan" }));
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveTextContent("$count");
+    expect(dialog).toHaveTextContent('"line 1\\nline 2"');
+    expect(dialog).toHaveTextContent("a".repeat(32));
+    expect(dialog).toHaveTextContent("Paused session revision");
+    expect(dialog).toHaveTextContent("7");
+    await user.click(
+      within(dialog).getByRole("checkbox", {
+        name: "I reviewed this project and the exact changes shown.",
+      }),
+    );
+    await user.click(
+      within(dialog).getByRole("button", { name: "Approve reviewed plan" }),
+    );
+    await waitFor(() =>
+      expect(api.approve).toHaveBeenCalledWith(pending.digest),
+    );
+  });
+  it("refuses approval when debugger assignment review data is incomplete", async () => {
+    const { api, view } = fixture();
+    const pending = plan();
+    pending.target = {
+      kind: "debugger_assign",
+      name: "not-a-variable",
+      value_type: "string",
+      value: "x",
+      session_id: "a".repeat(32),
+      session_revision: 7,
+    };
+    pending.details = [];
+    view.plans = [pending];
+    const { user } = await mount(api);
+    await screen.findByText("Connected");
+    await user.click(screen.getByRole("button", { name: "Review plan" }));
+    const dialog = screen.getByRole("dialog");
+    await user.click(
+      within(dialog).getByRole("checkbox", {
+        name: "I reviewed this project and the exact changes shown.",
+      }),
+    );
+    expect(
+      within(dialog).getByRole("button", { name: "Approve reviewed plan" }),
+    ).toBeDisabled();
+  });
+  it("shows the owned debugger export path, digest, and size", async () => {
+    const { api, view } = fixture();
+    const pending = plan();
+    pending.target = {
+      kind: "debugger_export",
+      destination: "/fixture/control/profile.json",
+      content_sha256: "b".repeat(64),
+      byte_count: 321,
+    };
+    pending.details = [];
+    view.plans = [pending];
+    const { user } = await mount(api);
+    await screen.findByText("Connected");
+    await user.click(screen.getByRole("button", { name: "Review plan" }));
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveTextContent("/fixture/control/profile.json");
+    expect(dialog).toHaveTextContent("b".repeat(64));
+    expect(dialog).toHaveTextContent("321");
+    await user.click(
+      within(dialog).getByRole("checkbox", {
+        name: "I reviewed this project and the exact changes shown.",
+      }),
+    );
+    expect(
+      within(dialog).getByRole("button", { name: "Approve reviewed plan" }),
+    ).toBeEnabled();
+  });
   it("shows the exact support export destination, content digest, and size before approval", async () => {
     const { api, view } = fixture();
     const pending = plan();
@@ -625,7 +753,17 @@ describe("minimal agent settings", () => {
           name: engine.t("agentConnections.createGrant"),
         }),
       ).toBeEnabled();
-      expect(screen.getAllByRole("checkbox")).toHaveLength(4);
+      expect(screen.getAllByRole("checkbox")).toHaveLength(6);
+      expect(
+        screen.getByRole("checkbox", {
+          name: engine.t("agentConnections.information.source_artifacts"),
+        }),
+      ).not.toBeChecked();
+      expect(
+        screen.getByRole("checkbox", {
+          name: engine.t("agentConnections.information.debugger_values"),
+        }),
+      ).not.toBeChecked();
       expect(document.body).not.toHaveTextContent("agentConnections.");
     },
   );

@@ -177,6 +177,104 @@ impl Wire for ProjectName {
         "string".into()
     }
 }
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DebuggerCommand {
+    Run,
+    StepInto,
+    StepOver,
+    StepOut,
+    Stop,
+    Detach,
+    Frame,
+}
+impl Wire for DebuggerCommand {
+    fn schema() -> Value {
+        json!({"type":"string","enum":["run","step_into","step_over","step_out","stop","detach","frame"]})
+    }
+    fn ts() -> String {
+        "\"run\" | \"step_into\" | \"step_over\" | \"step_out\" | \"stop\" | \"detach\" | \"frame\""
+            .into()
+    }
+}
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DebuggerMode {
+    Off,
+    Debug,
+    Profile,
+}
+impl Wire for DebuggerMode {
+    fn schema() -> Value {
+        json!({"type":"string","enum":["off","debug","profile"]})
+    }
+    fn ts() -> String {
+        "\"off\" | \"debug\" | \"profile\"".into()
+    }
+}
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DebuggerPrimitive {
+    String,
+    Int,
+    Float,
+    Bool,
+    Null,
+}
+impl Wire for DebuggerPrimitive {
+    fn schema() -> Value {
+        json!({"type":"string","enum":["string","int","float","bool","null"]})
+    }
+    fn ts() -> String {
+        "\"string\" | \"int\" | \"float\" | \"bool\" | \"null\"".into()
+    }
+}
+#[derive(Clone, Serialize)]
+#[serde(transparent)]
+pub struct DebuggerSecret(String);
+impl DebuggerSecret {
+    pub fn new(mut value: String) -> Result<Self> {
+        if value.len() > 4096 || value.contains('\0') {
+            value.zeroize();
+            return Err(ErrorCode::InvalidInput);
+        }
+        Ok(Self(value))
+    }
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+impl Drop for DebuggerSecret {
+    fn drop(&mut self) {
+        self.0.zeroize();
+    }
+}
+impl std::fmt::Debug for DebuggerSecret {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("DebuggerSecret([REDACTED])")
+    }
+}
+impl<'de> Deserialize<'de> for DebuggerSecret {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> std::result::Result<Self, D::Error> {
+        Self::new(String::deserialize(d)?).map_err(serde::de::Error::custom)
+    }
+}
+impl Wire for DebuggerSecret {
+    fn schema() -> Value {
+        json!({"type":"string","maxLength":4096,"pattern":"^[^\\u0000]*$"})
+    }
+    fn ts() -> String {
+        "string".into()
+    }
+}
+contract!(DebuggerInstallInput { limits: Option<MutationLimits> });
+contract!(DebuggerModeInput { mode: DebuggerMode, runtime_id: Option<Id>, limits: Option<MutationLimits> });
+contract!(DebuggerStartInput { path: Text<1024>, limits: Option<MutationLimits> });
+contract!(DebuggerAssignInput { name: Text<80>, kind: DebuggerPrimitive, value: DebuggerSecret, session_id: Id, session_revision: SafeInt, limits: Option<MutationLimits> });
+contract!(DebuggerExportInput { profile_id: Id, limits: Option<MutationLimits> });
+contract!(DebuggerBreakpoint { file: Text<1024>, line: SafeInt });
+contract!(DebuggerBreakpointsInput { breakpoints: Vec<DebuggerBreakpoint>, limits: Option<MutationLimits> });
+contract!(DebuggerControlInput { command: DebuggerCommand, session_id: Id, session_revision: SafeInt, depth: Option<SafeInt>, limits: Option<MutationLimits> });
 contract!(MutationLimits{timeout_ms:Bounded<1800000>,max_output_bytes:Bounded<262144>});
 impl Default for MutationLimits {
     fn default() -> Self {
@@ -258,6 +356,13 @@ mutation_set! {
     DomainApply("domains.apply",DomainApplyInput,MutationReceipt,"domain_system_apply"),
     DomainCleanup("domains.cleanup",DomainCleanupInput,MutationReceipt,"domain_system_cleanup"),
     SupportExport("artifacts.diagnostic_bundle_export",SupportExportInput,MutationReceipt,"support_export"),
+    DebuggerBreakpoints("debugger.breakpoints",DebuggerBreakpointsInput,MutationReceipt,"debugger_breakpoints"),
+    DebuggerControl("debugger.control",DebuggerControlInput,MutationReceipt,"debugger_control"),
+    DebuggerInstall("debugger.install",DebuggerInstallInput,MutationReceipt,"debugger_install"),
+    DebuggerMode("debugger.mode",DebuggerModeInput,MutationReceipt,"debugger_mode"),
+    DebuggerStart("debugger.start",DebuggerStartInput,MutationReceipt,"debugger_start"),
+    DebuggerAssign("debugger.primitive_assignment",DebuggerAssignInput,MutationReceipt,"debugger_assign"),
+    DebuggerExport("debugger.export",DebuggerExportInput,MutationReceipt,"debugger_export"),
     WorkspaceArchive("workspaces.archive",WorkspaceLifecycleInput,MutationReceipt,"worktree_cleanup"),
     WorkspaceRestore("workspaces.restore",WorkspaceLifecycleInput,MutationReceipt,"worktree_archive.restore"),
     WorkspacePurge("workspaces.purge",WorkspaceLifecycleInput,MutationReceipt,"worktree_archive.purge"),
@@ -409,6 +514,60 @@ pub fn prepare_mutation(
     let request: Request<MutationInput> =
         serde_json::from_value(raw).map_err(|_| ErrorCode::InvalidInput)?;
     request.validate(context.binding, request.input.mutates())?;
+    match &request.input {
+        MutationInput::DebuggerBreakpoints(input)
+            if input.breakpoints.len() > 100
+                || input.breakpoints.iter().any(|b| {
+                    b.file.as_str().is_empty() || b.line.get() == 0 || b.line.get() > 1_000_000
+                }) =>
+        {
+            return Err(ErrorCode::InvalidInput);
+        }
+        MutationInput::DebuggerControl(input)
+            if match input.command {
+                DebuggerCommand::Frame => input.depth.as_ref().is_none_or(|d| d.get() > 1024),
+                _ => input.depth.is_some(),
+            } =>
+        {
+            return Err(ErrorCode::InvalidInput);
+        }
+        MutationInput::DebuggerStart(input)
+            if {
+                let path = input.path.as_str();
+                path.is_empty()
+                    || !path.starts_with('/')
+                    || path.starts_with("//")
+                    || path
+                        .bytes()
+                        .any(|b| b <= 0x20 || b >= 0x7f || matches!(b, b'?' | b'#' | b'\\'))
+            } =>
+        {
+            return Err(ErrorCode::InvalidInput);
+        }
+        MutationInput::DebuggerAssign(input)
+            if {
+                let name = input.name.as_str().strip_prefix('$');
+                let valid_name = name.is_some_and(|n| {
+                    !n.is_empty()
+                        && n.bytes().enumerate().all(|(i, c)| {
+                            c.is_ascii_alphabetic() || c == b'_' || (i > 0 && c.is_ascii_digit())
+                        })
+                });
+                let value = input.value.as_str();
+                let valid_value = match input.kind {
+                    DebuggerPrimitive::String => true,
+                    DebuggerPrimitive::Int => value.parse::<i64>().is_ok(),
+                    DebuggerPrimitive::Float => value.parse::<f64>().is_ok_and(|v| v.is_finite()),
+                    DebuggerPrimitive::Bool => matches!(value, "0" | "1"),
+                    DebuggerPrimitive::Null => value.is_empty(),
+                };
+                !valid_name || !valid_value
+            } =>
+        {
+            return Err(ErrorCode::InvalidInput);
+        }
+        _ => {}
+    }
     for scope in &contract.required_scopes {
         context
             .grant
@@ -473,6 +632,14 @@ pub fn declarations() -> Vec<String> {
         DomainApplyInput,
         DomainCleanupInput,
         SupportExportInput,
+        DebuggerBreakpoint,
+        DebuggerBreakpointsInput,
+        DebuggerControlInput,
+        DebuggerInstallInput,
+        DebuggerModeInput,
+        DebuggerStartInput,
+        DebuggerAssignInput,
+        DebuggerExportInput,
         MutationReceipt,
         PlanReceipt
     )

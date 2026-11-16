@@ -68,6 +68,13 @@ pub struct Assignment {
     pub kind: String,
     pub value: String,
 }
+impl Drop for Assignment {
+    fn drop(&mut self) {
+        use zeroize::Zeroize;
+        self.name.zeroize();
+        self.value.zeroize();
+    }
+}
 impl std::fmt::Debug for Assignment {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Assignment")

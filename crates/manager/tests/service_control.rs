@@ -73,6 +73,8 @@ struct Rig {
     projects: Vec<devforge_projects::project::Project>,
     secrets: Arc<Memory>,
     blocks: u64,
+    #[cfg(feature = "test-support")]
+    debug_actor: devforge_manager::actor::ActorHandle,
 }
 impl Rig {
     fn new(cache: Option<&Path>) -> Self {
@@ -202,6 +204,8 @@ impl Rig {
         )
         .unwrap();
         let endpoint = controller.endpoint().clone();
+        #[cfg(feature = "test-support")]
+        let debug_actor = controller.test_actor_handle();
         let worker = thread::spawn(move || controller.serve(None));
         let until = Instant::now() + Duration::from_secs(5);
         while ExternalClient::observe_owner(&endpoint).is_err() {
@@ -217,6 +221,8 @@ impl Rig {
             projects,
             secrets,
             blocks: 0,
+            #[cfg(feature = "test-support")]
+            debug_actor,
         }
     }
     fn grant(&mut self, index: usize, execution: bool) -> IssuedGrant {
@@ -4741,4 +4747,863 @@ fn a08_site_probe_requires_project_execution_grant_and_current_binding() {
         ErrorCode::GrantRevoked
     );
     assert_eq!(std::fs::read_dir(rig.root.path()).unwrap().count(), before);
+}
+
+#[test]
+fn a09_debugger_reads_require_explicit_project_content_rights_before_io() {
+    use devforge_control::InformationScope;
+    let mut rig = Rig::new(None);
+    let a = rig.projects[0].clone();
+    let b = rig.projects[1].clone();
+    let observer = rig
+        .native
+        .issue_external_grant(&id(&a.id), &[Scope::Observer], Duration::from_secs(600))
+        .unwrap();
+    // A grant made with every pre-A09 information right must not inherit
+    // the new ability to read live debugger values.
+    let old = rig
+        .native
+        .issue_external_grant_with_information(
+            &id(&a.id),
+            &[Scope::Observer],
+            &[
+                InformationScope::LogContent,
+                InformationScope::InspectorQueries,
+                InformationScope::MailContent,
+                InformationScope::SourceArtifacts,
+                InformationScope::DatabaseQuery,
+            ],
+            Duration::from_secs(600),
+        )
+        .unwrap();
+    let values = rig
+        .native
+        .issue_external_grant_with_information(
+            &id(&a.id),
+            &[Scope::Observer],
+            &[InformationScope::DebuggerValues],
+            Duration::from_secs(600),
+        )
+        .unwrap();
+    let both = rig
+        .native
+        .issue_external_grant_with_information(
+            &id(&a.id),
+            &[Scope::Observer],
+            &[
+                InformationScope::SourceArtifacts,
+                InformationScope::DebuggerValues,
+            ],
+            Duration::from_secs(600),
+        )
+        .unwrap();
+    let endpoint = rig.endpoint.clone();
+    let inspect = |grant: &IssuedGrant, project: &str, detail, locals| {
+        a05_call(
+            &endpoint,
+            &grant.credential,
+            project,
+            "debugger_inspect",
+            json!({"detail":detail,"locals":locals}),
+        )
+    };
+    let root = rig.root.path().join("projects/debugging");
+    assert!(
+        !root.exists(),
+        "fixture unexpectedly contains debugger storage"
+    );
+    let metadata = inspect(&observer, &a.id, false, false);
+    assert_eq!(metadata["ok"], true, "{metadata}");
+    for (grant, detail, locals) in [
+        (&observer, true, false),
+        (&observer, false, true),
+        (&old, false, true),
+        (&values, true, false),
+        (&values, true, true),
+    ] {
+        let denied = inspect(grant, &a.id, detail, locals);
+        assert_eq!(denied["error"]["code"], "unauthorized", "{denied}");
+        assert!(
+            !root.exists(),
+            "denied request must not create debugger storage"
+        );
+    }
+    for (grant, detail, locals) in [
+        (&old, true, false),
+        (&values, false, true),
+        (&both, true, true),
+    ] {
+        let allowed = inspect(grant, &a.id, detail, locals);
+        assert_eq!(allowed["ok"], true, "{allowed}");
+        assert!(
+            !root.exists(),
+            "read must not create or trim debugger storage"
+        );
+    }
+    let profile = |grant: &IssuedGrant| {
+        a05_call(
+            &endpoint,
+            &grant.credential,
+            &a.id,
+            "debugger_profile",
+            json!({"profile_id":"unknown-profile"}),
+        )
+    };
+    for grant in [&observer, &values] {
+        let denied = profile(grant);
+        assert_eq!(denied["error"]["code"], "unauthorized", "{denied}");
+        assert!(
+            !root.exists(),
+            "denied profile read must not create storage"
+        );
+    }
+    let unavailable = profile(&old);
+    assert_eq!(unavailable["ok"], false, "{unavailable}");
+    assert!(!root.exists(), "missing profile must not create storage");
+    for project in [&b.id[..], "unknown-project"] {
+        let response = inspect(&both, project, true, true);
+        assert_eq!(response["error"]["code"], "project_mismatch", "{response}");
+    }
+    let stale = Client::new(endpoint.clone())
+        .request(&json!({
+            "method":"debugger_inspect", "credential":both.credential.expose_secret(),
+            "request":{"api_version":1,"request_id":"a09-stale","project_id":a.id,
+                "expected_revision":a.revision + 1,"idempotency_key":null,
+                "input":{"detail":true,"locals":true}}
+        }))
+        .unwrap();
+    assert_eq!(stale["error"]["code"], "revision_conflict", "{stale}");
+    let bad = ExternalCredential::from_wire(&"a".repeat(64)).unwrap();
+    let unknown = a05_call(
+        &rig.endpoint,
+        &bad,
+        &a.id,
+        "debugger_inspect",
+        json!({"detail":false,"locals":false}),
+    );
+    assert_eq!(unknown["error"]["code"], "unauthorized", "{unknown}");
+    drop(bad);
+    rig.native
+        .revoke_external_grant(&both.record.grant_id)
+        .unwrap();
+    let revoked = inspect(&both, &a.id, true, true);
+    assert_eq!(revoked["error"]["code"], "grant_revoked", "{revoked}");
+    assert!(!root.exists());
+}
+
+#[test]
+fn a09_debugger_mutations_are_scoped_and_bound_to_revision_and_owner() {
+    use devforge_control::{
+        limits::{SafeInt, Text},
+        mutations::{
+            DebuggerBreakpoint, DebuggerBreakpointsInput, DebuggerCommand, DebuggerControlInput,
+        },
+    };
+    let mut rig = Rig::new(None);
+    let a = rig.projects[0].clone();
+    let b = rig.projects[1].clone();
+    let observer = rig
+        .native
+        .issue_external_grant(&id(&a.id), &[Scope::Observer], Duration::from_secs(600))
+        .unwrap();
+    let manager = rig.grant(0, false);
+    let runner = rig.grant(0, true);
+    let another = rig.grant(0, true);
+    let mut no_right = rig.diagnostics(&observer);
+    let mut writer = rig.diagnostics(&manager);
+    let mut client = rig.diagnostics(&runner);
+    let mut foreign = rig.diagnostics(&another);
+    let breakpoint = |project: &str, revision, key| {
+        env_request(
+            project,
+            revision,
+            key,
+            MutationInput::DebuggerBreakpoints(DebuggerBreakpointsInput {
+                breakpoints: vec![DebuggerBreakpoint {
+                    file: Text::new("public/index.php".into()).unwrap(),
+                    line: SafeInt::new(1).unwrap(),
+                }],
+                limits: None,
+            }),
+        )
+    };
+    let request = breakpoint(&a.id, a.revision, "a09-breakpoint");
+    assert_eq!(
+        no_right
+            .debugger_plan(&request)
+            .unwrap()
+            .error()
+            .unwrap()
+            .code,
+        ErrorCode::Unauthorized
+    );
+    assert_eq!(
+        writer
+            .debugger_plan(&breakpoint(&b.id, b.revision, "foreign-breakpoint"))
+            .unwrap()
+            .error()
+            .unwrap()
+            .code,
+        ErrorCode::ProjectMismatch
+    );
+    assert_eq!(
+        writer
+            .debugger_plan(&breakpoint(&a.id, a.revision + 1, "stale-breakpoint"))
+            .unwrap()
+            .error()
+            .unwrap()
+            .code,
+        ErrorCode::RevisionConflict
+    );
+    let ticket = writer
+        .debugger_plan(&request)
+        .unwrap()
+        .data()
+        .unwrap()
+        .clone();
+    let response = foreign.debugger_apply(&request, &ticket.digest).unwrap();
+    assert!(
+        response.error().is_some(),
+        "another grant must not apply a plan"
+    );
+    let receipt = writer
+        .debugger_apply(&request, &ticket.digest)
+        .unwrap()
+        .data()
+        .unwrap()
+        .clone();
+    assert_eq!(rig.complete(&manager, &receipt), OperationState::Succeeded);
+    let replay = writer
+        .debugger_apply(&request, &ticket.digest)
+        .unwrap()
+        .data()
+        .unwrap()
+        .clone();
+    assert_eq!(receipt.operation_id, replay.operation_id);
+    let control = |revision| {
+        env_request(
+            &a.id,
+            revision,
+            "a09-control",
+            MutationInput::DebuggerControl(DebuggerControlInput {
+                command: DebuggerCommand::StepOver,
+                session_id: id("00000000000000000000000000000000"),
+                session_revision: SafeInt::new(0).unwrap(),
+                depth: None,
+                limits: None,
+            }),
+        )
+    };
+    assert_eq!(
+        writer
+            .debugger_plan(&control(a.revision + 1))
+            .unwrap()
+            .error()
+            .unwrap()
+            .code,
+        ErrorCode::Unauthorized
+    );
+    assert_eq!(
+        client
+            .debugger_plan(&control(a.revision))
+            .unwrap()
+            .error()
+            .unwrap()
+            .code,
+        ErrorCode::RevisionConflict
+    );
+    assert!(
+        !client
+            .debugger_plan(&control(a.revision + 1))
+            .unwrap()
+            .is_ok(),
+        "a stopped debugger cannot plan a step"
+    );
+}
+
+#[cfg(feature = "test-support")]
+#[test]
+fn a09_primitive_assignment_requires_exact_native_review_and_keeps_secret_out_of_ledger() {
+    use devforge_control::{
+        InformationScope,
+        limits::{SafeInt, Text},
+        mutations::{DebuggerAssignInput, DebuggerPrimitive, DebuggerSecret},
+    };
+    use devforge_manager::service_control::ReviewTarget;
+    let mut rig = Rig::new(None);
+    let project = rig.projects[0].clone();
+    let (session, session_revision) = rig
+        .debug_actor
+        .test_synthetic_paused_debugger(&project.id)
+        .unwrap();
+    let scopes = &[
+        Scope::Observer,
+        Scope::ProjectManage,
+        Scope::ExecutionTest,
+        Scope::SensitiveOperation,
+    ];
+    let plain = rig
+        .native
+        .issue_external_grant(&id(&project.id), scopes, Duration::from_secs(600))
+        .unwrap();
+    let writer = rig
+        .native
+        .issue_external_grant_with_information(
+            &id(&project.id),
+            scopes,
+            &[InformationScope::DebuggerValues],
+            Duration::from_secs(600),
+        )
+        .unwrap();
+    let another = rig
+        .native
+        .issue_external_grant_with_information(
+            &id(&project.id),
+            scopes,
+            &[InformationScope::DebuggerValues],
+            Duration::from_secs(600),
+        )
+        .unwrap();
+    let mut no_content = rig.diagnostics(&plain);
+    let mut client = rig.diagnostics(&writer);
+    let mut other = rig.diagnostics(&another);
+    let req = |value: &str| {
+        env_request(
+            &project.id,
+            project.revision,
+            "a09-assign",
+            MutationInput::DebuggerAssign(DebuggerAssignInput {
+                name: Text::new("$value".into()).unwrap(),
+                kind: DebuggerPrimitive::Int,
+                value: DebuggerSecret::new(value.into()).unwrap(),
+                session_id: id(&session),
+                session_revision: SafeInt::new(session_revision).unwrap(),
+                limits: None,
+            }),
+        )
+    };
+    let one = req("1");
+    assert_eq!(
+        no_content
+            .debugger_plan(&one)
+            .unwrap()
+            .error()
+            .unwrap()
+            .code,
+        ErrorCode::Unauthorized
+    );
+    let plan = client.debugger_plan(&one).unwrap().data().unwrap().clone();
+    let binding = devforge_control::ProjectBinding::from_registered(
+        id(&project.id),
+        &project.path,
+        project.revision,
+    )
+    .unwrap();
+    let raw_fp = devforge_control_adapter::sha256(
+        &devforge_control::mutations::fingerprint_material(&one, &binding).unwrap(),
+    )
+    .unwrap();
+    assert_ne!(
+        plan.request_fingerprint, raw_fp,
+        "low-entropy value fingerprint must be opaque"
+    );
+    let pending = rig.native.pending_reviews().unwrap();
+    let review = pending
+        .iter()
+        .find(|item| item.digest == plan.digest)
+        .unwrap();
+    assert!(
+        matches!(&review.target, ReviewTarget::DebuggerAssign {name,value_type,value,session_id,session_revision: reviewed_revision} if name == "$value" && value_type == "int" && value == "1" && session_id == &session && *reviewed_revision == session_revision)
+    );
+    assert_eq!(
+        client
+            .debugger_apply(&one, &plan.digest)
+            .unwrap()
+            .error()
+            .unwrap()
+            .code,
+        ErrorCode::Unauthorized
+    );
+    assert!(
+        other
+            .debugger_apply(&one, &plan.digest)
+            .unwrap()
+            .error()
+            .is_some(),
+        "foreign grant cannot use the plan"
+    );
+    rig.native.approve_service_plan(&plan.digest).unwrap();
+    assert!(
+        client
+            .debugger_apply(&req("2"), &plan.digest)
+            .unwrap()
+            .error()
+            .is_some(),
+        "changed value cannot use approval"
+    );
+    let receipt = client
+        .debugger_apply(&one, &plan.digest)
+        .unwrap()
+        .data()
+        .unwrap()
+        .clone();
+    assert_eq!(
+        rig.complete(&writer, &receipt),
+        OperationState::Succeeded,
+        "queue admission succeeds for the synthetic paused session"
+    );
+    let replay = client
+        .debugger_apply(&one, &plan.digest)
+        .unwrap()
+        .data()
+        .unwrap()
+        .clone();
+    assert_eq!(receipt.operation_id, replay.operation_id);
+    let db =
+        rusqlite::Connection::open(rig.root.path().join("control/operations.sqlite3")).unwrap();
+    let stored: String = db
+        .query_row(
+            "SELECT fingerprint FROM operations WHERE operation_id=?1",
+            [receipt.operation_id.as_str()],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert!(stored.starts_with("volatile-secret-v1:"));
+    assert_ne!(stored, raw_fp.as_str());
+    drop(db);
+    let journal = std::fs::read(rig.root.path().join("control/operations.sqlite3")).unwrap();
+    assert!(!String::from_utf8_lossy(&journal).contains(raw_fp.as_str()));
+    rig.native
+        .revoke_external_grant(&writer.record.grant_id)
+        .unwrap();
+    assert_eq!(
+        client
+            .debugger_apply(&one, &plan.digest)
+            .unwrap()
+            .error()
+            .unwrap()
+            .code,
+        ErrorCode::GrantRevoked
+    );
+}
+
+#[test]
+fn a09_reviewed_profile_export_is_scoped_exact_and_no_clobber() {
+    use devforge_control::{InformationScope, mutations::DebuggerExportInput};
+    use devforge_manager::service_control::ReviewTarget;
+    let mut rig = Rig::new(None);
+    let project = rig.projects[0].clone();
+    let directory = rig
+        .root
+        .path()
+        .join("projects/debugging")
+        .join(&project.id)
+        .join("profiles");
+    std::fs::create_dir_all(&directory).unwrap();
+    let source = directory.join("cachegrind.a.out");
+    std::fs::write(&source, b"events: Time_(10ns) Memory_(bytes)\nfl=(1) /outside/private.php\nfn=(1) main\n1 100000 8\nsummary: 100000 8\n").unwrap();
+    let scopes = &[
+        Scope::Observer,
+        Scope::ProjectManage,
+        Scope::ExecutionTest,
+        Scope::SensitiveOperation,
+    ];
+    let no_content = rig
+        .native
+        .issue_external_grant(&id(&project.id), scopes, Duration::from_secs(600))
+        .unwrap();
+    let writer = rig
+        .native
+        .issue_external_grant_with_information(
+            &id(&project.id),
+            scopes,
+            &[InformationScope::SourceArtifacts],
+            Duration::from_secs(600),
+        )
+        .unwrap();
+    let mut denied = rig.diagnostics(&no_content);
+    let mut client = rig.diagnostics(&writer);
+    let inspect = a05_call(
+        &rig.endpoint,
+        &writer.credential,
+        &project.id,
+        "debugger_inspect",
+        json!({"detail":true,"locals":false}),
+    );
+    let profile_id = id(inspect["data"]["profiles"][0]["id"]
+        .as_str()
+        .expect("synthetic profile present"));
+    let preview = a05_call(
+        &rig.endpoint,
+        &writer.credential,
+        &project.id,
+        "debugger_profile",
+        json!({"profile_id":profile_id}),
+    );
+    assert_eq!(preview["ok"], true, "{preview}");
+    let bytes = serde_json::to_vec(&preview["data"]).unwrap();
+    let request = |key: &str| {
+        env_request(
+            &project.id,
+            project.revision,
+            key,
+            MutationInput::DebuggerExport(DebuggerExportInput {
+                profile_id: profile_id.clone(),
+                limits: None,
+            }),
+        )
+    };
+    let req = request("a09-profile-export");
+    assert_eq!(
+        denied.debugger_plan(&req).unwrap().error().unwrap().code,
+        ErrorCode::Unauthorized
+    );
+    let plan = client.debugger_plan(&req).unwrap().data().unwrap().clone();
+    let pending = rig.native.pending_reviews().unwrap();
+    let review = pending.iter().find(|v| v.digest == plan.digest).unwrap();
+    let destination = match &review.target {
+        ReviewTarget::DebuggerExport {
+            destination,
+            content_sha256,
+            byte_count,
+        } => {
+            assert_eq!(*byte_count, bytes.len() as u64);
+            assert_eq!(
+                content_sha256.as_str(),
+                devforge_control_adapter::sha256(&bytes).unwrap().as_str()
+            );
+            std::path::PathBuf::from(destination)
+        }
+        _ => panic!("wrong review target"),
+    };
+    assert!(!destination.exists());
+    assert_eq!(
+        client
+            .debugger_apply(&req, &plan.digest)
+            .unwrap()
+            .error()
+            .unwrap()
+            .code,
+        ErrorCode::Unauthorized
+    );
+    rig.native.approve_service_plan(&plan.digest).unwrap();
+    let receipt = client
+        .debugger_apply(&req, &plan.digest)
+        .unwrap()
+        .data()
+        .unwrap()
+        .clone();
+    assert_eq!(rig.complete(&writer, &receipt), OperationState::Succeeded);
+    assert_eq!(std::fs::read(&destination).unwrap(), bytes);
+    let duplicate = request("a09-profile-export-second");
+    let second = client
+        .debugger_plan(&duplicate)
+        .unwrap()
+        .data()
+        .unwrap()
+        .clone();
+    rig.native.approve_service_plan(&second.digest).unwrap();
+    let receipt = client
+        .debugger_apply(&duplicate, &second.digest)
+        .unwrap()
+        .data()
+        .unwrap()
+        .clone();
+    assert_eq!(rig.complete(&writer, &receipt), OperationState::Failed);
+    assert_eq!(
+        std::fs::read(&destination).unwrap(),
+        bytes,
+        "existing export must not be overwritten"
+    );
+}
+
+#[cfg(feature = "test-support")]
+#[test]
+fn a09_pending_reviews_hide_auto_actions_and_mask_revoked_or_stale_assignments() {
+    use devforge_control::{
+        InformationScope,
+        limits::{SafeInt, Text},
+        mutations::{
+            DebuggerAssignInput, DebuggerBreakpoint, DebuggerBreakpointsInput, DebuggerCommand,
+            DebuggerControlInput, DebuggerMode, DebuggerModeInput, DebuggerPrimitive,
+            DebuggerSecret,
+        },
+    };
+    use devforge_manager::service_control::{ReviewState, ReviewTarget};
+    let mut rig = Rig::new(None);
+    let project = rig.projects[0].clone();
+    let (session, session_revision) = rig
+        .debug_actor
+        .test_synthetic_paused_debugger(&project.id)
+        .unwrap();
+    let scopes = &[
+        Scope::Observer,
+        Scope::ProjectManage,
+        Scope::ExecutionTest,
+        Scope::SensitiveOperation,
+    ];
+    let first = rig
+        .native
+        .issue_external_grant_with_information(
+            &id(&project.id),
+            scopes,
+            &[InformationScope::DebuggerValues],
+            Duration::from_secs(600),
+        )
+        .unwrap();
+    let second = rig
+        .native
+        .issue_external_grant_with_information(
+            &id(&project.id),
+            scopes,
+            &[InformationScope::DebuggerValues],
+            Duration::from_secs(600),
+        )
+        .unwrap();
+    let mut one = rig.diagnostics(&first);
+    let mut two = rig.diagnostics(&second);
+    let assign = |key: &str, value: &str| {
+        env_request(
+            &project.id,
+            project.revision,
+            key,
+            MutationInput::DebuggerAssign(DebuggerAssignInput {
+                name: Text::new("$value".into()).unwrap(),
+                kind: DebuggerPrimitive::String,
+                value: DebuggerSecret::new(value.into()).unwrap(),
+                session_id: id(&session),
+                session_revision: SafeInt::new(session_revision).unwrap(),
+                limits: None,
+            }),
+        )
+    };
+    let first_plan = one
+        .debugger_plan(&assign("a09-revoke-review", "REVOKED_PRIVATE_CANARY"))
+        .unwrap()
+        .data()
+        .unwrap()
+        .clone();
+    let second_plan = two
+        .debugger_plan(&assign("a09-stale-review", "STALE_PRIVATE_CANARY"))
+        .unwrap()
+        .data()
+        .unwrap()
+        .clone();
+    let bp = env_request(
+        &project.id,
+        project.revision,
+        "a09-auto-bp",
+        MutationInput::DebuggerBreakpoints(DebuggerBreakpointsInput {
+            breakpoints: vec![DebuggerBreakpoint {
+                file: Text::new("public/index.php".into()).unwrap(),
+                line: SafeInt::new(1).unwrap(),
+            }],
+            limits: None,
+        }),
+    );
+    let control = env_request(
+        &project.id,
+        project.revision,
+        "a09-auto-control",
+        MutationInput::DebuggerControl(DebuggerControlInput {
+            command: DebuggerCommand::StepOver,
+            session_id: id(&session),
+            session_revision: SafeInt::new(session_revision).unwrap(),
+            depth: None,
+            limits: None,
+        }),
+    );
+    let bp_plan = two.debugger_plan(&bp).unwrap().data().unwrap().clone();
+    let control_plan = two.debugger_plan(&control).unwrap().data().unwrap().clone();
+    let listed = rig.native.pending_reviews().unwrap();
+    assert!(listed.iter().any(|v| v.digest == first_plan.digest));
+    assert!(listed.iter().any(|v| v.digest == second_plan.digest));
+    assert!(
+        !listed
+            .iter()
+            .any(|v| v.digest == bp_plan.digest || v.digest == control_plan.digest)
+    );
+    rig.native
+        .revoke_external_grant(&first.record.grant_id)
+        .unwrap();
+    let listed = rig.native.pending_reviews().unwrap();
+    let revoked = listed
+        .iter()
+        .find(|v| v.digest == first_plan.digest)
+        .unwrap();
+    assert!(matches!(revoked.state, ReviewState::Revoked));
+    assert!(
+        matches!(&revoked.target,ReviewTarget::DebuggerAssign{value,..} if value == "[REDACTED]")
+    );
+    // An active session intentionally refuses breakpoint writes. Switching
+    // the stopped project's debugger mode off is a separate legitimate action
+    // that advances its project revision and invalidates the old review.
+    let change = env_request(
+        &project.id,
+        project.revision,
+        "a09-stale-mode",
+        MutationInput::DebuggerMode(DebuggerModeInput {
+            mode: DebuggerMode::Off,
+            runtime_id: None,
+            limits: None,
+        }),
+    );
+    let mode_plan = two.debugger_plan(&change).unwrap().data().unwrap().clone();
+    let receipt = two
+        .debugger_apply(&change, &mode_plan.digest)
+        .unwrap()
+        .data()
+        .unwrap()
+        .clone();
+    assert_eq!(rig.complete(&second, &receipt), OperationState::Succeeded);
+    let listed = rig.native.pending_reviews().unwrap();
+    let stale = listed
+        .iter()
+        .find(|v| v.digest == second_plan.digest)
+        .unwrap();
+    assert!(matches!(stale.state, ReviewState::Stale));
+    assert!(
+        matches!(&stale.target,ReviewTarget::DebuggerAssign{value,..} if value == "[REDACTED]")
+    );
+}
+
+#[cfg(feature = "test-support")]
+#[test]
+fn a09_assignment_review_rejects_new_session_with_same_pause_revision() {
+    use devforge_control::{
+        InformationScope,
+        limits::{SafeInt, Text},
+        mutations::{DebuggerAssignInput, DebuggerPrimitive, DebuggerSecret},
+    };
+    use devforge_manager::service_control::{ReviewState, ReviewTarget};
+    let mut rig = Rig::new(None);
+    let project = rig.projects[0].clone();
+    let (first_session, first_revision) = rig
+        .debug_actor
+        .test_synthetic_paused_debugger(&project.id)
+        .unwrap();
+    let grant = rig
+        .native
+        .issue_external_grant_with_information(
+            &id(&project.id),
+            &[
+                Scope::Observer,
+                Scope::ProjectManage,
+                Scope::ExecutionTest,
+                Scope::SensitiveOperation,
+            ],
+            &[InformationScope::DebuggerValues],
+            Duration::from_secs(600),
+        )
+        .unwrap();
+    let mut client = rig.diagnostics(&grant);
+    let req = env_request(
+        &project.id,
+        project.revision,
+        "a09-aba-assignment",
+        MutationInput::DebuggerAssign(DebuggerAssignInput {
+            name: Text::new("$value".into()).unwrap(),
+            kind: DebuggerPrimitive::Int,
+            value: DebuggerSecret::new("2".into()).unwrap(),
+            session_id: id(&first_session),
+            session_revision: SafeInt::new(first_revision).unwrap(),
+            limits: None,
+        }),
+    );
+    let plan = client.debugger_plan(&req).unwrap().data().unwrap().clone();
+    let list = rig.native.pending_reviews().unwrap();
+    let review = list
+        .iter()
+        .find(|review| review.digest == plan.digest)
+        .unwrap();
+    assert!(
+        matches!(&review.target, ReviewTarget::DebuggerAssign{session_id,session_revision,value,..} if session_id==&first_session && *session_revision==first_revision && value=="2")
+    );
+    rig.native.approve_service_plan(&plan.digest).unwrap();
+    let (replacement, replacement_revision) = rig
+        .debug_actor
+        .test_synthetic_paused_debugger(&project.id)
+        .unwrap();
+    assert_ne!(first_session, replacement);
+    assert_eq!(
+        first_revision, replacement_revision,
+        "exercise ABA with same pause revision"
+    );
+    let result = client.debugger_apply(&req, &plan.digest).unwrap();
+    assert!(
+        !result.is_ok(),
+        "approval for first session must not mutate replacement"
+    );
+    let list = rig.native.pending_reviews().unwrap();
+    let review = list
+        .iter()
+        .find(|review| review.digest == plan.digest)
+        .unwrap();
+    assert!(matches!(review.state, ReviewState::Stale));
+    assert!(
+        matches!(&review.target, ReviewTarget::DebuggerAssign {value,..} if value == "[REDACTED]")
+    );
+}
+
+#[cfg(feature = "test-support")]
+#[test]
+fn a09_breakpoints_reject_active_session_without_changing_project() {
+    use devforge_control::{
+        limits::{SafeInt, Text},
+        mutations::{DebuggerBreakpoint, DebuggerBreakpointsInput},
+    };
+    let mut rig = Rig::new(None);
+    let project = rig.projects[0].clone();
+    let _paused = rig
+        .debug_actor
+        .test_synthetic_paused_debugger(&project.id)
+        .unwrap();
+    let grant = rig.grant(0, false);
+    let mut client = rig.diagnostics(&grant);
+    let before = rig.native.snapshot().unwrap();
+    let before = before.snapshot["projects"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|row| row["project"]["id"] == project.id)
+        .unwrap()["project"]
+        .clone();
+    let request = env_request(
+        &project.id,
+        project.revision,
+        "a09-active-breakpoint-refusal",
+        MutationInput::DebuggerBreakpoints(DebuggerBreakpointsInput {
+            breakpoints: vec![DebuggerBreakpoint {
+                file: Text::new("public/index.php".into()).unwrap(),
+                line: SafeInt::new(1).unwrap(),
+            }],
+            limits: None,
+        }),
+    );
+    let plan = client
+        .debugger_plan(&request)
+        .unwrap()
+        .data()
+        .unwrap()
+        .clone();
+    let receipt = client
+        .debugger_apply(&request, &plan.digest)
+        .unwrap()
+        .data()
+        .unwrap()
+        .clone();
+    assert_eq!(rig.complete(&grant, &receipt), OperationState::Failed);
+    let after = rig.native.snapshot().unwrap();
+    let after = after.snapshot["projects"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|row| row["project"]["id"] == project.id)
+        .unwrap()["project"]
+        .clone();
+    assert_eq!(after["revision"], before["revision"]);
+    assert_eq!(
+        after["debugger"]["breakpoints"],
+        before["debugger"]["breakpoints"]
+    );
 }

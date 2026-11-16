@@ -39,6 +39,34 @@ impl<'a> BackendContext<'a> {
 }
 /// Configuration planning is a read-only domain method, not a Command mutation.
 pub enum Dispatch {
+    DebuggerInstall {
+        project_id: String,
+        input: devforge_control::mutations::DebuggerInstallInput,
+    },
+    DebuggerMode {
+        project_id: String,
+        input: devforge_control::mutations::DebuggerModeInput,
+    },
+    DebuggerStart {
+        project_id: String,
+        input: devforge_control::mutations::DebuggerStartInput,
+    },
+    DebuggerAssign {
+        project_id: String,
+        input: devforge_control::mutations::DebuggerAssignInput,
+    },
+    DebuggerExport {
+        project_id: String,
+        input: devforge_control::mutations::DebuggerExportInput,
+    },
+    DebuggerControl {
+        project_id: String,
+        input: devforge_control::mutations::DebuggerControlInput,
+    },
+    DebuggerBreakpoints {
+        project_id: String,
+        input: devforge_control::mutations::DebuggerBreakpointsInput,
+    },
     SupportExport {
         project_id: String,
         artifact_id: devforge_control::Id,
@@ -99,6 +127,48 @@ pub fn map_mutation(
     }
     let id = current.project_id().as_str().to_owned();
     let command = match &prepared.request().input {
+        MutationInput::DebuggerInstall(input) => {
+            return Ok(Dispatch::DebuggerInstall {
+                project_id: id,
+                input: input.clone(),
+            });
+        }
+        MutationInput::DebuggerMode(input) => {
+            return Ok(Dispatch::DebuggerMode {
+                project_id: id,
+                input: input.clone(),
+            });
+        }
+        MutationInput::DebuggerStart(input) => {
+            return Ok(Dispatch::DebuggerStart {
+                project_id: id,
+                input: input.clone(),
+            });
+        }
+        MutationInput::DebuggerAssign(input) => {
+            return Ok(Dispatch::DebuggerAssign {
+                project_id: id,
+                input: input.clone(),
+            });
+        }
+        MutationInput::DebuggerExport(input) => {
+            return Ok(Dispatch::DebuggerExport {
+                project_id: id,
+                input: input.clone(),
+            });
+        }
+        MutationInput::DebuggerControl(input) => {
+            return Ok(Dispatch::DebuggerControl {
+                project_id: id,
+                input: input.clone(),
+            });
+        }
+        MutationInput::DebuggerBreakpoints(input) => {
+            return Ok(Dispatch::DebuggerBreakpoints {
+                project_id: id,
+                input: input.clone(),
+            });
+        }
         MutationInput::SupportExport(input) => {
             backend_review(prepared, context)?;
             return Ok(Dispatch::SupportExport {

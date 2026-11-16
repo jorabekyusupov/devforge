@@ -29,6 +29,13 @@ const WINDOW_BYTES: usize = 8 * 1024 * 1024;
 pub(crate) enum ReadMode {
     Registration,
     SiteProbeTarget,
+    DebuggerView {
+        detail: bool,
+        locals: bool,
+    },
+    DebuggerProfile(Id),
+    DebuggerIdentity,
+    DebuggerActivation,
     Window(devforge_workspace::activity_metadata::ActivityKind),
     WindowAfter(
         devforge_workspace::activity_metadata::ActivityKind,
@@ -51,6 +58,7 @@ pub(crate) struct ReadResult {
     pub window: Option<devforge_workspace::activity_metadata::MetadataWindow>,
     pub epoch: Option<String>,
     pub target: Option<devforge_workspace::http_probe::HttpProbeTarget>,
+    pub debug: Option<Value>,
 }
 impl MetadataRead {
     pub(crate) fn execute(self, workspace: &devforge_workspace::Workspace) {
@@ -75,8 +83,55 @@ impl MetadataRead {
                 crate::service_control::domain_registration_binding(workspace, &self.project)
                     .map_err(crate::service_control::ws_error)?;
             let mut target = None;
+            let mut debug = None;
             let (window, epoch) = match &self.mode {
                 ReadMode::Registration => (None, None),
+                ReadMode::DebuggerView { detail, locals } => {
+                    debug = Some(
+                        serde_json::to_value(workspace.external_debug_view(
+                            self.project.as_str(),
+                            *detail,
+                            *locals,
+                        )?)
+                        .map_err(|_| {
+                            crate::service_control::ws_error(ErrorCode::StorageUnavailable)
+                        })?,
+                    );
+                    (None, None)
+                }
+                ReadMode::DebuggerActivation => {
+                    debug = Some(
+                        serde_json::to_value(
+                            workspace.external_debug_activation_identity(self.project.as_str())?,
+                        )
+                        .map_err(|_| {
+                            crate::service_control::ws_error(ErrorCode::StorageUnavailable)
+                        })?,
+                    );
+                    (None, None)
+                }
+                ReadMode::DebuggerIdentity => {
+                    debug = Some(
+                        serde_json::to_value(
+                            workspace.external_debug_session_identity(self.project.as_str())?,
+                        )
+                        .map_err(|_| {
+                            crate::service_control::ws_error(ErrorCode::StorageUnavailable)
+                        })?,
+                    );
+                    (None, None)
+                }
+                ReadMode::DebuggerProfile(id) => {
+                    debug = Some(
+                        serde_json::to_value(
+                            workspace.external_debug_profile(self.project.as_str(), id.as_str())?,
+                        )
+                        .map_err(|_| {
+                            crate::service_control::ws_error(ErrorCode::StorageUnavailable)
+                        })?,
+                    );
+                    (None, None)
+                }
                 ReadMode::SiteProbeTarget => {
                     target = Some(workspace.http_probe_target(self.project.as_str())?);
                     (None, None)
@@ -114,6 +169,7 @@ impl MetadataRead {
                 window,
                 epoch,
                 target,
+                debug,
             })
         };
         let _ = self.reply.send(run());
@@ -550,6 +606,169 @@ impl Diagnostics {
             Err(code) => Response::failure(id, None, code.fault()),
         }).unwrap_or_else(|_| json!({"api_version":1,"request_id":"invalid-request","ok":false,"error":{"code":"storage_unavailable","retryable":true},"warnings":[]}))
     }
+    pub(crate) fn verify_debugger_assignment(
+        self: &Arc<Self>,
+        peer: &PeerIdentity,
+        credential: &ExternalCredential,
+        project: &Id,
+        actor: &ActorHandle,
+        expected: (u64, &std::path::Path, &str, u64),
+    ) -> Result<(), ErrorCode> {
+        self.verify_debugger_guard(
+            peer,
+            credential,
+            project,
+            actor,
+            (expected.0, expected.1, expected.2, Some(expected.3)),
+            true,
+        )
+    }
+    pub(crate) fn verify_debugger_control(
+        self: &Arc<Self>,
+        peer: &PeerIdentity,
+        credential: &ExternalCredential,
+        project: &Id,
+        actor: &ActorHandle,
+        expected: (u64, &std::path::Path, &str, u64),
+    ) -> Result<(), ErrorCode> {
+        self.verify_debugger_guard(
+            peer,
+            credential,
+            project,
+            actor,
+            (expected.0, expected.1, expected.2, Some(expected.3)),
+            false,
+        )
+    }
+    pub(crate) fn verify_debugger_start(
+        self: &Arc<Self>,
+        peer: &PeerIdentity,
+        credential: &ExternalCredential,
+        project: &Id,
+        actor: &ActorHandle,
+        expected: (u64, &std::path::Path, &str),
+    ) -> Result<(), ErrorCode> {
+        self.verify_debugger_guard(
+            peer,
+            credential,
+            project,
+            actor,
+            (expected.0, expected.1, expected.2, None),
+            false,
+        )
+    }
+    fn verify_debugger_guard(
+        self: &Arc<Self>,
+        peer: &PeerIdentity,
+        credential: &ExternalCredential,
+        project: &Id,
+        actor: &ActorHandle,
+        expected: (u64, &std::path::Path, &str, Option<u64>),
+        sensitive: bool,
+    ) -> Result<(), ErrorCode> {
+        let deadline = Instant::now() + Duration::from_secs(1);
+        let (revision, expected_root, expected_session, expected_session_revision) = expected;
+        let root = expected_root.to_path_buf();
+        let identity = expected_session.to_owned();
+        let subject = project.clone();
+        let peer = peer.clone();
+        let credential =
+            ExternalCredential::from_wire(credential.expose_secret()).map_err(grant_error)?;
+        let policy = self.clone();
+        let check = Box::new(move |workspace: &devforge_workspace::Workspace| {
+            if Instant::now() >= deadline || policy.stopping.load(Ordering::Acquire) {
+                return Err(crate::service_control::ws_error(ErrorCode::Interrupted));
+            }
+            let binding = crate::service_control::domain_registration_binding(workspace, &subject)
+                .map_err(crate::service_control::ws_error)?;
+            if binding.root() != root {
+                return Err(crate::service_control::ws_error(ErrorCode::ProjectMismatch));
+            }
+            let mut registry = policy
+                .grants
+                .registry
+                .try_lock()
+                .map_err(|_| crate::service_control::ws_error(ErrorCode::Busy))?;
+            let scopes = if sensitive {
+                vec![
+                    devforge_control::Scope::Observer,
+                    devforge_control::Scope::ExecutionTest,
+                    devforge_control::Scope::SensitiveOperation,
+                ]
+            } else {
+                vec![devforge_control::Scope::ExecutionTest]
+            };
+            let info = if sensitive {
+                vec![devforge_control::InformationScope::DebuggerValues]
+            } else {
+                vec![]
+            };
+            registry
+                .as_mut()
+                .ok_or_else(|| crate::service_control::ws_error(ErrorCode::Interrupted))?
+                .authorize(&peer, &credential, &binding, &scopes, &info, Some(revision))
+                .map_err(|e| crate::service_control::ws_error(grant_error(e)))?;
+            if Instant::now() >= deadline || policy.stopping.load(Ordering::Acquire) {
+                return Err(crate::service_control::ws_error(ErrorCode::Interrupted));
+            }
+            Ok(())
+        });
+        let (reply, receiver) = std::sync::mpsc::sync_channel(1);
+        let cancelled = Arc::new(AtomicBool::new(false));
+        actor
+            .queue_metadata(MetadataRead {
+                project: project.clone(),
+                mode: if expected_session_revision.is_some() {
+                    ReadMode::DebuggerIdentity
+                } else {
+                    ReadMode::DebuggerActivation
+                },
+                check,
+                cancelled: cancelled.clone(),
+                deadline_bound: false,
+                reply,
+            })
+            .map_err(|_| ErrorCode::Busy)?;
+        let current =
+            match receiver.recv_timeout(deadline.saturating_duration_since(Instant::now())) {
+                Ok(value) => value.map_err(crate::service_control::environment_error)?,
+                Err(_) => {
+                    cancelled.store(true, Ordering::Release);
+                    return Err(ErrorCode::TimedOut);
+                }
+            };
+        let matches = if let Some(revision) = expected_session_revision {
+            current.debug == Some(json!([identity, revision]))
+        } else {
+            current.debug.as_ref().and_then(Value::as_str) == Some(identity.as_str())
+        };
+        if !matches {
+            return Err(ErrorCode::RevisionConflict);
+        }
+        Ok(())
+    }
+    pub(crate) fn debugger_profile_bytes(
+        self: &Arc<Self>,
+        peer: &PeerIdentity,
+        credential: &ExternalCredential,
+        project: &Id,
+        profile: &Id,
+        expected_revision: u64,
+        actor: &ActorHandle,
+    ) -> Result<Vec<u8>, ErrorCode> {
+        let value = json!({"method":"debugger_profile", "credential":credential.expose_secret(), "request":{
+            "api_version":1, "request_id":"debugger-profile", "project_id":project,
+            "expected_revision":expected_revision, "idempotency_key":null,
+            "input":{"profile_id":profile}
+        }});
+        let output =
+            self.activity_inner(peer, value, actor, Instant::now() + Duration::from_secs(5))?;
+        let bytes = serde_json::to_vec(&output).map_err(|_| ErrorCode::StorageUnavailable)?;
+        if bytes.len() > 32768 {
+            return Err(ErrorCode::OutputLimitExceeded);
+        }
+        Ok(bytes)
+    }
     fn activity_inner(
         self: &Arc<Self>,
         peer: &PeerIdentity,
@@ -562,6 +781,160 @@ impl Diagnostics {
             .and_then(Value::as_str)
             .ok_or(ErrorCode::InvalidInput)?;
         match method {
+            "debugger_inspect" | "debugger_profile" => {
+                #[derive(Deserialize)]
+                #[serde(deny_unknown_fields)]
+                struct DebugWire {
+                    method: String,
+                    credential: Token,
+                    request: Request<Value>,
+                }
+                let wire: DebugWire =
+                    serde_json::from_value(value).map_err(|_| ErrorCode::InvalidInput)?;
+                if wire.request.idempotency_key.is_some() {
+                    return Err(ErrorCode::InvalidInput);
+                }
+                let input = wire
+                    .request
+                    .input
+                    .as_object()
+                    .ok_or(ErrorCode::InvalidInput)?;
+                let (mode, rights) = if wire.method == "debugger_inspect" {
+                    if input.keys().any(|key| key != "detail" && key != "locals") {
+                        return Err(ErrorCode::InvalidInput);
+                    }
+                    let detail = input
+                        .get("detail")
+                        .and_then(Value::as_bool)
+                        .ok_or(ErrorCode::InvalidInput)?;
+                    let locals = input
+                        .get("locals")
+                        .and_then(Value::as_bool)
+                        .ok_or(ErrorCode::InvalidInput)?;
+                    let mut rights = Vec::new();
+                    if detail {
+                        rights.push(devforge_control::InformationScope::SourceArtifacts);
+                    }
+                    if locals {
+                        rights.push(devforge_control::InformationScope::DebuggerValues);
+                    }
+                    (ReadMode::DebuggerView { detail, locals }, rights)
+                } else {
+                    if input.len() != 1 {
+                        return Err(ErrorCode::InvalidInput);
+                    }
+                    let id = Id::new(
+                        input
+                            .get("profile_id")
+                            .and_then(Value::as_str)
+                            .ok_or(ErrorCode::InvalidInput)?,
+                    )?;
+                    (
+                        ReadMode::DebuggerProfile(id),
+                        vec![devforge_control::InformationScope::SourceArtifacts],
+                    )
+                };
+                let credential =
+                    ExternalCredential::from_wire(&wire.credential.0).map_err(grant_error)?;
+                if self.activity_credential_project(
+                    peer,
+                    &credential,
+                    Instant::now() + Duration::from_secs(4),
+                )? != wire.request.project_id
+                {
+                    return Err(ErrorCode::ProjectMismatch);
+                }
+                let initial = self.query(
+                    actor,
+                    peer,
+                    &credential,
+                    &wire.request.project_id,
+                    ReadMode::Registration,
+                    (None, wire.request.expected_revision),
+                )?;
+                let revision = initial.binding.revision();
+                let root = initial.binding.root().to_path_buf();
+                let mut grants = self
+                    .grants
+                    .registry
+                    .lock()
+                    .map_err(|_| ErrorCode::StorageUnavailable)?;
+                grants
+                    .as_mut()
+                    .ok_or(ErrorCode::Interrupted)?
+                    .authorize(
+                        peer,
+                        &credential,
+                        &initial.binding,
+                        &[devforge_control::Scope::Observer],
+                        &rights,
+                        Some(revision),
+                    )
+                    .map_err(grant_error)?;
+                drop(grants);
+                let policy = self.clone();
+                let peer = peer.clone();
+                let check_credential = ExternalCredential::from_wire(credential.expose_secret())
+                    .map_err(grant_error)?;
+                let project = wire.request.project_id.clone();
+                let check = Box::new(move |workspace: &devforge_workspace::Workspace| {
+                    if policy.stopping.load(Ordering::Acquire) {
+                        return Err(crate::service_control::ws_error(ErrorCode::Interrupted));
+                    }
+                    let current =
+                        crate::service_control::domain_registration_binding(workspace, &project)
+                            .map_err(crate::service_control::ws_error)?;
+                    if current.root() != root {
+                        return Err(crate::service_control::ws_error(ErrorCode::ProjectMismatch));
+                    }
+                    let mut grants = policy.grants.registry.lock().map_err(|_| {
+                        crate::service_control::ws_error(ErrorCode::StorageUnavailable)
+                    })?;
+                    grants
+                        .as_mut()
+                        .ok_or_else(|| crate::service_control::ws_error(ErrorCode::Interrupted))?
+                        .authorize(
+                            &peer,
+                            &check_credential,
+                            &current,
+                            &[devforge_control::Scope::Observer],
+                            &rights,
+                            Some(revision),
+                        )
+                        .map_err(|e| crate::service_control::ws_error(grant_error(e)))?;
+                    Ok(())
+                });
+                let (reply, receiver) = std::sync::mpsc::sync_channel(1);
+                let cancelled = Arc::new(AtomicBool::new(false));
+                actor
+                    .queue_metadata(MetadataRead {
+                        project: wire.request.project_id,
+                        mode,
+                        check,
+                        cancelled: cancelled.clone(),
+                        deadline_bound: false,
+                        reply,
+                    })
+                    .map_err(|_| ErrorCode::Busy)?;
+                let data = match receiver.recv_timeout(Duration::from_secs(5)) {
+                    Ok(v) => v
+                        .map_err(crate::service_control::environment_error)?
+                        .debug
+                        .ok_or(ErrorCode::StorageUnavailable)?,
+                    Err(_) => {
+                        cancelled.store(true, Ordering::Release);
+                        return Err(ErrorCode::TimedOut);
+                    }
+                };
+                if serde_json::to_vec(&data)
+                    .map_err(|_| ErrorCode::StorageUnavailable)?
+                    .len()
+                    > 262144
+                {
+                    return Err(ErrorCode::OutputLimitExceeded);
+                }
+                Ok(data)
+            }
             "site_probe" => {
                 #[derive(Deserialize)]
                 #[serde(deny_unknown_fields)]
@@ -2055,6 +2428,85 @@ mod mail_cache_tests {
             site_probe_deadlines(accepted + Duration::from_secs(6), transport).unwrap_err(),
             ErrorCode::TimedOut
         );
+    }
+    #[test]
+    fn debugger_guard_times_out_when_actor_is_busy_and_actor_recovers() {
+        use devforge_core::{ErrorCode as StoreError, SecretStore};
+        struct EmptyStore;
+        impl SecretStore for EmptyStore {
+            fn get(&self, _: &str) -> std::result::Result<Option<String>, StoreError> {
+                Ok(None)
+            }
+            fn set(&self, _: &str, _: &str) -> std::result::Result<(), StoreError> {
+                Ok(())
+            }
+            fn delete(&self, _: &str) -> std::result::Result<(), StoreError> {
+                Ok(())
+            }
+        }
+        let root = crate::external_auth::test_support::root("df-guard-busy-");
+        let owner = crate::external_auth::test_support::acquire(root.path()).unwrap();
+        let grants = Arc::new(Grants::new(&owner).unwrap());
+        let actor = crate::actor::WorkspaceActor::start(
+            owner.claim_workspace().unwrap(),
+            Arc::new(EmptyStore),
+        )
+        .unwrap();
+        let handle = actor.handle();
+        let (entered_tx, entered_rx) = std::sync::mpsc::sync_channel(1);
+        let (release_tx, release_rx) = std::sync::mpsc::sync_channel::<()>(1);
+        let release_rx = Mutex::new(release_rx);
+        let (reply, _ignored) = std::sync::mpsc::sync_channel(1);
+        handle
+            .queue_metadata(MetadataRead {
+                project: Id::new("blocked-project").unwrap(),
+                mode: ReadMode::Registration,
+                check: Box::new(move |_| {
+                    let _ = entered_tx.try_send(());
+                    let _ = release_rx.lock().unwrap().recv();
+                    Ok(())
+                }),
+                cancelled: Arc::new(AtomicBool::new(false)),
+                deadline_bound: false,
+                reply,
+            })
+            .unwrap();
+        entered_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+        let diagnostics = Arc::new(Diagnostics::new(grants));
+        let credential = ExternalCredential::from_wire(&"a".repeat(64)).unwrap();
+        let peer = PeerIdentity {
+            user: "test-user".into(),
+            process_id: None,
+        };
+        let project = Id::new("blocked-project").unwrap();
+        let started = Instant::now();
+        let outcome = diagnostics.verify_debugger_control(
+            &peer,
+            &credential,
+            &project,
+            &handle,
+            (1, root.path(), "session", 1),
+        );
+        assert!(matches!(
+            outcome,
+            Err(ErrorCode::TimedOut) | Err(ErrorCode::Busy)
+        ));
+        assert!(started.elapsed() < Duration::from_secs(3));
+        release_tx.send(()).unwrap();
+        actor.shutdown().unwrap();
+        let stopped_at = Instant::now();
+        let stopped = diagnostics.verify_debugger_control(
+            &peer,
+            &credential,
+            &project,
+            &handle,
+            (1, root.path(), "session", 1),
+        );
+        assert!(matches!(
+            stopped,
+            Err(ErrorCode::Interrupted) | Err(ErrorCode::Busy) | Err(ErrorCode::TimedOut)
+        ));
+        assert!(stopped_at.elapsed() < Duration::from_secs(3));
     }
     #[test]
     fn support_artifact_expiry_obeys_wall_and_monotonic_clocks() {

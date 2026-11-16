@@ -303,3 +303,39 @@ execution output boundary. Code: `crates/workspace/src/http_probe.rs`,
 `crates/manager/src/diagnostics.rs`, `packages/laravel-inspector/src/RequestCapture.php`
 and `crates/workspace/src/execution_control.rs`. Platform and test evidence are in
 [execution status](../knowledge/execution-status.md).
+
+## A09 scoped debugger facade (2026-11-16)
+
+The opt-in debugger facade reuses the existing project debugger and profiler.
+Observer access returns bounded status metadata; detailed stack and profile data
+require SourceArtifacts, and live primitive local values require the independent
+DebuggerValues information right. Existing grants do not inherit the new right.
+Known-secret masking is best effort and unrecognized values can remain sensitive.
+Reads do not create debugger directories or prune profile history.
+
+Control and primitive assignment bind both an opaque activation ID and debugger
+snapshot revision, in addition to the project grant and project revision. A
+reviewed primitive assignment requires explicit native owner approval of the exact
+value, separate sensitive authority and an in-memory opaque public plan reference.
+The value is shown in the owner's review; it is not intentionally written to the
+operation ledger. Temporary JSON and renderer strings cannot be guaranteed erased.
+Arbitrary expressions and nested/object assignment are not exposed. Worker-side
+checks revalidate grants, cancellation and session identity before DBGp dispatch;
+a concurrent revoke after the last check cannot retract a command already sent.
+A succeeded control or assignment operation means queued, not that DBGp applied it;
+observe a subsequent session snapshot/error for the result.
+
+The facade exposes scoped install, mode, start, breakpoints and bounded redacted
+profile export with native approval where required. Start uses the existing managed
+local HTTP trigger, not the A08 HTTPS-verified probe. It can change application
+state, may run up to the existing debugger request timeout, and cannot undo a
+request already sent. External start does not prune existing profiles. Breakpoint
+updates through the facade are currently rejected while an activation exists: the
+existing DBGp queue and persistent settings cannot commit atomically. Pause is not
+exposed because the existing debugger does not provide a pause command. Native
+existing behavior is not changed by those restrictions.
+
+Implementation: `crates/workspace/src/debugging.rs`, `crates/debugger/src/server.rs`,
+`crates/manager/src/diagnostics.rs` and `service_control.rs`; platform-specific
+validation and remaining native acceptance are recorded in
+[execution status](../knowledge/execution-status.md).

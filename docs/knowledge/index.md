@@ -33,7 +33,7 @@ mavzuni tanlang, so'ng faqat tegishli hujjatlar va ularning manbalarini o'qing.
 
 - [M13.8a native agent connections](../architecture/native-agent-connections.md) - minimal Settings grant/config/approval UI, Rust-only tokens va actual WebView evidence.
 
-- [M13.5 metadata diagnostics](../architecture/metadata-diagnostics.md) - scoped doctor/Inspector/log/mail, A03 masked log va cached doctor, A04 scoped Inspector detail, A05 observed-event checkpoints/wait, A06 scoped mail details, A07 bounded support artifact and reviewed local export, A08 managed-site HTTP probe and test receipt metadata, frozen windows/cursors hamda explicit content-right chegarasi.
+- [M13.5 metadata diagnostics](../architecture/metadata-diagnostics.md) - scoped doctor/Inspector/log/mail, A03 masked log va cached doctor, A04 scoped Inspector detail, A05 observed-event checkpoints/wait, A06 scoped mail details, A07 bounded support artifact and reviewed local export, A08 managed-site HTTP probe and test receipt metadata, A09 scoped debugger facade, frozen windows/cursors hamda explicit content-right chegarasi.
 
 - [M13.4 reviewed actions](../architecture/reviewed-service-actions.md) - service/runtime/env/DB/domain kesimlari, native machine confirmation va ochiq platforma gate'lari.
 

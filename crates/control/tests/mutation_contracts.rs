@@ -51,6 +51,17 @@ fn args(name: &str) -> Value {
         "database.restore" => json!({"backup_id":"backup-a"}),
         "domains.apply" | "domains.cleanup" => json!({"plan":"a".repeat(64)}),
         "artifacts.diagnostic_bundle_export" => json!({"artifact_id":"artifact-a"}),
+        "debugger.breakpoints" => json!({"breakpoints":[]}),
+        "debugger.control" => {
+            json!({"command":"run","session_id":"fixture-session","session_revision":1})
+        }
+        "debugger.install" => json!({}),
+        "debugger.mode" => json!({"mode":"off"}),
+        "debugger.start" => json!({"path":"/"}),
+        "debugger.primitive_assignment" => {
+            json!({"name":"$value","kind":"bool","value":"1","session_id":"fixture-session","session_revision":1})
+        }
+        "debugger.export" => json!({"profile_id":"profile-a"}),
         "environment.yaml_save" => {
             json!({"expected":null,"text":"version: 1\nproject:\n  name: Demo\n"})
         }
@@ -95,13 +106,13 @@ fn every_initial_command_has_typed_mapping_and_can_be_prepared_without_execution
     let grant = all_grants();
     let backend = state_digest();
     let contracts = tools::contracts().unwrap();
-    assert_eq!(contracts.len(), 156);
+    assert_eq!(contracts.len(), 157);
     assert_eq!(
         contracts
             .iter()
             .filter(|c| c.schema_status == SchemaStatus::TypedMutation)
             .count(),
-        23
+        30
     );
     assert_eq!(
         contracts
@@ -493,4 +504,41 @@ fn project_name_matches_core_byte_and_trim_constraints() {
     assert!(ProjectName::new("é".repeat(100)).is_ok());
     assert!(ProjectName::new(format!("{}x", "é".repeat(100))).is_err());
     assert!(ProjectName::new("é".repeat(101)).is_err());
+}
+
+#[test]
+fn debugger_assignment_only_accepts_primitive_top_level_values_and_redacts_debug() {
+    let binding = binding("project", 1);
+    let trust = ProjectTrust::record(&binding);
+    let grant = all_grants();
+    let backend = state_digest();
+    let make = |args| call("debugger.primitive_assignment", args);
+    let allowed = make(
+        json!({"name":"$value","kind":"string","value":"PRIVATE_VALUE_CANARY","session_id":"fixture-session","session_revision":4}),
+    );
+    let typed: Request<MutationInput> = serde_json::from_value(allowed.clone()).unwrap();
+    assert!(!format!("{typed:?}").contains("PRIVATE_VALUE_CANARY"));
+    let fingerprint = request_digest(&allowed, &binding);
+    let review = ReviewedPlan::record(
+        &binding,
+        id("debugger.primitive_assignment"),
+        backend.clone(),
+        1000,
+    )
+    .unwrap();
+    let approve = || {
+        Some(ReviewApproval {
+            plan: &review,
+            current_backend_digest: &backend,
+            request_fingerprint: &fingerprint,
+        })
+    };
+    assert!(prepare(&allowed, &binding, &grant, Some(&trust), approve(), 100).is_ok());
+    for args in [
+        json!({"name":"$obj->field","kind":"string","value":"x","session_id":"fixture-session","session_revision":4}),
+        json!({"name":"$value","kind":"eval","value":"x","session_id":"fixture-session","session_revision":4}),
+        json!({"name":"$value","kind":"bool","value":"true","session_id":"fixture-session","session_revision":4}),
+    ] {
+        assert!(prepare(&make(args), &binding, &grant, Some(&trust), approve(), 100).is_err());
+    }
 }

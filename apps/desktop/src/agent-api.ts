@@ -14,6 +14,9 @@ export type AgentReviewTarget =
   | { kind: "runtime_select"; php: string; node: string }
   | { kind: "environment_apply"; write_env: boolean }
   | { kind: "yaml_save"; byte_count: number }
+  | { kind: "debugger_install"; php_runtime: string }
+  | { kind: "debugger_assign"; name: string; value_type: string; value: string; session_id: string; session_revision: number }
+  | { kind: "debugger_export"; destination: string; content_sha256: string; byte_count: number }
   | { kind: "support_export"; destination: string; content_sha256: string; byte_count: number }
   | { kind: "database_bind"; instance_id: string }
   | { kind: "database_restore"; backup_id: string }

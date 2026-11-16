@@ -391,3 +391,46 @@ fn execution_output_preserves_scoped_test_receipt_metadata_in_mcp() {
     assert!(!artifact.to_string().contains("database.sqlite"));
     assert!(!artifact.to_string().contains("test-job-"));
 }
+
+#[test]
+fn debugger_surface_is_opt_in_and_only_accepts_finite_actions() {
+    use devforge_manager::mcp_contract::{ActivityInput, ExecutionInput};
+    let mut disabled = Protocol::new(id("project-a"));
+    let inspect = json!({"name":"debugger.inspect","arguments":{"detail":false,"locals":false}});
+    assert_eq!(
+        reply(disabled.receive(modern(json!(1), "tools/call", inspect.clone())))["error"]["code"],
+        -32602
+    );
+    let mut enabled = Protocol::new(id("project-a")).with_debugger_actions(true);
+    assert!(
+        matches!(enabled.receive(modern(json!(2),"tools/call",inspect)),Action::Activity(call) if matches!(call.input,ActivityInput::DebuggerInspect(_)))
+    );
+    let profile = json!({"name":"debugger.profile","arguments":{"profile_id":"a".repeat(32)}});
+    assert!(
+        matches!(enabled.receive(modern(json!(3),"tools/call",profile)),Action::Activity(call) if matches!(call.input,ActivityInput::DebuggerProfile(_)))
+    );
+    let plan = json!({"name":"debugger.control","arguments":{"action":"plan","expected_revision":1,"idempotency_key":"one","input":{"command":"step_over","session_id":"fixture-session","session_revision":4}}});
+    assert!(
+        matches!(enabled.receive(modern(json!(4),"tools/call",plan)),Action::Execution(call) if matches!(call.input,ExecutionInput::DebuggerPlan(_)))
+    );
+    let install = json!({"name":"debugger.install","arguments":{"action":"plan","expected_revision":1,"idempotency_key":"install","input":{}}});
+    assert!(
+        matches!(enabled.receive(modern(json!(4),"tools/call",install)),Action::Execution(call) if matches!(call.input,ExecutionInput::DebuggerPlan(_)))
+    );
+    let set = json!({"name":"debugger.primitive_assignment","arguments":{"action":"apply","expected_revision":1,"idempotency_key":"set","review":"a".repeat(64),"input":{"name":"$value","kind":"int","value":"7","session_id":"fixture-session","session_revision":4}}});
+    assert!(
+        matches!(enabled.receive(modern(json!(4),"tools/call",set)),Action::Execution(call) if matches!(call.input,ExecutionInput::DebuggerApply{..}))
+    );
+    for invalid in [
+        json!({"name":"debugger.control","arguments":{"action":"plan","expected_revision":1,"idempotency_key":"one","input":{"command":"run","session_revision":4}}}),
+        json!({"name":"debugger.primitive_assignment","arguments":{"action":"plan","expected_revision":1,"idempotency_key":"set","input":{"name":"$value","kind":"int","value":"7","session_revision":4}}}),
+        json!({"name":"debugger.control","arguments":{"action":"plan","expected_revision":1,"idempotency_key":"one","input":{"command":"eval","session_id":"fixture-session","session_revision":4}}}),
+        json!({"name":"debugger.control","arguments":{"action":"plan","expected_revision":1,"idempotency_key":"one","input":{"command":"set","session_id":"fixture-session","session_revision":4,"value":"malicious"}}}),
+        json!({"name":"debugger.profile","arguments":{"profile_id":"../foreign"}}),
+    ] {
+        assert_eq!(
+            reply(enabled.receive(modern(json!(5), "tools/call", invalid)))["error"]["code"],
+            -32602
+        );
+    }
+}

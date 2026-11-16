@@ -101,6 +101,13 @@ jobs:
         env:
           DEVFORGE_CI_RUST_SCOPE: ${{ runner.temp }}/devforge-rust-scope.json
         run: python scripts/rust_scope.py test
+      - name: Select debugger integration checks
+        if: steps.scope.outputs.product == 'true'
+        id: debugger_scope
+        run: python scripts/a09_ci_scope.py
+      - name: Test scoped debugger integration
+        if: steps.scope.outputs.product == 'true' && steps.debugger_scope.outputs.enabled == 'true'
+        run: cargo test --locked -p devforge-manager --features test-support --test service_control a09_
       - name: Build native desktop binary with embedded frontend
         if: steps.scope.outputs.product == 'true' && steps.rust_scope.outputs.frontend == 'true'
         run: npm run tauri -- build --debug --no-bundle
