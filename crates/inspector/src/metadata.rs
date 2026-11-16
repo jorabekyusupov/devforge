@@ -32,6 +32,17 @@ pub enum ActivityKind {
         detail: bool,
     },
     Mail,
+    MailSince {
+        since: u64,
+    },
+    MailContent {
+        subject: Option<String>,
+        recipient: Option<String>,
+        sender: Option<String>,
+        mail_id: Option<String>,
+        since: Option<u64>,
+        include_detail: bool,
+    },
 }
 impl std::fmt::Debug for ActivityKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -65,10 +76,33 @@ impl std::fmt::Debug for ActivityKind {
                 .field("detail", detail)
                 .finish(),
             Self::Mail => f.write_str("Mail"),
+            Self::MailSince { since } => f.debug_struct("MailSince").field("since", since).finish(),
+            Self::MailContent {
+                subject,
+                recipient,
+                sender,
+                mail_id,
+                since,
+                include_detail,
+            } => f
+                .debug_struct("MailContent")
+                .field("subject", &subject.as_ref().map(|_| "[REDACTED]"))
+                .field("recipient", &recipient.as_ref().map(|_| "[REDACTED]"))
+                .field("sender", &sender.as_ref().map(|_| "[REDACTED]"))
+                .field("mail_id", mail_id)
+                .field("since", since)
+                .field("include_detail", include_detail)
+                .finish(),
         }
     }
 }
 impl ActivityKind {
+    fn is_mail(&self) -> bool {
+        matches!(
+            self,
+            Self::Mail | Self::MailSince { .. } | Self::MailContent { .. }
+        )
+    }
     fn tag(&self) -> &'static str {
         match self {
             Self::Inspector { .. } => "inspector",
@@ -77,6 +111,8 @@ impl ActivityKind {
             Self::LogContent { .. } => "logs_content",
             Self::WatchLogs { .. } => "watch_logs",
             Self::Mail => "mail",
+            Self::MailSince { .. } => "mail_since",
+            Self::MailContent { .. } => "mail_content",
         }
     }
     pub fn validate(&self) -> Result<(), Error> {
@@ -108,7 +144,60 @@ impl ActivityKind {
             | Self::LogContent {
                 since: Some(since), ..
             } if *since > SAFE_MAX => Err(Error::InvalidInput),
+            Self::MailSince { since } if *since > SAFE_MAX => Err(Error::InvalidInput),
+            Self::MailContent {
+                subject,
+                recipient,
+                sender,
+                mail_id,
+                since,
+                ..
+            } => {
+                if [subject, recipient, sender]
+                    .into_iter()
+                    .flatten()
+                    .any(|v| v.chars().count() > 256 || v.chars().any(char::is_control))
+                    || mail_id.as_ref().is_some_and(|v| !super::valid_id(v))
+                    || since.is_some_and(|v| v > SAFE_MAX)
+                {
+                    Err(Error::InvalidInput)
+                } else {
+                    Ok(())
+                }
+            }
             _ => Ok(()),
+        }
+    }
+}
+#[derive(Clone, Serialize)]
+pub struct MailAttachmentMetadata {
+    pub name: String,
+    pub mime: String,
+    pub size: u64,
+}
+#[derive(Clone, Serialize)]
+pub struct MailContentDetail {
+    pub subject: String,
+    pub from: String,
+    pub to: String,
+    pub text: String,
+    pub links: Vec<String>,
+    pub attachment_metadata: Vec<MailAttachmentMetadata>,
+    pub truncated: bool,
+}
+impl Drop for MailContentDetail {
+    fn drop(&mut self) {
+        use zeroize::Zeroize;
+        self.subject.zeroize();
+        self.from.zeroize();
+        self.to.zeroize();
+        self.text.zeroize();
+        for link in &mut self.links {
+            link.zeroize();
+        }
+        for part in &mut self.attachment_metadata {
+            part.name.zeroize();
+            part.mime.zeroize();
         }
     }
 }
@@ -172,6 +261,12 @@ pub enum MetadataItem {
         mail_id: String,
         received_at: u64,
         attachments: u64,
+    },
+    MailContent {
+        mail_id: String,
+        received_at: u64,
+        attachments: u64,
+        detail: Option<MailContentDetail>,
     },
 }
 #[derive(Clone, Serialize)]
@@ -327,7 +422,7 @@ fn source(root: &Path, id: &str, kind: &ActivityKind) -> Result<Option<Source>, 
     if !ordinary(root, true)? {
         return Err(Error::UnsafeStore);
     }
-    let directories = if matches!(kind, ActivityKind::Mail) {
+    let directories = if kind.is_mail() {
         vec!["mail", id]
     } else {
         vec!["inspector"]
@@ -339,7 +434,7 @@ fn source(root: &Path, id: &str, kind: &ActivityKind) -> Result<Option<Source>, 
             return Ok(None);
         }
     }
-    let path = directory.join(if matches!(kind, ActivityKind::Mail) {
+    let path = directory.join(if kind.is_mail() {
         "inbox.sqlite3"
     } else {
         "events.sqlite3"
@@ -347,7 +442,7 @@ fn source(root: &Path, id: &str, kind: &ActivityKind) -> Result<Option<Source>, 
     if !ordinary(&path, false)? {
         return Ok(None);
     }
-    if matches!(kind, ActivityKind::Mail) {
+    if kind.is_mail() {
         let marker = directory.join(".devforge-inbox");
         if !ordinary(&marker, false)?
             || fs::metadata(&marker)?.len() > 64
@@ -430,19 +525,26 @@ pub fn read_with_anchor(
     connection.busy_timeout(Duration::from_millis(100))?;
     let transaction = connection.unchecked_transaction()?;
     if let Some(anchor) = anchor {
-        if matches!(kind, ActivityKind::Mail) || anchor > SAFE_MAX {
+        if anchor > SAFE_MAX {
             return Err(Error::InvalidInput);
         }
-        window.anchor_present = Some(
-            anchor == 0
-                || transaction.query_row(
-                    "SELECT EXISTS(SELECT 1 FROM events WHERE project=?1 AND sequence=?2)",
-                    params![id, anchor as i64],
-                    |row| row.get::<_, bool>(0),
-                )?,
-        );
+        window.anchor_present = Some(if anchor == 0 {
+            true
+        } else if kind.is_mail() {
+            transaction.query_row(
+                "SELECT EXISTS(SELECT 1 FROM messages WHERE sequence=?1)",
+                [anchor as i64],
+                |row| row.get::<_, bool>(0),
+            )?
+        } else {
+            transaction.query_row(
+                "SELECT EXISTS(SELECT 1 FROM events WHERE project=?1 AND sequence=?2)",
+                params![id, anchor as i64],
+                |row| row.get::<_, bool>(0),
+            )?
+        });
     }
-    let mail = matches!(kind, ActivityKind::Mail);
+    let mail = kind.is_mail();
     let row_limit = if matches!(
         kind,
         ActivityKind::Logs { .. }
@@ -462,7 +564,11 @@ pub fn read_with_anchor(
         16 * 1024 * 1024
     };
     let cutoff = if mail {
-        0
+        match kind {
+            ActivityKind::MailSince { since } => *since,
+            ActivityKind::MailContent { since, .. } => since.unwrap_or(0),
+            _ => 0,
+        }
     } else {
         let retention = observed_at.saturating_sub(86_400_000);
         match kind {
@@ -472,14 +578,48 @@ pub fn read_with_anchor(
             _ => retention,
         }
     };
+    // An exact-ID ordinary read must not scan or charge newer mail bodies;
+    // watch reads retain the unfiltered high-water/retention window.
+    let direct_mail_id = match (kind, anchor) {
+        (
+            ActivityKind::MailContent {
+                mail_id: Some(id), ..
+            },
+            None,
+        ) => Some(id.as_str()),
+        _ => None,
+    };
+    let content = anchor.is_none()
+        && matches!(
+            kind,
+            ActivityKind::MailContent {
+                include_detail: true,
+                ..
+            }
+        );
     let sql = if mail {
-        "SELECT sequence,received,octet_length(summary) FROM messages ORDER BY sequence DESC LIMIT ?1"
+        match (direct_mail_id.is_some(), content) {
+            (true, true) => {
+                "SELECT sequence,received,octet_length(summary)+octet_length(raw) FROM messages WHERE id=?1 AND received>=?2"
+            }
+            (true, false) => {
+                "SELECT sequence,received,octet_length(summary) FROM messages WHERE id=?1 AND received>=?2"
+            }
+            (false, true) => {
+                "SELECT sequence,received,octet_length(summary)+octet_length(raw) FROM messages WHERE received>=?2 ORDER BY sequence DESC LIMIT ?1"
+            }
+            (false, false) => {
+                "SELECT sequence,received,octet_length(summary) FROM messages WHERE received>=?2 ORDER BY sequence DESC LIMIT ?1"
+            }
+        }
     } else {
         "SELECT sequence,received,octet_length(body) FROM events WHERE project=?2 AND received>=?3 ORDER BY sequence DESC LIMIT ?1"
     };
     let mut statement = transaction.prepare(sql)?;
-    let mut rows = if mail {
-        statement.query(params![row_limit + 1])?
+    let mut rows = if let Some(mail_id) = direct_mail_id {
+        statement.query(params![mail_id, cutoff as i64])?
+    } else if mail {
+        statement.query(params![row_limit + 1, cutoff as i64])?
     } else {
         statement.query(params![row_limit + 1, id, cutoff as i64])?
     };
@@ -511,7 +651,11 @@ pub fn read_with_anchor(
     drop(statement);
     if window.source_rows > 0 {
         if mail {
-            read_mail(&transaction, &mut window)?;
+            if matches!(kind, ActivityKind::MailContent { .. }) {
+                read_mail_content(&transaction, kind, cutoff, anchor, &mut window)?;
+            } else {
+                read_mail(&transaction, cutoff, &mut window)?;
+            }
         } else {
             read_events(&transaction, id, kind, cutoff, &mut window)?;
         }
@@ -522,9 +666,17 @@ pub fn read_with_anchor(
     }
     Ok(window)
 }
-fn read_mail(connection: &Connection, window: &mut MetadataWindow) -> Result<(), Error> {
-    let mut statement=connection.prepare("SELECT sequence,received,CASE WHEN length(id)=32 THEN id END,CASE WHEN json_valid(summary) THEN CASE WHEN json_type(summary,'$.attachments')='integer' THEN json_extract(summary,'$.attachments') END END FROM messages WHERE sequence>=?1 AND sequence<=?2 ORDER BY sequence DESC")?;
-    let mut rows = statement.query(params![window.low_water as i64, window.high_water as i64])?;
+fn read_mail(
+    connection: &Connection,
+    cutoff: u64,
+    window: &mut MetadataWindow,
+) -> Result<(), Error> {
+    let mut statement=connection.prepare("SELECT sequence,received,CASE WHEN length(id)=32 THEN id END,CASE WHEN json_valid(summary) THEN CASE WHEN json_type(summary,'$.attachments')='integer' THEN json_extract(summary,'$.attachments') END END FROM messages WHERE sequence>=?1 AND sequence<=?2 AND received>=?3 ORDER BY sequence DESC")?;
+    let mut rows = statement.query(params![
+        window.low_water as i64,
+        window.high_water as i64,
+        cutoff as i64
+    ])?;
     while let Some(row) = rows.next()? {
         let sequence = row.get::<_, i64>(0)?;
         let received = row.get::<_, i64>(1)?;
@@ -543,6 +695,338 @@ fn read_mail(connection: &Connection, window: &mut MetadataWindow) -> Result<(),
         });
     }
     Ok(())
+}
+
+/// Sensitive, project-local mail content. Caller must enforce MailContent
+/// authorization before reaching this noncreating reader and again after it.
+struct PrivateMailSummary(super::mail::Summary);
+impl std::ops::Deref for PrivateMailSummary {
+    type Target = super::mail::Summary;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+impl Drop for PrivateMailSummary {
+    fn drop(&mut self) {
+        use zeroize::Zeroize;
+        self.0.subject.zeroize();
+        self.0.from.zeroize();
+        self.0.to.zeroize();
+    }
+}
+fn read_mail_content(
+    connection: &Connection,
+    kind: &ActivityKind,
+    cutoff: u64,
+    anchor: Option<u64>,
+    window: &mut MetadataWindow,
+) -> Result<(), Error> {
+    use mail_parser::MessageParser;
+    use zeroize::Zeroizing;
+    let ActivityKind::MailContent {
+        subject,
+        recipient,
+        sender,
+        mail_id,
+        include_detail,
+        ..
+    } = kind
+    else {
+        return Err(Error::InvalidInput);
+    };
+    let sql = if anchor.is_some() {
+        "SELECT sequence,received,id,summary,octet_length(raw) FROM messages WHERE sequence>=?1 AND sequence<=?2 AND received>=?3 AND sequence>?4 ORDER BY sequence ASC"
+    } else {
+        "SELECT sequence,received,id,summary,octet_length(raw) FROM messages WHERE sequence>=?1 AND sequence<=?2 AND received>=?3 ORDER BY sequence DESC"
+    };
+    let mut statement = connection.prepare(sql)?;
+    let mut rows = if let Some(anchor) = anchor {
+        statement.query(params![
+            window.low_water as i64,
+            window.high_water as i64,
+            cutoff as i64,
+            anchor as i64
+        ])?
+    } else {
+        statement.query(params![
+            window.low_water as i64,
+            window.high_water as i64,
+            cutoff as i64
+        ])?
+    };
+    let mut parsed = 0usize;
+    let mut raw_total = 0usize;
+    let mut projected_total = 2usize;
+    while let Some(row) = rows.next()? {
+        let sequence = row.get::<_, i64>(0)?;
+        let received = row.get::<_, i64>(1)?;
+        if anchor.is_some_and(|a| sequence > 0 && sequence as u64 <= a) {
+            continue;
+        }
+        let id = row.get::<_, String>(2)?;
+        if sequence <= 0 || received < 0 || received as u64 > SAFE_MAX || !super::valid_id(&id) {
+            return Err(Error::Corrupt);
+        }
+        if mail_id.as_ref().is_some_and(|v| v != &id) {
+            continue;
+        }
+        let summary = Zeroizing::new(row.get::<_, String>(3)?);
+        if summary.len() > 65536 {
+            return Err(Error::Corrupt);
+        }
+        let summary =
+            PrivateMailSummary(serde_json::from_str(&summary).map_err(|_| Error::Corrupt)?);
+        if summary.id != id
+            || summary.received_ms != received as u64
+            || summary.attachments as u64 > SAFE_MAX
+        {
+            return Err(Error::Corrupt);
+        }
+        let (subject_text, subject_cut) = mail_text(&summary.subject, 512);
+        let (from_text, from_cut) = mail_text(&summary.from, 512);
+        let (to_text, to_cut) = mail_text(&summary.to, 1024);
+        let matched = |filter: &Option<String>, value: &str| {
+            filter
+                .as_ref()
+                .is_none_or(|v| value.to_lowercase().contains(&v.to_lowercase()))
+        };
+        if !matched(subject, &subject_text)
+            || !matched(recipient, &to_text)
+            || !matched(sender, &from_text)
+        {
+            continue;
+        }
+        if !*include_detail {
+            window.rows.push(MetadataRow {
+                sequence: sequence as u64,
+                item: MetadataItem::MailContent {
+                    mail_id: id,
+                    received_at: received as u64,
+                    attachments: summary.attachments as u64,
+                    detail: None,
+                },
+            });
+            continue;
+        }
+        let size = row.get::<_, i64>(4)?;
+        if size < 0 || size as u64 > super::mail::MAX_MESSAGE as u64 {
+            return Err(Error::Corrupt);
+        }
+        // No more than 16 matching MIME documents and 4MiB raw data per window;
+        // source retention/truncation remains visible to pagination/watchers.
+        if parsed >= 16 || size as usize > (4 * 1024 * 1024usize).saturating_sub(raw_total) {
+            window.byte_truncated = true;
+            window.first_omitted = Some(
+                window
+                    .first_omitted
+                    .map_or(sequence as u64, |old| old.max(sequence as u64)),
+            );
+            window.low_water = window.rows.last().map_or(window.high_water, |r| r.sequence);
+            break;
+        }
+        let raw: Vec<u8> = connection.query_row(
+            "SELECT raw FROM messages WHERE sequence=?1 AND octet_length(raw)<=?2",
+            params![sequence, super::mail::MAX_MESSAGE as i64],
+            |r| r.get(0),
+        )?;
+        let raw = Zeroizing::new(raw);
+        raw_total += raw.len();
+        parsed += 1;
+        let parsed_message = MessageParser::default()
+            .parse(raw.as_slice())
+            .ok_or(Error::Corrupt)?;
+        let plain = Zeroizing::new(
+            parsed_message
+                .body_text(0)
+                .map(|v| v.into_owned())
+                .unwrap_or_default(),
+        );
+        let html = Zeroizing::new(
+            parsed_message
+                .body_html(0)
+                .map(|v| v.into_owned())
+                .unwrap_or_default(),
+        );
+        let (links, links_cut) = mail_links(&plain, &html);
+        let mut links = Zeroizing::new(links);
+        let fallback = Zeroizing::new(if plain.is_empty() && !html.is_empty() {
+            mail_parser::decoders::html::html_to_text(&html)
+        } else {
+            String::new()
+        });
+        let normalized = Zeroizing::new(strip_mail_urls(if fallback.is_empty() {
+            &plain
+        } else {
+            &fallback
+        }));
+        let (text, text_cut) = mail_text(&normalized, 8192);
+        let mut metadata = Vec::new();
+        let mut attachment_cut = false;
+        for (index, part) in parsed_message.attachments().enumerate() {
+            if index >= 50 {
+                attachment_cut = true;
+                break;
+            }
+            let name = part.attachment_name().unwrap_or("attachment");
+            let mime = part
+                .content_type()
+                .map(|v| format!("{}/{}", v.ctype(), v.subtype().unwrap_or("octet-stream")))
+                .unwrap_or_else(|| "application/octet-stream".into());
+            let (name, name_cut) = mail_text(name, 256);
+            let (mime, mime_cut) = mail_text(&mime, 128);
+            attachment_cut |= name_cut || mime_cut;
+            metadata.push(MailAttachmentMetadata {
+                name,
+                mime,
+                size: part.decoded_len() as u64,
+            });
+        }
+        if parsed_message.attachments().count() != summary.attachments {
+            return Err(Error::Corrupt);
+        }
+        let detail = MailContentDetail {
+            subject: subject_text,
+            from: from_text,
+            to: to_text,
+            text,
+            links: std::mem::take(&mut *links),
+            attachment_metadata: metadata,
+            truncated: subject_cut || from_cut || to_cut || text_cut || attachment_cut || links_cut,
+        };
+        let projected = MetadataRow {
+            sequence: sequence as u64,
+            item: MetadataItem::MailContent {
+                mail_id: id,
+                received_at: received as u64,
+                attachments: summary.attachments as u64,
+                detail: Some(detail),
+            },
+        };
+        let serialized =
+            Zeroizing::new(serde_json::to_vec(&projected).map_err(|_| Error::Corrupt)?);
+        let bytes = serialized.len() + 1;
+        if bytes > 4 * 1024 * 1024usize - projected_total {
+            window.byte_truncated = true;
+            window.first_omitted = Some(
+                window
+                    .first_omitted
+                    .map_or(sequence as u64, |old| old.max(sequence as u64)),
+            );
+            window.low_water = window.rows.last().map_or(window.high_water, |r| r.sequence);
+            break;
+        }
+        projected_total += bytes;
+        window.rows.push(projected);
+        // A watch delivers the earliest matching post-anchor message. Parsing
+        // later MIME would waste work and manufacture a false 16-row gap.
+        if anchor.is_some() {
+            break;
+        }
+    }
+    Ok(())
+}
+fn mail_text(value: &str, max: usize) -> (String, bool) {
+    use std::sync::LazyLock;
+    static PAIRS: LazyLock<regex::Regex> = LazyLock::new(|| {
+        regex::Regex::new(
+        r#"(?i)\b(password|passwd|secret|token|authorization|cookie|credential|api[_-]?key|app[_-]?key|signature|verification[_-]?code|reset[_-]?code)\b[\"']?\s*[:=]\s*[\"']?[^\s,;\"']+"#
+    ).unwrap()
+    });
+    static BEARER: LazyLock<regex::Regex> =
+        LazyLock::new(|| regex::Regex::new(r"(?i)\bbearer\s+[^\s,;]+").unwrap());
+    static LONG_TOKEN: LazyLock<regex::Regex> =
+        LazyLock::new(|| regex::Regex::new(r"\b[A-Za-z0-9_/-]{32,}\b").unwrap());
+    static REDACTED_TAIL: LazyLock<regex::Regex> = LazyLock::new(|| {
+        regex::Regex::new(
+        r"(?is)\b(password|passwd|secret|token|authorization|cookie|credential|api[_-]?key|app[_-]?key|signature|verification[_-]?code|reset[_-]?code)\s*=\s*\[REDACTED\].*"
+    ).unwrap()
+    });
+    let value = strip_mail_urls(value);
+    let value = BEARER.replace_all(&value, "Bearer [REDACTED]");
+    let value = PAIRS.replace_all(&value, "$1=[REDACTED]");
+    let value = LONG_TOKEN.replace_all(&value, "[REDACTED]");
+    let value = REDACTED_TAIL.replace_all(&value, "$1=[REDACTED]");
+    let mut output = String::new();
+    let mut truncated = false;
+    for c in value.chars() {
+        let c = if c.is_control() { ' ' } else { c };
+        if output.len() + c.len_utf8() > max {
+            truncated = true;
+            break;
+        }
+        output.push(c);
+    }
+    (output, truncated)
+}
+fn mail_url_regex() -> &'static regex::Regex {
+    use std::sync::LazyLock;
+    static LINKS: LazyLock<regex::Regex> =
+        LazyLock::new(|| regex::Regex::new(r#"(?i)https?://[^\s<>\"']+"#).unwrap());
+    &LINKS
+}
+fn strip_mail_urls(value: &str) -> String {
+    mail_url_regex().replace_all(value, "[LINK]").into_owned()
+}
+fn mail_links(plain: &str, html: &str) -> (Vec<String>, bool) {
+    use zeroize::Zeroizing;
+    let mut links = Vec::new();
+    let mut truncated = false;
+    for source in [plain, html] {
+        // Decode HTML ampersands only; never navigate, fetch, or log any URL.
+        let source = Zeroizing::new(
+            source
+                .replace("&amp;", "&")
+                .replace("&#38;", "&")
+                .replace("&#x26;", "&"),
+        );
+        for capture in mail_url_regex().find_iter(&source) {
+            let raw = capture.as_str();
+            if source[..capture.start()]
+                .chars()
+                .next_back()
+                .is_some_and(|c| c.is_alphanumeric() || ":/@+-.".contains(c))
+            {
+                continue;
+            }
+            let trimmed = raw.trim_end_matches(['.', ',', ';', '!', ')', ']']);
+            // Keep the unmodified URL too: punctuation may be part of a valid token.
+            for candidate in [trimmed, raw] {
+                if candidate.len() > 2048 {
+                    truncated = true;
+                    continue;
+                }
+                if candidate.chars().any(char::is_control) || !valid_mail_url(candidate) {
+                    continue;
+                }
+                if !links.iter().any(|v| v == candidate) {
+                    if links.len() >= 16 {
+                        truncated = true;
+                        continue;
+                    }
+                    links.push(candidate.to_owned());
+                }
+            }
+        }
+    }
+    (links, truncated)
+}
+fn valid_mail_url(value: &str) -> bool {
+    // URL::parse handles malformed host/port/escaping. Reject userinfo before
+    // parsing as well: empty userinfo (`https://@host`) must not slip through.
+    let Some((_, rest)) = value.split_once("://") else {
+        return false;
+    };
+    let authority = rest.split(['/', '?', '#']).next().unwrap_or("");
+    if authority.contains('@') || authority.contains('\\') {
+        return false;
+    }
+    url::Url::parse(value).is_ok_and(|parsed| {
+        matches!(parsed.scheme(), "http" | "https")
+            && parsed.host_str().is_some()
+            && parsed.username().is_empty()
+            && parsed.password().is_none()
+            && parsed.port() != Some(0)
+    })
 }
 fn read_events(
     connection: &Connection,
@@ -1049,6 +1533,311 @@ mod tests {
                 &"f".repeat(64),
             )
             .unwrap();
+    }
+
+    fn mail_content_kind(include_detail: bool) -> ActivityKind {
+        ActivityKind::MailContent {
+            subject: None,
+            recipient: None,
+            sender: None,
+            mail_id: None,
+            since: None,
+            include_detail,
+        }
+    }
+    fn mail_fixture() -> (
+        tempfile::TempDir,
+        PathBuf,
+        String,
+        super::super::mail::MailStore,
+    ) {
+        let temp = tempfile::tempdir().unwrap();
+        let root = fs::canonicalize(temp.path()).unwrap();
+        fs::create_dir(root.join("projects")).unwrap();
+        let id = "a".repeat(32);
+        let store = super::super::mail::MailStore::open(&root.join("projects"), &id).unwrap();
+        (temp, root, id, store)
+    }
+    fn insert_mail(
+        root: &Path,
+        project: &str,
+        id: &str,
+        received: u64,
+        subject: &str,
+        raw: &[u8],
+        attachments: usize,
+    ) {
+        let db = Connection::open(root.join("mail").join(project).join("inbox.sqlite3")).unwrap();
+        let summary = serde_json::json!({"id":id,"received_ms":received,"subject":subject,"from":"Alice <alice@example.test>","to":"bob@example.test","bytes":raw.len(),"attachments":attachments});
+        db.execute(
+            "INSERT INTO messages(id,received,summary,search,raw)VALUES(?1,?2,?3,?4,?5)",
+            params![id, received as i64, summary.to_string(), "unused", raw],
+        )
+        .unwrap();
+    }
+    #[test]
+    fn mail_content_is_noncreating_scoped_bounded_and_preserves_authorized_verification_links() {
+        let absent = tempfile::tempdir().unwrap();
+        let absent_root = fs::canonicalize(absent.path()).unwrap();
+        assert!(
+            read(&absent_root, &"a".repeat(32), &mail_content_kind(true))
+                .unwrap()
+                .missing
+        );
+        assert!(!absent_root.join("mail").exists());
+        let (_temp, root, project, _store) = mail_fixture();
+        let id = "b".repeat(32);
+        let raw=concat!("From: alice@example.test\r\nTo: bob@example.test\r\nSubject: Verify account\r\n",
+            "MIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary=xyz\r\n\r\n",
+            "--xyz\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n",
+            "Hello password=PRIVATE_PASSWORD secret suffix\r\n",
+            "https://example.test/reset?token=TOKEN_CANARY&next=profile\r\n",
+            "--xyz\r\nContent-Type: text/html; charset=utf-8\r\n\r\n",
+            "<a href=\"https://example.test/reset?token=TOKEN_CANARY&amp;next=profile\">Verify</a>\r\n",
+            "--xyz\r\nContent-Type: text/plain; name=report.txt\r\nContent-Disposition: attachment; filename=report.txt\r\n\r\n",
+            "PRIVATE_ATTACHMENT_BYTES\r\n--xyz--\r\n").as_bytes();
+        insert_mail(&root, &project, &id, 1000, "Verify account", raw, 1);
+        let window = read(&root, &project, &mail_content_kind(true)).unwrap();
+        assert_eq!(window.rows.len(), 1);
+        let MetadataItem::MailContent {
+            mail_id,
+            detail: Some(detail),
+            ..
+        } = &window.rows[0].item
+        else {
+            panic!("mail detail")
+        };
+        assert_eq!(mail_id, &id);
+        assert_eq!(detail.attachment_metadata.len(), 1);
+        assert_eq!(detail.attachment_metadata[0].name, "report.txt");
+        assert!(
+            detail
+                .links
+                .iter()
+                .any(|v| v == "https://example.test/reset?token=TOKEN_CANARY&next=profile")
+        );
+        assert!(!detail.text.contains("PRIVATE_PASSWORD") && !detail.text.contains("TOKEN_CANARY"));
+        let output = serde_json::to_string(&window).unwrap();
+        assert!(!output.contains("PRIVATE_ATTACHMENT_BYTES"));
+        let summary = read(&root, &project, &ActivityKind::Mail).unwrap();
+        let summary = serde_json::to_string(&summary).unwrap();
+        assert!(!summary.contains("TOKEN_CANARY") && !summary.contains("Verify account"));
+        let mut filtered = mail_content_kind(false);
+        if let ActivityKind::MailContent {
+            subject,
+            sender,
+            recipient,
+            ..
+        } = &mut filtered
+        {
+            *subject = Some("VERIFY".into());
+            *sender = Some("alice".into());
+            *recipient = Some("bob".into());
+        }
+        let filtered = read(&root, &project, &filtered).unwrap();
+        assert_eq!(filtered.rows.len(), 1);
+        assert!(matches!(
+            &filtered.rows[0].item,
+            MetadataItem::MailContent { detail: None, .. }
+        ));
+        assert!(
+            !serde_json::to_string(&filtered)
+                .unwrap()
+                .contains("TOKEN_CANARY")
+        );
+        let recent = read(&root, &project, &ActivityKind::MailSince { since: 1001 }).unwrap();
+        assert!(recent.rows.is_empty());
+        assert!(
+            !format!(
+                "{:?}",
+                ActivityKind::MailContent {
+                    subject: Some("PRIVATE_FILTER".into()),
+                    recipient: None,
+                    sender: None,
+                    mail_id: None,
+                    since: None,
+                    include_detail: true
+                }
+            )
+            .contains("PRIVATE_FILTER")
+        );
+    }
+    #[test]
+    fn mail_html_only_has_text_and_exact_usable_verification_url() {
+        let (_temp, root, project, _store) = mail_fixture();
+        let raw = concat!(
+            "From: alice@example.test\r\nSubject: Verify\r\nMIME-Version: 1.0\r\n",
+            "Content-Type: text/html; charset=utf-8\r\n\r\n",
+            "<html><body><p>Visible message</p><script>HIDDEN_SCRIPT_CANARY</script>",
+            "<a href=\"https://example.test/verify?token=ABC&amp;next=home\">Verify</a>",
+            "</body></html>"
+        )
+        .as_bytes();
+        insert_mail(&root, &project, &"d".repeat(32), 1000, "Verify", raw, 0);
+        let window = read(&root, &project, &mail_content_kind(true)).unwrap();
+        let MetadataItem::MailContent {
+            detail: Some(detail),
+            ..
+        } = &window.rows[0].item
+        else {
+            panic!("mail detail")
+        };
+        assert!(detail.text.contains("Visible message"));
+        assert!(
+            !detail.text.contains("HIDDEN_SCRIPT_CANARY") && !detail.text.contains("token=ABC")
+        );
+        assert!(
+            detail
+                .links
+                .iter()
+                .any(|v| v == "https://example.test/verify?token=ABC&next=home")
+        );
+    }
+    #[test]
+    fn mail_link_selection_rejects_unsafe_schemes_and_preserves_tokens_with_punctuation() {
+        let (links, _) = mail_links(
+            "javascript:https://bad.example/x file:///https://bad.example/y https://user:secret@example.test/no https://example.test/reset?token=SECRET. https://bad.example:99999/no https://bad.example:0/no https://[invalid/no https://@bad.example/no",
+            "<a href=\"https://good.example/reset?token=abc&amp;next=ok\">x</a>",
+        );
+        assert!(
+            links
+                .iter()
+                .any(|v| v == "https://example.test/reset?token=SECRET")
+        );
+        assert!(
+            links
+                .iter()
+                .any(|v| v == "https://example.test/reset?token=SECRET.")
+        );
+        assert!(
+            links
+                .iter()
+                .any(|v| v == "https://good.example/reset?token=abc&next=ok")
+        );
+        assert!(
+            !links
+                .iter()
+                .any(|v| v.contains("bad.example") || v.contains("user:secret")),
+            "{links:?}"
+        );
+    }
+    #[test]
+    fn mail_watch_anchor_skips_older_mime_and_reports_removal_in_same_snapshot() {
+        let (_temp, root, project, _store) = mail_fixture();
+        insert_mail(
+            &root,
+            &project,
+            &"b".repeat(32),
+            1000,
+            "match",
+            b"not mime",
+            0,
+        );
+        let db = Connection::open(root.join("mail").join(&project).join("inbox.sqlite3")).unwrap();
+        let anchor = db
+            .query_row(
+                "SELECT sequence FROM messages WHERE id=?1",
+                ["b".repeat(32)],
+                |r| r.get::<_, i64>(0),
+            )
+            .unwrap();
+        insert_mail(
+            &root,
+            &project,
+            &"c".repeat(32),
+            1001,
+            "match",
+            b"From: a@example.test\r\nSubject: Hi\r\n\r\nhello",
+            0,
+        );
+        let window = read_with_anchor(
+            &root,
+            &project,
+            &mail_content_kind(true),
+            Some(anchor as u64),
+        )
+        .unwrap();
+        assert_eq!(window.anchor_present, Some(true));
+        assert_eq!(window.rows.len(), 1);
+        assert!(window.rows.iter().all(|r| r.sequence > anchor as u64));
+        db.execute("DELETE FROM messages WHERE sequence=?1", [anchor])
+            .unwrap();
+        let window = read_with_anchor(
+            &root,
+            &project,
+            &mail_content_kind(true),
+            Some(anchor as u64),
+        )
+        .unwrap();
+        assert_eq!(window.anchor_present, Some(false));
+    }
+    #[test]
+    fn mail_exact_show_and_burst_watch_ignore_unrelated_raw_byte_volume() {
+        let (_temp, root, project, _store) = mail_fixture();
+        let id = "f".repeat(32);
+        let old = b"From: a@example.test\r\nSubject: Earlier\r\n\r\nOld matching body";
+        insert_mail(&root, &project, &id, 1000, "Earlier", old, 0);
+        let mut large = b"From: a@example.test\r\nSubject: Burst\r\n\r\n".to_vec();
+        large.extend(std::iter::repeat_n(b'x', 1024 * 1024));
+        for n in 0..17 {
+            insert_mail(
+                &root,
+                &project,
+                &format!("{n:032x}"),
+                1001 + n,
+                "Burst",
+                &large,
+                0,
+            );
+        }
+        let mut show = mail_content_kind(true);
+        if let ActivityKind::MailContent { mail_id, .. } = &mut show {
+            *mail_id = Some(id.clone());
+        }
+        let exact = read(&root, &project, &show).unwrap();
+        assert_eq!(exact.rows.len(), 1);
+        assert!(!exact.byte_truncated);
+        assert!(
+            matches!(&exact.rows[0].item,MetadataItem::MailContent{mail_id,..} if mail_id==&id)
+        );
+        let watched = read_with_anchor(&root, &project, &mail_content_kind(true), Some(1)).unwrap();
+        assert_eq!(watched.anchor_present, Some(true));
+        assert_eq!(watched.rows.len(), 1);
+        assert_eq!(watched.rows[0].sequence, 2);
+        assert!(
+            !watched.byte_truncated && watched.first_omitted.is_none(),
+            "summary-only source scan must not create a false raw-byte gap"
+        );
+    }
+    #[test]
+    fn mail_filter_only_does_not_parse_raw_and_detail_work_is_bounded() {
+        let (_temp, root, project, _store) = mail_fixture();
+        insert_mail(
+            &root,
+            &project,
+            &"f".repeat(32),
+            1000,
+            "match",
+            b"invalid mime",
+            0,
+        );
+        for n in 0..17 {
+            insert_mail(
+                &root,
+                &project,
+                &format!("{n:032x}"),
+                1001 + n,
+                "match",
+                b"From: a@example.test\r\nSubject: Hi\r\n\r\nhello",
+                0,
+            );
+        }
+        let metadata = read(&root, &project, &mail_content_kind(false)).unwrap();
+        assert_eq!(metadata.rows.len(), 18);
+        let content = read(&root, &project, &mail_content_kind(true)).unwrap();
+        assert_eq!(content.rows.len(), 16);
+        assert!(content.byte_truncated);
+        assert!(content.first_omitted.is_some());
     }
     fn event(kind: Kind, name: &str, data: serde_json::Value) -> Event {
         Event {

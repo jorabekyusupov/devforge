@@ -619,11 +619,30 @@ impl Protocol {
             .cloned()
             .unwrap_or_else(|| json!({}));
         let allowed: &[&str] = if name == "activity.mark" {
-            &["stream", "detail", "context_id"]
+            &[
+                "stream",
+                "detail",
+                "context_id",
+                "subject",
+                "recipient",
+                "sender",
+                "since",
+            ]
         } else {
             &["bookmark", "timeout_ms", "context_id"]
         };
         if !keys(&arguments, allowed)
+            || ["subject", "recipient", "sender", "since"]
+                .iter()
+                .any(|k| arguments.get(k).is_some_and(Value::is_null))
+            || (name == "activity.mark"
+                && arguments.get("stream").and_then(Value::as_str) == Some("mail")
+                && arguments.get("context_id").is_some())
+            || (name == "activity.mark"
+                && arguments.get("stream").and_then(Value::as_str) != Some("mail")
+                && ["subject", "recipient", "sender", "since"]
+                    .iter()
+                    .any(|k| arguments.get(k).is_some()))
             || arguments.get("context_id").is_some_and(|value| {
                 value.as_str().is_none_or(|id| {
                     id.len() != 32 || !id.bytes().all(|byte| byte.is_ascii_hexdigit())
@@ -705,34 +724,60 @@ impl Protocol {
         let name = params.get("name").and_then(Value::as_str)?;
         if !matches!(
             name,
-            "health.doctor" | "logs.search" | "inspector.request" | "mail.list"
+            "health.doctor" | "logs.search" | "inspector.request" | "mail.list" | "mail.show"
         ) {
             return None;
         }
         if !keys(params, &["name", "arguments"]) {
             return Some(Err(()));
         }
-        let arguments = params
+        let mut arguments = params
             .get("arguments")
             .cloned()
             .unwrap_or_else(|| json!({}));
         let allowed: &[&str] = match name {
             "logs.search" => &["page", "level", "query", "content", "since"],
             "inspector.request" => &["page", "context_id", "detail"],
+            "mail.list" => &[
+                "page",
+                "subject",
+                "recipient",
+                "sender",
+                "since",
+                "detail",
+                "mail_id",
+            ],
+            "mail.show" => &["mail_id", "page"],
             _ => &["page"],
         };
         // Explicit null is not a content request; reject ambiguous wire input.
         if !keys(&arguments, allowed)
-            || ["query", "content", "since", "detail"]
-                .iter()
-                .any(|key| arguments.get(key).is_some_and(Value::is_null))
+            || (name == "mail.show" && arguments.get("page").is_some_and(Value::is_null))
+            || [
+                "query",
+                "content",
+                "since",
+                "detail",
+                "subject",
+                "recipient",
+                "sender",
+                "mail_id",
+            ]
+            .iter()
+            .any(|key| arguments.get(key).is_some_and(Value::is_null))
         {
             return Some(Err(()));
         }
-        let tool = if name == "health.doctor" {
-            "health.health"
-        } else {
-            name
+        if name == "mail.show" {
+            if arguments.get("mail_id").and_then(Value::as_str).is_none() {
+                return Some(Err(()));
+            }
+            arguments["detail"] = json!(true);
+        }
+        let tool = match name {
+            "health.doctor" => "health.health",
+            "mail.show" => "mail.list",
+            _ => name,
         };
         let input = match serde_json::from_value::<devforge_control::tools::ToolInput>(
             json!({"tool":tool,"arguments":arguments}),
@@ -2054,7 +2099,11 @@ fn activity_tool_definitions() -> Vec<Value> {
     [("activity.mark", ActivityMarkInput::schema()), ("activity.wait", ActivityWaitInput::schema())].into_iter().map(|(name, mut schema)| {
         // Omitted context is supported; explicit null is rejected at MCP boundary.
         schema["properties"]["context_id"] = json!({"type":"string","minLength":32,"maxLength":32,"pattern":"^[A-Fa-f0-9]{32}$"});
-        json!({"name":name,"description":if name=="activity.mark"{"Create an opaque project- and grant-bound checkpoint before an action. Select inspector or logs; detail requires its explicit information grant. Context is optional. Checkpoints expire after 120 seconds, may be evicted, and do not survive manager restart."}else{"Poll for the next observed event for up to the requested 3000ms maximum. No new poll starts after the requested duration; it allows up to 1s grace for an in-flight read and final checks, plus up to 250ms registry contention, subject to scheduling and transport, not hard real-time; that read may return a match. An optional context narrows it; use the returned bookmark for the next call, including after timeout. Checkpoints retain the original 120-second expiry. Stdio calls on one session are serialized; a wait occupies that session until it finishes. Every result reports continuity=unverified: timeout means no matching event was observed by polling, not proof that no transient event occurred. Expired, evicted or replaced sources require a new checkpoint; detected retention gaps are errors, not timeouts."},"inputSchema":schema,"annotations":{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":false,"openWorldHint":false}})
+        if name == "activity.mark" {
+            for key in ["subject", "recipient", "sender"] { schema["properties"][key] = devforge_control::limits::Text::<256>::schema(); }
+            schema["properties"]["since"] = devforge_control::limits::SafeInt::schema();
+        }
+        json!({"name":name,"description":if name=="activity.mark"{"Create an opaque project- and grant-bound checkpoint before an action. Select inspector, logs or mail; detail requires its explicit information grant. Mail subject/sender/recipient filters require MailContent even when detail=false; since alone is metadata. Context applies only to inspector/logs. Checkpoints expire after 120 seconds, may be evicted, and do not survive manager restart."}else{"Poll for the next observed event for up to the requested 3000ms maximum. No new poll starts after the requested duration; it allows up to 1s grace for an in-flight read and final checks, plus up to 250ms registry contention, subject to scheduling and transport, not hard real-time; that read may return a match. An optional context narrows it; use the returned bookmark for the next call, including after timeout. Checkpoints retain the original 120-second expiry. Stdio calls on one session are serialized; a wait occupies that session until it finishes. Every result reports continuity=unverified: timeout means no matching event was observed by polling, not proof that no transient event occurred. Expired, evicted or replaced sources require a new checkpoint; detected retention gaps are errors, not timeouts."},"inputSchema":schema,"annotations":{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":false,"openWorldHint":false}})
     }).collect()
 }
 fn diagnostics_tool_definitions() -> Vec<Value> {
@@ -2062,11 +2111,12 @@ fn diagnostics_tool_definitions() -> Vec<Value> {
         export::Wire,
         tools::{HealthInput, InspectorInput, LogInput, MailInput},
     };
-    ["health.doctor","logs.search","inspector.request","mail.list"].into_iter().map(|name|{
-        let mut schema=match name{"health.doctor"=>HealthInput::schema(),"logs.search"=>LogInput::schema(),"inspector.request"=>InspectorInput::schema(),_=>MailInput::schema()};
-        let properties=schema["properties"].as_object_mut().expect("fixed schema");for forbidden in ["subject","recipient"]{properties.remove(forbidden);}
+    ["health.doctor","logs.search","inspector.request","mail.list","mail.show"].into_iter().map(|name|{
+        let mut schema=match name{"health.doctor"=>HealthInput::schema(),"logs.search"=>LogInput::schema(),"inspector.request"=>InspectorInput::schema(),"mail.show"=>json!({"type":"object","additionalProperties":false,"properties":{"mail_id":Id::schema(),"page":devforge_control::limits::PageRequest::schema()},"required":["mail_id"]}),_=>MailInput::schema()};
+        let properties=schema["properties"].as_object_mut().expect("fixed schema");
         if name == "logs.search" { properties.insert("query".into(),devforge_control::limits::Text::<256>::schema()); properties.insert("content".into(),bool::schema()); properties.insert("since".into(),devforge_control::limits::SafeInt::schema()); }
         if name == "inspector.request" { properties.insert("detail".into(),bool::schema()); }
-        json!({"name":name,"description":if name=="logs.search"{"Project-scoped bounded log metadata. Set content=true or provide query to request redacted log content; both require the explicitly granted log_content right. Query searches only the redacted projection. Forward opaque page cursor unchanged; expired cursors require a fresh request."}else if name=="inspector.request"{"Project-scoped Inspector metadata by default; detail=true requires the explicitly granted inspector_queries right and returns bounded request/job/query/cache/dump details. Dump values are bounded and masked on a best-effort basis; unrecognized secrets may remain. Repeated query counts describe the retained context window and are candidates, not proof of N+1. For detail rows use detail.duration_ms; absent means unmeasured, and the required legacy elapsed_ms can be a zero placeholder for cache/dump. detail.truncated describes projection text; capture_truncated is optional and absent means the collector status is unknown. Forward opaque page cursor unchanged."}else{"Project-scoped Observer metadata only: classified health codes or mail IDs/time/attachment count. Mail content filters remain unavailable. Forward opaque page cursor unchanged; expired cursors require a fresh request."},"inputSchema":schema,"annotations":{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true,"openWorldHint":false}})
+        if name == "mail.list" { for key in ["subject","recipient","sender"] { properties.insert(key.into(),devforge_control::limits::Text::<256>::schema()); } properties.insert("detail".into(),bool::schema()); properties.insert("since".into(),devforge_control::limits::SafeInt::schema()); properties.insert("mail_id".into(),Id::schema()); }
+        json!({"name":name,"description":if name=="logs.search"{"Project-scoped bounded log metadata. Set content=true or provide query to request redacted log content; both require the explicitly granted log_content right. Query searches only the redacted projection. Forward opaque page cursor unchanged; expired cursors require a fresh request."}else if name=="inspector.request"{"Project-scoped Inspector metadata by default; detail=true requires the explicitly granted inspector_queries right and returns bounded request/job/query/cache/dump details. Dump values are bounded and masked on a best-effort basis; unrecognized secrets may remain. Repeated query counts describe the retained context window and are candidates, not proof of N+1. For detail rows use detail.duration_ms; absent means unmeasured, and the required legacy elapsed_ms can be a zero placeholder for cache/dump. detail.truncated describes projection text; capture_truncated is optional and absent means the collector status is unknown. Forward opaque page cursor unchanged."}else if name=="mail.list" || name=="mail.show" {"Project-scoped mail. Observer gets metadata; detail, mail_id, subject, recipient or sender require MailContent. since alone is metadata. Authorized details may contain sensitive verification/reset URL candidates with query tokens intact; candidates are not validated or fetched. Attachment metadata only; no export or delete. Forward opaque cursors unchanged. Frozen cached cursor pages may include a locally deleted message until 120s TTL, including a row not previously delivered; cached origin/time remain explicit. Local deletion does not revoke a remote token."}else{"Project-scoped Observer health metadata. Forward opaque page cursor unchanged."},"inputSchema":schema,"annotations":{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true,"openWorldHint":false}})
     }).collect()
 }

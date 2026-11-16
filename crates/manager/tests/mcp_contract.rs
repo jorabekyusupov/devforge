@@ -72,7 +72,7 @@ fn legacy_handshake_does_not_supply_metadata_to_modern_requests() {
             .as_array()
             .unwrap()
             .len(),
-        11
+        12
     );
     let mut modern = modern(json!(4), "ping", json!({}));
     modern["params"]["_meta"]
@@ -134,11 +134,11 @@ fn resources_require_authorized_project_projection_and_reject_foreign_uris_and_c
     );
 }
 #[test]
-fn only_eleven_read_tools_are_dispatchable_and_notifications_never_mint_authority() {
+fn only_twelve_read_tools_are_dispatchable_and_notifications_never_mint_authority() {
     let mut p = Protocol::new(id("project-a"));
     let listed = reply(p.receive(modern(json!(1), "tools/list", json!({}))));
     let tools = listed["result"]["tools"].as_array().unwrap();
-    assert_eq!(tools.len(), 11);
+    assert_eq!(tools.len(), 12);
     assert!(
         tools
             .iter()
@@ -201,5 +201,44 @@ fn activity_mark_wait_contract_is_bounded_and_rejects_ambiguous_input() {
     ] {
         let response = reply(p.receive(modern(json!(4), "tools/call", args)));
         assert_eq!(response["error"]["code"], -32602);
+    }
+}
+
+#[test]
+fn mail_show_and_activity_filters_are_scoped_and_unambiguous() {
+    use devforge_control::tools::{ActivityStream, ToolInput};
+    use devforge_manager::mcp_contract::ActivityInput;
+    let mut protocol = Protocol::new(id("project-a"));
+    let show = protocol.receive(modern(
+        json!(1),
+        "tools/call",
+        json!({"name":"mail.show","arguments":{"mail_id":"f".repeat(32)}}),
+    ));
+    assert!(
+        matches!(show,Action::Diagnostics(call) if matches!(call.request.input,ToolInput::Mail(ref input) if input.detail==Some(true) && input.mail_id.is_some()))
+    );
+    let show_budget=protocol.receive(modern(json!(5),"tools/call",json!({"name":"mail.show","arguments":{"mail_id":"f".repeat(32),"page":{"limit":1,"max_bytes":131072,"timeout_ms":5000}}})));
+    assert!(
+        matches!(show_budget,Action::Diagnostics(call) if matches!(call.request.input,ToolInput::Mail(ref input) if input.detail==Some(true) && input.page.is_some()))
+    );
+    let list=protocol.receive(modern(json!(2),"tools/call",json!({"name":"mail.list","arguments":{"subject":"receipt","sender":"sender","recipient":"recipient","since":123}})));
+    assert!(
+        matches!(list,Action::Diagnostics(call) if matches!(call.request.input,ToolInput::Mail(ref input) if input.subject.is_some() && input.sender.is_some() && input.recipient.is_some() && input.since.is_some()))
+    );
+    let mark=protocol.receive(modern(json!(3),"tools/call",json!({"name":"activity.mark","arguments":{"stream":"mail","detail":true,"subject":"receipt","since":123}})));
+    assert!(
+        matches!(mark,Action::Activity(call) if matches!(call.input,ActivityInput::Mark(ref req) if req.input.stream==ActivityStream::Mail && req.input.subject.is_some()))
+    );
+    for args in [
+        json!({"name":"mail.show","arguments":{}}),
+        json!({"name":"mail.show","arguments":{"mail_id":"f".repeat(32),"detail":false}}),
+        json!({"name":"mail.show","arguments":{"mail_id":"f".repeat(32),"page":null}}),
+        json!({"name":"mail.list","arguments":{"sender":null}}),
+        json!({"name":"activity.mark","arguments":{"stream":"mail","detail":false,"context_id":"c".repeat(32)}}),
+        json!({"name":"activity.mark","arguments":{"stream":"logs","detail":false,"subject":"private"}}),
+    ] {
+        let value = reply(protocol.receive(modern(json!(4), "tools/call", args)));
+        assert_eq!(value["error"]["code"], -32602, "{value}");
+        assert!(!value.to_string().contains("private"));
     }
 }

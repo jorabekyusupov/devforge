@@ -329,6 +329,11 @@ fn run() -> Result<()> {
             page: None,
             subject: None,
             recipient: None,
+
+            sender: None,
+            since: None,
+            detail: None,
+            mail_id: None,
         }),
     ];
     let mut safe_outputs = Vec::new();

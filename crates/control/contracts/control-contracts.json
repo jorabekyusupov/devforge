@@ -18,12 +18,61 @@
       "detail": {
         "type": "boolean"
       },
+      "recipient": {
+        "anyOf": [
+          {
+            "maxLength": 256,
+            "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]*$",
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "sender": {
+        "anyOf": [
+          {
+            "maxLength": 256,
+            "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]*$",
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "since": {
+        "anyOf": [
+          {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
       "stream": {
         "enum": [
           "inspector",
-          "logs"
+          "logs",
+          "mail"
         ],
         "type": "string"
+      },
+      "subject": {
+        "anyOf": [
+          {
+            "maxLength": 256,
+            "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]*$",
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
       }
     },
     "required": [
@@ -328,6 +377,130 @@
                 "required": [
                   "stream",
                   "context_id",
+                  "data"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "data": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "attachments": {
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "detail": {
+                        "anyOf": [
+                          {
+                            "additionalProperties": false,
+                            "properties": {
+                              "attachment_metadata": {
+                                "items": {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "mime": {
+                                      "maxLength": 128,
+                                      "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]*$",
+                                      "type": "string"
+                                    },
+                                    "name": {
+                                      "maxLength": 256,
+                                      "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]*$",
+                                      "type": "string"
+                                    },
+                                    "size": {
+                                      "maximum": 9007199254740991,
+                                      "minimum": 0,
+                                      "type": "integer"
+                                    }
+                                  },
+                                  "required": [
+                                    "name",
+                                    "mime",
+                                    "size"
+                                  ],
+                                  "type": "object"
+                                },
+                                "maxItems": 500,
+                                "type": "array"
+                              },
+                              "from": {
+                                "maxLength": 512,
+                                "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]*$",
+                                "type": "string"
+                              },
+                              "links": {
+                                "items": {
+                                  "maxLength": 2048,
+                                  "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]*$",
+                                  "type": "string"
+                                },
+                                "maxItems": 500,
+                                "type": "array"
+                              },
+                              "subject": {
+                                "maxLength": 512,
+                                "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]*$",
+                                "type": "string"
+                              },
+                              "text": {
+                                "maxLength": 8192,
+                                "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]*$",
+                                "type": "string"
+                              },
+                              "to": {
+                                "maxLength": 1024,
+                                "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]*$",
+                                "type": "string"
+                              },
+                              "truncated": {
+                                "type": "boolean"
+                              }
+                            },
+                            "required": [
+                              "subject",
+                              "from",
+                              "to",
+                              "text",
+                              "links",
+                              "attachment_metadata",
+                              "truncated"
+                            ],
+                            "type": "object"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "mail_id": {
+                        "maxLength": 128,
+                        "minLength": 1,
+                        "pattern": "^[A-Za-z0-9_.:-]+$",
+                        "type": "string"
+                      },
+                      "received_at": {
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "mail_id",
+                      "received_at",
+                      "attachments"
+                    ],
+                    "type": "object"
+                  },
+                  "stream": {
+                    "const": "mail"
+                  }
+                },
+                "required": [
+                  "stream",
                   "data"
                 ],
                 "type": "object"
@@ -4351,6 +4524,29 @@
               "arguments": {
                 "additionalProperties": false,
                 "properties": {
+                  "detail": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "mail_id": {
+                    "anyOf": [
+                      {
+                        "maxLength": 128,
+                        "minLength": 1,
+                        "pattern": "^[A-Za-z0-9_.:-]+$",
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "page": {
                     "anyOf": [
                       {
@@ -4493,6 +4689,30 @@
                         "maxLength": 256,
                         "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]*$",
                         "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "sender": {
+                    "anyOf": [
+                      {
+                        "maxLength": 256,
+                        "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]*$",
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "since": {
+                    "anyOf": [
+                      {
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
+                        "type": "integer"
                       },
                       {
                         "type": "null"
@@ -11934,6 +12154,29 @@
       "input_schema": {
         "additionalProperties": false,
         "properties": {
+          "detail": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "mail_id": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9_.:-]+$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "page": {
             "anyOf": [
               {
@@ -12082,6 +12325,30 @@
               }
             ]
           },
+          "sender": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "since": {
+            "anyOf": [
+              {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "subject": {
             "anyOf": [
               {
@@ -12190,6 +12457,90 @@
                   "maximum": 9007199254740991,
                   "minimum": 0,
                   "type": "integer"
+                },
+                "detail": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "attachment_metadata": {
+                          "items": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "mime": {
+                                "maxLength": 128,
+                                "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]*$",
+                                "type": "string"
+                              },
+                              "name": {
+                                "maxLength": 256,
+                                "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]*$",
+                                "type": "string"
+                              },
+                              "size": {
+                                "maximum": 9007199254740991,
+                                "minimum": 0,
+                                "type": "integer"
+                              }
+                            },
+                            "required": [
+                              "name",
+                              "mime",
+                              "size"
+                            ],
+                            "type": "object"
+                          },
+                          "maxItems": 500,
+                          "type": "array"
+                        },
+                        "from": {
+                          "maxLength": 512,
+                          "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]*$",
+                          "type": "string"
+                        },
+                        "links": {
+                          "items": {
+                            "maxLength": 2048,
+                            "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]*$",
+                            "type": "string"
+                          },
+                          "maxItems": 500,
+                          "type": "array"
+                        },
+                        "subject": {
+                          "maxLength": 512,
+                          "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]*$",
+                          "type": "string"
+                        },
+                        "text": {
+                          "maxLength": 8192,
+                          "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]*$",
+                          "type": "string"
+                        },
+                        "to": {
+                          "maxLength": 1024,
+                          "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]*$",
+                          "type": "string"
+                        },
+                        "truncated": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "subject",
+                        "from",
+                        "to",
+                        "text",
+                        "links",
+                        "attachment_metadata",
+                        "truncated"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 },
                 "mail_id": {
                   "maxLength": 128,

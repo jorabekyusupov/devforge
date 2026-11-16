@@ -58,9 +58,13 @@ export interface InspectorInput {
   detail?: boolean | null;
 }
 export interface ActivityMarkInput {
-  stream: "inspector" | "logs";
+  stream: "inspector" | "logs" | "mail";
   detail: boolean;
   context_id?: string | null;
+  subject?: string | null;
+  recipient?: string | null;
+  sender?: string | null;
+  since?: number | null;
 }
 export interface ActivityMarkOutput {
   bookmark: string;
@@ -70,7 +74,7 @@ export interface ActivityWaitInput {
   timeout_ms: number;
   context_id?: string | null;
 }
-export type ActivityEvent = { stream: "inspector"; data: InspectorItem } | { stream: "logs"; context_id: string; data: LogItem };
+export type ActivityEvent = { stream: "inspector"; data: InspectorItem } | { stream: "logs"; context_id: string; data: LogItem } | { stream: "mail"; data: MailItem };
 export interface ActivityWaitOutput {
   bookmark: string;
   event?: ActivityEvent | null;
@@ -84,6 +88,10 @@ export interface MailInput {
   page?: PageRequest | null;
   subject?: string | null;
   recipient?: string | null;
+  sender?: string | null;
+  since?: number | null;
+  detail?: boolean | null;
+  mail_id?: string | null;
 }
 export interface ExecutionInput {
   page?: PageRequest | null;
@@ -177,10 +185,25 @@ export interface DebuggerItem {
   mode: string;
   primitive_assignment_supported: boolean;
 }
+export interface MailAttachmentMetadata {
+  name: string;
+  mime: string;
+  size: number;
+}
+export interface MailContentDetail {
+  subject: string;
+  from: string;
+  to: string;
+  text: string;
+  links: Array<string>;
+  attachment_metadata: Array<MailAttachmentMetadata>;
+  truncated: boolean;
+}
 export interface MailItem {
   mail_id: string;
   received_at: number;
   attachments: number;
+  detail?: MailContentDetail | null;
 }
 export interface ExecutionItem {
   operation_id: string;

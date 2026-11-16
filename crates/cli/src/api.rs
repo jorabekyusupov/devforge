@@ -814,6 +814,11 @@ fn diagnostics_live(invocation: &Invocation) -> Result<(Value, i32), ErrorCode> 
                     page,
                     subject: None,
                     recipient: None,
+
+                    sender: None,
+                    since: None,
+                    detail: None,
+                    mail_id: None,
                 }),
             )
         }
