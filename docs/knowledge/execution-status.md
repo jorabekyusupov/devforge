@@ -1620,3 +1620,7 @@ knowledge validation passed. The PR CI records macOS and Windows results; actual
 Windows native UI interaction remains unverified. Native visual review was not
 performed because `agent-desktop` is unavailable on this host. Deferred
 ReportViews/locales in the original worktree are outside this phase.
+
+A07 initial macOS and Windows CI run 43885806975 stopped at the same stale
+typed-mutation count (22 versus 23). The focused contract fixture now includes the
+new artifact ID and passes locally; final platform evidence comes from the new PR run.
