@@ -2910,6 +2910,27 @@ fn a05_mark_wait_scopes_prior_events_and_revalidates_grants() {
         );
         assert!(short["data"].is_null(), "{short}");
     }
+    // Hold the actor before starting the watch: no source observation can
+    // complete. A deadline under contention must fail explicitly rather than
+    // fabricate a successful empty result. The existing gate waits until the
+    // actor has entered SecretStore::set, so no timing guess is needed here.
+    let release = rig.block();
+    let unobserved = a05_wait(&rig.endpoint, &observer, &project.id, &bookmark, 100);
+    assert_eq!(
+        unobserved["ok"], false,
+        "no source poll completed: {unobserved}"
+    );
+    assert!(
+        matches!(
+            unobserved["error"]["code"].as_str(),
+            Some("timed_out" | "busy")
+        ),
+        "{unobserved}"
+    );
+    assert!(unobserved["data"].is_null(), "{unobserved}");
+    drop(release);
+    // Once the actor is released, a fresh source read and grant check can
+    // establish an observed, explicitly unverified empty timeout.
     let timeout = a05_wait(&rig.endpoint, &observer, &project.id, &bookmark, 1500);
     assert_eq!(timeout["ok"], true, "{timeout}");
     assert_eq!(

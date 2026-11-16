@@ -42,6 +42,7 @@ pub(crate) struct MetadataRead {
     pub mode: ReadMode,
     pub check: Check,
     pub cancelled: Arc<AtomicBool>,
+    pub deadline_bound: bool,
     pub reply: SyncSender<devforge_workspace::Result<ReadResult>>,
 }
 pub(crate) struct ReadResult {
@@ -58,7 +59,16 @@ impl MetadataRead {
                 }
                 (self.check)(workspace)
             };
-            check()?;
+            // Deadline-bound activity reads already run the same scoped check
+            // immediately before and after source IO inside the workspace.
+            // Avoid duplicating those checks on the single actor thread.
+            if self.deadline_bound {
+                if self.cancelled.load(Ordering::Acquire) {
+                    return Err(crate::service_control::ws_error(ErrorCode::Interrupted));
+                }
+            } else {
+                check()?;
+            }
             let binding =
                 crate::service_control::domain_registration_binding(workspace, &self.project)
                     .map_err(crate::service_control::ws_error)?;
@@ -82,7 +92,11 @@ impl MetadataRead {
                     Some(workspace.activity_metadata_epoch(self.project.as_str(), kind, &check)?),
                 ),
             };
-            check()?;
+            // Registration has no workspace source wrapper to perform the
+            // authorization; normal non-deadline callers retain their old gate.
+            if !self.deadline_bound || matches!(self.mode, ReadMode::Registration) {
+                check()?;
+            }
             Ok(ReadResult {
                 binding,
                 window,
@@ -365,6 +379,7 @@ impl Diagnostics {
                 mode,
                 check,
                 cancelled: cancelled.clone(),
+                deadline_bound: deadline.is_some(),
                 reply,
             })
             .map_err(|_| ErrorCode::Busy)?;
@@ -573,10 +588,13 @@ impl Diagnostics {
                 let content = activity_scope(bookmark.stream, bookmark.detail);
                 let deadline =
                     Instant::now() + Duration::from_millis(wire.request.input.timeout_ms.get());
-                // Registry SQLite may spend at most 250ms inside one authorization;
-                // reserve the other half of the 500ms grace for that call.
-                let hard_deadline = deadline + Duration::from_millis(250);
-                let read_deadline = deadline + Duration::from_millis(100);
+                // Leave time for an in-flight read and the fresh actor/grant
+                // checks after the observation interval. Windows filesystem and
+                // SQLite checks can take longer than a 250ms final budget under
+                // load. With the 3s maximum and registry's 250ms SQLite busy
+                // bound, the nominal worst case is 4.25s (transport limit 5s).
+                let hard_deadline = deadline + Duration::from_millis(1000);
+                let read_deadline = deadline + Duration::from_millis(500);
                 // Verify the original client/grant BEFORE any activity source IO.
                 let registration = self.query_until(
                     actor,

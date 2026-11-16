@@ -297,8 +297,8 @@ impl Controller {
                 },
             ))
             .map_err(|_| Error::OwnerUnavailable);
-        self.context.quitting.store(true, Ordering::Release);
         self.context.services.interrupt_activity_waits();
+        self.context.quitting.store(true, Ordering::Release);
         let cleanup = self
             .actor
             .take()
@@ -320,8 +320,8 @@ impl Drop for Controller {
         // the legacy/manager exclusion and mark this composition inactive.
         if let Ok(_gate) = self.context.quit_gate.lock() {
             self.context.owner_active.store(false, Ordering::Release);
-            self.context.quitting.store(true, Ordering::Release);
             self.context.services.interrupt_activity_waits();
+            self.context.quitting.store(true, Ordering::Release);
         }
         if let Ok(mut auth) = self.context.auth.try_lock() {
             auth.revoke_all();
@@ -512,8 +512,8 @@ impl Context {
             outcome: ShutdownOutcome::Pending,
         });
         persist_lifecycle_checked(&self.endpoint, &lifecycle, authorize)?;
-        self.quitting.store(true, Ordering::Release);
         self.services.interrupt_activity_waits();
+        self.quitting.store(true, Ordering::Release);
         self.payloads
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)

@@ -178,8 +178,9 @@ limit error instead of reporting a clean timeout.
 
 Each wait polls for at most 3000 ms with at most four simultaneous waits. No actor
 or SQLite lock is held while sleeping. An in-flight read and final authorization may
-finish during a 500 ms grace subject to scheduling/transport; this is not a hard
-real-time deadline. Native quit interrupts waits. One MCP stdio session serializes
+finish during up to 1 second of validation grace; registry SQLite contention can
+add up to 250 ms. Scheduling and the 5-second transport limit still apply, so this
+is not a hard real-time deadline. Native quit interrupts waits. One MCP stdio session serializes
 its calls while a wait is active; another manager client remains responsive.
 
 Every result says `continuity=unverified`: polling cannot prove that an event was
