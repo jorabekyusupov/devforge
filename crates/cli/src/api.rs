@@ -802,6 +802,7 @@ fn diagnostics_live(invocation: &Invocation) -> Result<(Value, i32), ErrorCode> 
         ["inspector", "request", project] if invocation.level.is_none() => (
             *project,
             ToolInput::Inspector(InspectorInput {
+                detail: None,
                 page,
                 context_id: invocation.context.clone(),
             }),

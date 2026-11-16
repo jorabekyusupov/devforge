@@ -599,12 +599,12 @@ impl Protocol {
             .unwrap_or_else(|| json!({}));
         let allowed: &[&str] = match name {
             "logs.search" => &["page", "level", "query", "content", "since"],
-            "inspector.request" => &["page", "context_id"],
+            "inspector.request" => &["page", "context_id", "detail"],
             _ => &["page"],
         };
         // Explicit null is not a content request; reject ambiguous wire input.
         if !keys(&arguments, allowed)
-            || ["query", "content", "since"]
+            || ["query", "content", "since", "detail"]
                 .iter()
                 .any(|key| arguments.get(key).is_some_and(Value::is_null))
         {
@@ -1935,6 +1935,7 @@ fn diagnostics_tool_definitions() -> Vec<Value> {
         let mut schema=match name{"health.doctor"=>HealthInput::schema(),"logs.search"=>LogInput::schema(),"inspector.request"=>InspectorInput::schema(),_=>MailInput::schema()};
         let properties=schema["properties"].as_object_mut().expect("fixed schema");for forbidden in ["subject","recipient"]{properties.remove(forbidden);}
         if name == "logs.search" { properties.insert("query".into(),devforge_control::limits::Text::<256>::schema()); properties.insert("content".into(),bool::schema()); properties.insert("since".into(),devforge_control::limits::SafeInt::schema()); }
-        json!({"name":name,"description":if name=="logs.search"{"Project-scoped bounded log metadata. Set content=true or provide query to request redacted log content; both require the explicitly granted log_content right. Query searches only the redacted projection. Forward opaque page cursor unchanged; expired cursors require a fresh request."}else{"Project-scoped Observer metadata only: classified health codes, normalized Inspector method/status/count/timing, or mail IDs/time/attachment count. Mail content filters remain unavailable. Forward opaque page cursor unchanged; expired cursors require a fresh request."},"inputSchema":schema,"annotations":{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true,"openWorldHint":false}})
+        if name == "inspector.request" { properties.insert("detail".into(),bool::schema()); }
+        json!({"name":name,"description":if name=="logs.search"{"Project-scoped bounded log metadata. Set content=true or provide query to request redacted log content; both require the explicitly granted log_content right. Query searches only the redacted projection. Forward opaque page cursor unchanged; expired cursors require a fresh request."}else if name=="inspector.request"{"Project-scoped Inspector metadata by default; detail=true requires the explicitly granted inspector_queries right and returns bounded request/job/query/cache/dump details. Dump values are bounded and masked on a best-effort basis; unrecognized secrets may remain. Repeated query counts describe the retained context window and are candidates, not proof of N+1. For detail rows use detail.duration_ms; absent means unmeasured, and the required legacy elapsed_ms can be a zero placeholder for cache/dump. detail.truncated describes projection text; capture_truncated is optional and absent means the collector status is unknown. Forward opaque page cursor unchanged."}else{"Project-scoped Observer metadata only: classified health codes or mail IDs/time/attachment count. Mail content filters remain unavailable. Forward opaque page cursor unchanged; expired cursors require a fresh request."},"inputSchema":schema,"annotations":{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true,"openWorldHint":false}})
     }).collect()
 }

@@ -76,7 +76,7 @@ contract!(EnvironmentInput{page:Option<PageRequest>,name:Option<Id>});
 contract!(DomainInput{page:Option<PageRequest>});
 contract!(DatabaseInput{page:Option<PageRequest>});
 contract!(LogInput{page:Option<PageRequest>,query:Option<Text<256>>,level:Option<Text<32>>,#[serde(default,skip_serializing_if="Option::is_none")] since:Option<SafeInt>,#[serde(default,skip_serializing_if="Option::is_none")] content:Option<bool>});
-contract!(InspectorInput{page:Option<PageRequest>,context_id:Option<Id>});
+contract!(InspectorInput{page:Option<PageRequest>,context_id:Option<Id>,#[serde(default,skip_serializing_if="Option::is_none")] detail:Option<bool>});
 contract!(DebuggerInput{page:Option<PageRequest>});
 contract!(MailInput{page:Option<PageRequest>,subject:Option<Text<256>>,recipient:Option<Text<256>>});
 contract!(ExecutionInput{page:Option<PageRequest>,operation_id:Id});
@@ -100,7 +100,8 @@ contract!(EnvironmentItem {
 contract!(DomainItem{url:Text<2048>,certificate_active:bool,system_trusted:bool});
 contract!(DatabaseItem{engine:Text<32>,bound:bool,ready:bool});
 contract!(LogItem{event_id:Id,level:Text<32>,code:Id,observed_at:SafeInt,#[serde(default,skip_serializing_if="Option::is_none")] message:Option<Text<2048>>,#[serde(default,skip_serializing_if="Option::is_none")] exception:Option<Text<2048>>});
-contract!(InspectorItem{context_id:Id,method:Text<16>,status:Option<u16>,queries:SafeInt,elapsed_ms:SafeInt});
+contract!(InspectorDetail{kind:Id,observed_at:SafeInt,text:Text<2048>,#[serde(default,skip_serializing_if="Option::is_none")] duration_ms:Option<SafeInt>,truncated:bool,#[serde(default,skip_serializing_if="Option::is_none")] repeated_count:Option<SafeInt>,#[serde(default,skip_serializing_if="Option::is_none")] sql_ms:Option<SafeInt>,#[serde(default,skip_serializing_if="Option::is_none")] peak_memory_bytes:Option<SafeInt>,#[serde(default,skip_serializing_if="Option::is_none")] capture_truncated:Option<bool>});
+contract!(InspectorItem{context_id:Id,method:Text<16>,status:Option<u16>,queries:SafeInt,elapsed_ms:SafeInt,#[serde(default,skip_serializing_if="Option::is_none")] detail:Option<InspectorDetail>});
 contract!(DebuggerItem{installed:bool,mode:Text<32>,primitive_assignment_supported:bool});
 contract!(MailItem {
     mail_id: Id,
@@ -422,6 +423,7 @@ pub fn declarations() -> Vec<String> {
         DomainItem,
         DatabaseItem,
         LogItem,
+        InspectorDetail,
         InspectorItem,
         DebuggerItem,
         MailItem,

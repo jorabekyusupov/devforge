@@ -55,6 +55,7 @@ export interface LogInput {
 export interface InspectorInput {
   page?: PageRequest | null;
   context_id?: string | null;
+  detail?: boolean | null;
 }
 export interface DebuggerInput {
   page?: PageRequest | null;
@@ -132,12 +133,24 @@ export interface LogItem {
   message?: string | null;
   exception?: string | null;
 }
+export interface InspectorDetail {
+  kind: string;
+  observed_at: number;
+  text: string;
+  duration_ms?: number | null;
+  truncated: boolean;
+  repeated_count?: number | null;
+  sql_ms?: number | null;
+  peak_memory_bytes?: number | null;
+  capture_truncated?: boolean | null;
+}
 export interface InspectorItem {
   context_id: string;
   method: string;
   status?: number | null;
   queries: number;
   elapsed_ms: number;
+  detail?: InspectorDetail | null;
 }
 export interface DebuggerItem {
   installed: boolean;

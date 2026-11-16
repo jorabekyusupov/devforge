@@ -1666,6 +1666,305 @@ fn metadata_policy_masks_payloads_and_binds_sequence_cursors_to_grant_filter_and
 }
 
 #[test]
+fn a04_inspector_details_require_project_scope_and_redact_queries() {
+    use devforge_control::{InformationScope, limits::*, tools::*};
+    let mut rig = Rig::new(None);
+    let project = rig.projects[0].clone();
+    let observer = rig
+        .native
+        .issue_external_grant(
+            &id(&project.id),
+            &[Scope::Observer],
+            Duration::from_secs(600),
+        )
+        .unwrap();
+    let grant = rig
+        .native
+        .issue_external_grant_with_information(
+            &id(&project.id),
+            &[Scope::Observer],
+            &[InformationScope::InspectorQueries],
+            Duration::from_secs(600),
+        )
+        .unwrap();
+    let second = rig
+        .native
+        .issue_external_grant_with_information(
+            &id(&project.id),
+            &[Scope::Observer],
+            &[InformationScope::InspectorQueries],
+            Duration::from_secs(600),
+        )
+        .unwrap();
+    let mut plain = rig.diagnostics(&observer);
+    let mut client = rig.diagnostics(&grant);
+    let mut other = rig.diagnostics(&second);
+    let context = "c".repeat(32);
+    let request = |project_id: &str, detail: bool, cursor| Request {
+        api_version: Default::default(),
+        request_id: id("a04-detail"),
+        project_id: id(project_id),
+        expected_revision: Some(project.revision),
+        idempotency_key: None,
+        input: ToolInput::Inspector(InspectorInput {
+            page: Some(PageRequest {
+                limit: Bounded::new(1).unwrap(),
+                max_bytes: Bounded::new(65536).unwrap(),
+                timeout_ms: Bounded::new(5000).unwrap(),
+                cursor,
+            }),
+            context_id: Some(id(&context)),
+            detail: Some(detail),
+        }),
+    };
+    let denied = plain.read(&request(&project.id, true, None)).unwrap();
+    assert_eq!(denied.error().unwrap().code, ErrorCode::Unauthorized);
+    assert!(
+        !rig.root.path().join("inspector").exists(),
+        "denial before source IO"
+    );
+    let directory = rig.root.path().join("inspector");
+    std::fs::create_dir(&directory).unwrap();
+    let db = rusqlite::Connection::open(directory.join("events.sqlite3")).unwrap();
+    db.execute_batch("PRAGMA journal_mode=DELETE; CREATE TABLE events(sequence INTEGER PRIMARY KEY AUTOINCREMENT,project TEXT NOT NULL,received INTEGER NOT NULL,body TEXT NOT NULL); PRAGMA user_version=1;").unwrap();
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as i64;
+    let events = [
+        json!({"kind":"request","context":context,"name":"GET /PRIVATE_URL?token=PRIVATE_URL_CANARY","duration_ms":13.0,"data":{"status":200,"query_count":1,"sql_ms":12.0,"peak_memory_bytes":65536,"truncated":true,"headers":{"Authorization":"PRIVATE_HEADER_CANARY"}}}),
+        json!({"kind":"query","context":context,"name":"select * from users where id=42 and email='SQL_SECRET_CANARY'","duration_ms":5.0,"data":{"connection":"sqlite","bindings":["PRIVATE_BINDING_CANARY"]}}),
+        json!({"kind":"job","context":context,"name":"App\\Jobs\\Run","duration_ms":7.0,"data":{"status":"success","query_count":1}}),
+        json!({"kind":"job","context":context,"name":"App\\Jobs\\Complete","duration_ms":7.0,"data":{"status":"success","query_count":0,"truncated":false}}),
+        json!({"kind":"cache","context":context,"name":"hit","duration_ms":0.0,"data":{"key":"CACHE_SECRET_CANARY"}}),
+        json!({"kind":"dump","context":context,"name":"array","duration_ms":0.0,"data":{"message":"safe diagnostic","token":"DUMP_SECRET_CANARY","nested":{"password":"NESTED_SECRET_CANARY","visible":"safe-child","raw_sql":"select 'DUMP_RAW_SQL_SECRET_CANARY'","query_string":"-- tag\nselect 'DUMP_ALIAS_SECRET_CANARY'","other":"/* trace */ SELECT 'DUMP_COMMENT_SECRET_CANARY'","sql":"select * from users where email='DUMP_SQL_SECRET_CANARY'","query":"select 'DUMP_QUERY_SECRET_CANARY'","statement":"select 'DUMP_STATEMENT_SECRET_CANARY'"}}}),
+        json!({"kind":"dump","context":context,"name":"array","duration_ms":0.0,"data":{"oversize":"Z".repeat(9000)}}),
+    ];
+    let repeated_query = events[1].clone();
+    for event in events {
+        db.execute(
+            "INSERT INTO events(project,received,body) VALUES(?1,?2,?3)",
+            rusqlite::params![project.id, now, event.to_string()],
+        )
+        .unwrap();
+    }
+    for _ in 0..4 {
+        db.execute(
+            "INSERT INTO events(project,received,body) VALUES(?1,?2,?3)",
+            rusqlite::params![project.id, now, repeated_query.to_string()],
+        )
+        .unwrap();
+    }
+    let foreign = json!({"kind":"query","context":context,"name":"select 'FOREIGN_SECRET_CANARY'","duration_ms":1.0,"data":{}});
+    db.execute(
+        "INSERT INTO events(project,received,body) VALUES(?1,?2,?3)",
+        rusqlite::params![rig.projects[1].id, now, foreign.to_string()],
+    )
+    .unwrap();
+    drop(db);
+    let metadata = plain.read(&request(&project.id, false, None)).unwrap();
+    assert!(metadata.is_ok());
+    let metadata_text = serde_json::to_string(&metadata).unwrap();
+    assert!(!metadata_text.contains("SQL_SECRET_CANARY") && !metadata_text.contains("PRIVATE_URL"));
+    let ToolOutput::Inspector(metadata) = metadata.data().unwrap() else {
+        panic!("inspector metadata")
+    };
+    assert!(metadata.items.iter().all(|item| item.detail.is_none()));
+    let first = client.read(&request(&project.id, true, None)).unwrap();
+    assert!(first.is_ok(), "{:?}", first.error());
+    let ToolOutput::Inspector(first_page) = first.data().unwrap() else {
+        panic!("inspector details")
+    };
+    let cursor = first_page
+        .next_cursor
+        .clone()
+        .expect("multiple detail events");
+    let foreign_cursor = other
+        .read(&request(&project.id, true, Some(cursor.clone())))
+        .unwrap();
+    assert_eq!(
+        foreign_cursor.error().unwrap().code,
+        ErrorCode::CursorExpired
+    );
+    let metadata_cursor = client
+        .read(&request(&project.id, false, Some(cursor.clone())))
+        .unwrap();
+    assert_eq!(
+        metadata_cursor.error().unwrap().code,
+        ErrorCode::CursorExpired,
+        "cursor must bind content mode"
+    );
+    let mismatch = client
+        .read(&request(&rig.projects[1].id, true, None))
+        .unwrap();
+    assert_eq!(mismatch.error().unwrap().code, ErrorCode::ProjectMismatch);
+    let mut all_json = serde_json::to_string(&first).unwrap();
+    let mut kinds = first_page
+        .items
+        .iter()
+        .filter_map(|item| item.detail.as_ref().map(|d| d.kind.as_str().to_string()))
+        .collect::<Vec<_>>();
+    let mut repeated = first_page
+        .items
+        .iter()
+        .filter_map(|item| {
+            item.detail
+                .as_ref()
+                .and_then(|d| d.repeated_count.map(|n| n.get()))
+        })
+        .collect::<Vec<_>>();
+    let mut details = first_page
+        .items
+        .iter()
+        .filter_map(|item| item.detail.clone())
+        .collect::<Vec<_>>();
+    let mut next = first_page.next_cursor.clone();
+    while let Some(cursor) = next {
+        let page = client
+            .read(&request(&project.id, true, Some(cursor)))
+            .unwrap();
+        assert!(page.is_ok(), "{:?}", page.error());
+        all_json.push_str(&serde_json::to_string(&page).unwrap());
+        let ToolOutput::Inspector(page) = page.data().unwrap() else {
+            panic!("inspector details")
+        };
+        kinds.extend(
+            page.items
+                .iter()
+                .filter_map(|item| item.detail.as_ref().map(|d| d.kind.as_str().to_string())),
+        );
+        repeated.extend(page.items.iter().filter_map(|item| {
+            item.detail
+                .as_ref()
+                .and_then(|d| d.repeated_count.map(|n| n.get()))
+        }));
+        details.extend(page.items.iter().filter_map(|item| item.detail.clone()));
+        next = page.next_cursor.clone();
+    }
+    for secret in [
+        "PRIVATE_URL_CANARY",
+        "PRIVATE_HEADER_CANARY",
+        "SQL_SECRET_CANARY",
+        "PRIVATE_BINDING_CANARY",
+        "DUMP_SECRET_CANARY",
+        "NESTED_SECRET_CANARY",
+        "DUMP_SQL_SECRET_CANARY",
+        "DUMP_RAW_SQL_SECRET_CANARY",
+        "DUMP_ALIAS_SECRET_CANARY",
+        "DUMP_COMMENT_SECRET_CANARY",
+        "DUMP_QUERY_SECRET_CANARY",
+        "DUMP_STATEMENT_SECRET_CANARY",
+        "CACHE_SECRET_CANARY",
+        "FOREIGN_SECRET_CANARY",
+    ] {
+        assert!(!all_json.contains(secret), "detail leaked {secret}");
+    }
+    assert!(
+        all_json.contains("select") && all_json.contains('?'),
+        "parameterized query detail should remain useful"
+    );
+    assert_eq!(
+        repeated,
+        vec![5; 5],
+        "query repetition must be scoped to this captured context"
+    );
+    assert!(
+        all_json.contains("\"sql_ms\":12") && all_json.contains("\"peak_memory_bytes\":65536"),
+        "request profile metrics"
+    );
+    let captured_request = details
+        .iter()
+        .find(|d| d.kind.as_str() == "request")
+        .unwrap();
+    assert_eq!(
+        captured_request.capture_truncated,
+        Some(true),
+        "request collector incompleteness must be explicit"
+    );
+    assert!(
+        !captured_request.truncated,
+        "short projected text itself is not truncated"
+    );
+    assert_eq!(
+        captured_request.duration_ms.map(|n| n.get()),
+        Some(13),
+        "request duration is measured"
+    );
+    let cache = details.iter().find(|d| d.kind.as_str() == "cache").unwrap();
+    assert!(
+        cache.duration_ms.is_none(),
+        "unmeasured cache duration must remain unknown"
+    );
+    assert!(
+        cache.capture_truncated.is_none(),
+        "cache has no capture-summary flag"
+    );
+    let dump = details
+        .iter()
+        .find(|d| d.kind.as_str() == "dump" && d.text.as_str().contains("safe diagnostic"))
+        .unwrap();
+    assert!(
+        dump.duration_ms.is_none(),
+        "unmeasured dump duration must remain unknown"
+    );
+    assert!(
+        dump.text.as_str().contains("safe diagnostic") && dump.text.as_str().contains("safe-child"),
+        "authorized user must receive non-sensitive dump values"
+    );
+    assert!(
+        !dump.text.as_str().contains("DUMP_SECRET_CANARY")
+            && !dump.text.as_str().contains("NESTED_SECRET_CANARY")
+            && !dump.text.as_str().contains("DUMP_SQL_SECRET_CANARY")
+            && !dump.text.as_str().contains("DUMP_RAW_SQL_SECRET_CANARY")
+            && !dump.text.as_str().contains("DUMP_ALIAS_SECRET_CANARY")
+            && !dump.text.as_str().contains("DUMP_COMMENT_SECRET_CANARY")
+            && !dump.text.as_str().contains("DUMP_QUERY_SECRET_CANARY")
+            && !dump.text.as_str().contains("DUMP_STATEMENT_SECRET_CANARY"),
+        "dump secrets must be masked"
+    );
+    let withheld = details
+        .iter()
+        .find(|d| d.kind.as_str() == "dump" && d.truncated)
+        .expect("oversize dump must be explicitly truncated");
+    assert!(
+        !withheld.text.as_str().contains(&"Z".repeat(2049)),
+        "oversize payload must not exceed bounded output"
+    );
+    let jobs = details
+        .iter()
+        .filter(|d| d.kind.as_str() == "job")
+        .collect::<Vec<_>>();
+    assert!(
+        jobs.iter().any(|d| d.capture_truncated == Some(false)),
+        "explicit complete capture preserved"
+    );
+    assert!(
+        jobs.iter().any(|d| d.capture_truncated.is_none()),
+        "legacy absent capture state stays unknown"
+    );
+    assert!(
+        details
+            .iter()
+            .filter(|d| d.kind.as_str() == "query")
+            .all(|d| d.capture_truncated.is_none()),
+        "query events must not invent a capture completeness state"
+    );
+    for expected in ["request", "query", "job", "dump", "cache"] {
+        assert!(
+            kinds.iter().any(|kind| kind == expected),
+            "missing {expected}"
+        );
+    }
+    rig.native
+        .revoke_external_grant(&grant.record.grant_id)
+        .unwrap();
+    let revoked = client
+        .read(&request(&project.id, true, Some(cursor)))
+        .unwrap();
+    assert_eq!(revoked.error().unwrap().code, ErrorCode::GrantRevoked);
+}
+
+#[test]
 fn a03_log_content_requires_project_right_and_searches_redacted_projection() {
     use devforge_control::{InformationScope, limits::*, tools::*};
     let mut rig = Rig::new(None);
