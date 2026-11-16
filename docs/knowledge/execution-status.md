@@ -1644,3 +1644,10 @@ Laravel companion → Inspector collector → A05 metadata source on macOS using
 read-only offline Laravel vendor. It did not exercise the managed Serving session
 or complete manager/SDK end-to-end. The PR CI records macOS and Windows results;
 actual Windows native Laravel/Serving evidence is not inferred from CI.
+
+Initial Windows CI run 43893811896 reported timed_out in two existing A05 wait
+fixtures; macOS passed. A08 had added an extra pre-check to the shared registration
+path, increasing work on A05's bounded deadline. The registration path was restored
+to its prior check pattern while preserving pre/post checks for the new HTTP target.
+The final CI run supplies the platform evidence; the log alone did not identify the
+precise point at which the A05 budget elapsed.

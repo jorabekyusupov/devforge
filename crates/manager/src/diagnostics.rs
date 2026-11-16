@@ -64,12 +64,7 @@ impl MetadataRead {
             // Deadline-bound activity reads already run the same scoped check
             // immediately before and after source IO inside the workspace.
             // Avoid duplicating those checks on the single actor thread.
-            if self.deadline_bound
-                && !matches!(
-                    self.mode,
-                    ReadMode::Registration | ReadMode::SiteProbeTarget
-                )
-            {
+            if self.deadline_bound && !matches!(self.mode, ReadMode::SiteProbeTarget) {
                 if self.cancelled.load(Ordering::Acquire) {
                     return Err(crate::service_control::ws_error(ErrorCode::Interrupted));
                 }
