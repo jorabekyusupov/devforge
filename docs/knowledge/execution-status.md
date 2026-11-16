@@ -1675,3 +1675,9 @@ they expected four checkboxes after two explicit information-right choices were
 added. The fixtures now check all six and verify both new choices default off; the
 focused two-language tests passed locally. Final platform evidence is in the
 subsequent CI run.
+
+Run 43910593976 reached the scoped debugger integration step; its macOS fixture
+still expected a breakpoint write while an active debugger exists, which the facade
+now safely rejects. The fixture now changes project revision through an allowed
+mode action and preserves the stale/revoked value-masking assertions. That focused
+test passed locally; the next CI run records final platform status.
