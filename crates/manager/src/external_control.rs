@@ -352,6 +352,8 @@ impl Server {
                     })?,
                     retryable: view.error.is_some(),
                     next_action: None,
+                    evidence: None,
+                    impact: None,
                 }],
                 next_cursor: None,
             }),

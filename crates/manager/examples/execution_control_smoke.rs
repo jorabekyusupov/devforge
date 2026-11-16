@@ -292,6 +292,8 @@ fn run() -> Result<()> {
         input: ToolInput::Log(LogInput {
             page: None,
             query: None,
+            since: None,
+            content: None,
             level: None,
         }),
     })?;

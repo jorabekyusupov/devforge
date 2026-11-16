@@ -1470,6 +1470,8 @@ fn metadata_policy_masks_payloads_and_binds_sequence_cursors_to_grant_filter_and
         idempotency_key: None,
         input: ToolInput::Log(LogInput {
             page: Some(page(cursor)),
+            content: None,
+            since: None,
             query: None,
             level,
         }),
@@ -1501,10 +1503,10 @@ fn metadata_policy_masks_payloads_and_binds_sequence_cursors_to_grant_filter_and
     if let ToolInput::Log(input) = &mut forbidden.input {
         input.query = Some(Text::new(String::new()).unwrap());
     }
-    assert!(matches!(
-        client.read(&forbidden),
-        Err(ErrorCode::Unauthorized)
-    ));
+    match client.read(&forbidden) {
+        Err(code) => assert_eq!(code, ErrorCode::Unauthorized),
+        Ok(reply) => assert_eq!(reply.error().unwrap().code, ErrorCode::Unauthorized),
+    }
     assert!(!rig.root.path().join("inspector").exists());
     let directory = rig.root.path().join("inspector");
     std::fs::create_dir(&directory).unwrap();
@@ -1661,6 +1663,232 @@ fn metadata_policy_masks_payloads_and_binds_sequence_cursors_to_grant_filter_and
         client.read(&log(None, None)).unwrap().error().unwrap().code,
         ErrorCode::GrantRevoked
     );
+}
+
+#[test]
+fn a03_log_content_requires_project_right_and_searches_redacted_projection() {
+    use devforge_control::{InformationScope, limits::*, tools::*};
+    let mut rig = Rig::new(None);
+    let project = rig.projects[0].clone();
+    let observer = rig
+        .native
+        .issue_external_grant(
+            &id(&project.id),
+            &[Scope::Observer],
+            Duration::from_secs(600),
+        )
+        .unwrap();
+    let privileged = rig
+        .native
+        .issue_external_grant_with_information(
+            &id(&project.id),
+            &[Scope::Observer],
+            &[InformationScope::LogContent],
+            Duration::from_secs(600),
+        )
+        .unwrap();
+    let another = rig
+        .native
+        .issue_external_grant_with_information(
+            &id(&project.id),
+            &[Scope::Observer],
+            &[InformationScope::LogContent],
+            Duration::from_secs(600),
+        )
+        .unwrap();
+    let mut plain = rig.diagnostics(&observer);
+    let doctor = Request {
+        api_version: Default::default(),
+        request_id: id("a03-doctor"),
+        project_id: id(&project.id),
+        expected_revision: Some(project.revision),
+        idempotency_key: None,
+        input: ToolInput::Health(HealthInput { page: None }),
+    };
+    let health = plain.read(&doctor).unwrap();
+    let ToolOutput::Health(health) = health.data().unwrap() else {
+        panic!("health output")
+    };
+    assert_eq!(health.freshness.origin, devforge_control::Origin::Cached);
+    assert!(health.items[0].evidence.is_some() && health.items[0].impact.is_some());
+    let mut allowed = rig.diagnostics(&privileged);
+    let mut other = rig.diagnostics(&another);
+    let request = |project_id: &str, content: bool, query: Option<&str>, cursor| Request {
+        api_version: Default::default(),
+        request_id: id("a03-log"),
+        project_id: id(project_id),
+        expected_revision: Some(project.revision),
+        idempotency_key: None,
+        input: ToolInput::Log(LogInput {
+            page: Some(PageRequest {
+                limit: Bounded::new(1).unwrap(),
+                max_bytes: Bounded::new(65536).unwrap(),
+                timeout_ms: Bounded::new(5000).unwrap(),
+                cursor,
+            }),
+            content: Some(content),
+            since: None,
+            query: query.map(|v| Text::new(v.to_string()).unwrap()),
+            level: None,
+        }),
+    };
+    let deny = |result: Result<devforge_control::Response<ToolOutput>, ErrorCode>| match result {
+        Err(e) => assert_eq!(e, ErrorCode::Unauthorized),
+        Ok(r) => assert_eq!(r.error().unwrap().code, ErrorCode::Unauthorized),
+    };
+    deny(plain.read(&request(&project.id, true, None, None)));
+    deny(plain.read(&request(&project.id, false, Some("database"), None)));
+    assert!(
+        !rig.root.path().join("inspector").exists(),
+        "denied content must not create/read a source"
+    );
+    let directory = rig.root.path().join("inspector");
+    std::fs::create_dir(&directory).unwrap();
+    let db = rusqlite::Connection::open(directory.join("events.sqlite3")).unwrap();
+    db.execute_batch("PRAGMA journal_mode=DELETE; CREATE TABLE events(sequence INTEGER PRIMARY KEY AUTOINCREMENT,project TEXT NOT NULL,received INTEGER NOT NULL,body TEXT NOT NULL); PRAGMA user_version=1;").unwrap();
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as i64;
+    let exception = json!({"kind":"exception","context":"e".repeat(32),"name":"RuntimeException","duration_ms":0.0,"data":{"message":"Exceptional failure token=EXCEPTION_CANARY","stack":"SECRET_STACK_CANARY"}});
+    db.execute(
+        "INSERT INTO events(project,received,body) VALUES(?1,?2,?3)",
+        rusqlite::params![project.id, now, exception.to_string()],
+    )
+    .unwrap();
+    for _ in 0..3 {
+        let event = json!({"kind":"log","context":"c".repeat(32),"name":"error","duration_ms":0.0,
+            "data":{"message":"Database failed password=PRIVATE_CANARY Authorization: Bearer BEARER_CANARY","token":"PRIVATE_TOKEN_CANARY"}});
+        db.execute(
+            "INSERT INTO events(project,received,body) VALUES(?1,?2,?3)",
+            rusqlite::params![project.id, now, event.to_string()],
+        )
+        .unwrap();
+    }
+    let event = json!({"kind":"log","context":"d".repeat(32),"name":"error","duration_ms":0.0,"data":{"message":"Database FOREIGN_CANARY"}});
+    db.execute(
+        "INSERT INTO events(project,received,body) VALUES(?1,?2,?3)",
+        rusqlite::params![rig.projects[1].id, now, event.to_string()],
+    )
+    .unwrap();
+    drop(db);
+    let metadata = plain
+        .read(&request(&project.id, false, None, None))
+        .unwrap();
+    assert!(metadata.is_ok());
+    assert!(
+        !serde_json::to_string(&metadata)
+            .unwrap()
+            .contains("Database failed")
+    );
+    let mut metadata_future = request(&project.id, false, None, None);
+    if let ToolInput::Log(input) = &mut metadata_future.input {
+        input.since = Some(SafeInt::new((now + 1) as u64).unwrap());
+    }
+    let metadata_future = plain.read(&metadata_future).unwrap();
+    let ToolOutput::Log(metadata_future) = metadata_future.data().unwrap() else {
+        panic!("log output")
+    };
+    assert!(
+        metadata_future.items.is_empty(),
+        "metadata since excludes earlier records"
+    );
+    let mut wrong_level = request(&project.id, true, Some("database"), None);
+    if let ToolInput::Log(input) = &mut wrong_level.input {
+        input.level = Some(Text::new("warning".into()).unwrap());
+    }
+    let wrong_level = allowed.read(&wrong_level).unwrap();
+    let ToolOutput::Log(wrong_level) = wrong_level.data().unwrap() else {
+        panic!("log output")
+    };
+    assert!(
+        wrong_level.items.is_empty(),
+        "level filters apply to scoped content"
+    );
+    let mut future = request(&project.id, true, Some("database"), None);
+    if let ToolInput::Log(input) = &mut future.input {
+        input.since = Some(SafeInt::new((now + 1) as u64).unwrap());
+    }
+    let future = allowed.read(&future).unwrap();
+    let ToolOutput::Log(future) = future.data().unwrap() else {
+        panic!("log output")
+    };
+    assert!(future.items.is_empty(), "since excludes earlier records");
+    let mut matching_time = request(&project.id, true, Some("database"), None);
+    if let ToolInput::Log(input) = &mut matching_time.input {
+        input.since = Some(SafeInt::new(now as u64).unwrap());
+    }
+    let matching_time = allowed.read(&matching_time).unwrap();
+    let ToolOutput::Log(matching_time) = matching_time.data().unwrap() else {
+        panic!("log output")
+    };
+    assert!(
+        !matching_time.items.is_empty(),
+        "since includes boundary timestamp"
+    );
+    let first = allowed
+        .read(&request(&project.id, true, Some("database"), None))
+        .unwrap();
+    assert!(first.is_ok(), "{first:?}");
+    let json = serde_json::to_string(&first).unwrap();
+    assert!(
+        !json.contains("PRIVATE_CANARY")
+            && !json.contains("PRIVATE_TOKEN_CANARY")
+            && !json.contains("BEARER_CANARY")
+            && !json.contains("FOREIGN_CANARY")
+    );
+    assert!(json.contains("Database failed"));
+    let ToolOutput::Log(result) = first.data().unwrap() else {
+        panic!("log output")
+    };
+    let cursor = result.next_cursor.clone().unwrap();
+    let mut changed_since = request(&project.id, true, Some("database"), Some(cursor.clone()));
+    if let ToolInput::Log(input) = &mut changed_since.input {
+        input.since = Some(SafeInt::new((now + 1) as u64).unwrap());
+    }
+    let changed_since = allowed.read(&changed_since).unwrap();
+    assert_eq!(
+        changed_since.error().unwrap().code,
+        ErrorCode::CursorExpired,
+        "cursor must bind the time filter"
+    );
+    let secret = allowed
+        .read(&request(&project.id, true, Some("PRIVATE_CANARY"), None))
+        .unwrap();
+    let ToolOutput::Log(secret) = secret.data().unwrap() else {
+        panic!("log output")
+    };
+    assert!(
+        secret.items.is_empty(),
+        "matching secret against raw source leaks information"
+    );
+    let exception = allowed
+        .read(&request(&project.id, true, Some("exceptional"), None))
+        .unwrap();
+    let exception_json = serde_json::to_string(&exception).unwrap();
+    assert!(
+        !exception_json.contains("EXCEPTION_CANARY")
+            && !exception_json.contains("SECRET_STACK_CANARY")
+    );
+    let ToolOutput::Log(exception) = exception.data().unwrap() else {
+        panic!("log output")
+    };
+    assert!(exception.items[0].exception.is_some() && exception.items[0].message.is_none());
+    let response = other
+        .read(&request(&project.id, true, Some("database"), Some(cursor)))
+        .unwrap();
+    assert_eq!(response.error().unwrap().code, ErrorCode::CursorExpired);
+    let foreign = allowed
+        .read(&request(&rig.projects[1].id, true, None, None))
+        .unwrap();
+    assert_eq!(foreign.error().unwrap().code, ErrorCode::ProjectMismatch);
+    rig.native
+        .revoke_external_grant(&privileged.record.grant_id)
+        .unwrap();
+    let revoked = allowed
+        .read(&request(&project.id, true, None, None))
+        .unwrap();
+    assert_eq!(revoked.error().unwrap().code, ErrorCode::GrantRevoked);
 }
 
 #[cfg(target_os = "macos")]

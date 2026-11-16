@@ -29,8 +29,15 @@ restart/revoke/forgery checks pass; existing metadata filters remain refused eve
 with a content grant. Visible permission UI (A13) and rich content/SQL readers
 (A03 onward) are not included. See docs/architecture/external-grants.md.
 
-Next planned package is A03 log/health diagnostics after the accepted A02 contract.
-Do not start it from this A02 handoff. Subsequent order remains diagnostics/correlation/wait/mail/artifacts ->
+## A03 completed slice
+Explicit LogContent scope gates bounded read-only log/exception message projection
+and redacted search at admission, queued read and output. Frozen cursors bind client,
+grant, project, revision and filter. Masking is best effort, not a guarantee against
+arbitrary unstructured secrets. Cached doctor includes evidence and impact codes.
+See docs/architecture/metadata-diagnostics.md and the exact PR CI evidence.
+
+Next planned package is A04 Inspector details after the accepted A02 contract.
+Do not start it from this A03 handoff. Subsequent order remains diagnostics/correlation/wait/mail/artifacts ->
 advanced debug/HTTP/workspaces/recovery -> HTTP MCP -> remaining UX/docs -> final
 capability/client/OS acceptance -> M14 -> M15. E/D conditions remain unchanged.
 

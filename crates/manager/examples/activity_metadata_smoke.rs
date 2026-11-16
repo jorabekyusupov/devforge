@@ -320,6 +320,8 @@ fn run() -> Result<()> {
         ToolInput::Log(LogInput {
             page: None,
             query: None,
+            since: None,
+            content: None,
             level: None,
         }),
         ToolInput::Mail(MailInput {

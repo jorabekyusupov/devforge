@@ -1495,3 +1495,20 @@ excluded. [Grant details](../architecture/external-grants.md#a02-explicit-conten
 - No rich content/SQL reader, bulk source access, visible permission UI, native
   consent/credential-service acceptance or A03 work is claimed. Windows CI coverage
   is portable backend/bridge coverage, not native user-interaction evidence.
+
+
+## A03 — scoped log content and cached doctor (2026-11-16)
+
+A03 builds on A02 in `codex/a03-log-health`. Explicit content or query requires
+LogContent for the registered project; authorization is rechecked at queue, read
+and output, with scoped frozen cursors. The noncreating reader filters only the
+bounded masked log/exception message projection, never raw stored content.
+Recognizable credential/Bearer/token patterns are masked on a best-effort basis;
+unknown unstructured secrets are not guaranteed removed. Metadata-only grants
+still receive no messages, and mail/Inspector content remains outside this slice.
+Cached doctor adds evidence and impact codes without implying live health.
+
+Focused inspector, shared contract, client/MCP and manager tests, scoped clippy,
+format and strict knowledge checks cover this slice; exact macOS/Windows CI belongs
+to the PR. Existing deferred ReportViews/locales remain excluded. A04 has not
+started. See [metadata contract](../architecture/metadata-diagnostics.md).

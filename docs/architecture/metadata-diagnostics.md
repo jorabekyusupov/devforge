@@ -9,10 +9,11 @@ all existing action opt-ins29); no new surface flag grants authority.
 
 ## Authority and output
 
-Current Observer grant, project registration/root/filesystem identity and
-revision are checked. This slice does not enable content InformationScope
-issuance. Any Some log query/mail subject/recipient filter, including an empty
-string, is denied before registration/source IO. MCP omits and rejects those
+In the original metadata slice, Observer grant, project registration/root/filesystem
+identity and revision were checked; content issuance and all log query/mail content
+filters were denied. A02 and A03 change issuance and log query as recorded below;
+mail subject/recipient filters, including an empty string, remain denied before
+registration/source IO. MCP omits and rejects those
 keys, including explicit null. Level/context metadata filters remain scoped.
 
 Outputs allow only health codes/retry/next-action IDs; Inspector context/method/
@@ -79,8 +80,39 @@ and subsequent M13.5/M13.9/M15 work. Publication and source references are in
 The [grant boundary](external-grants.md#a02-explicit-content-rights-2026-11-16)
 now supports explicit native-owner InformationScope selection. Metadata reads use
 its central `authorize_read(None)` gate at admission, dequeue/source and output.
-This does not turn content grants into live readers: the existing query/subject/
-recipient refusal remains before registration/source IO, even for a granted right.
+At A02, content grants did not install live readers and query/subject/recipient
+filters remained refused before source IO. A03 changes log query as described below;
+mail subject/recipient filters remain refused.
 Log/Inspector/mail/source-artifact/DB content consumers remain later packets.
 The initial statement about no issuance describes the original metadata slice;
 A02 changes issuance only, preserving its metadata-only output/privacy contract.
+
+
+## A03 scoped log content and actionable doctor (2026-11-16)
+
+`logs.search` keeps its metadata-only default. Explicit `content=true` or any
+`query` requires the grant's independent LogContent right, checked against the
+registered project and revision before source IO, during queued work, and before
+output. Wrong project, missing/expired/revoked right and foreign cursor fail closed.
+The cache binds the original client/grant, project, revision, content mode and
+filter; a separate source epoch distinguishes metadata and content windows. MCP
+and the Rust SDK expose the content request; the existing JSON CLI log command
+continues to expose metadata only.
+
+Content uses the existing noncreating, read-only project-scoped SQLite reader,
+with the existing 4,000-row/24-hour source bounds and a 4 MiB projected-window cap. The `since` timestamp
+and level filter also work for Observer metadata; explicit content/query needs
+LogContent. Only log/exception messages are projected; filtering occurs after bounded masking, never over raw body. The
+masker handles recognizable credential assignments, Bearer values, URI userinfo
+and long token patterns. It is best effort: arbitrary unlabeled secrets cannot be guaranteed
+removed, and LogContent remains explicit sensitive access. No separate raw context, stack,
+SQL, mail or bulk-file fields are returned. Empty and absent stores remain noncreating.
+
+Health doctor still reports cached snapshot origin and now includes stable evidence
+and impact codes next to the existing issue/retry/next-action codes. Missing runtime
+in the snapshot means not confirmed there, not a live process diagnosis. Additive
+optional fields preserve metadata clients. The scoped tests cover project/right/
+revoke/cursor isolation, metadata privacy, redacted-query inference, legacy and
+Bearer patterns, Unicode/control normalization and cached doctor evidence. Exact
+platform CI and limitations are recorded in the PR; no native UI or OS credential
+service acceptance is claimed by these tests.

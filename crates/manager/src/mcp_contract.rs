@@ -598,13 +598,16 @@ impl Protocol {
             .cloned()
             .unwrap_or_else(|| json!({}));
         let allowed: &[&str] = match name {
-            "logs.search" => &["page", "level"],
+            "logs.search" => &["page", "level", "query", "content", "since"],
             "inspector.request" => &["page", "context_id"],
             _ => &["page"],
         };
-        // Presence is rejected even for null/empty content filters, before any
-        // collector work is enqueued. Existing canonical None fields remain internal.
-        if !keys(&arguments, allowed) {
+        // Explicit null is not a content request; reject ambiguous wire input.
+        if !keys(&arguments, allowed)
+            || ["query", "content", "since"]
+                .iter()
+                .any(|key| arguments.get(key).is_some_and(Value::is_null))
+        {
             return Some(Err(()));
         }
         let tool = if name == "health.doctor" {
@@ -1930,7 +1933,8 @@ fn diagnostics_tool_definitions() -> Vec<Value> {
     };
     ["health.doctor","logs.search","inspector.request","mail.list"].into_iter().map(|name|{
         let mut schema=match name{"health.doctor"=>HealthInput::schema(),"logs.search"=>LogInput::schema(),"inspector.request"=>InspectorInput::schema(),_=>MailInput::schema()};
-        let properties=schema["properties"].as_object_mut().expect("fixed schema");for forbidden in ["query","subject","recipient"]{properties.remove(forbidden);}
-        json!({"name":name,"description":"Project-scoped Observer metadata only: classified health/log codes, normalized method/status/count/timing, or received mail IDs/time/attachment count. No raw names/data/stack/SQL/URL/headers/body/subject/recipient/links/artifacts. Content filters are rejected before collection; only log level/Inspector context are allowed. Forward opaque page cursor unchanged; CursorExpired requires a fresh request without cursor. Window epoch/high-water/low-water and row/byte truncation describe bounded source context; never mix mutable offsets or different contexts.","inputSchema":schema,"annotations":{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true,"openWorldHint":false}})
+        let properties=schema["properties"].as_object_mut().expect("fixed schema");for forbidden in ["subject","recipient"]{properties.remove(forbidden);}
+        if name == "logs.search" { properties.insert("query".into(),devforge_control::limits::Text::<256>::schema()); properties.insert("content".into(),bool::schema()); properties.insert("since".into(),devforge_control::limits::SafeInt::schema()); }
+        json!({"name":name,"description":if name=="logs.search"{"Project-scoped bounded log metadata. Set content=true or provide query to request redacted log content; both require the explicitly granted log_content right. Query searches only the redacted projection. Forward opaque page cursor unchanged; expired cursors require a fresh request."}else{"Project-scoped Observer metadata only: classified health codes, normalized Inspector method/status/count/timing, or mail IDs/time/attachment count. Mail content filters remain unavailable. Forward opaque page cursor unchanged; expired cursors require a fresh request."},"inputSchema":schema,"annotations":{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true,"openWorldHint":false}})
     }).collect()
 }
