@@ -46,6 +46,7 @@ pub struct Protocol {
     support_export_actions: bool,
     site_probe_actions: bool,
     debugger_actions: bool,
+    workspace_actions: bool,
 }
 pub enum Action {
     Reply(Value),
@@ -75,6 +76,16 @@ pub enum ExecutionInput {
     },
     Cancel {
         operation_id: Id,
+    },
+    WorkspaceList(Request<devforge_control::tools::WorkspaceListInput>),
+    WorkspacePrepare(Request<devforge_control::tools::WorkspacePrepareInput>),
+    WorkspacePlan(Request<MutationInput>),
+    WorkspaceApply {
+        request: Request<MutationInput>,
+        review: Digest,
+    },
+    WorkspaceLookup {
+        idempotency_key: Id,
     },
     DebuggerPlan(Request<MutationInput>),
     DebuggerApply {
@@ -293,6 +304,7 @@ impl Protocol {
             support_export_actions: false,
             site_probe_actions: false,
             debugger_actions: false,
+            workspace_actions: false,
         }
     }
     /// Surface selection only; grants and native exact-plan approval remain
@@ -349,6 +361,10 @@ impl Protocol {
     /// Surface selection is not permission or project trust.
     pub fn with_execution_actions(mut self, enabled: bool) -> Self {
         self.execution_actions = enabled;
+        self
+    }
+    pub fn with_workspace_actions(mut self, enabled: bool) -> Self {
+        self.workspace_actions = enabled;
         self
     }
     pub fn with_debugger_actions(mut self, enabled: bool) -> Self {
@@ -505,6 +521,15 @@ impl Protocol {
             };
         }
         if method == "tools/call"
+            && self.workspace_actions
+            && let Some(workspace) = self.workspace_tool(&params, id.clone(), version)
+        {
+            return match workspace {
+                Ok(call) => Action::Execution(call),
+                Err(()) => Action::Reply(rpc_error(Some(id), -32602, "Invalid params", None)),
+            };
+        }
+        if method == "tools/call"
             && self.debugger_actions
             && let Some(debugger) = self.debugger_tool(&params, id.clone(), version)
         {
@@ -607,7 +632,7 @@ impl Protocol {
                     return Action::Reply(rpc_success(
                         id,
                         version,
-                        json!({"tools":tool_definitions(self.service_actions,self.runtime_actions,self.environment_actions,self.database_actions,self.domain_actions,self.execution_actions,(self.support_export_actions,self.site_probe_actions,self.debugger_actions))}),
+                        json!({"tools":tool_definitions(self.service_actions,self.runtime_actions,self.environment_actions,self.database_actions,self.domain_actions,self.execution_actions,(self.support_export_actions,self.site_probe_actions,self.debugger_actions,self.workspace_actions))}),
                     ));
                 } else {
                     Err(())
@@ -1416,6 +1441,112 @@ impl Protocol {
             json!({"content":[{"type":"text","text":content.to_string()}],"structuredContent":content,"isError":is_error}),
         )
     }
+    fn workspace_tool(
+        &mut self,
+        params: &Value,
+        id: Value,
+        version: Version,
+    ) -> Option<Result<ExecutionCall, ()>> {
+        let name = params.get("name").and_then(Value::as_str)?;
+        if !matches!(
+            name,
+            "workspaces.list"
+                | "workspaces.prepare"
+                | "workspaces.create"
+                | "workspaces.archive"
+                | "workspaces.restore"
+                | "workspaces.purge"
+                | "workspaces.lookup"
+        ) {
+            return None;
+        }
+        if !keys(params, &["name", "arguments"]) {
+            return Some(Err(()));
+        }
+        let args = params
+            .get("arguments")
+            .cloned()
+            .unwrap_or_else(|| json!({}));
+        self.counter = self.counter.wrapping_add(1);
+        let request_id = Id::new(format!("mcp-{}", self.counter)).expect("fixed id");
+        let result = (|| {
+            if name == "workspaces.lookup" {
+                #[derive(Deserialize)]
+                #[serde(deny_unknown_fields)]
+                struct Lookup {
+                    idempotency_key: Id,
+                }
+                let parsed: Lookup = serde_json::from_value(args).map_err(|_| ())?;
+                return Ok(ExecutionInput::WorkspaceLookup {
+                    idempotency_key: parsed.idempotency_key,
+                });
+            }
+            if name == "workspaces.list" {
+                let input =
+                    serde_json::from_value::<devforge_control::tools::WorkspaceListInput>(args)
+                        .map_err(|_| ())?;
+                return Ok(ExecutionInput::WorkspaceList(Request {
+                    api_version: Default::default(),
+                    request_id: request_id.clone(),
+                    project_id: self.project.clone(),
+                    expected_revision: None,
+                    idempotency_key: None,
+                    input,
+                }));
+            }
+            if name == "workspaces.prepare" {
+                let input =
+                    serde_json::from_value::<devforge_control::tools::WorkspacePrepareInput>(args)
+                        .map_err(|_| ())?;
+                return Ok(ExecutionInput::WorkspacePrepare(Request {
+                    api_version: Default::default(),
+                    request_id: request_id.clone(),
+                    project_id: self.project.clone(),
+                    expected_revision: None,
+                    idempotency_key: None,
+                    input,
+                }));
+            }
+            #[derive(Deserialize)]
+            #[serde(deny_unknown_fields)]
+            struct Args {
+                action: String,
+                expected_revision: u64,
+                idempotency_key: Id,
+                input: Value,
+                review: Option<Digest>,
+            }
+            let parsed: Args = serde_json::from_value(args).map_err(|_| ())?;
+            if parsed.expected_revision > devforge_control::limits::SafeInt::MAX
+                || !matches!(parsed.action.as_str(), "plan" | "apply")
+                || (parsed.action == "apply") != parsed.review.is_some()
+            {
+                return Err(());
+            }
+            let input: MutationInput =
+                serde_json::from_value(json!({"tool":name,"arguments":parsed.input}))
+                    .map_err(|_| ())?;
+            let request = Request {
+                api_version: Default::default(),
+                request_id: request_id.clone(),
+                project_id: self.project.clone(),
+                expected_revision: Some(parsed.expected_revision),
+                idempotency_key: Some(parsed.idempotency_key),
+                input,
+            };
+            Ok(match parsed.review {
+                Some(review) => ExecutionInput::WorkspaceApply { request, review },
+                None => ExecutionInput::WorkspacePlan(request),
+            })
+        })();
+        Some(result.map(|input| ExecutionCall {
+            input,
+            request_id,
+            project_id: self.project.clone(),
+            id,
+            version,
+        }))
+    }
     fn debugger_tool(
         &mut self,
         params: &Value,
@@ -1714,6 +1845,7 @@ impl Protocol {
         let invalid = if matches!(
             call.input,
             ExecutionInput::Apply { .. }
+                | ExecutionInput::WorkspaceApply { .. }
                 | ExecutionInput::SupportApply { .. }
                 | ExecutionInput::DebuggerApply { .. }
         ) {
@@ -2220,9 +2352,35 @@ fn tool_definitions(
     database_actions: bool,
     domain_actions: bool,
     execution: bool,
-    (support_export, site_probe, debugger): (bool, bool, bool),
+    (support_export, site_probe, debugger, workspace): (bool, bool, bool, bool),
 ) -> Vec<Value> {
     let mut definitions = read_tool_definitions();
+    if workspace {
+        use devforge_control::export::Wire;
+        definitions.push(json!({"name":"workspaces.list","description":"Read bounded cached metadata for workspaces belonging to the bound project only; observed_at is the original observation time and truncated reports an incomplete list.","inputSchema":devforge_control::tools::WorkspaceListInput::schema(),"annotations":{"readOnlyHint":true,"openWorldHint":false}}));
+        definitions.push(json!({"name":"workspaces.prepare","description":"Prepare a private project-scoped worktree plan; content inspection or hashing requires explicit WorkspaceContentScan. Copying environment secrets additionally requires explicit WorkspaceSecretCopy and SensitiveOperation. Restore and purge are currently unavailable because safe owned-tree traversal is not established. Returns safe metadata and an opaque ticket, never raw content or arbitrary paths.","inputSchema":devforge_control::tools::WorkspacePrepareInput::schema(),"annotations":{"readOnlyHint":true,"openWorldHint":false}}));
+        for (name, schema) in [
+            (
+                "workspaces.create",
+                devforge_control::mutations::WorkspaceCreateInput::schema(),
+            ),
+            (
+                "workspaces.archive",
+                devforge_control::mutations::WorkspaceLifecycleInput::schema(),
+            ),
+            (
+                "workspaces.restore",
+                devforge_control::mutations::WorkspaceLifecycleInput::schema(),
+            ),
+            (
+                "workspaces.purge",
+                devforge_control::mutations::WorkspaceLifecycleInput::schema(),
+            ),
+        ] {
+            definitions.push(json!({"name":name,"description":if name=="workspaces.restore" || name=="workspaces.purge" {"Currently unavailable: safe owned-tree traversal is not established. No apply is admitted."} else {"Plan or apply a project-scoped worktree operation using its prepared opaque ticket. Native owner approval and granted rights are mandatory."},"inputSchema":{"type":"object","additionalProperties":false,"properties":{"action":{"enum":["plan","apply"]},"expected_revision":devforge_control::limits::SafeInt::schema(),"idempotency_key":Id::schema(),"input":schema,"review":Digest::schema()},"required":["action","expected_revision","idempotency_key","input"]},"annotations":{"readOnlyHint":false,"destructiveHint":name=="workspaces.purge","openWorldHint":false}}));
+        }
+        definitions.push(json!({"name":"workspaces.lookup","description":"Look up this client's own worktree operation by idempotency key.","inputSchema":{"type":"object","additionalProperties":false,"properties":{"idempotency_key":Id::schema()},"required":["idempotency_key"]},"annotations":{"readOnlyHint":true,"openWorldHint":false}}));
+    }
     if debugger {
         use devforge_control::export::Wire;
         definitions.push(json!({"name":"debugger.inspect","description":"Inspect bounded project debugger metadata. Stack and profile metadata require SourceArtifacts; primitive locals require the explicit DebuggerValues information grant. Values are best-effort redacted. No expression evaluation.","inputSchema":devforge_control::tools::DebuggerInspectInput::schema(),"annotations":{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true,"openWorldHint":false}}));

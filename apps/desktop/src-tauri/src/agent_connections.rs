@@ -124,6 +124,17 @@ pub enum Target {
         content_sha256: Digest,
         byte_count: u64,
     },
+    Workspace {
+        action: String,
+        workspace_id: Option<String>,
+        name: Option<String>,
+        branch: Option<String>,
+        base: Option<String>,
+        new_branch: Option<bool>,
+        database: Option<String>,
+        dependencies: Option<bool>,
+        copy_environment: Option<bool>,
+    },
     SupportExport {
         destination: String,
         content_sha256: Digest,
@@ -1001,6 +1012,12 @@ mod tests {
             )
             .is_ok()
         );
+        let workspace = json!({"kind":"workspace","action":"create","workspace_id":null,"name":"review","branch":"feature","base":"main","new_branch":true,"database":"clone","dependencies":false,"copy_environment":true,"source_path":"secret-path","environment_values":"secret-value"});
+        let target: Target = serde_json::from_value(workspace).unwrap();
+        let safe = serde_json::to_value(target).unwrap();
+        assert_eq!(safe["action"], "create");
+        assert_eq!(safe["database"], "clone");
+        assert!(safe.get("source_path").is_none() && safe.get("environment_values").is_none());
         let execution = json!({"kind":"execution","tool":"php","arg_count":2,"managed_test":true,"timeout_ms":1000,"context":{"environment":false,"database":false,"cache":false,"mail":false,"test_isolated":true},"safe_arguments":["[REDACTED]","owned-script.php"],"raw_arguments":["secret-execution-raw-canary"]});
         let target: Target = serde_json::from_value(execution).unwrap();
         let safe = serde_json::to_string(&target).unwrap();

@@ -128,6 +128,15 @@ fn copy_payload(
     Ok(())
 }
 impl Workspace {
+    /// Bind nested Git metadata subprocesses to the caller's cancellation token
+    /// for this owner-thread scope. The previous token is restored on return.
+    pub fn external_with_git_cancellation<T>(
+        &self,
+        cancel: &Cancellation,
+        action: impl FnOnce() -> Result<T>,
+    ) -> Result<T> {
+        git::with_read_cancellation(cancel, action)
+    }
     pub fn worktree_archive_plan(&self, id: &str, operation: &str) -> Result<ArchivePlan> {
         self.worktree_archive_review(id, operation, &Cancellation::default())
     }

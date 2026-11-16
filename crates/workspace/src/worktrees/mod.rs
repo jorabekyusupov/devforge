@@ -5,6 +5,7 @@ use sha2::{Digest, Sha256};
 use std::{ffi::OsString, io::Write};
 mod erase;
 mod git;
+pub use git::read_cancellation_guard;
 mod lifecycle;
 mod remote;
 fn digest(value: &impl Serialize) -> String {
@@ -26,6 +27,23 @@ fn atomic(path: &Path, value: &impl Serialize) -> Result<()> {
 }
 fn ordinary(path: &Path) -> bool {
     fs::symlink_metadata(path).is_ok_and(|m| m.is_dir() && !m.file_type().is_symlink())
+}
+/// Fail closed if the owned directory has become a link, reparse point or
+/// a different physical directory. Path-only identity is insufficient here.
+fn owned_directory_identity(path: &Path) -> Result<String> {
+    let meta = fs::symlink_metadata(path).map_err(|_| error("worktree_ownership"))?;
+    if !meta.is_dir()
+        || devforge_projects::discovery::is_link(&meta)
+        || fs::canonicalize(path).map_err(|_| error("worktree_ownership"))? != path
+    {
+        return Err(error("worktree_ownership"));
+    }
+    let identity =
+        devforge_projects::discovery::identity(path).map_err(|_| error("worktree_ownership"))?;
+    if !identity.starts_with("file:") {
+        return Err(error("worktree_ownership"));
+    }
+    Ok(identity)
 }
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -445,7 +463,36 @@ impl Workspace {
         trusted: bool,
         cancel: &Cancellation,
     ) -> Result<Record> {
+        self.worktree_create_inner(input, review, trusted, cancel, &|| Ok(()), false)
+    }
+    /// Recheck the admitted client grant immediately before each new effect.
+    /// The callback runs on the owner actor and must not queue actor work.
+    pub fn worktree_create_guarded(
+        &mut self,
+        input: Input,
+        review: &str,
+        trusted: bool,
+        cancel: &Cancellation,
+        check: &dyn Fn() -> Result<()>,
+    ) -> Result<Record> {
+        self.worktree_create_inner(input, review, trusted, cancel, check, true)
+    }
+    fn worktree_create_inner(
+        &mut self,
+        input: Input,
+        review: &str,
+        trusted: bool,
+        cancel: &Cancellation,
+        check: &dyn Fn() -> Result<()>,
+        strict_identity: bool,
+    ) -> Result<Record> {
+        check()?;
+        let _read_cancel = git::read_cancellation_guard(cancel);
         let _lock = self.worktree_lock()?;
+        let owner_root = self.root.join("worktrees");
+        let owner_identity = strict_identity
+            .then(|| owned_directory_identity(&owner_root))
+            .transpose()?;
         if !trusted {
             return Err(error("setup_trust_required"));
         }
@@ -466,9 +513,32 @@ impl Workspace {
             None
         };
         let common_dir = git::common(&self.root, &source.path)?;
+        check()?;
+        if let Some(expected) = &owner_identity
+            && &owned_directory_identity(&owner_root)? != expected
+        {
+            return Err(error("worktree_ownership"));
+        }
         let id = devforge_serving::id();
-        let dir = self.worktree_root()?.join(&id);
+        let dir = owner_root.join(&id);
         fs::create_dir(&dir)?;
+        let child_identity = strict_identity
+            .then(|| owned_directory_identity(&dir))
+            .transpose()?;
+        let verify_owned = || -> Result<()> {
+            if let (Some(owner), Some(child)) = (&owner_identity, &child_identity)
+                && (&owned_directory_identity(&owner_root)? != owner
+                    || &owned_directory_identity(&dir)? != child)
+            {
+                return Err(error("worktree_ownership"));
+            }
+            Ok(())
+        };
+        let scoped_check = || -> Result<()> {
+            check()?;
+            verify_owned()
+        };
+        scoped_check()?;
         let mut configuration = plan.configuration;
         configuration.project.name = input.name.clone();
         configuration.project.domain = plan.domain.clone();
@@ -499,11 +569,14 @@ impl Workspace {
             &mut record,
             &source,
             &plan.packages,
-            &plan.source_database,
-            plan.sqlite,
+            (&plan.source_database, plan.sqlite),
             cancel,
+            &scoped_check,
         );
         if let Err(mut e) = result {
+            // Never write a recovery receipt into a substituted directory, even
+            // when a prior grant check failed or a filesystem race occurred.
+            verify_owned()?;
             record.stage = "failed".into();
             record.last_error = Some(e.code.clone());
             self.save_worktree(&record)?;
@@ -528,12 +601,14 @@ impl Workspace {
         record: &mut Record,
         source: &Project,
         packages: &BTreeMap<String, String>,
-        source_database: &Option<Binding>,
-        sqlite: bool,
+        database: (&Option<Binding>, bool),
         cancel: &Cancellation,
+        check: &dyn Fn() -> Result<()>,
     ) -> Result<()> {
+        let (source_database, sqlite) = database;
         let result = (|| {
             for id in packages.values() {
+                check()?;
                 self.packages
                     .download(self.catalog.get(id)?, cancel, |_| {})?;
             }
@@ -555,6 +630,7 @@ impl Workspace {
                 }
                 .into(),
             ]);
+            check()?;
             self.worktree_stage(record, "checkout")?;
             if record.isolated {
                 git::run(
@@ -571,6 +647,7 @@ impl Workspace {
                     true,
                     cancel,
                 )?;
+                check()?;
                 git::run(
                     &self.root,
                     &path,
@@ -584,6 +661,7 @@ impl Workspace {
                     true,
                     cancel,
                 )?;
+                check()?;
                 git::run(
                     &self.root,
                     &path,
@@ -631,12 +709,15 @@ impl Workspace {
             if path.join(".env").exists() {
                 return Err(error("worktree_committed_env"));
             }
+            check()?;
             let child = self.import_worktree_project(&path, &record.input.name, source)?;
             record.project_id = Some(child.id.clone());
             self.save_worktree(record)?;
+            check()?;
             self.projects
                 .claim_worktree(&child.id, child.revision, &record.id)?;
             let id = &child.id;
+            check()?;
             self.sites.configure(
                 &self.projects,
                 Site {
@@ -646,6 +727,7 @@ impl Workspace {
                     vite: record.configuration.project.vite,
                 },
             )?;
+            check()?;
             devforge_projects::php_settings::save(
                 &self.projects,
                 id,
@@ -659,6 +741,7 @@ impl Workspace {
                 },
             );
             self.save()?;
+            check()?;
             if let Some(env) = EnvPlan::application(&self.projects, id, true, true)? {
                 env.apply(&self.projects)?;
             }
@@ -668,6 +751,7 @@ impl Workspace {
                     {
                         continue;
                     }
+                    check()?;
                     let key = source
                         .environment_references
                         .get(name)
@@ -679,6 +763,7 @@ impl Workspace {
                             .map_err(|_| error("manifest_secret_unavailable"))?
                             .ok_or_else(|| error("manifest_secret_missing"))?,
                     );
+                    check()?;
                     let p = self.projects.get(id)?;
                     devforge_projects::environment::set(
                         &self.projects,
@@ -690,18 +775,22 @@ impl Workspace {
                     )?;
                 }
             }
+            check()?;
             self.worktree_stage(record, "database")?;
             if digest(&self.projects.binding(&source.id)?) != digest(source_database) {
                 return Err(error("worktree_review_changed"));
             }
             if let Some(binding) = source_database {
+                check()?;
                 self.ensure_database(&binding.instance_id)?;
+                check()?;
                 self.databases
                     .get_mut(&binding.instance_id)
                     .unwrap()
                     .provision(&self.projects, &child, self.secrets.as_ref())?;
                 if record.input.database == DatabaseMode::Clone {
                     self.require_stopped(&source.id)?;
+                    check()?;
                     let backup = self.create_backup(&source.id, cancel)?;
                     if digest(&self.projects.binding(&source.id)?) != digest(source_database) {
                         return Err(error("worktree_review_changed"));
@@ -715,12 +804,15 @@ impl Workspace {
                             .ok_or_else(|| error("worktree_database_failed"))?,
                         &archive,
                     )?;
+                    check()?;
                     let imported = self.projects.import_backup(id, &archive)?;
+                    check()?;
                     self.restore_backup(id, &imported.id, true, cancel)?;
                 }
             } else if sqlite {
                 let database = devforge_projects::workspace_sqlite::location(&path)
                     .map_err(|_| error("worktree_sqlite_scope"))?;
+                check()?;
                 if record.input.database == DatabaseMode::Clone {
                     devforge_projects::workspace_sqlite::snapshot(
                         &devforge_projects::workspace_sqlite::location(&source.path)?,
@@ -733,6 +825,7 @@ impl Workspace {
                         .open(&database)?;
                 }
                 // Reserved DB_* overrides live in .env, not the generic secret namespace.
+                check()?;
                 EnvPlan::overrides(
                     &self.projects,
                     id,
@@ -754,6 +847,7 @@ impl Workspace {
                     &serde_json::json!({"sqlite_started":true,"sqlite_complete":false}),
                 )?;
             }
+            check()?;
             self.worktree_stage(record, "prepare")?;
             if path.join("composer.json").is_file() {
                 let contents = devforge_projects::manifest::read_file(
@@ -763,10 +857,12 @@ impl Workspace {
                 let json: serde_json::Value =
                     serde_json::from_slice(&contents).map_err(|_| error("worktree_git_failed"))?;
                 if json["require-dev"]["devforge/laravel-inspector"].is_string() {
+                    check()?;
                     devforge_inspector::materialize(&path)
                         .map_err(|_| error("inspection_package_conflict"))?;
                 }
             }
+            check()?;
             self.prepare_project(
                 id,
                 &setup::PrepareOptions {
@@ -780,6 +876,7 @@ impl Workspace {
                 },
                 cancel,
             )?;
+            check()?;
             if let Some(redis) = packages.get("redis") {
                 let cache = self.projects.initialize_cache(
                     id,
@@ -811,9 +908,11 @@ impl Workspace {
                     },
                 )?;
             }
+            check()?;
             if record.configuration.mail == Some(true) {
                 self.configure_mail(id, true)?;
             }
+            check()?;
             EnvPlan::profile(
                 &self.projects,
                 id,
@@ -824,6 +923,7 @@ impl Workspace {
             if cancel.is_cancelled() {
                 return Err(error("setup_cancelled"));
             }
+            check()?;
             atomic(
                 &self.worktree_dir(&record.id)?.join("configuration.json"),
                 &record.configuration,

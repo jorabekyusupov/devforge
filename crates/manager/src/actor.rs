@@ -256,6 +256,7 @@ enum Message {
     Environment(Box<crate::environment_control::EnvironmentRead>),
     Database(Box<crate::database_control::DatabaseRead>),
     Domain(Box<crate::domain_control::DomainRead>),
+    WorkspaceRead(Box<crate::workspace_control::WorkspaceRead>),
     Metadata(Box<crate::diagnostics::MetadataRead>),
     #[cfg(feature = "test-support")]
     TestPaused {
@@ -444,6 +445,12 @@ impl ActorHandle {
         query: crate::database_control::DatabaseRead,
     ) -> Result<()> {
         self.queue_private(Message::Database(Box::new(query)))
+    }
+    pub(crate) fn queue_workspace(
+        &self,
+        query: crate::workspace_control::WorkspaceRead,
+    ) -> Result<()> {
+        self.queue_private(Message::WorkspaceRead(Box::new(query)))
     }
     pub(crate) fn queue_domain(&self, query: crate::domain_control::DomainRead) -> Result<()> {
         self.queue_private(Message::Domain(Box::new(query)))
@@ -1487,6 +1494,15 @@ fn worker_loop(
                             project_id: None,
                         }));
                     }
+                    Message::WorkspaceRead(query) => {
+                        shared.environment_queued.fetch_sub(1, Ordering::AcqRel);
+                        shared.environment_reads.fetch_sub(1, Ordering::AcqRel);
+                        let _ = query.reply.send(Err(devforge_workspace::Error {
+                            scope: "workspace",
+                            code: "interrupted".into(),
+                            project_id: None,
+                        }));
+                    }
                     Message::Domain(query) => {
                         shared.environment_queued.fetch_sub(1, Ordering::AcqRel);
                         shared.environment_reads.fetch_sub(1, Ordering::AcqRel);
@@ -1571,6 +1587,13 @@ fn worker_loop(
                 shared.environment_reads.fetch_sub(1, Ordering::AcqRel);
             }
             Message::Database(query) => {
+                shared.environment_queued.fetch_sub(1, Ordering::AcqRel);
+                shared.active.store(true, Ordering::Release);
+                query.execute(&workspace);
+                shared.active.store(false, Ordering::Release);
+                shared.environment_reads.fetch_sub(1, Ordering::AcqRel);
+            }
+            Message::WorkspaceRead(query) => {
                 shared.environment_queued.fetch_sub(1, Ordering::AcqRel);
                 shared.active.store(true, Ordering::Release);
                 query.execute(&workspace);

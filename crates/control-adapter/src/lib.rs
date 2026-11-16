@@ -39,6 +39,9 @@ impl<'a> BackendContext<'a> {
 }
 /// Configuration planning is a read-only domain method, not a Command mutation.
 pub enum Dispatch {
+    WorkspaceAction {
+        project_id: String,
+    },
     DebuggerInstall {
         project_id: String,
         input: devforge_control::mutations::DebuggerInstallInput,
@@ -298,23 +301,17 @@ pub fn map_mutation(
                 cleanup: true,
             });
         }
-        MutationInput::WorkspaceArchive(input) => Command::WorktreeCleanup {
-            id: workspace_id(prepared, &input.workspace_id, context)?,
-            review: backend_review(prepared, context)?.into(),
-            consent: true,
-        },
-        MutationInput::WorkspaceRestore(input) => Command::WorktreeArchive {
-            id: workspace_id(prepared, &input.workspace_id, context)?,
-            operation: "restore".into(),
-            review: backend_review(prepared, context)?.into(),
-            consent: true,
-        },
-        MutationInput::WorkspacePurge(input) => Command::WorktreeArchive {
-            id: workspace_id(prepared, &input.workspace_id, context)?,
-            operation: "purge".into(),
-            review: backend_review(prepared, context)?.into(),
-            consent: true,
-        },
+        MutationInput::WorkspaceCreate(_) => {
+            backend_review(prepared, context)?;
+            return Ok(Dispatch::WorkspaceAction { project_id: id });
+        }
+        MutationInput::WorkspaceArchive(input)
+        | MutationInput::WorkspaceRestore(input)
+        | MutationInput::WorkspacePurge(input) => {
+            backend_review(prepared, context)?;
+            workspace_id(prepared, &input.workspace_id, context)?;
+            return Ok(Dispatch::WorkspaceAction { project_id: id });
+        }
     };
     Ok(Dispatch::Command(Box::new(command)))
 }

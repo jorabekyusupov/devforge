@@ -589,3 +589,84 @@ fn configuration_refuses_a_replaced_registered_directory() {
         "discovery_unavailable"
     );
 }
+
+#[test]
+fn worktree_create_guard_refuses_before_reservation_and_preserves_source() {
+    let temp = tempfile::tempdir().unwrap();
+    let (mut w, id, input) = fixture(temp.path());
+    let source = w.projects.get(&id).unwrap();
+    let head = git(&source.path, &["rev-parse", "HEAD"]);
+    let plan = w.worktree_plan(&input).unwrap();
+    let records_before = w.worktrees().unwrap().len();
+    let calls = std::cell::Cell::new(0);
+    let deny_after_plan = || {
+        let next = calls.get() + 1;
+        calls.set(next);
+        if next >= 2 {
+            Err(devforge_workspace::Error {
+                scope: "workspace",
+                code: "grant_revoked".into(),
+                project_id: None,
+            })
+        } else {
+            Ok(())
+        }
+    };
+    let result = w.worktree_create_guarded(
+        input,
+        &plan.digest,
+        true,
+        &Default::default(),
+        &deny_after_plan,
+    );
+    assert_eq!(result.err().unwrap().code, "grant_revoked");
+    assert_eq!(git(&source.path, &["rev-parse", "HEAD"]), head);
+    assert_eq!(w.projects.list().unwrap().len(), 1);
+    assert_eq!(w.worktrees().unwrap().len(), records_before);
+}
+
+#[cfg(unix)]
+#[test]
+fn worktree_create_refuses_substituted_owner_or_reserved_directory() {
+    use std::cell::Cell;
+    for replace_at in [2, 3] {
+        let temp = tempfile::tempdir().unwrap();
+        let (mut w, id, input) = fixture(temp.path());
+        let source = w.projects.get(&id).unwrap();
+        let head = git(&source.path, &["rev-parse", "HEAD"]);
+        let plan = w.worktree_plan(&input).unwrap();
+        let root = temp.path().join("data/worktrees");
+        let calls = Cell::new(0);
+        let replacement = std::cell::RefCell::new(None::<std::path::PathBuf>);
+        let guard = || {
+            let n = calls.get() + 1;
+            calls.set(n);
+            if n == replace_at {
+                let target = if n == 2 {
+                    root.clone()
+                } else {
+                    fs::read_dir(&root)
+                        .unwrap()
+                        .map(|e| e.unwrap().path())
+                        .find(|p| p.is_dir())
+                        .unwrap()
+                };
+                let old = target.with_extension("moved");
+                fs::rename(&target, &old).unwrap();
+                fs::create_dir(&target).unwrap();
+                *replacement.borrow_mut() = Some(target);
+            }
+            Ok(())
+        };
+        let result =
+            w.worktree_create_guarded(input, &plan.digest, true, &Default::default(), &guard);
+        assert_eq!(result.err().unwrap().code, "worktree_ownership");
+        let replaced = replacement.borrow().clone().unwrap();
+        assert!(
+            !replaced.join("receipt.json").exists(),
+            "must not write into substituted directory"
+        );
+        assert_eq!(git(&source.path, &["rev-parse", "HEAD"]), head);
+        assert_eq!(w.projects.list().unwrap().len(), 1);
+    }
+}

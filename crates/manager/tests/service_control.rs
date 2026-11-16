@@ -32,11 +32,14 @@ fn id(v: &str) -> Id {
 #[derive(Default)]
 struct Memory {
     values: Mutex<BTreeMap<String, String>>,
+    get_count: std::sync::atomic::AtomicUsize,
     gate: Mutex<(bool, bool)>,
     ready: Condvar,
 }
 impl SecretStore for Memory {
     fn get(&self, k: &str) -> Result<Option<String>, CoreError> {
+        self.get_count
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         Ok(self.values.lock().unwrap().get(k).cloned())
     }
     fn set(&self, k: &str, v: &str) -> Result<(), CoreError> {
@@ -5605,5 +5608,545 @@ fn a09_breakpoints_reject_active_session_without_changing_project() {
     assert_eq!(
         after["debugger"]["breakpoints"],
         before["debugger"]["breakpoints"]
+    );
+}
+
+#[test]
+fn a10_workspace_list_and_preparation_are_project_bound_and_noncreating() {
+    use devforge_control::tools::{
+        WorkspaceListInput, WorkspacePrepareAction, WorkspacePrepareInput,
+    };
+    let mut rig = Rig::new(None);
+    let source = rig.projects[0].clone();
+    let foreign = rig.projects[1].clone();
+    let owner = rig
+        .native
+        .issue_external_grant(
+            &id(&source.id),
+            &[Scope::Observer],
+            Duration::from_secs(600),
+        )
+        .unwrap();
+    let mut client = rig.diagnostics(&owner);
+    let list = |project: &str, revision| Request {
+        api_version: Default::default(),
+        request_id: id("a10-list"),
+        project_id: id(project),
+        expected_revision: revision,
+        idempotency_key: None,
+        input: WorkspaceListInput {},
+    };
+    let root = rig.root.path().join("worktrees");
+    let before = root.exists();
+    let result = client
+        .workspace_list(&list(&source.id, Some(source.revision)))
+        .unwrap();
+    assert!(result.data().is_some());
+    assert_eq!(
+        root.exists(),
+        before,
+        "read must not create worktree storage"
+    );
+    for project in [&foreign.id[..], "missing-project"] {
+        let result = client.workspace_list(&list(project, None)).unwrap();
+        assert_eq!(result.error().unwrap().code, ErrorCode::ProjectMismatch);
+    }
+    let stale = client
+        .workspace_list(&list(&source.id, Some(source.revision + 1)))
+        .unwrap();
+    assert_eq!(stale.error().unwrap().code, ErrorCode::RevisionConflict);
+    let prep = Request {
+        api_version: Default::default(),
+        request_id: id("a10-prepare"),
+        project_id: id(&source.id),
+        expected_revision: Some(source.revision),
+        idempotency_key: None,
+        input: WorkspacePrepareInput {
+            action: WorkspacePrepareAction::Archive,
+            workspace_id: Some(id("unowned")),
+            name: None,
+            branch: None,
+            base: None,
+            new_branch: None,
+            database: None,
+            dependencies: None,
+            copy_environment: None,
+        },
+    };
+    assert!(client.workspace_prepare(&prep).unwrap().data().is_none());
+    assert_eq!(root.exists(), before);
+    rig.native
+        .revoke_external_grant(&owner.record.grant_id)
+        .unwrap();
+    let revoked = client
+        .workspace_list(&list(&source.id, Some(source.revision)))
+        .unwrap();
+    assert_eq!(revoked.error().unwrap().code, ErrorCode::GrantRevoked);
+    assert_eq!(root.exists(), before);
+}
+
+#[test]
+fn a10_workspace_create_preview_ticket_is_bound_and_requires_exact_review() {
+    use devforge_control::{
+        limits::Text,
+        mutations::WorkspaceCreateInput,
+        tools::{WorkspaceDatabase, WorkspacePrepareAction, WorkspacePrepareInput},
+    };
+    use devforge_manager::service_control::{ReviewState, ReviewTarget};
+    use std::process::Command;
+    let mut rig = Rig::new(None);
+    rig.runtime_metadata();
+    let project = rig.projects[0].clone();
+    let source = project.path.clone();
+    std::fs::write(source.join("devforge.yaml"), environment_yaml(&rig, 0)).unwrap();
+    let git = |args: &[&str]| {
+        let out = Command::new("git")
+            .arg("-C")
+            .arg(&source)
+            .args(args)
+            .output()
+            .unwrap();
+        assert!(
+            out.status.success(),
+            "git: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        String::from_utf8(out.stdout).unwrap().trim().to_string()
+    };
+    git(&["init", "-q"]);
+    git(&["config", "user.name", "Fixture"]);
+    git(&["config", "user.email", "fixture@example.test"]);
+    git(&["add", "."]);
+    git(&["commit", "-qm", "base"]);
+    let head = git(&["rev-parse", "HEAD"]);
+    let observer = rig
+        .native
+        .issue_external_grant(
+            &id(&project.id),
+            &[Scope::Observer],
+            Duration::from_secs(600),
+        )
+        .unwrap();
+    let rights = [Scope::Observer, Scope::ProjectManage, Scope::ExecutionTest];
+    let info = [devforge_control::InformationScope::WorkspaceContentScan];
+    let full = rig
+        .native
+        .issue_external_grant_with_information(
+            &id(&project.id),
+            &rights,
+            &info,
+            Duration::from_secs(600),
+        )
+        .unwrap();
+    let other = rig
+        .native
+        .issue_external_grant_with_information(
+            &id(&project.id),
+            &rights,
+            &info,
+            Duration::from_secs(600),
+        )
+        .unwrap();
+    let mut client = rig.diagnostics(&full);
+    let mut unprivileged = rig.diagnostics(&observer);
+    let mut alien = rig.diagnostics(&other);
+    let input = WorkspacePrepareInput {
+        action: WorkspacePrepareAction::Create,
+        workspace_id: None,
+        name: Some(Text::new("A10 child".into()).unwrap()),
+        branch: Some(Text::new("a10-child".into()).unwrap()),
+        base: Some(Text::new("HEAD".into()).unwrap()),
+        new_branch: Some(true),
+        database: Some(WorkspaceDatabase::Empty),
+        dependencies: Some(false),
+        copy_environment: Some(false),
+    };
+    let req = Request {
+        api_version: Default::default(),
+        request_id: id("a10-preview"),
+        project_id: id(&project.id),
+        expected_revision: Some(project.revision),
+        idempotency_key: None,
+        input,
+    };
+    // An old Observer grant must be denied before inspecting a broken source.
+    let gitdir = source.join(".git");
+    let held = source.join(".git-fixture-held");
+    std::fs::rename(&gitdir, &held).unwrap();
+    let denied_before_io = unprivileged.workspace_prepare(&req).unwrap();
+    assert_eq!(
+        denied_before_io.error().unwrap().code,
+        ErrorCode::Unauthorized
+    );
+    std::fs::rename(&held, &gitdir).unwrap();
+    // Secret copy and database clone are independent sensitive authorities.
+    // A broken .git makes any attempted source scan fail before a permission gate.
+    // The secret-store counter additionally proves no credential lookup happened.
+    let mut copy_req = req.clone();
+    copy_req.input.copy_environment = Some(true);
+    assert!(
+        !full
+            .record
+            .information
+            .contains(&devforge_control::InformationScope::WorkspaceSecretCopy)
+    );
+    let sensitive_scopes = [
+        Scope::Observer,
+        Scope::ProjectManage,
+        Scope::ExecutionTest,
+        Scope::SensitiveOperation,
+    ];
+    let secret_info = [
+        devforge_control::InformationScope::WorkspaceContentScan,
+        devforge_control::InformationScope::WorkspaceSecretCopy,
+    ];
+    let sensitive_only = rig
+        .native
+        .issue_external_grant_with_information(
+            &id(&project.id),
+            &sensitive_scopes,
+            &info,
+            Duration::from_secs(600),
+        )
+        .unwrap();
+    let secret_only = rig
+        .native
+        .issue_external_grant_with_information(
+            &id(&project.id),
+            &rights,
+            &secret_info,
+            Duration::from_secs(600),
+        )
+        .unwrap();
+    let authorized = rig
+        .native
+        .issue_external_grant_with_information(
+            &id(&project.id),
+            &sensitive_scopes,
+            &secret_info,
+            Duration::from_secs(600),
+        )
+        .unwrap();
+    let mut sensitive_client = rig.diagnostics(&sensitive_only);
+    let mut secret_client = rig.diagnostics(&secret_only);
+    let mut authorized_client = rig.diagnostics(&authorized);
+    std::fs::rename(&gitdir, &held).unwrap();
+    let secret_gets = rig
+        .secrets
+        .get_count
+        .load(std::sync::atomic::Ordering::SeqCst);
+    for denied in [&mut client, &mut sensitive_client, &mut secret_client] {
+        let result = denied.workspace_prepare(&copy_req).unwrap();
+        assert_eq!(result.error().unwrap().code, ErrorCode::Unauthorized);
+    }
+    assert_eq!(
+        rig.secrets
+            .get_count
+            .load(std::sync::atomic::Ordering::SeqCst),
+        secret_gets,
+        "denied copy must not read secret store"
+    );
+    let mut no_sensitive_clone = req.clone();
+    no_sensitive_clone.input.database = Some(WorkspaceDatabase::Clone);
+    let denied = client.workspace_prepare(&no_sensitive_clone).unwrap();
+    assert_eq!(
+        denied.error().unwrap().code,
+        ErrorCode::Unauthorized,
+        "clone denied before Git or DB source inspection"
+    );
+    std::fs::rename(&held, &gitdir).unwrap();
+    let allowed_copy = authorized_client.workspace_prepare(&copy_req).unwrap();
+    assert!(
+        allowed_copy.data().is_some(),
+        "both explicit rights should admit preview: {:?}",
+        allowed_copy.error()
+    );
+    let copy_plan = env_request(
+        &project.id,
+        project.revision,
+        "a10-copy-secret",
+        MutationInput::WorkspaceCreate(WorkspaceCreateInput {
+            plan: allowed_copy.data().unwrap().plan.clone().unwrap(),
+            limits: None,
+        }),
+    );
+    let exact = authorized_client
+        .workspace_plan(&copy_plan)
+        .unwrap()
+        .data()
+        .unwrap()
+        .clone();
+    let review = rig
+        .native
+        .pending_reviews()
+        .unwrap()
+        .into_iter()
+        .find(|v| v.digest == exact.digest)
+        .unwrap();
+    assert!(
+        matches!(&review.target,ReviewTarget::Workspace{action,copy_environment:Some(true),..} if action=="create")
+    );
+    assert_eq!(review.state, ReviewState::Pending);
+    rig.native.approve_service_plan(&exact.digest).unwrap();
+    let mut clone_req = req.clone();
+    clone_req.input.database = Some(WorkspaceDatabase::Clone);
+    let clone_preview = sensitive_client.workspace_prepare(&clone_req).unwrap();
+    if let Some(clone_data) = clone_preview.data() {
+        assert!(
+            clone_data
+                .blockers
+                .iter()
+                .any(|b| b.as_str() == "worktree_sqlite_scope")
+        );
+        assert!(
+            clone_data.plan.is_none(),
+            "unowned SQLite must not receive an executable ticket"
+        );
+    } else {
+        assert!(clone_preview.error().is_some());
+    }
+    let preview = client.workspace_prepare(&req).unwrap();
+    assert!(preview.error().is_none(), "{:?}", preview.error());
+    let preview = preview.data().unwrap();
+    assert!(preview.blockers.is_empty(), "{:?}", preview.blockers);
+    let ticket = preview.plan.clone().unwrap();
+    let raw = serde_json::to_string(preview).unwrap();
+    assert!(!raw.contains(source.to_str().unwrap()));
+    let mutation = env_request(
+        &project.id,
+        project.revision,
+        "a10-create",
+        MutationInput::WorkspaceCreate(WorkspaceCreateInput {
+            plan: ticket.clone(),
+            limits: None,
+        }),
+    );
+    let denied = unprivileged.workspace_plan(&mutation).unwrap();
+    assert!(matches!(
+        denied.error().unwrap().code,
+        ErrorCode::Unauthorized
+    ));
+    let denied = alien.workspace_plan(&mutation).unwrap();
+    assert!(matches!(
+        denied.error().unwrap().code,
+        ErrorCode::Unauthorized | ErrorCode::ReviewMismatch | ErrorCode::ReviewExpired
+    ));
+    let plan = client
+        .workspace_plan(&mutation)
+        .unwrap()
+        .data()
+        .unwrap()
+        .clone();
+    let pending = rig.native.pending_reviews().unwrap();
+    let review = pending.iter().find(|v| v.digest == plan.digest).unwrap();
+    assert_eq!(review.state, ReviewState::Pending);
+    assert!(matches!(&review.target,ReviewTarget::Workspace{action,..} if action=="create"));
+    let denied = client.workspace_apply(&mutation, &plan.digest).unwrap();
+    assert!(denied.data().is_none());
+    assert_eq!(git(&["rev-parse", "HEAD"]), head);
+    rig.native.approve_service_plan(&plan.digest).unwrap();
+    std::fs::write(source.join("dirty-canary"), "untouched source").unwrap();
+    let stale = client.workspace_apply(&mutation, &plan.digest).unwrap();
+    assert!(stale.data().is_none());
+    assert_eq!(git(&["rev-parse", "HEAD"]), head);
+    assert_eq!(
+        std::fs::read_to_string(source.join("dirty-canary")).unwrap(),
+        "untouched source"
+    );
+}
+
+#[test]
+fn a10_workspace_mutation_rejects_foreign_ids_before_project_lookup() {
+    use devforge_control::{Digest, mutations::WorkspaceCreateInput};
+    let mut rig = Rig::new(None);
+    let own = rig.projects[0].clone();
+    let foreign = rig.projects[1].clone();
+    let grant = rig.grant(0, true);
+    let mut client = rig.diagnostics(&grant);
+    let before = rig.root.path().join("worktrees").exists();
+    let ticket = Digest::new("a".repeat(64)).unwrap();
+    for project in [&foreign.id[..], "missing-project"] {
+        let request = env_request(
+            project,
+            own.revision,
+            "a10-foreign",
+            MutationInput::WorkspaceCreate(WorkspaceCreateInput {
+                plan: ticket.clone(),
+                limits: None,
+            }),
+        );
+        let plan = client.workspace_plan(&request).unwrap();
+        assert_eq!(
+            plan.error().unwrap().code,
+            ErrorCode::ProjectMismatch,
+            "existing and missing foreign IDs must not be distinguishable"
+        );
+        let applied = client.workspace_apply(&request, &ticket).unwrap();
+        assert_eq!(applied.error().unwrap().code, ErrorCode::ProjectMismatch);
+        let found = client
+            .workspace_lookup(id("a10-foreign-lookup"), &id(project), &id("a10-foreign"))
+            .unwrap();
+        assert_eq!(found.error().unwrap().code, ErrorCode::ProjectMismatch);
+    }
+    assert_eq!(rig.root.path().join("worktrees").exists(), before);
+}
+
+#[test]
+fn a10_restore_and_purge_fail_closed_before_untrusted_workspace_io() {
+    use devforge_control::{
+        InformationScope,
+        tools::{WorkspacePrepareAction, WorkspacePrepareInput},
+    };
+    let mut rig = Rig::new(None);
+    let project = rig.projects[0].clone();
+    let grant = rig
+        .native
+        .issue_external_grant_with_information(
+            &id(&project.id),
+            &[
+                Scope::Observer,
+                Scope::ProjectManage,
+                Scope::SensitiveOperation,
+            ],
+            &[InformationScope::WorkspaceContentScan],
+            Duration::from_secs(600),
+        )
+        .unwrap();
+    let worktrees = rig.root.path().join("worktrees");
+    std::fs::create_dir_all(&worktrees).unwrap();
+    let outside = rig.root.path().join("outside-canary");
+    std::fs::create_dir_all(&outside).unwrap();
+    std::fs::write(outside.join("receipt.json"), b"A10_UNTRUSTED_CANARY").unwrap();
+    let name = "f".repeat(32);
+    let child = worktrees.join(&name);
+    #[cfg(unix)]
+    std::os::unix::fs::symlink(&outside, &child).unwrap();
+    #[cfg(not(unix))]
+    std::fs::create_dir(&child).unwrap();
+    let mut client = rig.diagnostics(&grant);
+    for action in [
+        WorkspacePrepareAction::Archive,
+        WorkspacePrepareAction::Restore,
+        WorkspacePrepareAction::Purge,
+    ] {
+        let req = Request {
+            api_version: Default::default(),
+            request_id: id("a10-no-unsafe-scan"),
+            project_id: id(&project.id),
+            expected_revision: Some(project.revision),
+            idempotency_key: None,
+            input: WorkspacePrepareInput {
+                action,
+                workspace_id: Some(id(&name)),
+                name: None,
+                branch: None,
+                base: None,
+                new_branch: None,
+                database: None,
+                dependencies: None,
+                copy_environment: None,
+            },
+        };
+        let response = client.workspace_prepare(&req).unwrap();
+        assert_eq!(
+            response.error().unwrap().code,
+            ErrorCode::UnsupportedCapability
+        );
+    }
+    assert_eq!(
+        std::fs::read(outside.join("receipt.json")).unwrap(),
+        b"A10_UNTRUSTED_CANARY"
+    );
+    #[cfg(unix)]
+    assert!(
+        std::fs::symlink_metadata(&child)
+            .unwrap()
+            .file_type()
+            .is_symlink()
+    );
+}
+
+#[test]
+fn a10_delayed_workspace_preview_returns_no_ticket_and_does_not_mutate() {
+    use devforge_control::{
+        InformationScope,
+        limits::Text,
+        tools::{WorkspaceDatabase, WorkspacePrepareAction, WorkspacePrepareInput},
+    };
+    let mut rig = Rig::new(None);
+    let project = rig.projects[0].clone();
+    let source = project.path.clone();
+    let marker = source.join("a10-delayed-canary");
+    std::fs::write(&marker, b"unchanged").unwrap();
+    let grant = rig
+        .native
+        .issue_external_grant_with_information(
+            &id(&project.id),
+            &[Scope::Observer],
+            &[InformationScope::WorkspaceContentScan],
+            Duration::from_secs(600),
+        )
+        .unwrap();
+    let request = Request {
+        api_version: Default::default(),
+        request_id: id("a10-delayed-preview"),
+        project_id: id(&project.id),
+        expected_revision: Some(project.revision),
+        idempotency_key: None,
+        input: WorkspacePrepareInput {
+            action: WorkspacePrepareAction::Create,
+            workspace_id: None,
+            name: Some(Text::new("Child".into()).unwrap()),
+            branch: Some(Text::new("a10-delayed".into()).unwrap()),
+            base: Some(Text::new("HEAD".into()).unwrap()),
+            new_branch: Some(true),
+            database: Some(WorkspaceDatabase::Empty),
+            dependencies: Some(false),
+            copy_environment: Some(false),
+        },
+    };
+    let root = rig.root.path().join("worktrees");
+    let existed = root.exists();
+    let release = rig.block();
+    let endpoint = rig.endpoint.clone();
+    let token = grant.credential.expose_secret().to_owned();
+    let caller = thread::spawn(move || {
+        let credential = ExternalCredential::from_wire(&token).unwrap();
+        let mut client = DiagnosticsClient::connect(endpoint, credential).unwrap();
+        client.workspace_prepare(&request)
+    });
+    let result = caller.join().unwrap();
+    match result {
+        Ok(reply) => assert!(
+            reply.data().is_none(),
+            "timed-out request must not issue a ticket"
+        ),
+        Err(error) => assert!(matches!(
+            error,
+            ErrorCode::TimedOut | ErrorCode::Busy | ErrorCode::Interrupted
+        )),
+    }
+    drop(release);
+    // A subsequent actor request is a barrier after the delayed item.
+    let mut client = rig.diagnostics(&grant);
+    let list = Request {
+        api_version: Default::default(),
+        request_id: id("a10-preview-barrier"),
+        project_id: id(&project.id),
+        expected_revision: Some(project.revision),
+        idempotency_key: None,
+        input: devforge_control::tools::WorkspaceListInput {},
+    };
+    let barrier = client.workspace_list(&list).unwrap();
+    assert!(
+        barrier.data().is_some(),
+        "actor must recover after delayed preview: {:?}",
+        barrier.error()
+    );
+    assert_eq!(std::fs::read(&marker).unwrap(), b"unchanged");
+    assert_eq!(
+        root.exists(),
+        existed,
+        "timed-out preview must not create a worktree"
     );
 }

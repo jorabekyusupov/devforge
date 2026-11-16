@@ -630,7 +630,7 @@ fn storage(_: rusqlite::Error) -> Error {
 fn validate_rights(scopes: &[Scope], information: &[InformationScope]) -> Result<()> {
     if scopes.is_empty()
         || scopes.len() > 4
-        || information.len() > 6
+        || information.len() > 8
         || (!information.is_empty() && !scopes.contains(&Scope::Observer))
     {
         return Err(Error::InvalidInput);
@@ -1274,6 +1274,169 @@ mod tests {
                 .unwrap()
                 .information,
             all[..5]
+        );
+        assert_eq!(
+            records
+                .iter()
+                .find(|g| g.grant_id == new.record.grant_id)
+                .unwrap()
+                .information,
+            all
+        );
+    }
+
+    #[test]
+    fn a10_workspace_scan_is_explicit_and_survives_registry_restart() {
+        let root = test_support::root("df-a10-rights-");
+        let owner = test_support::acquire(root.path()).unwrap();
+        let binding = project(root.path(), "project-a", 1);
+        let clock = TestClock::new();
+        let mut registry = ExternalRegistry::open_with_clock(&owner, clock.clone()).unwrap();
+        let mut auth = Auth::new(&owner, Duration::from_secs(600));
+        // Even a pre-A10 grant with every old information right must not acquire
+        // the new right when the registry is reopened.
+        let all = [
+            InformationScope::LogContent,
+            InformationScope::InspectorQueries,
+            InformationScope::MailContent,
+            InformationScope::SourceArtifacts,
+            InformationScope::DatabaseQuery,
+            InformationScope::DebuggerValues,
+            InformationScope::WorkspaceContentScan,
+        ];
+        let old = issue(
+            &mut registry,
+            &mut auth,
+            &binding,
+            &[Scope::Observer],
+            &all[..6],
+            Duration::from_secs(30),
+        );
+        let new = issue(
+            &mut registry,
+            &mut auth,
+            &binding,
+            &[Scope::Observer],
+            &all,
+            Duration::from_secs(30),
+        );
+        drop(registry);
+        let mut registry = ExternalRegistry::open_with_clock(&owner, clock).unwrap();
+        assert_eq!(
+            registry
+                .authorize(
+                    &auth.peer,
+                    &old.credential,
+                    &binding,
+                    &[Scope::Observer],
+                    &[InformationScope::WorkspaceContentScan],
+                    None
+                )
+                .unwrap_err(),
+            Error::Unauthorized
+        );
+        assert!(
+            registry
+                .authorize(
+                    &auth.peer,
+                    &new.credential,
+                    &binding,
+                    &[Scope::Observer],
+                    &[InformationScope::WorkspaceContentScan],
+                    None
+                )
+                .is_ok()
+        );
+        let records = registry.list(&auth.proof()).unwrap();
+        assert_eq!(
+            records
+                .iter()
+                .find(|g| g.grant_id == old.record.grant_id)
+                .unwrap()
+                .information,
+            all[..6]
+        );
+        assert_eq!(
+            records
+                .iter()
+                .find(|g| g.grant_id == new.record.grant_id)
+                .unwrap()
+                .information,
+            all
+        );
+    }
+
+    #[test]
+    fn a10_workspace_secret_copy_is_explicit_and_survives_registry_restart() {
+        let root = test_support::root("df-a10-copy-rights-");
+        let owner = test_support::acquire(root.path()).unwrap();
+        let binding = project(root.path(), "project-a", 1);
+        let clock = TestClock::new();
+        let mut registry = ExternalRegistry::open_with_clock(&owner, clock.clone()).unwrap();
+        let mut auth = Auth::new(&owner, Duration::from_secs(600));
+        // Even a pre-A10 grant with every old information right must not acquire
+        // the new right when the registry is reopened.
+        let all = [
+            InformationScope::LogContent,
+            InformationScope::InspectorQueries,
+            InformationScope::MailContent,
+            InformationScope::SourceArtifacts,
+            InformationScope::DatabaseQuery,
+            InformationScope::DebuggerValues,
+            InformationScope::WorkspaceContentScan,
+            InformationScope::WorkspaceSecretCopy,
+        ];
+        let old = issue(
+            &mut registry,
+            &mut auth,
+            &binding,
+            &[Scope::Observer],
+            &all[..7],
+            Duration::from_secs(30),
+        );
+        let new = issue(
+            &mut registry,
+            &mut auth,
+            &binding,
+            &[Scope::Observer],
+            &all,
+            Duration::from_secs(30),
+        );
+        drop(registry);
+        let mut registry = ExternalRegistry::open_with_clock(&owner, clock).unwrap();
+        assert_eq!(
+            registry
+                .authorize(
+                    &auth.peer,
+                    &old.credential,
+                    &binding,
+                    &[Scope::Observer],
+                    &[InformationScope::WorkspaceSecretCopy],
+                    None
+                )
+                .unwrap_err(),
+            Error::Unauthorized
+        );
+        assert!(
+            registry
+                .authorize(
+                    &auth.peer,
+                    &new.credential,
+                    &binding,
+                    &[Scope::Observer],
+                    &[InformationScope::WorkspaceSecretCopy],
+                    None
+                )
+                .is_ok()
+        );
+        let records = registry.list(&auth.proof()).unwrap();
+        assert_eq!(
+            records
+                .iter()
+                .find(|g| g.grant_id == old.record.grant_id)
+                .unwrap()
+                .information,
+            all[..7]
         );
         assert_eq!(
             records

@@ -1033,9 +1033,13 @@
     "grantTitle": "Loyihaga ruxsat yaratish",
     "informationLegend": "Kontentga qo‘shimcha ruxsat",
     "informationHint": "Faqat mijozga zarur bo‘lsa tanlang. Qiymatlarda maxfiy ma’lumotlar bo‘lishi mumkin.",
+    "workspaceScanHint": "Rejalashda .env va boshqariladigan ish maydoni fayllari ichki tekshirilib, hashlanishi mumkin. Fayllarning asl mazmuni agentga berilmaydi.",
+    "workspaceSecretHint": "Tasdiqlangan ish maydoni rejasida muhitni nusxalash tanlansa, saqlangan muhit maxfiy qiymatlari yangi ish maydoniga ko‘chirilishi mumkin. Agent ularning asl qiymatlarini olmaydi. Buning uchun sezgir amallar ruxsati va native tasdiq ham talab qilinadi.",
     "information": {
       "source_artifacts": "Manba va profil artefaktlarini o‘qish",
-      "debugger_values": "To‘xtatilgan debugger qiymatlarini o‘qish"
+      "debugger_values": "To‘xtatilgan debugger qiymatlarini o‘qish",
+      "workspace_content_scan": "Ish maydoni tarkibini tekshirishga ruxsat",
+      "workspace_secret_copy": "Ish maydoniga maxfiy qiymatlarni nusxalashga ruxsat"
     },
     "scopeLegend": "Ruxsatlar",
     "scopeHint": "Ruxsatlar mustaqil. Loyihani boshqarish avtomatik ravishda kod bajarish yoki sensitive o‘zgarishlarga ruxsat bermaydi.",
@@ -1143,7 +1147,28 @@
     "effects": "Yozilgan ta’sirlar",
     "viewConfig": "Client konfiguratsiyasini ko‘rish",
     "detail": "Tekshirilgan tafsilot",
+    "workspaceAction": "Ish maydoni amali",
+    "workspaceName": "Ish maydoni nomi",
+    "workspaceBranch": "Ish maydoni branch’i",
+    "workspaceBase": "Asosiy reviziya",
+    "workspaceNewBranch": "Branch yaratish",
+    "workspaceBranchWarning": "Yangi branch yaratish manba repository Git havolalarini o‘zgartiradi. Joriy checkout va commit qilinmagan o‘zgarishlar saqlanadi.",
+    "workspaceDatabase": "Ma’lumotlar bazasi sozlamasi",
+    "workspaceDependencies": "Bog‘liqliklarni o‘rnatish",
+    "workspaceCopyEnvironment": "Muhit qiymatlarini nusxalash",
+    "workspaceId": "Ish maydoni identifikatori",
+    "workspaceActions": {
+      "create": "Ish maydonini yaratish",
+      "archive": "Ish maydonini arxivlash",
+      "restore": "Ish maydonini tiklash",
+      "purge": "Ish maydonini butunlay o‘chirish"
+    },
+    "workspaceDatabaseModes": {
+      "empty": "Yangi bo‘sh ma’lumotlar bazasi",
+      "clone": "Manba ma’lumotlar bazasi nusxasi"
+    },
     "targets": {
+      "workspace": "Ish maydoni hayot sikli",
       "service": "Xizmat hayot sikli",
       "runtime_install": "Aniq runtime o‘rnatish",
       "runtime_select": "Tanlangan runtime’larni o‘zgartirish",

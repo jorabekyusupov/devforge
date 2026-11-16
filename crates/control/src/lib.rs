@@ -20,6 +20,8 @@ pub enum InformationScope {
     SourceArtifacts,
     DatabaseQuery,
     DebuggerValues,
+    WorkspaceContentScan,
+    WorkspaceSecretCopy,
 }
 
 pub const API_VERSION: u16 = 1;

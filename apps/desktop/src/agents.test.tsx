@@ -215,6 +215,83 @@ describe("minimal agent settings", () => {
       ),
     ).toBeInTheDocument();
   });
+  it("requires explicit workspace content scanning consent and resets it", async () => {
+    const { api } = fixture();
+    const { user } = await mount(api);
+    await screen.findByText("Connected");
+    const scan = screen.getByRole("checkbox", {
+      name: "Allow workspace content scan",
+    });
+    expect(scan).not.toBeChecked();
+    expect(scan).toHaveAccessibleDescription(
+      /internally inspect and hash \.env/,
+    );
+    await user.click(scan);
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: "Project" }),
+      "project-b",
+    );
+    expect(scan).not.toBeChecked();
+    await user.click(scan);
+    await user.click(screen.getByRole("button", { name: "Create grant" }));
+    await screen.findByRole("textbox", {
+      name: "Client configuration snippet",
+    });
+    expect(api.issue).toHaveBeenCalledWith({
+      project_id: "project-b",
+      scopes: ["observer"],
+      information: ["workspace_content_scan"],
+      ttl_seconds: 3600,
+    });
+    expect(scan).not.toBeChecked();
+    expect(
+      screen.getByText(
+        "Additional content access: Allow workspace content scan",
+      ),
+    ).toBeInTheDocument();
+  });
+  it("grants workspace secret copying only through its independent explicit choice", async () => {
+    const { api } = fixture();
+    const { user } = await mount(api);
+    await screen.findByText("Connected");
+    const scan = screen.getByRole("checkbox", {
+      name: "Allow workspace content scan",
+    });
+    const copy = screen.getByRole("checkbox", {
+      name: "Allow copying workspace secrets",
+    });
+    expect(scan).not.toBeChecked();
+    expect(copy).not.toBeChecked();
+    expect(copy).toHaveAccessibleDescription(
+      /stored environment secrets may be copied/,
+    );
+    await user.click(scan);
+    expect(copy).not.toBeChecked();
+    await user.click(copy);
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: "Project" }),
+      "project-b",
+    );
+    expect(copy).not.toBeChecked();
+    expect(scan).not.toBeChecked();
+    await user.click(copy);
+    await user.click(screen.getByRole("button", { name: "Create grant" }));
+    await screen.findByRole("textbox", {
+      name: "Client configuration snippet",
+    });
+    expect(api.issue).toHaveBeenCalledWith({
+      project_id: "project-b",
+      scopes: ["observer"],
+      information: ["workspace_secret_copy"],
+      ttl_seconds: 3600,
+    });
+    expect(copy).not.toBeChecked();
+    expect(
+      screen.getByText(
+        "Additional content access: Allow copying workspace secrets",
+      ),
+    ).toBeInTheDocument();
+  });
   it("keeps revoke explicit and restores the trigger focus after cancellation", async () => {
     const { api, view } = fixture();
     view.grants = [
@@ -473,6 +550,110 @@ describe("minimal agent settings", () => {
         screen.getByRole("heading", { name: "External agents" }),
       ).toHaveFocus(),
     );
+  });
+  it("shows each workspace creation impact before native approval", async () => {
+    const { api, view } = fixture();
+    const pending = plan();
+    pending.target = {
+      kind: "workspace",
+      action: "create",
+      workspace_id: null,
+      name: "Review <demo>",
+      branch: "work/feature",
+      base: "main",
+      new_branch: true,
+      database: "clone",
+      dependencies: false,
+      copy_environment: true,
+    };
+    pending.details = [];
+    view.plans = [pending];
+    const { user } = await mount(api);
+    await screen.findByText("Connected");
+    await user.click(screen.getByRole("button", { name: "Review plan" }));
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveTextContent("Review <demo>");
+    expect(dialog).toHaveTextContent("work/feature");
+    expect(dialog).toHaveTextContent("Copy the source database");
+    expect(dialog).toHaveTextContent("Copy environment values");
+    expect(dialog).toHaveTextContent(
+      "Creating a branch changes the source repository’s Git references.",
+    );
+    expect(dialog.querySelector("demo")).toBeNull();
+    await user.click(
+      within(dialog).getByRole("checkbox", {
+        name: "I reviewed this project and the exact changes shown.",
+      }),
+    );
+    await user.click(
+      within(dialog).getByRole("button", { name: "Approve reviewed plan" }),
+    );
+    await waitFor(() =>
+      expect(api.approve).toHaveBeenCalledWith(pending.digest),
+    );
+  });
+  it("rejects incomplete workspace review and shows the purge target", async () => {
+    const { api, view } = fixture();
+    const pending = plan();
+    pending.target = {
+      kind: "workspace",
+      action: "purge",
+      workspace_id: "workspace-a",
+      name: null,
+      branch: null,
+      base: null,
+      new_branch: null,
+      database: null,
+      dependencies: null,
+      copy_environment: null,
+    };
+    pending.details = [];
+    view.plans = [pending];
+    const { user } = await mount(api);
+    await screen.findByText("Connected");
+    await user.click(screen.getByRole("button", { name: "Review plan" }));
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveTextContent("Permanently purge workspace");
+    expect(dialog).toHaveTextContent("workspace-a");
+    await user.click(
+      within(dialog).getByRole("checkbox", {
+        name: "I reviewed this project and the exact changes shown.",
+      }),
+    );
+    expect(
+      within(dialog).getByRole("button", { name: "Approve reviewed plan" }),
+    ).toBeEnabled();
+  });
+  it("blocks approval when workspace review data is incomplete", async () => {
+    const { api, view } = fixture();
+    const pending = plan();
+    pending.target = {
+      kind: "workspace",
+      action: "create",
+      workspace_id: null,
+      name: "review",
+      branch: "feature",
+      base: "main",
+      new_branch: true,
+      database: "clone",
+      dependencies: null,
+      copy_environment: true,
+    };
+    pending.details = [];
+    view.plans = [pending];
+    const { user } = await mount(api);
+    await screen.findByText("Connected");
+    await user.click(screen.getByRole("button", { name: "Review plan" }));
+    const dialog = screen.getByRole("dialog");
+    await user.click(
+      within(dialog).getByRole("checkbox", {
+        name: "I reviewed this project and the exact changes shown.",
+      }),
+    );
+    expect(
+      within(dialog).getByRole("button", { name: "Approve reviewed plan" }),
+    ).toBeDisabled();
+    expect(api.approve).not.toHaveBeenCalled();
   });
   it("shows the exact debugger assignment value and revision before owner approval", async () => {
     const { api, view } = fixture();
@@ -753,7 +934,7 @@ describe("minimal agent settings", () => {
           name: engine.t("agentConnections.createGrant"),
         }),
       ).toBeEnabled();
-      expect(screen.getAllByRole("checkbox")).toHaveLength(6);
+      expect(screen.getAllByRole("checkbox")).toHaveLength(8);
       expect(
         screen.getByRole("checkbox", {
           name: engine.t("agentConnections.information.source_artifacts"),
@@ -762,6 +943,16 @@ describe("minimal agent settings", () => {
       expect(
         screen.getByRole("checkbox", {
           name: engine.t("agentConnections.information.debugger_values"),
+        }),
+      ).not.toBeChecked();
+      expect(
+        screen.getByRole("checkbox", {
+          name: engine.t("agentConnections.information.workspace_content_scan"),
+        }),
+      ).not.toBeChecked();
+      expect(
+        screen.getByRole("checkbox", {
+          name: engine.t("agentConnections.information.workspace_secret_copy"),
         }),
       ).not.toBeChecked();
       expect(document.body).not.toHaveTextContent("agentConnections.");

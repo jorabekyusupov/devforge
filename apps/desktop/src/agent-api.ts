@@ -17,6 +17,7 @@ export type AgentReviewTarget =
   | { kind: "debugger_install"; php_runtime: string }
   | { kind: "debugger_assign"; name: string; value_type: string; value: string; session_id: string; session_revision: number }
   | { kind: "debugger_export"; destination: string; content_sha256: string; byte_count: number }
+  | { kind: "workspace"; action: "create" | "archive" | "restore" | "purge"; workspace_id: string | null; name: string | null; branch: string | null; base: string | null; new_branch: boolean | null; database: "empty" | "clone" | null; dependencies: boolean | null; copy_environment: boolean | null }
   | { kind: "support_export"; destination: string; content_sha256: string; byte_count: number }
   | { kind: "database_bind"; instance_id: string }
   | { kind: "database_restore"; backup_id: string }

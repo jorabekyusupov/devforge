@@ -66,8 +66,9 @@ fn args(name: &str) -> Value {
             json!({"expected":null,"text":"version: 1\nproject:\n  name: Demo\n"})
         }
         "workspaces.archive" | "workspaces.restore" | "workspaces.purge" => {
-            json!({"workspace_id":"workspace1"})
+            json!({"workspace_id":"workspace1", "plan":"a".repeat(64)})
         }
+        "workspaces.create" => json!({"plan":"a".repeat(64)}),
         _ => json!({}),
     }
 }
@@ -112,7 +113,7 @@ fn every_initial_command_has_typed_mapping_and_can_be_prepared_without_execution
             .iter()
             .filter(|c| c.schema_status == SchemaStatus::TypedMutation)
             .count(),
-        30
+        31
     );
     assert_eq!(
         contracts
@@ -389,7 +390,7 @@ fn plan_is_nonmutating_and_unimplemented_actions_remain_unavailable() {
     );
     assert_eq!(
         prepare(
-            &call("workspaces.create", json!({})),
+            &call("workspaces.merge", json!({})),
             &binding,
             &all_grants(),
             None,

@@ -19,7 +19,12 @@ const scopes: AgentScope[] = [
   "execution_test",
   "sensitive_operation",
 ];
-const informationScopes = ["source_artifacts", "debugger_values"] as const;
+const informationScopes = [
+  "source_artifacts",
+  "debugger_values",
+  "workspace_content_scan",
+  "workspace_secret_copy",
+] as const;
 type AgentInformation = (typeof informationScopes)[number];
 type Dialog =
   | { kind: "revoke"; grant: AgentGrant }
@@ -183,6 +188,38 @@ export function AgentConnections({ api }: { api?: AgentApi }) {
         /^[0-9a-f]{64}$/.test(target.content_sha256) &&
         Number.isSafeInteger(target.byte_count) &&
         target.byte_count >= 0
+      );
+    }
+    if (plan.target.kind === "workspace") {
+      const target = plan.target;
+      const validText = (value: unknown) =>
+        typeof value === "string" &&
+        value.length > 0 &&
+        value.length <= 512 &&
+        !/[\u0000-\u001f\u007f-\u009f]/.test(value);
+      if (target.action === "create") {
+        return (
+          target.workspace_id == null &&
+          validText(target.name) &&
+          validText(target.branch) &&
+          validText(target.base) &&
+          typeof target.new_branch === "boolean" &&
+          ["empty", "clone"].includes(target.database ?? "") &&
+          typeof target.dependencies === "boolean" &&
+          typeof target.copy_environment === "boolean"
+        );
+      }
+      return (
+        ["archive", "restore", "purge"].includes(target.action) &&
+        typeof target.workspace_id === "string" &&
+        /^[A-Za-z0-9_.:-]{1,128}$/.test(target.workspace_id) &&
+        target.name == null &&
+        target.branch == null &&
+        target.base == null &&
+        target.new_branch == null &&
+        target.database == null &&
+        target.dependencies == null &&
+        target.copy_environment == null
       );
     }
     if (plan.target.kind === "debugger_install") {
@@ -462,6 +499,13 @@ export function AgentConnections({ api }: { api?: AgentApi }) {
                           <input
                             type="checkbox"
                             name={`agent-information-${information}`}
+                            aria-describedby={
+                              information === "workspace_content_scan"
+                                ? `${heading}-workspace-scan-hint`
+                                : information === "workspace_secret_copy"
+                                  ? `${heading}-workspace-secret-hint`
+                                  : undefined
+                            }
                             checked={selectedInformation.includes(information)}
                             onChange={(event) =>
                               setSelectedInformation((current) =>
@@ -479,6 +523,15 @@ export function AgentConnections({ api }: { api?: AgentApi }) {
                         </label>
                       ))}
                     </div>
+                    <p id={`${heading}-workspace-scan-hint`} className="muted">
+                      {t("agentConnections.workspaceScanHint")}
+                    </p>
+                    <p
+                      id={`${heading}-workspace-secret-hint`}
+                      className="muted"
+                    >
+                      {t("agentConnections.workspaceSecretHint")}
+                    </p>
                   </fieldset>
                   {scopeDependencyError && (
                     <p id={`${heading}-scope-dependency`} role="alert">
@@ -986,6 +1039,70 @@ function PlanReview({ plan, machine }: { plan: AgentPlan; machine: boolean }) {
                   ))}
               </ul>
             </dd>
+          </>
+        )}
+        {target.kind === "workspace" && (
+          <>
+            <dt>{t("agentConnections.workspaceAction")}</dt>
+            <dd>{t(`agentConnections.workspaceActions.${target.action}`)}</dd>
+            {target.action === "create" ? (
+              <>
+                <dt>{t("agentConnections.workspaceName")}</dt>
+                <dd>
+                  <code translate="no">{target.name}</code>
+                </dd>
+                <dt>{t("agentConnections.workspaceBranch")}</dt>
+                <dd>
+                  <code translate="no">{target.branch}</code>
+                </dd>
+                <dt>{t("agentConnections.workspaceBase")}</dt>
+                <dd>
+                  <code translate="no">{target.base}</code>
+                </dd>
+                <dt>{t("agentConnections.workspaceNewBranch")}</dt>
+                <dd>
+                  {t(
+                    target.new_branch
+                      ? "agentConnections.yes"
+                      : "agentConnections.no",
+                  )}
+                  {target.new_branch && (
+                    <p className="muted">
+                      {t("agentConnections.workspaceBranchWarning")}
+                    </p>
+                  )}
+                </dd>
+                <dt>{t("agentConnections.workspaceDatabase")}</dt>
+                <dd>
+                  {t(
+                    `agentConnections.workspaceDatabaseModes.${target.database}`,
+                  )}
+                </dd>
+                <dt>{t("agentConnections.workspaceDependencies")}</dt>
+                <dd>
+                  {t(
+                    target.dependencies
+                      ? "agentConnections.yes"
+                      : "agentConnections.no",
+                  )}
+                </dd>
+                <dt>{t("agentConnections.workspaceCopyEnvironment")}</dt>
+                <dd>
+                  {t(
+                    target.copy_environment
+                      ? "agentConnections.yes"
+                      : "agentConnections.no",
+                  )}
+                </dd>
+              </>
+            ) : (
+              <>
+                <dt>{t("agentConnections.workspaceId")}</dt>
+                <dd>
+                  <code translate="no">{target.workspace_id}</code>
+                </dd>
+              </>
+            )}
           </>
         )}
         {target.kind === "service" && (

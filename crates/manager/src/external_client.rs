@@ -1511,6 +1511,41 @@ impl DiagnosticsClient {
     {
         support_read(&mut self.inner, request)
     }
+    pub fn workspace_list(
+        &mut self,
+        request: &Request<devforge_control::tools::WorkspaceListInput>,
+    ) -> std::result::Result<Response<devforge_control::tools::WorkspaceListOutput>, ErrorCode>
+    {
+        workspace_list(&mut self.inner, request)
+    }
+    pub fn workspace_prepare(
+        &mut self,
+        request: &Request<devforge_control::tools::WorkspacePrepareInput>,
+    ) -> std::result::Result<Response<devforge_control::tools::WorkspacePrepareOutput>, ErrorCode>
+    {
+        workspace_prepare(&mut self.inner, request)
+    }
+    pub fn workspace_plan(
+        &mut self,
+        request: &Request<MutationInput>,
+    ) -> std::result::Result<Response<PlanReceipt>, ErrorCode> {
+        workspace_action_plan(&mut self.inner, request)
+    }
+    pub fn workspace_apply(
+        &mut self,
+        request: &Request<MutationInput>,
+        review: &Digest,
+    ) -> std::result::Result<Response<MutationReceipt>, ErrorCode> {
+        workspace_action_apply(&mut self.inner, request, review)
+    }
+    pub fn workspace_lookup(
+        &mut self,
+        id: Id,
+        project: &Id,
+        key: &Id,
+    ) -> std::result::Result<Response<Option<MutationReceipt>>, ErrorCode> {
+        workspace_action_lookup(&mut self.inner, id, project, key)
+    }
     pub fn debugger_plan(
         &mut self,
         request: &Request<MutationInput>,
@@ -1626,6 +1661,132 @@ fn support_export_lookup(
     key: &Id,
 ) -> std::result::Result<Response<Option<MutationReceipt>>, ErrorCode> {
     let reply: Response<Option<MutationReceipt>> = client.exchange(&id, json!({"method":"support_export_lookup","request_id":id,"project_id":project,"idempotency_key":key}), false)?;
+    if reply
+        .data()
+        .and_then(Option::as_ref)
+        .is_some_and(|receipt| {
+            &receipt.project_id != project
+                || reply
+                    .operation_id()
+                    .is_some_and(|id| id != &receipt.operation_id)
+        })
+    {
+        return Err(ErrorCode::InvalidInput);
+    }
+    Ok(reply)
+}
+fn workspace_list(
+    client: &mut ServiceClient,
+    request: &Request<devforge_control::tools::WorkspaceListInput>,
+) -> std::result::Result<Response<devforge_control::tools::WorkspaceListOutput>, ErrorCode> {
+    if request.idempotency_key.is_some() {
+        return Err(ErrorCode::InvalidInput);
+    }
+    let response: Response<devforge_control::tools::WorkspaceListOutput> = client.exchange(
+        &request.request_id,
+        json!({"method":"workspace_list","request":request}),
+        false,
+    )?;
+    if response
+        .data()
+        .is_some_and(|v| v.project_id != request.project_id || v.items.len() > 100)
+    {
+        return Err(ErrorCode::InvalidInput);
+    }
+    Ok(response)
+}
+fn workspace_prepare(
+    client: &mut ServiceClient,
+    request: &Request<devforge_control::tools::WorkspacePrepareInput>,
+) -> std::result::Result<Response<devforge_control::tools::WorkspacePrepareOutput>, ErrorCode> {
+    if request.idempotency_key.is_some() {
+        return Err(ErrorCode::InvalidInput);
+    }
+    let response: Response<devforge_control::tools::WorkspacePrepareOutput> = client.exchange(
+        &request.request_id,
+        json!({"method":"workspace_prepare","request":request}),
+        false,
+    )?;
+    if response.data().is_some_and(|v| {
+        v.project_id != request.project_id
+            || request
+                .expected_revision
+                .is_some_and(|rev| rev != v.revision.get())
+            || (!v.blockers.is_empty() && v.plan.is_some())
+    }) {
+        return Err(ErrorCode::InvalidInput);
+    }
+    Ok(response)
+}
+fn workspace_action_request(
+    request: &Request<MutationInput>,
+) -> std::result::Result<(), ErrorCode> {
+    if !matches!(
+        request.input,
+        MutationInput::WorkspaceCreate(_)
+            | MutationInput::WorkspaceArchive(_)
+            | MutationInput::WorkspaceRestore(_)
+            | MutationInput::WorkspacePurge(_)
+    ) {
+        return Err(ErrorCode::UnsupportedCapability);
+    }
+
+    if !request
+        .expected_revision
+        .is_some_and(|revision| revision <= devforge_control::limits::SafeInt::MAX)
+        || request.idempotency_key.is_none()
+    {
+        return Err(ErrorCode::InvalidInput);
+    }
+    Ok(())
+}
+fn workspace_action_plan(
+    client: &mut ServiceClient,
+    request: &Request<MutationInput>,
+) -> std::result::Result<Response<PlanReceipt>, ErrorCode> {
+    workspace_action_request(request)?;
+    let reply: Response<PlanReceipt> = client.exchange(
+        &request.request_id,
+        json!({"method":"workspace_plan","request":request}),
+        false,
+    )?;
+    if reply.data().is_some_and(|plan| {
+        plan.project_id != request.project_id
+            || Some(plan.revision.get()) != request.expected_revision
+    }) {
+        return Err(ErrorCode::InvalidInput);
+    }
+    Ok(reply)
+}
+fn workspace_action_apply(
+    client: &mut ServiceClient,
+    request: &Request<MutationInput>,
+    review: &Digest,
+) -> std::result::Result<Response<MutationReceipt>, ErrorCode> {
+    workspace_action_request(request)?;
+    let reply: Response<MutationReceipt> = client.exchange(
+        &request.request_id,
+        json!({"method":"workspace_apply","request":request,"review":review}),
+        true,
+    )?;
+    if reply.data().is_some_and(|receipt| {
+        receipt.project_id != request.project_id
+            || Some(receipt.revision.get()) != request.expected_revision
+            || reply
+                .operation_id()
+                .is_some_and(|id| id != &receipt.operation_id)
+    }) {
+        return Err(ErrorCode::AdmissionUnconfirmed);
+    }
+    Ok(reply)
+}
+fn workspace_action_lookup(
+    client: &mut ServiceClient,
+    id: Id,
+    project: &Id,
+    key: &Id,
+) -> std::result::Result<Response<Option<MutationReceipt>>, ErrorCode> {
+    let reply: Response<Option<MutationReceipt>> = client.exchange(&id, json!({"method":"workspace_lookup","request_id":id,"project_id":project,"idempotency_key":key}), false)?;
     if reply
         .data()
         .and_then(Option::as_ref)
@@ -1975,6 +2136,53 @@ impl BoundDiagnosticsClient {
             return Err(ErrorCode::ProjectMismatch);
         }
         support_read(self.transport(), request)
+    }
+    pub fn workspace_list(
+        &mut self,
+        request: &Request<devforge_control::tools::WorkspaceListInput>,
+    ) -> std::result::Result<Response<devforge_control::tools::WorkspaceListOutput>, ErrorCode>
+    {
+        if &request.project_id != self.project() {
+            return Err(ErrorCode::ProjectMismatch);
+        }
+        workspace_list(self.transport(), request)
+    }
+    pub fn workspace_prepare(
+        &mut self,
+        request: &Request<devforge_control::tools::WorkspacePrepareInput>,
+    ) -> std::result::Result<Response<devforge_control::tools::WorkspacePrepareOutput>, ErrorCode>
+    {
+        if &request.project_id != self.project() {
+            return Err(ErrorCode::ProjectMismatch);
+        }
+        workspace_prepare(self.transport(), request)
+    }
+    pub fn workspace_plan(
+        &mut self,
+        request: &Request<MutationInput>,
+    ) -> std::result::Result<Response<PlanReceipt>, ErrorCode> {
+        if &request.project_id != self.project() {
+            return Err(ErrorCode::ProjectMismatch);
+        }
+        workspace_action_plan(self.transport(), request)
+    }
+    pub fn workspace_apply(
+        &mut self,
+        request: &Request<MutationInput>,
+        review: &Digest,
+    ) -> std::result::Result<Response<MutationReceipt>, ErrorCode> {
+        if &request.project_id != self.project() {
+            return Err(ErrorCode::ProjectMismatch);
+        }
+        workspace_action_apply(self.transport(), request, review)
+    }
+    pub fn workspace_lookup(
+        &mut self,
+        id: Id,
+        key: &Id,
+    ) -> std::result::Result<Response<Option<MutationReceipt>>, ErrorCode> {
+        let project = self.project().clone();
+        workspace_action_lookup(self.transport(), id, &project, key)
     }
     pub fn debugger_plan(
         &mut self,

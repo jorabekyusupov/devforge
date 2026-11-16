@@ -239,12 +239,12 @@ fn workspace_lifecycle_requires_registered_source_owner_and_backend_review() {
     let review = digest();
     let own = record("p1");
     let other = record("p2");
-    for (tool, operation) in [
-        ("workspaces.archive", "archive"),
-        ("workspaces.restore", "restore"),
-        ("workspaces.purge", "purge"),
+    for tool in [
+        "workspaces.archive",
+        "workspaces.restore",
+        "workspaces.purge",
     ] {
-        let prepared = f.prepare(tool, json!({"workspace_id":"ws1"}));
+        let prepared = f.prepare(tool, json!({"workspace_id":"ws1","plan":"a".repeat(64)}));
         assert!(matches!(
             map_mutation(&prepared, &binding, &BackendContext::reviewed(&review)),
             Err(ErrorCode::Unauthorized)
@@ -257,32 +257,15 @@ fn workspace_lifecycle_requires_registered_source_owner_and_backend_review() {
             ),
             Err(ErrorCode::ProjectMismatch)
         ));
-        let Dispatch::Command(c) = map_mutation(
+        let Dispatch::WorkspaceAction { project_id } = map_mutation(
             &prepared,
             &binding,
             &BackendContext::reviewed(&review).with_workspace(&own),
         )
         .unwrap() else {
-            panic!()
+            panic!("wrong dispatch")
         };
-        match *c {
-            Command::WorktreeCleanup {
-                id, consent: true, ..
-            } => {
-                assert_eq!(operation, "archive");
-                assert_eq!(id, "ws1");
-            }
-            Command::WorktreeArchive {
-                id,
-                operation: op,
-                consent: true,
-                ..
-            } => {
-                assert_eq!(operation, op);
-                assert_eq!(id, "ws1");
-            }
-            _ => panic!("wrong dispatch"),
-        }
+        assert_eq!(project_id, "p1");
     }
 }
 #[test]

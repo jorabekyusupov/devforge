@@ -129,6 +129,54 @@ contract!(DebuggerInput{page:Option<PageRequest>});
 private_contract!(MailInput{page:Option<PageRequest>,subject:Option<Text<256>>,recipient:Option<Text<256>>,#[serde(default,skip_serializing_if="Option::is_none")] sender:Option<Text<256>>,#[serde(default,skip_serializing_if="Option::is_none")] since:Option<SafeInt>,#[serde(default,skip_serializing_if="Option::is_none")] detail:Option<bool>,#[serde(default,skip_serializing_if="Option::is_none")] mail_id:Option<Id>});
 contract!(ExecutionInput{page:Option<PageRequest>,operation_id:Id});
 contract!(HttpInput{page:Option<PageRequest>,operation_id:Id});
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum WorkspacePrepareAction {
+    Create,
+    Archive,
+    Restore,
+    Purge,
+}
+impl Wire for WorkspacePrepareAction {
+    fn schema() -> Value {
+        json!({"type":"string","enum":["create","archive","restore","purge"]})
+    }
+    fn ts() -> String {
+        "\"create\" | \"archive\" | \"restore\" | \"purge\"".into()
+    }
+}
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum WorkspaceDatabase {
+    Empty,
+    Clone,
+}
+impl Wire for WorkspaceDatabase {
+    fn schema() -> Value {
+        json!({"type":"string","enum":["empty","clone"]})
+    }
+    fn ts() -> String {
+        "\"empty\" | \"clone\"".into()
+    }
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct WorkspaceListInput {}
+impl Wire for WorkspaceListInput {
+    fn schema() -> Value {
+        json!({"type":"object","additionalProperties":false,"properties":{},"required":[]})
+    }
+    fn ts() -> String {
+        "WorkspaceListInput".into()
+    }
+    fn declaration() -> Option<String> {
+        Some("export interface WorkspaceListInput {}\n".into())
+    }
+}
+contract!(WorkspaceListItem { workspace_id: Id, name: Text<200>, stage: Id, project_id: Option<Id> });
+contract!(WorkspaceListOutput { project_id: Id, revision: SafeInt, origin: Origin, observed_at: SafeInt, items: Vec<WorkspaceListItem>, truncated: bool });
+contract!(WorkspacePrepareInput { action: WorkspacePrepareAction, workspace_id: Option<Id>, name: Option<Text<200>>, branch: Option<Text<256>>, base: Option<Text<256>>, new_branch: Option<bool>, database: Option<WorkspaceDatabase>, dependencies: Option<bool>, copy_environment: Option<bool> });
+contract!(WorkspacePrepareOutput { project_id: Id, revision: SafeInt, kind: WorkspacePrepareAction, workspace_id: Option<Id>, blockers: Vec<Id>, plan: Option<Digest> });
 contract!(WorkspaceInput{page:Option<PageRequest>});
 contract!(OperationInput{page:Option<PageRequest>,operation_id:Id});
 contract!(ArtifactInput{page:Option<PageRequest>,artifact_id:Id});
@@ -590,6 +638,11 @@ pub fn declarations() -> Vec<String> {
         ExecutionInput,
         HttpInput,
         WorkspaceInput,
+        WorkspaceListInput,
+        WorkspaceListItem,
+        WorkspaceListOutput,
+        WorkspacePrepareInput,
+        WorkspacePrepareOutput,
         OperationInput,
         ArtifactInput,
         HealthItem,
