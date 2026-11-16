@@ -67,6 +67,7 @@ pub struct ExecutionContextFacts {
     debugger: bool,
     tool: ExecutionTool,
     scripts: Vec<String>,
+    test_worktree: Option<String>,
 }
 impl ExecutionContextFacts {
     pub fn fingerprint(&self) -> Result<String> {
@@ -214,6 +215,51 @@ fn file_hash(path: &Path, limit: u64) -> Result<Option<String>> {
             path, limit,
         )?))),
     }
+}
+fn save_test_receipt(job: &Path, value: &serde_json::Value) -> Result<()> {
+    use std::io::Write;
+    let mut file = tempfile::NamedTempFile::new_in(job)?;
+    file.write_all(&serde_json::to_vec(value).map_err(|_| error("storage_unavailable"))?)?;
+    file.as_file().sync_all()?;
+    file.persist(job.join("receipt.json"))
+        .map_err(|_| error("storage_unavailable"))?;
+    Ok(())
+}
+/// Only existing reviewed PHP test files, never inline code, CLI environment
+/// overrides or package-manager scripts, can enter the Laravel job context.
+fn laravel_test_script(path: &Path, request: &ExecutionRequest) -> Result<()> {
+    if !matches!(request.tool, ExecutionTool::Php) || request.args.len() != 1 {
+        return Err(error("execution_test_context_unverified"));
+    }
+    let relative = Path::new(&request.args[0]);
+    if relative.is_absolute()
+        || !relative.starts_with("tests")
+        || relative.extension().and_then(|v| v.to_str()) != Some("php")
+        || !relative
+            .components()
+            .all(|c| matches!(c, Component::Normal(_)))
+    {
+        return Err(error("execution_test_context_unverified"));
+    }
+    let script = fs::canonicalize(path.join(relative))?;
+    if !script.starts_with(path) || !script.is_file() {
+        return Err(error("execution_test_context_unverified"));
+    }
+    // Conservative first slice: do not interpret PHPUnit force/env semantics.
+    for entry in fs::read_dir(path)? {
+        let name = entry?.file_name();
+        let name = name.to_string_lossy();
+        if name == ".env"
+            || (name.starts_with(".env.") && name != ".env.example")
+            || name.starts_with("phpunit.xml")
+        {
+            return Err(error("execution_test_context_unverified"));
+        }
+    }
+    if fs::symlink_metadata(path.join("bootstrap/cache/config.php")).is_ok() {
+        return Err(error("execution_test_context_unverified"));
+    }
+    Ok(())
 }
 impl Workspace {
     pub fn execution_preflight(
@@ -394,9 +440,13 @@ impl Workspace {
                 .get("config/database.php")
                 .is_some_and(Option::is_none)
             && !project.path.join("database").exists();
-        if request.managed_test && !test_isolated {
-            return Err(error("execution_test_context_unverified"));
-        }
+        let test_worktree = if request.managed_test && !test_isolated {
+            laravel_test_script(&project.path, request)?;
+            Some(self.test_worktree_binding(&project)?.1)
+        } else {
+            None
+        };
+        let laravel_job = test_worktree.is_some();
         let mut scripts = Vec::new();
         let mut script_hashes = BTreeMap::new();
         for arg in &request.args {
@@ -418,11 +468,11 @@ impl Workspace {
             }
         }
         let summary = ExecutionContextSummary {
-            environment,
-            database,
-            cache: cache_context,
-            mail: project.mail,
-            test_isolated,
+            environment: environment && !laravel_job,
+            database: database && !laravel_job,
+            cache: cache_context && !laravel_job,
+            mail: project.mail && !laravel_job,
+            test_isolated: test_isolated || laravel_job,
         };
         // Serialize borrowed fields directly: no intermediate Value cloning raw
         // argv. The owned private hash material is zeroized when it leaves RAM.
@@ -441,7 +491,7 @@ impl Workspace {
                 &request.args,
                 request.timeout_ms,
                 request.managed_test,
-                &script_hashes,
+                (&script_hashes, &test_worktree),
             ))
             .map_err(|_| error("execution_context_unavailable"))?,
         );
@@ -455,9 +505,10 @@ impl Workspace {
         Ok(ExecutionContextFacts {
             fingerprint,
             summary,
-            debugger,
+            debugger: debugger && !laravel_job,
             tool: request.tool,
             scripts,
+            test_worktree,
         })
     }
     pub fn execute_managed_execution(
@@ -485,13 +536,49 @@ impl Workspace {
             return Err(error("execution_context_changed"));
         }
         policy()?;
-        let context = Context::resolve(
-            &self.projects,
-            id,
-            &self.catalog,
-            &self.packages,
-            self.secrets.as_ref(),
-        )?;
+        let project = self.available_project(id)?;
+        let job = if expected.test_worktree.is_some() {
+            let (dir, binding) = self.test_worktree_binding(&project)?;
+            if Some(binding) != expected.test_worktree {
+                return Err(error("execution_context_changed"));
+            }
+            // A fresh exclusive directory per invocation, outside both development DBs.
+            Some(
+                tempfile::Builder::new()
+                    .prefix("test-job-")
+                    .tempdir_in(dir)?
+                    .keep(),
+            )
+        } else {
+            None
+        };
+        let context = if let Some(job) = &job {
+            let database = job.join("database.sqlite");
+            let mut options = fs::OpenOptions::new();
+            options.write(true).create_new(true);
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::OpenOptionsExt;
+                options.mode(0o600);
+            }
+            options.open(&database)?.sync_all()?;
+            Context::bootstrap_for_project(
+                &self.projects,
+                &project,
+                &self.catalog,
+                &self.packages,
+                self.secrets.as_ref(),
+            )?
+            .test_job(&database)?
+        } else {
+            Context::resolve(
+                &self.projects,
+                id,
+                &self.catalog,
+                &self.packages,
+                self.secrets.as_ref(),
+            )?
+        };
         policy()?;
         if self.execution_preflight(id, request)?.fingerprint != expected.fingerprint {
             return Err(error("execution_context_changed"));
@@ -511,14 +598,38 @@ impl Workspace {
                 devforge_projects::ProjectError::ExecutionFailed
             })
         };
-        let result = invocation
+        if let Some(job) = &job {
+            save_test_receipt(
+                job,
+                &serde_json::json!({
+                    "schema":1,"project_id":id,"worktree":project.worktree,"state":"prepared",
+                    "database":"database.sqlite","operational_isolation":true,"os_sandbox":false
+                }),
+            )?;
+        }
+        let outcome = invocation
             .run_cancellable_checked_timeout(
                 self.projects.root().join("managed-execution-logs"),
                 cancel,
                 Duration::from_millis(request.timeout_ms),
                 &guard,
             )
-            .map_err(|error| original.borrow_mut().take().unwrap_or_else(|| error.into()))?;
+            .map_err(|error| original.borrow_mut().take().unwrap_or_else(|| error.into()));
+        if let Some(job) = &job {
+            let (state, success, exit_code) = match &outcome {
+                Ok(result) => ("completed", Some(result.success), result.exit_code),
+                Err(_) => ("outcome_unavailable", None, None),
+            };
+            save_test_receipt(
+                job,
+                &serde_json::json!({
+                    "schema":1,"project_id":id,"worktree":project.worktree,"state":state,
+                    "database":"database.sqlite","success":success,"exit_code":exit_code,
+                    "operational_isolation":true,"os_sandbox":false
+                }),
+            )?;
+        }
+        let result = outcome?;
         let total = result
             .logs
             .iter()

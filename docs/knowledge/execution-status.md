@@ -1447,3 +1447,27 @@ First managed execution slice is integrated from exact reviewed WIP paths: six f
 The missing final Git-follow-up gate now passed: cargo clippy --locked -p devforge-projects -p devforge-workspace --lib --test execution_control -- -D warnings,36.34s. No full suite/native rerun. Source/evidence reconciliation and clean staged gates precede publication. Real Laravel job-specific SQLite/worktree isolation and the remaining plan stay outstanding; deferred reports/locales are preserved outside this delivery.
 
 Published execution source ae1aefe; CI caught only stale canonical mutation fixture count15 vs22 and missing execution sample arguments. Test-only c6662c9 corrected them; the exact failed case passed locally. [Run43802189964](https://github.com/jorabekyusupov/devforge/actions/runs/43802189964) then passed both macOS and Windows tests/builds; optional Xdebug-native skipped. [Proof](../evidence/m136a-execution/ci-c6662c9.json). No new full manual suite/native rerun; real Laravel test-data isolation still remains.
+
+
+## A01 — Laravel job-specific test data isolation (2026-11-16)
+
+User authorized A01 only, focused checks, push/CI and merge into main. Implementation
+is on `codex/a01-laravel-test-isolation` from `ca80bcf`; deferred ReportViews/locales
+in the original checkout are excluded. See [current contract](../architecture/managed-execution.md)
+and [actual ARM64 proof](../evidence/a01-isolation/actual-macos-arm64.json).
+
+- Ready owned worktree/source/Git and live FS identity bind to native reviewed
+  facts; wrong receipt/project, config overrides or unsafe argv refuse prelaunch.
+- One reviewed PHP `tests/*.php` file uses new job SQLite and atomic result receipt,
+  fixed testing environment and job-local Laravel cache/storage, no SecretStore.
+- Conservative exclusions: child .env, alternate environment files, PHPUnit XML,
+  cached config, inline code/extra args and other runner tools. Refusal never edits
+  the worktree or falls back to development data. Trusted code is not OS sandboxed.
+- Actual macOS ARM64 offline PHP8.4.27/Laravel13.42.0 normal Foundation bootstrap:
+  migrate/create/delete only job SQLite; two dev databases, source env/APP_KEY,
+  source/child Git HEAD and dirty status, dirty source file unchanged.
+- Scoped execution tests and projects/workspace execution clippy; existing A00
+  checks reused where unchanged. CI publication is recorded in the PR/main history.
+  Actual Windows Laravel and broader test profiles remain open, not inferred from CI.
+- A02 and other packets have not started. No UI, new provider, package download,
+  source grant inheritance, system setting, signing or release changes.

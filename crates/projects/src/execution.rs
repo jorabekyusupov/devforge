@@ -196,6 +196,73 @@ impl Context {
         self.environment.insert("DATABASE_URL".into(), "".into());
         Ok(self)
     }
+    /// Caller owns a newly created job directory and empty SQLite file. This
+    /// replaces managed application services; it is not a hostile-code sandbox.
+    pub fn test_job(mut self, database: &std::path::Path) -> Result<Self> {
+        let database = std::fs::canonicalize(database)?;
+        if !database.is_file() {
+            return Err(E::InvalidEnvironment);
+        }
+        self.environment.retain(|name, _| {
+            let key = name.to_string_lossy();
+            !["DB_", "REDIS_", "MAIL_", "DEVFORGE_INSPECTOR_", "XDEBUG_"]
+                .iter()
+                .any(|p| key.starts_with(p))
+                && key != "DATABASE_URL"
+        });
+        for (name, value) in [
+            ("APP_ENV", "testing"),
+            (
+                "APP_KEY",
+                "base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+            ),
+            ("DB_CONNECTION", "sqlite"),
+            ("DB_URL", ""),
+            ("DATABASE_URL", ""),
+            ("CACHE_STORE", "array"),
+            ("CACHE_DRIVER", "array"),
+            ("SESSION_DRIVER", "array"),
+            ("QUEUE_CONNECTION", "sync"),
+            ("MAIL_MAILER", "array"),
+            ("MAIL_DRIVER", "array"),
+            ("BROADCAST_CONNECTION", "null"),
+            ("BROADCAST_DRIVER", "null"),
+            ("LOG_CHANNEL", "stderr"),
+        ] {
+            self.environment.insert(name.into(), value.into());
+        }
+        self.environment.insert(
+            "DB_DATABASE".into(),
+            dunce::simplified(&database).as_os_str().to_owned(),
+        );
+        let job = database.parent().unwrap();
+        for (name, file) in [
+            ("APP_CONFIG_CACHE", "unused-config.php"),
+            ("APP_SERVICES_CACHE", "services.php"),
+            ("APP_PACKAGES_CACHE", "packages.php"),
+            ("APP_EVENTS_CACHE", "events.php"),
+            ("APP_ROUTES_CACHE", "routes.php"),
+        ] {
+            self.environment.insert(
+                name.into(),
+                dunce::simplified(&job.join(file)).as_os_str().to_owned(),
+            );
+        }
+        let storage = job.join("storage");
+        for directory in [
+            "framework/cache",
+            "framework/sessions",
+            "framework/views",
+            "logs",
+        ] {
+            private_dir(&storage.join(directory))?;
+        }
+        self.environment.insert(
+            "LARAVEL_STORAGE_PATH".into(),
+            dunce::simplified(&storage).as_os_str().to_owned(),
+        );
+        Ok(self)
+    }
     /// Dependency tooling does not require an already-installed Redis client.
     /// Scripts remain a caller policy; M10 invokes only fixed no-script commands.
     pub fn tooling(

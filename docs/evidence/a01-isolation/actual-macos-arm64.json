@@ -1,0 +1,22 @@
+{
+  "arch": "aarch64",
+  "child_env_refused": true,
+  "conflicting_configuration_refused": true,
+  "create_delete": true,
+  "downloads": false,
+  "laravel": "13.42.0",
+  "migration_count": 1,
+  "native_secret_store": false,
+  "normal_environment_and_configuration_bootstrap": true,
+  "os": "macos",
+  "os_sandbox": false,
+  "owned_worktree": true,
+  "packet": "A01",
+  "passed": true,
+  "per_job_sqlite": true,
+  "php": "8.4.27",
+  "source_child_git_head_and_dirty_state_unchanged": true,
+  "source_env_app_key_unchanged": true,
+  "two_development_canaries_unchanged": true,
+  "windows_actual_laravel": "not_verified"
+}
