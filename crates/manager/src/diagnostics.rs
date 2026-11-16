@@ -343,7 +343,7 @@ impl Diagnostics {
                         &credential,
                         &wire.request.project_id,
                         ReadMode::Epoch(kind(&wire.request.input)?),
-                        (content, wire.request.expected_revision),
+                        (content, Some(registration.binding.revision())),
                     )?
                     .epoch
                     .ok_or(ErrorCode::CursorExpired)?;
@@ -358,7 +358,7 @@ impl Diagnostics {
                     &credential,
                     &wire.request.project_id,
                     ReadMode::Window(kind(&wire.request.input)?),
-                    (content, wire.request.expected_revision),
+                    (content, Some(registration.binding.revision())),
                 )?;
                 if read.binding.revision() != registration.binding.revision()
                     || read.binding.root() != registration.binding.root()
@@ -410,6 +410,21 @@ impl Diagnostics {
             project(&wire.request.input, &window, &rows, cursor, continued)?
         };
         prepared.check_deadline()?;
+        // Re-resolve the registry-owned binding before returning sensitive data;
+        // an MCP request need not supply an expected revision itself.
+        if content.is_some() {
+            let current = self.query(
+                actor,
+                peer,
+                &credential,
+                &wire.request.project_id,
+                ReadMode::Registration,
+                (content, Some(registration.binding.revision())),
+            )?;
+            if current.binding.root() != registration.binding.root() {
+                return Err(ErrorCode::ProjectMismatch);
+            }
+        }
         let mut grants = self
             .grants
             .registry
