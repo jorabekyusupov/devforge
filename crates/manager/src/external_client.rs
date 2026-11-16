@@ -1477,6 +1477,18 @@ impl DiagnosticsClient {
     ) -> std::result::Result<Response<devforge_control::tools::ToolOutput>, ErrorCode> {
         diagnostics_read(&mut self.inner, request)
     }
+    pub fn mark(
+        &mut self,
+        request: &Request<devforge_control::tools::ActivityMarkInput>,
+    ) -> std::result::Result<Response<devforge_control::tools::ActivityMarkOutput>, ErrorCode> {
+        activity_mark(&mut self.inner, request)
+    }
+    pub fn wait(
+        &mut self,
+        request: &Request<devforge_control::tools::ActivityWaitInput>,
+    ) -> std::result::Result<Response<devforge_control::tools::ActivityWaitOutput>, ErrorCode> {
+        activity_wait(&mut self.inner, request)
+    }
 }
 fn diagnostics_request(
     request: &Request<devforge_control::tools::ToolInput>,
@@ -1518,6 +1530,46 @@ fn diagnostics_read(
     }
     Ok(reply)
 }
+fn activity_mark(
+    client: &mut ServiceClient,
+    request: &Request<devforge_control::tools::ActivityMarkInput>,
+) -> std::result::Result<Response<devforge_control::tools::ActivityMarkOutput>, ErrorCode> {
+    if request.idempotency_key.is_some()
+        || request
+            .expected_revision
+            .is_some_and(|v| v > devforge_control::limits::SafeInt::MAX)
+    {
+        return Err(ErrorCode::InvalidInput);
+    }
+    client.exchange(
+        &request.request_id,
+        json!({"method":"activity_mark","request":request}),
+        false,
+    )
+}
+fn activity_wait(
+    client: &mut ServiceClient,
+    request: &Request<devforge_control::tools::ActivityWaitInput>,
+) -> std::result::Result<Response<devforge_control::tools::ActivityWaitOutput>, ErrorCode> {
+    if request.idempotency_key.is_some()
+        || request
+            .expected_revision
+            .is_some_and(|v| v > devforge_control::limits::SafeInt::MAX)
+    {
+        return Err(ErrorCode::InvalidInput);
+    }
+    let reply: Response<devforge_control::tools::ActivityWaitOutput> = client.exchange(
+        &request.request_id,
+        json!({"method":"activity_wait","request":request}),
+        false,
+    )?;
+    if reply.data().is_some_and(|r| {
+        r.timed_out == r.event.is_some() || (!r.timed_out && r.bookmark == request.input.bookmark)
+    }) {
+        return Err(ErrorCode::InvalidInput);
+    }
+    Ok(reply)
+}
 pub struct BoundDiagnosticsClient {
     previous: BoundDomainActionsClient,
 }
@@ -1551,6 +1603,24 @@ impl BoundDiagnosticsClient {
             return Err(ErrorCode::ProjectMismatch);
         }
         diagnostics_read(self.transport(), request)
+    }
+    pub fn mark(
+        &mut self,
+        request: &Request<devforge_control::tools::ActivityMarkInput>,
+    ) -> std::result::Result<Response<devforge_control::tools::ActivityMarkOutput>, ErrorCode> {
+        if &request.project_id != self.project() {
+            return Err(ErrorCode::ProjectMismatch);
+        }
+        activity_mark(self.transport(), request)
+    }
+    pub fn wait(
+        &mut self,
+        request: &Request<devforge_control::tools::ActivityWaitInput>,
+    ) -> std::result::Result<Response<devforge_control::tools::ActivityWaitOutput>, ErrorCode> {
+        if &request.project_id != self.project() {
+            return Err(ErrorCode::ProjectMismatch);
+        }
+        activity_wait(self.transport(), request)
     }
 }
 /// Default read-only metadata composition. Existing action-surface selection

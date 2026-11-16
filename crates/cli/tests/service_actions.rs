@@ -599,14 +599,14 @@ fn mcp_service_surface_is_explicit_and_native_review_remains_required() {
             .as_array()
             .unwrap()
             .len(),
-        9
+        11
     );
     let denied=readonly.call("tools/call",json!({"name":"services.stop","arguments":{"expected_revision":fixture.revision,"idempotency_key":"no-optin","review":"a".repeat(64)}}));
     assert_eq!(denied["error"]["code"], -32602);
     readonly.close();
     let mut mcp = Mcp::start(&fixture, true);
     let tools = mcp.call("tools/list", json!({}));
-    assert_eq!(tools["result"]["tools"].as_array().unwrap().len(), 13);
+    assert_eq!(tools["result"]["tools"].as_array().unwrap().len(), 15);
     assert!(
         tools["result"]["tools"]
             .as_array()
@@ -947,10 +947,10 @@ fn runtime_mcp_opt_in_is_independent_and_only_exposes_install_select() {
         .unwrap()["project"]
         .clone();
     for (service, runtime, count) in [
-        (false, false, 9),
-        (true, false, 13),
-        (false, true, 12),
-        (true, true, 16),
+        (false, false, 11),
+        (true, false, 15),
+        (false, true, 14),
+        (true, true, 18),
     ] {
         let mut mcp = Mcp::with_flags(&fixture, service, runtime);
         let tools = mcp.call("tools/list", json!({}));
@@ -1138,9 +1138,9 @@ fn environment_mcp_surface_is_masked_and_flag_never_grants_sensitive_authority()
     let path = PathBuf::from(row["project"]["path"].as_str().unwrap()).join("devforge.yaml");
     fs::write(&path, "schema: [\n# mcp-yaml-private-canary\n").unwrap();
     for (service, runtime, environment, count) in [
-        (false, false, false, 9),
-        (false, false, true, 12),
-        (true, true, true, 19),
+        (false, false, false, 11),
+        (false, false, true, 14),
+        (true, true, true, 21),
     ] {
         let mut mcp = Mcp::with_environment(&fixture, service, runtime, environment);
         let tools = mcp.call("tools/list", json!({}));
@@ -1315,9 +1315,9 @@ fn database_choices_and_mutation_denials_do_not_start_a_database_or_expose_priva
 fn database_mcp_opt_in_only_adds_choices_reviewed_bind_and_restore() {
     let mut fixture = Fixture::new();
     for (service, runtime, environment, database, count) in [
-        (false, false, false, false, 9),
-        (false, false, false, true, 12),
-        (true, true, true, true, 22),
+        (false, false, false, false, 11),
+        (false, false, false, true, 14),
+        (true, true, true, true, 24),
     ] {
         let mut mcp = Mcp::with_database(&fixture, service, runtime, environment, database);
         let listed = mcp.call("tools/list", json!({}));
@@ -1476,9 +1476,9 @@ fn domain_mcp_flag_exposes_exact_seven_operations_without_elevation_or_configure
     let mut fixture = Fixture::new();
     let ca = fixture.root.join("serving/authority");
     for (service, runtime, environment, database, domain, count) in [
-        (false, false, false, false, false, 9),
-        (false, false, false, false, true, 16),
-        (true, true, true, true, true, 29),
+        (false, false, false, false, false, 11),
+        (false, false, false, false, true, 18),
+        (true, true, true, true, true, 31),
     ] {
         let mut mcp = Mcp::with_domain(&fixture, service, runtime, environment, database, domain);
         let listed = mcp.call("tools/list", json!({}));
@@ -1601,7 +1601,7 @@ fn diagnostics_mcp_defaults_are_readonly_metadata_and_legacy_health_is_preserved
     let mut mcp = Mcp::start(&fixture, false);
     let tools = mcp.call("tools/list", json!({}));
     let tools = tools["result"]["tools"].as_array().unwrap();
-    assert_eq!(tools.len(), 9);
+    assert_eq!(tools.len(), 11);
     for name in [
         "health.doctor",
         "logs.search",
@@ -1748,14 +1748,14 @@ fn execution_mcp_optin_is_finite_cancellable_and_requires_real_review() {
     let mut fixture = Fixture::new();
     let mut readonly = Mcp::start(&fixture, false);
     let tools = readonly.call("tools/list", json!({}));
-    assert_eq!(tools["result"]["tools"].as_array().unwrap().len(), 9);
+    assert_eq!(tools["result"]["tools"].as_array().unwrap().len(), 11);
     let denied=readonly.call("tools/call",json!({"name":"execution.php","arguments":{"action":"plan","expected_revision":fixture.revision,"idempotency_key":"readonly-exec","args":["--version"]}}));
     assert!(denied.get("error").is_some());
     readonly.close();
     let mut mcp = Mcp::with_surfaces(&fixture, [false, false, false, false, false, true]);
     let tools = mcp.call("tools/list", json!({}));
     let tools = tools["result"]["tools"].as_array().unwrap();
-    assert_eq!(tools.len(), 18);
+    assert_eq!(tools.len(), 20);
     for name in [
         "execution.php",
         "execution.artisan",
@@ -1898,4 +1898,91 @@ fn execution_sdk_rejects_other_families_and_timeout_before_payload_io() {
     assert_eq!(requests.load(Ordering::SeqCst), 0);
     stop.request();
     server.join().unwrap().unwrap();
+}
+
+#[test]
+fn activity_mcp_mark_wait_timeout_and_content_scope() {
+    let fixture = Fixture::new();
+    // Owned, isolated fixture store; no project or user state is opened.
+    let mut collector = devforge_inspector::Collector::open(
+        &fixture.root.join("inspector"),
+        &fixture.root.join("projects"),
+    )
+    .unwrap();
+    collector.enable(&fixture.project).unwrap();
+    let session =
+        devforge_inspector::read_session(&fixture.root.join("projects"), &fixture.project)
+            .unwrap()
+            .unwrap();
+    let mut mcp = Mcp::start(&fixture, false);
+    let mark = mcp.call(
+        "tools/call",
+        json!({"name":"activity.mark","arguments":{"stream":"logs","detail":false}}),
+    );
+    assert_eq!(mark["result"]["isError"], false, "{mark}");
+    let bookmark = mark["result"]["structuredContent"]["data"]["bookmark"]
+        .as_str()
+        .unwrap();
+    let waited = mcp.call(
+        "tools/call",
+        json!({"name":"activity.wait","arguments":{"bookmark":bookmark,"timeout_ms":800}}),
+    );
+    assert_eq!(waited["result"]["isError"], false, "{waited}");
+    assert_eq!(
+        waited["result"]["structuredContent"]["data"]["timed_out"],
+        true
+    );
+    assert_eq!(
+        waited["result"]["structuredContent"]["data"]["continuity"],
+        "unverified"
+    );
+    assert_eq!(
+        waited["result"]["structuredContent"]["data"]["bookmark"],
+        bookmark
+    );
+    assert!(waited["result"]["structuredContent"]["data"]["event"].is_null());
+    // Insert a real collector event after the checkpoint through its owned
+    // loopback listener, then read it through the public MCP stdio path.
+    use std::io::Read;
+    let context = "c".repeat(32);
+    let body = json!({"schema":1,"project_id":fixture.project,"id":"d".repeat(32),
+        "events":[{"kind":"log","context":context,"name":"error","duration_ms":0.0,
+                   "data":{"message":"mcp private message"}}]})
+    .to_string();
+    let address = session
+        .endpoint
+        .strip_prefix("http://")
+        .unwrap()
+        .strip_suffix("/v1/events")
+        .unwrap();
+    let mut stream = std::net::TcpStream::connect(address).unwrap();
+    stream
+        .set_read_timeout(Some(Duration::from_secs(3)))
+        .unwrap();
+    write!(stream, "POST /v1/events HTTP/1.1\r\nHost: {address}\r\nx-devforge-token: {}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}", session.token, body.len(), body).unwrap();
+    let mut reply = String::new();
+    stream.read_to_string(&mut reply).unwrap();
+    assert!(reply.starts_with("HTTP/1.1 202"));
+    let found = mcp.call(
+        "tools/call",
+        json!({"name":"activity.wait","arguments":{"bookmark":bookmark,"timeout_ms":1500}}),
+    );
+    assert_eq!(found["result"]["isError"], false, "{found}");
+    let data = &found["result"]["structuredContent"]["data"];
+    assert_eq!(data["timed_out"], false);
+    assert_eq!(data["continuity"], "unverified");
+    assert_eq!(data["event"]["stream"], "logs");
+    assert_eq!(data["event"]["context_id"], context);
+    assert_ne!(data["bookmark"], bookmark);
+    assert!(!found.to_string().contains("mcp private message"));
+    let denied = mcp.call(
+        "tools/call",
+        json!({"name":"activity.mark","arguments":{"stream":"logs","detail":true}}),
+    );
+    assert_eq!(
+        denied["result"]["structuredContent"]["error"]["code"],
+        "unauthorized"
+    );
+    mcp.close();
+    drop(collector);
 }

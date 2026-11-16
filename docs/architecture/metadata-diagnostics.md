@@ -154,3 +154,43 @@ repository/dispatcher fixture and affected Rust source, grant/cursor and SDK/MCP
 checks are recorded in the A04 PR. The macOS actual producer fixture is not Windows
 native producer evidence; JSON CLI Inspector remains metadata-only. No A05 work or
 bulk source access is implied.
+
+
+## A05 activity checkpoints and bounded wait (2026-11-16)
+
+`activity.mark` records an opaque manager-held checkpoint for one registered
+project, client and grant, selecting Inspector or logs and optional context. The
+credential-bound project is resolved before any requested-project lookup, so
+existing and nonexistent foreign project IDs cannot be distinguished. A missing
+collector store fails noncreating precondition. `activity.wait` observes
+only records whose project sequence is greater than that checkpoint, returns the
+earliest matching observed event and an advanced bookmark, or a typed timeout.
+The caller may narrow a context-free mark to an Inspector context after an action;
+the returned bookmark remains bound to that context. Inspector detail requires
+InspectorQueries; log detail requires LogContent. Metadata needs Observer. Every
+source read and final response rechecks the original grant, project and revision.
+
+A bookmark retains its original 120-second expiry, is held only in manager RAM and
+may be evicted at the bounded capacity. A changed/replaced source, missing project
+anchor, expired bookmark or detectable rewind requires resynchronization. The
+source checks the project-specific anchor and first omitted row in one read-only
+SQLite transaction; gaps from other projects' global sequence values do not imply
+loss. If retained rows or bytes hide a post-mark range, the wait returns an explicit
+limit error instead of reporting a clean timeout.
+
+Each wait polls for at most 3000 ms with at most four simultaneous waits. No actor
+or SQLite lock is held while sleeping. An in-flight read and final authorization may
+finish during up to 1 second of validation grace; registry SQLite contention can
+add up to 250 ms. Scheduling and the 5-second transport limit still apply, so this
+is not a hard real-time deadline. Native quit interrupts waits. One MCP stdio session serializes
+its calls while a wait is active; another manager client remains responsive.
+
+Every result says `continuity=unverified`: polling cannot prove that an event was
+not inserted and deleted or pruned between polls, especially from an initially
+empty project. `timed_out` means no matching event was observed in the polling
+window, not proof no event existed. If the deadline expires before any source
+read completes, the call returns a retryable `TimedOut` error instead of a
+successful observation. Sequence after a mark is temporal evidence,
+not proof that an action caused it. Context narrows the association; HTTP-probe
+correlation and mail waiting remain A08/A06, respectively. Exact platform/test
+results are recorded by the A05 PR; no unrelated source or bulk data is exposed.

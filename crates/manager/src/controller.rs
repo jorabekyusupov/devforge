@@ -297,6 +297,7 @@ impl Controller {
                 },
             ))
             .map_err(|_| Error::OwnerUnavailable);
+        self.context.services.interrupt_activity_waits();
         self.context.quitting.store(true, Ordering::Release);
         let cleanup = self
             .actor
@@ -319,6 +320,7 @@ impl Drop for Controller {
         // the legacy/manager exclusion and mark this composition inactive.
         if let Ok(_gate) = self.context.quit_gate.lock() {
             self.context.owner_active.store(false, Ordering::Release);
+            self.context.services.interrupt_activity_waits();
             self.context.quitting.store(true, Ordering::Release);
         }
         if let Ok(mut auth) = self.context.auth.try_lock() {
@@ -510,6 +512,7 @@ impl Context {
             outcome: ShutdownOutcome::Pending,
         });
         persist_lifecycle_checked(&self.endpoint, &lifecycle, authorize)?;
+        self.services.interrupt_activity_waits();
         self.quitting.store(true, Ordering::Release);
         self.payloads
             .lock()
@@ -538,14 +541,17 @@ impl Context {
                     );
                 }
             };
-            return self.services.request(
-                peer,
-                input,
-                &self.actor,
-                self.quitting
-                    .load(Ordering::Acquire)
-                    .then_some(devforge_control::ErrorCode::Interrupted),
-            );
+            let wait = input.get("method").and_then(Value::as_str) == Some("activity_wait");
+            let rejected = self
+                .quitting
+                .load(Ordering::Acquire)
+                .then_some(devforge_control::ErrorCode::Interrupted);
+            // A bounded wait must not hold the owner-wide quit gate while it
+            // polls; each short actor read rechecks authority and shutdown.
+            if wait {
+                drop(_gate);
+            }
+            return self.services.request(peer, input, &self.actor, rejected);
         }
         if input.get("method").and_then(Value::as_str) == Some("external") {
             let invalid = crate::external_control::invalid_reply(&input);

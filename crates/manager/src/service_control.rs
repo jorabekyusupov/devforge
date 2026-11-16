@@ -1441,6 +1441,8 @@ impl Services {
                 | "domain_apply"
                 | "domain_lookup"
                 | "diagnostics_read"
+                | "activity_mark"
+                | "activity_wait"
                 | "execution_plan"
                 | "execution_apply"
                 | "execution_lookup"
@@ -1456,6 +1458,14 @@ impl Services {
     ) -> Value {
         if value.get("method").and_then(Value::as_str) == Some("diagnostics_read") {
             return self.diagnostics.request(peer, value, actor, rejected);
+        }
+        if matches!(
+            value.get("method").and_then(Value::as_str),
+            Some("activity_mark" | "activity_wait")
+        ) {
+            return self
+                .diagnostics
+                .activity_request(peer, value, actor, rejected);
         }
         let id = value
             .get("request")
@@ -1800,6 +1810,9 @@ impl Services {
                 None,
             ),
         }
+    }
+    pub(crate) fn interrupt_activity_waits(&self) {
+        self.diagnostics.interrupt_waits();
     }
     pub(crate) fn clear(&self) {
         self.diagnostics.clear();

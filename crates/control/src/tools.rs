@@ -77,6 +77,26 @@ contract!(DomainInput{page:Option<PageRequest>});
 contract!(DatabaseInput{page:Option<PageRequest>});
 contract!(LogInput{page:Option<PageRequest>,query:Option<Text<256>>,level:Option<Text<32>>,#[serde(default,skip_serializing_if="Option::is_none")] since:Option<SafeInt>,#[serde(default,skip_serializing_if="Option::is_none")] content:Option<bool>});
 contract!(InspectorInput{page:Option<PageRequest>,context_id:Option<Id>,#[serde(default,skip_serializing_if="Option::is_none")] detail:Option<bool>});
+
+/// A server-held observation checkpoint, distinct from a frozen pagination cursor.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ActivityStream {
+    Inspector,
+    Logs,
+}
+impl Wire for ActivityStream {
+    fn schema() -> Value {
+        json!({"type":"string","enum":["inspector","logs"]})
+    }
+    fn ts() -> String {
+        "\"inspector\" | \"logs\"".into()
+    }
+}
+contract!(ActivityMarkInput{stream:ActivityStream,detail:bool,context_id:Option<Id>});
+contract!(ActivityMarkOutput { bookmark: Id });
+contract!(ActivityWaitInput{bookmark:Id,timeout_ms:Bounded<3000>,context_id:Option<Id>});
+
 contract!(DebuggerInput{page:Option<PageRequest>});
 contract!(MailInput{page:Option<PageRequest>,subject:Option<Text<256>>,recipient:Option<Text<256>>});
 contract!(ExecutionInput{page:Option<PageRequest>,operation_id:Id});
@@ -102,6 +122,42 @@ contract!(DatabaseItem{engine:Text<32>,bound:bool,ready:bool});
 contract!(LogItem{event_id:Id,level:Text<32>,code:Id,observed_at:SafeInt,#[serde(default,skip_serializing_if="Option::is_none")] message:Option<Text<2048>>,#[serde(default,skip_serializing_if="Option::is_none")] exception:Option<Text<2048>>});
 contract!(InspectorDetail{kind:Id,observed_at:SafeInt,text:Text<2048>,#[serde(default,skip_serializing_if="Option::is_none")] duration_ms:Option<SafeInt>,truncated:bool,#[serde(default,skip_serializing_if="Option::is_none")] repeated_count:Option<SafeInt>,#[serde(default,skip_serializing_if="Option::is_none")] sql_ms:Option<SafeInt>,#[serde(default,skip_serializing_if="Option::is_none")] peak_memory_bytes:Option<SafeInt>,#[serde(default,skip_serializing_if="Option::is_none")] capture_truncated:Option<bool>});
 contract!(InspectorItem{context_id:Id,method:Text<16>,status:Option<u16>,queries:SafeInt,elapsed_ms:SafeInt,#[serde(default,skip_serializing_if="Option::is_none")] detail:Option<InspectorDetail>});
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "stream", rename_all = "snake_case", deny_unknown_fields)]
+pub enum ActivityEvent {
+    Inspector { data: InspectorItem },
+    Logs { context_id: Id, data: LogItem },
+}
+impl Wire for ActivityEvent {
+    fn schema() -> Value {
+        json!({"oneOf":[
+            {"type":"object","additionalProperties":false,"required":["stream","data"],"properties":{"stream":{"const":"inspector"},"data":InspectorItem::schema()}},
+            {"type":"object","additionalProperties":false,"required":["stream","context_id","data"],"properties":{"stream":{"const":"logs"},"context_id":Id::schema(),"data":LogItem::schema()}}
+        ]})
+    }
+    fn ts() -> String {
+        "ActivityEvent".into()
+    }
+    fn declaration() -> Option<String> {
+        Some("export type ActivityEvent = { stream: \"inspector\"; data: InspectorItem } | { stream: \"logs\"; context_id: string; data: LogItem };\n".into())
+    }
+}
+/// Polling cannot prove that no event was inserted and removed between reads.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ActivityContinuity {
+    Unverified,
+}
+impl Wire for ActivityContinuity {
+    fn schema() -> Value {
+        json!({"type":"string","enum":["unverified"]})
+    }
+    fn ts() -> String {
+        "\"unverified\"".into()
+    }
+}
+contract!(ActivityWaitOutput{bookmark:Id,event:Option<ActivityEvent>,timed_out:bool,continuity:ActivityContinuity});
+
 contract!(DebuggerItem{installed:bool,mode:Text<32>,primitive_assignment_supported:bool});
 contract!(MailItem {
     mail_id: Id,
@@ -408,6 +464,11 @@ pub fn declarations() -> Vec<String> {
         DatabaseInput,
         LogInput,
         InspectorInput,
+        ActivityMarkInput,
+        ActivityMarkOutput,
+        ActivityWaitInput,
+        ActivityEvent,
+        ActivityWaitOutput,
         DebuggerInput,
         MailInput,
         ExecutionInput,

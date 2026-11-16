@@ -44,8 +44,17 @@ cache/dump duration remain unknown. Known owned companion files upgrade safely.
 Actual offline Laravel cache capture is macOS-only evidence; see
 `docs/architecture/metadata-diagnostics.md` for exact scope.
 
-Next planned package is A05 correlation and bounded wait after accepted event contracts.
-Do not start it from this A04 handoff. Subsequent order remains diagnostics/correlation/wait/mail/artifacts ->
+## A05 completed slice
+Inspector/log activity marks and bounded waits bind project/client/grant/revision,
+stream, context and source epoch. The advanced bookmark follows the earliest new
+observed sequence; context can narrow a prior unfiltered mark. Known source loss,
+anchor removal and replacement fail explicitly. Every result says continuity is
+unverified; transient insert/delete between polls can be missed. Timeout means no
+matching event observed, not proof no event existed. Wait ≤3s plus validation grace,
+max four waiters; quit interrupts and one MCP session serializes its calls.
+
+Next planned package is A06 mail details; A05 did not implement mail wait or HTTP probe.
+Do not start it from this A05 handoff. Subsequent order remains diagnostics/correlation/wait/mail/artifacts ->
 advanced debug/HTTP/workspaces/recovery -> HTTP MCP -> remaining UX/docs -> final
 capability/client/OS acceptance -> M14 -> M15. E/D conditions remain unchanged.
 

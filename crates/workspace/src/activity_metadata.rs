@@ -22,6 +22,23 @@ impl Workspace {
         check()?;
         Ok(window)
     }
+    /// A05 live observation checks an anchor inside the same read snapshot.
+    pub fn activity_metadata_with_anchor(
+        &self,
+        id: &str,
+        kind: &ActivityKind,
+        anchor: u64,
+        check: &dyn Fn() -> Result<()>,
+    ) -> Result<MetadataWindow> {
+        kind.validate().map_err(mapped)?;
+        check()?;
+        self.available_project(id)?;
+        let window =
+            devforge_inspector::metadata::read_with_anchor(&self.root, id, kind, Some(anchor))
+                .map_err(mapped)?;
+        check()?;
+        Ok(window)
+    }
     pub fn activity_metadata_epoch(
         &self,
         id: &str,

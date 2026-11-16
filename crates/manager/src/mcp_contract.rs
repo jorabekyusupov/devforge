@@ -55,6 +55,7 @@ pub enum Action {
     Database(DatabaseCall),
     Domain(DomainCall),
     Diagnostics(DiagnosticsCall),
+    Activity(ActivityCall),
     Execution(ExecutionCall),
 }
 pub enum ExecutionInput {
@@ -91,6 +92,21 @@ pub struct DiagnosticsCall {
     version: Version,
 }
 impl DiagnosticsCall {
+    pub fn jsonrpc_id(&self) -> &Value {
+        &self.id
+    }
+}
+pub enum ActivityInput {
+    Mark(Request<devforge_control::tools::ActivityMarkInput>),
+    Wait(Request<devforge_control::tools::ActivityWaitInput>),
+}
+pub struct ActivityCall {
+    pub input: ActivityInput,
+    pub request_id: Id,
+    id: Value,
+    version: Version,
+}
+impl ActivityCall {
     pub fn jsonrpc_id(&self) -> &Value {
         &self.id
     }
@@ -495,6 +511,14 @@ impl Protocol {
             };
         }
         if method == "tools/call"
+            && let Some(activity) = self.activity_tool(&params, id.clone(), version)
+        {
+            return match activity {
+                Ok(call) => Action::Activity(call),
+                Err(()) => Action::Reply(rpc_error(Some(id), -32602, "Invalid params", None)),
+            };
+        }
+        if method == "tools/call"
             && let Some(diagnostics) = self.diagnostics_tool(&params, id.clone(), version)
         {
             return match diagnostics {
@@ -576,6 +600,101 @@ impl Protocol {
             }
             Err(()) => Action::Reply(rpc_error(Some(id), -32602, "Invalid params", None)),
         }
+    }
+    fn activity_tool(
+        &mut self,
+        params: &Value,
+        id: Value,
+        version: Version,
+    ) -> Option<Result<ActivityCall, ()>> {
+        let name = params.get("name").and_then(Value::as_str)?;
+        if !matches!(name, "activity.mark" | "activity.wait") {
+            return None;
+        }
+        if !keys(params, &["name", "arguments"]) {
+            return Some(Err(()));
+        }
+        let arguments = params
+            .get("arguments")
+            .cloned()
+            .unwrap_or_else(|| json!({}));
+        let allowed: &[&str] = if name == "activity.mark" {
+            &["stream", "detail", "context_id"]
+        } else {
+            &["bookmark", "timeout_ms", "context_id"]
+        };
+        if !keys(&arguments, allowed)
+            || arguments.get("context_id").is_some_and(|value| {
+                value.as_str().is_none_or(|id| {
+                    id.len() != 32 || !id.bytes().all(|byte| byte.is_ascii_hexdigit())
+                })
+            })
+        {
+            return Some(Err(()));
+        }
+        self.counter = self.counter.wrapping_add(1);
+        let request_id = Id::new(format!("mcp-{}", self.counter)).expect("fixed request ID");
+        let envelope = |input| Request {
+            api_version: Default::default(),
+            request_id: request_id.clone(),
+            project_id: self.project.clone(),
+            expected_revision: None,
+            idempotency_key: None,
+            input,
+        };
+        let input = if name == "activity.mark" {
+            match serde_json::from_value::<devforge_control::tools::ActivityMarkInput>(arguments) {
+                Ok(input) => ActivityInput::Mark(envelope(input)),
+                Err(_) => return Some(Err(())),
+            }
+        } else {
+            match serde_json::from_value::<devforge_control::tools::ActivityWaitInput>(arguments) {
+                Ok(input) => ActivityInput::Wait(Request {
+                    api_version: Default::default(),
+                    request_id: request_id.clone(),
+                    project_id: self.project.clone(),
+                    expected_revision: None,
+                    idempotency_key: None,
+                    input,
+                }),
+                Err(_) => return Some(Err(())),
+            }
+        };
+        Some(Ok(ActivityCall {
+            input,
+            request_id,
+            id,
+            version,
+        }))
+    }
+    pub fn complete_activity(call: ActivityCall, result: Result<Value, ErrorCode>) -> Value {
+        let content = result
+            .and_then(|value| {
+                if value.get("api_version") != Some(&json!(1))
+                    || value.get("request_id") != Some(&json!(call.request_id))
+                    || value.get("ok").and_then(Value::as_bool).is_none_or(|ok| {
+                        ok != value.get("data").is_some() || ok == value.get("error").is_some()
+                    })
+                {
+                    Err(ErrorCode::InvalidInput)
+                } else {
+                    Ok(value)
+                }
+            })
+            .unwrap_or_else(|code| {
+                serde_json::to_value(Response::<Value>::failure(
+                    call.request_id,
+                    None,
+                    code.fault(),
+                ))
+                .expect("fixed error")
+            });
+        let is_error = content.get("ok") != Some(&Value::Bool(true));
+        rpc_success(
+            call.id,
+            call.version,
+            json!({"content":[{"type":"text","text":content.to_string()}],"structuredContent":content,"isError":is_error}),
+        )
     }
     fn diagnostics_tool(
         &mut self,
@@ -1718,6 +1837,7 @@ fn tool_definitions(
         definitions.extend(execution_tool_definitions());
     }
     definitions.extend(diagnostics_tool_definitions());
+    definitions.extend(activity_tool_definitions());
     if service_actions {
         definitions.extend(service_tool_definitions());
     }
@@ -1926,6 +2046,17 @@ fn domain_tool_definitions() -> Vec<Value> {
     }).collect()
 }
 
+fn activity_tool_definitions() -> Vec<Value> {
+    use devforge_control::{
+        export::Wire,
+        tools::{ActivityMarkInput, ActivityWaitInput},
+    };
+    [("activity.mark", ActivityMarkInput::schema()), ("activity.wait", ActivityWaitInput::schema())].into_iter().map(|(name, mut schema)| {
+        // Omitted context is supported; explicit null is rejected at MCP boundary.
+        schema["properties"]["context_id"] = json!({"type":"string","minLength":32,"maxLength":32,"pattern":"^[A-Fa-f0-9]{32}$"});
+        json!({"name":name,"description":if name=="activity.mark"{"Create an opaque project- and grant-bound checkpoint before an action. Select inspector or logs; detail requires its explicit information grant. Context is optional. Checkpoints expire after 120 seconds, may be evicted, and do not survive manager restart."}else{"Poll for the next observed event for up to the requested 3000ms maximum. No new poll starts after the requested duration; it allows up to 1s grace for an in-flight read and final checks, plus up to 250ms registry contention, subject to scheduling and transport, not hard real-time; that read may return a match. An optional context narrows it; use the returned bookmark for the next call, including after timeout. Checkpoints retain the original 120-second expiry. Stdio calls on one session are serialized; a wait occupies that session until it finishes. Every result reports continuity=unverified: timeout means no matching event was observed by polling, not proof that no transient event occurred. Expired, evicted or replaced sources require a new checkpoint; detected retention gaps are errors, not timeouts."},"inputSchema":schema,"annotations":{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":false,"openWorldHint":false}})
+    }).collect()
+}
 fn diagnostics_tool_definitions() -> Vec<Value> {
     use devforge_control::{
         export::Wire,

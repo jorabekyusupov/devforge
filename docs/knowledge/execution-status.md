@@ -1532,3 +1532,44 @@ redaction, event/profile metrics and truncation; an offline Laravel 13 repositor
 fixture exercises the actual cache event producer on macOS. Exact PR CI records
 macOS/Windows affected checks. No Windows native Laravel producer, A05 work or
 unbounded dump payload is claimed.
+
+
+## A05 — correlation checkpoints and bounded wait (2026-11-16)
+
+A05 adds Observer-scoped Inspector/log `activity.mark` and `activity.wait`, with
+explicit InspectorQueries/LogContent required for detail. Marks and advancing
+bookmarks bind the original project, client, grant, revision, stream, detail,
+context and source epoch. New events use sequence after the mark; known anchor loss,
+source replacement, expiry and retained-range truncation are explicit failures.
+Context narrowing links a discovered Inspector context to separately marked logs.
+
+Wait is limited to 3 seconds (plus bounded validation grace), maximum four concurrent
+waits; actor, database and owner quit gate are not held across sleeps. Explicit quit
+interrupts wait. Same MCP stdio session remains serialized. Every result reports
+`continuity=unverified`: polling may miss a transient inserted/deleted or pruned event,
+particularly after an initially empty mark. A timeout means no event observed, not
+proof that no event existed, and correlation does not establish causality.
+
+Focused source/manager tests cover new versus old, wrong grant before source IO,
+project/context/cursor/revoke/expiry, cross-project sequence gaps, clear/retention,
+zero-baseline uncertainty, bounded timeout, concurrent health and shutdown. SDK/MCP
+and actual local stdio fixtures exercise both new tools; default MCP count is 11 and
+all-opt-in 40. Exact CI evidence belongs to the A05 PR. A06 mail wait and A08 HTTP
+probe remain separate. Original ReportViews/locales are excluded.
+
+Windows CI runs 43855253072 and 43857904981 each failed four A05 no-event
+assertions with retryable TimedOut errors, first using 150 ms and then 1500 ms
+logical waits. Logs do not establish whether initial observation or final
+reauthorization consumed the budget. A fixed 250 ms final-check margin and
+redundant actor checks were concrete constraints. The deadline-bound A05 path now
+keeps authorization before and after source reads while avoiding duplicate checks;
+final revalidation has up to 1 second plus SQLite's 250 ms busy bound. It still
+fails closed if no source sample or final authorization completes. The affected
+fixtures retain a separate 1 ms truthful-short-budget assertion. The subsequent
+PR CI records platform results for the final commit.
+
+A05 mark additionally resolves the credential-bound project before any actor
+lookup, closing an error-code distinction between existing and nonexistent
+foreign project IDs. A focused fixture checks both IDs, unknown credentials and
+expired/revoked grants with no Inspector source creation. Subsequent grant and
+source checks remain mandatory; this does not change older diagnostics routes.

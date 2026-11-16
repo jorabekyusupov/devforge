@@ -243,7 +243,7 @@ pub fn mutation_request_schema() -> Value {
     json!({"$schema":"https://json-schema.org/draft/2020-12/schema","oneOf":variants})
 }
 pub fn json_document() -> Result<String> {
-    serde_json::to_string_pretty(&json!({"api_version":API_VERSION,"live_available":false,"information_scope_schema":InformationScope::schema(),"timestamp_unit":"unix_milliseconds","timeout_unit":"monotonic_milliseconds","request_schema":request_schema(),"mutation_request_schema":mutation_request_schema(),"error_codes":ERRORS,"tools":tools::contracts()?}))
+    serde_json::to_string_pretty(&json!({"api_version":API_VERSION,"live_available":false,"information_scope_schema":InformationScope::schema(),"timestamp_unit":"unix_milliseconds","timeout_unit":"monotonic_milliseconds","request_schema":request_schema(),"mutation_request_schema":mutation_request_schema(),"activity_mark_input_schema":tools::ActivityMarkInput::schema(),"activity_mark_output_schema":tools::ActivityMarkOutput::schema(),"activity_wait_input_schema":tools::ActivityWaitInput::schema(),"activity_wait_output_schema":tools::ActivityWaitOutput::schema(),"error_codes":ERRORS,"tools":tools::contracts()?}))
         .map(|s|s+"\n").map_err(|_|ErrorCode::InvalidInput)
 }
 pub fn typescript() -> String {
