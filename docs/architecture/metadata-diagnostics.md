@@ -244,3 +244,29 @@ attachment metadata, old-ID lookup behind large newer messages, burst wait and r
 A disposable real SMTP→MCP mark/wait/show fixture passed locally on macOS. The PR
 records exact CI for macOS/Windows; actual Windows SMTP/MCP producer evidence is not
 claimed by the local fixture. Attachment export/delete remain separately reviewed.
+
+
+## A07 support bundle and reviewed local export (2026-11-16)
+
+`support.preview` creates a bounded, deterministic JSON preview from the existing
+cached doctor projection and a fixed runbook mapping. The artifact holds only
+allowlisted diagnostic codes and observation/revision metadata. It excludes
+environment values, keys, database dumps, arbitrary files and log/mail content;
+Inspector and mail details are not included. No filesystem source is scanned and
+no sharing is automatic. It is a narrow diagnostic summary, not a comprehensive
+log bundle or proof of current runtime health.
+
+`support.read` returns the same retained preview through an opaque ID scoped to
+the original client, grant, project and revision. Handles are in-memory, bounded,
+evictable and valid at most 120 seconds; revocation and normal authorization checks
+apply. Local export requires the separate sensitive-operation scope and explicit
+native owner approval of the destination, size and content SHA-256. The manager
+revalidates the artifact and writes the reviewed bytes with create-new semantics
+inside its private control directory; the external client cannot supply a path.
+No upload or external send is performed.
+
+Implementation: `crates/workspace/src/support_bundle.rs`,
+`crates/manager/src/diagnostics.rs` and `service_control.rs`; MCP/SDK contracts
+are in `mcp_contract.rs` and `external_client.rs`. Local focused tests and the
+PR's macOS/Windows CI are recorded in the phase result; actual native Windows UI
+interaction is not implied by CI.

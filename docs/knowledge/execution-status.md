@@ -1596,5 +1596,27 @@ and bounded timeout semantics remain. Attachment export/delete remain separate.
 Focused source, manager, contract/SDK/MCP and disposable actual SMTP→MCP tests passed
 locally; the exact PR CI records macOS and Windows checks. Actual Windows native
 SMTP/MCP producer behavior is not inferred from local macOS evidence. Default MCP
-surface is 12 tools; all opt-ins expose 41. A07 has not started. Existing deferred
+surface is 12 tools; all opt-ins expose 41. A07 is recorded separately below. Existing deferred
 ReportViews/locales remain excluded.
+
+
+## A07 — bounded support artifact (2026-11-16)
+
+Scoped preview/read expose only the cached doctor and fixed runbook codes, with
+opaque in-memory project/client/grant/revision-bound handles. The result excludes
+raw environment, keys, database dumps, logs, mail, Inspector detail and arbitrary
+files. Reviewed local export uses the exact preview bytes and manager-owned private
+control directory with create-new semantics; separate sensitive permission and
+native approval are required. No external upload or automatic sharing is added.
+This intentionally does not claim a complete historical diagnostic bundle.
+
+Source and scoped tests: `crates/workspace/src/support_bundle.rs`,
+`crates/manager/src/diagnostics.rs`, `crates/manager/tests/service_control.rs`,
+`crates/manager/tests/mcp_contract.rs`. Focused macOS checks: `cargo test -p devforge-workspace --lib support_bundle::tests`,
+`cargo test -p devforge-manager --test service_control a07_`, manager artifact
+expiry and MCP contract tests, desktop review projection test, CLI diagnostics
+and stdio tests, and two focused UI tests plus desktop typecheck passed. Strict
+knowledge validation passed. The PR CI records macOS and Windows results; actual
+Windows native UI interaction remains unverified. Native visual review was not
+performed because `agent-desktop` is unavailable on this host. Deferred
+ReportViews/locales in the original worktree are outside this phase.

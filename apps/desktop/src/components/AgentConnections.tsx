@@ -164,6 +164,18 @@ export function AgentConnections({ api }: { api?: AgentApi }) {
         )
       );
     }
+    if (plan.target.kind === "support_export") {
+      const target = plan.target;
+      return (
+        typeof target.destination === "string" &&
+        target.destination.length > 0 &&
+        !/[\u0000-\u001f\u007f]/.test(target.destination) &&
+        typeof target.content_sha256 === "string" &&
+        /^[0-9a-f]{64}$/.test(target.content_sha256) &&
+        Number.isSafeInteger(target.byte_count) &&
+        target.byte_count >= 0
+      );
+    }
     if (
       !["yaml_save", "environment_apply", "domain"].includes(plan.target.kind)
     )
@@ -941,6 +953,26 @@ function PlanReview({ plan, machine }: { plan: AgentPlan; machine: boolean }) {
           <>
             <dt>{t("agentConnections.yamlBytes")}</dt>
             <dd>{target.byte_count}</dd>
+          </>
+        )}
+        {target.kind === "support_export" && (
+          <>
+            <dt>{t("agentConnections.exportDestination")}</dt>
+            <dd>
+              <code translate="no">{target.destination}</code>
+            </dd>
+            <dt>{t("agentConnections.exportSha256")}</dt>
+            <dd>
+              <code translate="no">{target.content_sha256}</code>
+            </dd>
+            <dt>{t("agentConnections.exportBytes")}</dt>
+            <dd>
+              {Number.isSafeInteger(target.byte_count)
+                ? new Intl.NumberFormat(
+                    i18n.resolvedLanguage ?? i18n.language,
+                  ).format(target.byte_count)
+                : "—"}
+            </dd>
           </>
         )}
         {target.kind === "database_bind" && (

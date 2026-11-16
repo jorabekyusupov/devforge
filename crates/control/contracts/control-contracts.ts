@@ -81,6 +81,32 @@ export interface ActivityWaitOutput {
   timed_out: boolean;
   continuity: "unverified";
 }
+export interface SupportPreviewInput {}
+export interface SupportReadInput {
+  artifact_id: string;
+}
+export interface SupportDoctor {
+  code: string;
+  origin: "live" | "persisted" | "cached";
+  observed_at: number;
+  revision: number;
+}
+export interface SupportRunbook {
+  evidence: string;
+  impact: string;
+  next_action?: string | null;
+}
+export interface SupportBundlePreview {
+  schema_version: number;
+  doctor: SupportDoctor;
+  runbook: SupportRunbook;
+  omitted: Array<string>;
+}
+export interface SupportPreviewOutput {
+  artifact_id: string;
+  preview: SupportBundlePreview;
+  expires_at: number;
+}
 export interface DebuggerInput {
   page?: PageRequest | null;
 }
@@ -373,6 +399,10 @@ export interface DomainCleanupInput {
   plan: string;
   limits?: MutationLimits | null;
 }
+export interface SupportExportInput {
+  artifact_id: string;
+  limits?: MutationLimits | null;
+}
 export interface MutationReceipt {
   project_id: string;
   operation_id: string;
@@ -447,6 +477,7 @@ export interface MutationInputs {
   "database.restore": DatabaseRestoreInput;
   "domains.apply": DomainApplyInput;
   "domains.cleanup": DomainCleanupInput;
+  "artifacts.diagnostic_bundle_export": SupportExportInput;
   "workspaces.archive": WorkspaceLifecycleInput;
   "workspaces.restore": WorkspaceLifecycleInput;
   "workspaces.purge": WorkspaceLifecycleInput;
@@ -472,6 +503,7 @@ export interface MutationOutputs {
   "database.restore": MutationReceipt;
   "domains.apply": MutationReceipt;
   "domains.cleanup": MutationReceipt;
+  "artifacts.diagnostic_bundle_export": MutationReceipt;
   "workspaces.archive": MutationReceipt;
   "workspaces.restore": MutationReceipt;
   "workspaces.purge": MutationReceipt;

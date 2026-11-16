@@ -72,7 +72,7 @@ fn legacy_handshake_does_not_supply_metadata_to_modern_requests() {
             .as_array()
             .unwrap()
             .len(),
-        12
+        14
     );
     let mut modern = modern(json!(4), "ping", json!({}));
     modern["params"]["_meta"]
@@ -134,11 +134,11 @@ fn resources_require_authorized_project_projection_and_reject_foreign_uris_and_c
     );
 }
 #[test]
-fn only_twelve_read_tools_are_dispatchable_and_notifications_never_mint_authority() {
+fn only_fourteen_read_tools_are_dispatchable_and_notifications_never_mint_authority() {
     let mut p = Protocol::new(id("project-a"));
     let listed = reply(p.receive(modern(json!(1), "tools/list", json!({}))));
     let tools = listed["result"]["tools"].as_array().unwrap();
-    assert_eq!(tools.len(), 12);
+    assert_eq!(tools.len(), 14);
     assert!(
         tools
             .iter()
@@ -167,6 +167,76 @@ fn only_twelve_read_tools_are_dispatchable_and_notifications_never_mint_authorit
         reply(p.receive(modern(json!(""), "ping", json!({}))))["result"]["resultType"],
         "complete"
     );
+}
+
+#[test]
+fn support_export_requires_opt_in_and_exact_review_shape() {
+    use devforge_manager::mcp_contract::ExecutionInput;
+    let params = json!({"name":"support.export","arguments":{"action":"plan","artifact_id":"owned","expected_revision":1,"idempotency_key":"key"}});
+    let mut disabled = Protocol::new(id("project-a"));
+    assert_eq!(
+        reply(disabled.receive(modern(json!(1), "tools/call", params.clone())))["error"]["code"],
+        -32602
+    );
+    let mut enabled = Protocol::new(id("project-a")).with_support_export_actions(true);
+    assert!(
+        matches!(enabled.receive(modern(json!(2), "tools/call", params)), Action::Execution(call) if matches!(call.input, ExecutionInput::SupportPlan(_)))
+    );
+    let apply = json!({"name":"support.export","arguments":{"action":"apply","artifact_id":"owned","expected_revision":1,"idempotency_key":"key","review":"a".repeat(64)}});
+    assert!(
+        matches!(enabled.receive(modern(json!(3), "tools/call", apply)), Action::Execution(call) if matches!(call.input, ExecutionInput::SupportApply { .. }))
+    );
+    for args in [
+        json!({"name":"support.export","arguments":{"action":"apply","artifact_id":"owned","expected_revision":1,"idempotency_key":"key"}}),
+        json!({"name":"support.export","arguments":{"action":"plan","artifact_id":"owned","expected_revision":1,"idempotency_key":"key","path":"/tmp/test"}}),
+    ] {
+        assert_eq!(
+            reply(enabled.receive(modern(json!(4), "tools/call", args)))["error"]["code"],
+            -32602
+        );
+    }
+}
+
+#[test]
+fn support_preview_and_read_are_scoped_and_reject_paths() {
+    use devforge_manager::mcp_contract::ActivityInput;
+    let mut p = Protocol::new(id("project-a"));
+    let listing = reply(p.receive(modern(json!(1), "tools/list", json!({}))));
+    let tools = listing["result"]["tools"].as_array().unwrap();
+    for name in ["support.preview", "support.read"] {
+        assert!(
+            tools
+                .iter()
+                .any(|tool| tool["name"] == name && tool["annotations"]["readOnlyHint"] == true)
+        );
+    }
+    let preview = p.receive(modern(
+        json!(2),
+        "tools/call",
+        json!({"name":"support.preview","arguments":{}}),
+    ));
+    assert!(
+        matches!(preview, Action::Activity(call) if matches!(call.input, ActivityInput::SupportPreview(_)))
+    );
+    let read = p.receive(modern(
+        json!(3),
+        "tools/call",
+        json!({"name":"support.read","arguments":{"artifact_id":"owned"}}),
+    ));
+    assert!(
+        matches!(read, Action::Activity(call) if matches!(call.input, ActivityInput::SupportRead(_)))
+    );
+    for args in [
+        json!({"name":"support.preview","arguments":{"project_id":"other"}}),
+        json!({"name":"support.read","arguments":{"artifact_id":"../private"}}),
+        json!({"name":"support.read","arguments":{}}),
+        json!({"name":"support.read","arguments":{"artifact_id":"owned","path":"/tmp/out"}}),
+    ] {
+        assert_eq!(
+            reply(p.receive(modern(json!(4), "tools/call", args)))["error"]["code"],
+            -32602
+        );
+    }
 }
 
 #[test]

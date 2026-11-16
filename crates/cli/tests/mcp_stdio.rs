@@ -149,7 +149,7 @@ fn dual_era_metadata_framing_and_eof_work_without_a_manager() {
     assert_eq!(discovery["result"]["resultType"], "complete");
     assert_eq!(discovery["result"]["ttlMs"], 0);
     let tools = client.call(2, "tools/list", json!({}), true);
-    assert_eq!(tools["result"]["tools"].as_array().unwrap().len(), 12);
+    assert_eq!(tools["result"]["tools"].as_array().unwrap().len(), 14);
     assert!(
         tools["result"]["tools"]
             .as_array()
@@ -195,7 +195,7 @@ fn dual_era_metadata_framing_and_eof_work_without_a_manager() {
             .as_array()
             .unwrap()
             .len(),
-        12
+        14
     );
     legacy.raw(b"{");
     drop(legacy.input.take());

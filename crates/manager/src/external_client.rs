@@ -1477,6 +1477,41 @@ impl DiagnosticsClient {
     ) -> std::result::Result<Response<devforge_control::tools::ToolOutput>, ErrorCode> {
         diagnostics_read(&mut self.inner, request)
     }
+    pub fn support_preview(
+        &mut self,
+        request: &Request<devforge_control::tools::SupportPreviewInput>,
+    ) -> std::result::Result<Response<devforge_control::tools::SupportPreviewOutput>, ErrorCode>
+    {
+        support_preview(&mut self.inner, request)
+    }
+    pub fn support_read(
+        &mut self,
+        request: &Request<devforge_control::tools::SupportReadInput>,
+    ) -> std::result::Result<Response<devforge_control::tools::SupportPreviewOutput>, ErrorCode>
+    {
+        support_read(&mut self.inner, request)
+    }
+    pub fn support_export_plan(
+        &mut self,
+        request: &Request<MutationInput>,
+    ) -> std::result::Result<Response<PlanReceipt>, ErrorCode> {
+        support_export_plan(&mut self.inner, request)
+    }
+    pub fn support_export_apply(
+        &mut self,
+        request: &Request<MutationInput>,
+        review: &Digest,
+    ) -> std::result::Result<Response<MutationReceipt>, ErrorCode> {
+        support_export_apply(&mut self.inner, request, review)
+    }
+    pub fn support_export_lookup(
+        &mut self,
+        id: Id,
+        project: &Id,
+        key: &Id,
+    ) -> std::result::Result<Response<Option<MutationReceipt>>, ErrorCode> {
+        support_export_lookup(&mut self.inner, id, project, key)
+    }
     pub fn mark(
         &mut self,
         request: &Request<devforge_control::tools::ActivityMarkInput>,
@@ -1489,6 +1524,121 @@ impl DiagnosticsClient {
     ) -> std::result::Result<Response<devforge_control::tools::ActivityWaitOutput>, ErrorCode> {
         activity_wait(&mut self.inner, request)
     }
+}
+fn support_export_request(request: &Request<MutationInput>) -> std::result::Result<(), ErrorCode> {
+    if !matches!(request.input, MutationInput::SupportExport(_)) {
+        return Err(ErrorCode::UnsupportedCapability);
+    }
+    if !request
+        .expected_revision
+        .is_some_and(|revision| revision <= devforge_control::limits::SafeInt::MAX)
+        || request.idempotency_key.is_none()
+    {
+        return Err(ErrorCode::InvalidInput);
+    }
+    Ok(())
+}
+fn support_export_plan(
+    client: &mut ServiceClient,
+    request: &Request<MutationInput>,
+) -> std::result::Result<Response<PlanReceipt>, ErrorCode> {
+    support_export_request(request)?;
+    let reply: Response<PlanReceipt> = client.exchange(
+        &request.request_id,
+        json!({"method":"support_export_plan","request":request}),
+        false,
+    )?;
+    if reply.data().is_some_and(|plan| {
+        plan.project_id != request.project_id
+            || Some(plan.revision.get()) != request.expected_revision
+    }) {
+        return Err(ErrorCode::InvalidInput);
+    }
+    Ok(reply)
+}
+fn support_export_apply(
+    client: &mut ServiceClient,
+    request: &Request<MutationInput>,
+    review: &Digest,
+) -> std::result::Result<Response<MutationReceipt>, ErrorCode> {
+    support_export_request(request)?;
+    let reply: Response<MutationReceipt> = client.exchange(
+        &request.request_id,
+        json!({"method":"support_export_apply","request":request,"review":review}),
+        true,
+    )?;
+    if reply.data().is_some_and(|receipt| {
+        receipt.project_id != request.project_id
+            || Some(receipt.revision.get()) != request.expected_revision
+            || reply
+                .operation_id()
+                .is_some_and(|id| id != &receipt.operation_id)
+    }) {
+        return Err(ErrorCode::AdmissionUnconfirmed);
+    }
+    Ok(reply)
+}
+fn support_export_lookup(
+    client: &mut ServiceClient,
+    id: Id,
+    project: &Id,
+    key: &Id,
+) -> std::result::Result<Response<Option<MutationReceipt>>, ErrorCode> {
+    let reply: Response<Option<MutationReceipt>> = client.exchange(&id, json!({"method":"support_export_lookup","request_id":id,"project_id":project,"idempotency_key":key}), false)?;
+    if reply
+        .data()
+        .and_then(Option::as_ref)
+        .is_some_and(|receipt| {
+            &receipt.project_id != project
+                || reply
+                    .operation_id()
+                    .is_some_and(|id| id != &receipt.operation_id)
+        })
+    {
+        return Err(ErrorCode::InvalidInput);
+    }
+    Ok(reply)
+}
+fn support_preview(
+    client: &mut ServiceClient,
+    request: &Request<devforge_control::tools::SupportPreviewInput>,
+) -> std::result::Result<Response<devforge_control::tools::SupportPreviewOutput>, ErrorCode> {
+    if request.idempotency_key.is_some()
+        || request
+            .expected_revision
+            .is_some_and(|v| v > devforge_control::limits::SafeInt::MAX)
+    {
+        return Err(ErrorCode::InvalidInput);
+    }
+    client.exchange(
+        &request.request_id,
+        json!({"method":"support_preview","request":request}),
+        false,
+    )
+}
+fn support_read(
+    client: &mut ServiceClient,
+    request: &Request<devforge_control::tools::SupportReadInput>,
+) -> std::result::Result<Response<devforge_control::tools::SupportPreviewOutput>, ErrorCode> {
+    if request.idempotency_key.is_some()
+        || request
+            .expected_revision
+            .is_some_and(|v| v > devforge_control::limits::SafeInt::MAX)
+    {
+        return Err(ErrorCode::InvalidInput);
+    }
+    let reply: Response<devforge_control::tools::SupportPreviewOutput> = client.exchange(
+        &request.request_id,
+        json!({"method":"support_read","request":request}),
+        false,
+    )?;
+    if reply
+        .data()
+        .is_some_and(|value| value.artifact_id != request.input.artifact_id)
+    {
+        return Err(ErrorCode::InvalidInput);
+    }
+    Ok(reply)
 }
 fn diagnostics_request(
     request: &Request<devforge_control::tools::ToolInput>,
@@ -1599,6 +1749,53 @@ impl BoundDiagnosticsClient {
             return Err(ErrorCode::ProjectMismatch);
         }
         diagnostics_read(self.transport(), request)
+    }
+    pub fn support_preview(
+        &mut self,
+        request: &Request<devforge_control::tools::SupportPreviewInput>,
+    ) -> std::result::Result<Response<devforge_control::tools::SupportPreviewOutput>, ErrorCode>
+    {
+        if &request.project_id != self.project() {
+            return Err(ErrorCode::ProjectMismatch);
+        }
+        support_preview(self.transport(), request)
+    }
+    pub fn support_read(
+        &mut self,
+        request: &Request<devforge_control::tools::SupportReadInput>,
+    ) -> std::result::Result<Response<devforge_control::tools::SupportPreviewOutput>, ErrorCode>
+    {
+        if &request.project_id != self.project() {
+            return Err(ErrorCode::ProjectMismatch);
+        }
+        support_read(self.transport(), request)
+    }
+    pub fn support_export_plan(
+        &mut self,
+        request: &Request<MutationInput>,
+    ) -> std::result::Result<Response<PlanReceipt>, ErrorCode> {
+        if &request.project_id != self.project() {
+            return Err(ErrorCode::ProjectMismatch);
+        }
+        support_export_plan(self.transport(), request)
+    }
+    pub fn support_export_apply(
+        &mut self,
+        request: &Request<MutationInput>,
+        review: &Digest,
+    ) -> std::result::Result<Response<MutationReceipt>, ErrorCode> {
+        if &request.project_id != self.project() {
+            return Err(ErrorCode::ProjectMismatch);
+        }
+        support_export_apply(self.transport(), request, review)
+    }
+    pub fn support_export_lookup(
+        &mut self,
+        id: Id,
+        key: &Id,
+    ) -> std::result::Result<Response<Option<MutationReceipt>>, ErrorCode> {
+        let project = self.project().clone();
+        support_export_lookup(self.transport(), id, &project, key)
     }
     pub fn mark(
         &mut self,

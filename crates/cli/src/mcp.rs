@@ -36,6 +36,7 @@ struct Surfaces {
     database: bool,
     domain: bool,
     execution: bool,
+    support_export: bool,
 }
 
 enum Frame {
@@ -119,6 +120,24 @@ impl BoundClient {
                         .client
                         .output(call.request_id.clone(), operation_id)
                         .and_then(value),
+                    ExecutionInput::SupportPlan(request) => self
+                        .client
+                        .previous()
+                        .diagnostics()
+                        .support_export_plan(request)
+                        .and_then(value),
+                    ExecutionInput::SupportApply { request, review } => self
+                        .client
+                        .previous()
+                        .diagnostics()
+                        .support_export_apply(request, review)
+                        .and_then(admitted_value),
+                    ExecutionInput::SupportLookup { idempotency_key } => self
+                        .client
+                        .previous()
+                        .diagnostics()
+                        .support_export_lookup(call.request_id.clone(), idempotency_key)
+                        .and_then(value),
                 };
                 Protocol::complete_execution(call, result)
             }
@@ -135,6 +154,12 @@ impl BoundClient {
                 let result = match &call.input {
                     ActivityInput::Mark(request) => client.mark(request).and_then(value),
                     ActivityInput::Wait(request) => client.wait(request).and_then(value),
+                    ActivityInput::SupportPreview(request) => {
+                        client.support_preview(request).and_then(value)
+                    }
+                    ActivityInput::SupportRead(request) => {
+                        client.support_read(request).and_then(value)
+                    }
                 };
                 Protocol::complete_activity(call, result)
             }
@@ -383,7 +408,7 @@ pub fn run(args: &[String]) -> i32 {
     {
         println!(
             "{}",
-            json!({"usage":"devforge mcp serve --credential-file ABSOLUTE_PATH [--allow-service-actions] [--allow-runtime-actions] [--allow-environment-actions] [--allow-database-actions] [--allow-domain-actions] [--allow-execution-actions]","protocol_versions":["2026-07-28","2025-11-25"],"transport":"stdio","default_read_only":true,"service_actions_opt_in":"--allow-service-actions (surface only; grants and native exact-plan approval remain mandatory)","credential":"explicit protected file; never token argv/environment or protocol stdin","runtime_actions_opt_in":"--allow-runtime-actions (catalog install/PHP-Node select only; native exact-plan approval remains mandatory)","environment_actions_opt_in":"--allow-environment-actions (masked preview/approved apply/YAML save only;16KiB UTF8 YAML)","database_actions_opt_in":"--allow-database-actions (scoped choices/native-approved stopped-project bind/restore only)","domain_actions_opt_in":"--allow-domain-actions (project-only facts/opaque hosts-trust plan/apply/safe cleanup; native machine confirmation is separate)","execution_actions_opt_in":"--allow-execution-actions (six native-reviewed managed tools, isolated-context managed tests and retained redacted output; never unrestricted shell)","owner_autostart":false})
+            json!({"usage":"devforge mcp serve --credential-file ABSOLUTE_PATH [--allow-service-actions] [--allow-runtime-actions] [--allow-environment-actions] [--allow-database-actions] [--allow-domain-actions] [--allow-execution-actions] [--allow-support-export]","protocol_versions":["2026-07-28","2025-11-25"],"transport":"stdio","default_read_only":true,"service_actions_opt_in":"--allow-service-actions (surface only; grants and native exact-plan approval remain mandatory)","credential":"explicit protected file; never token argv/environment or protocol stdin","runtime_actions_opt_in":"--allow-runtime-actions (catalog install/PHP-Node select only; native exact-plan approval remains mandatory)","environment_actions_opt_in":"--allow-environment-actions (masked preview/approved apply/YAML save only;16KiB UTF8 YAML)","database_actions_opt_in":"--allow-database-actions (scoped choices/native-approved stopped-project bind/restore only)","domain_actions_opt_in":"--allow-domain-actions (project-only facts/opaque hosts-trust plan/apply/safe cleanup; native machine confirmation is separate)","execution_actions_opt_in":"--allow-execution-actions (six native-reviewed managed tools, isolated-context managed tests and retained redacted output; never unrestricted shell)","support_export_opt_in":"--allow-support-export (native-approved local support preview export only)","owner_autostart":false})
         );
         return 0;
     }
@@ -413,6 +438,7 @@ pub fn run(args: &[String]) -> i32 {
             "--allow-database-actions" if !surfaces.database => surfaces.database = true,
             "--allow-domain-actions" if !surfaces.domain => surfaces.domain = true,
             "--allow-execution-actions" if !surfaces.execution => surfaces.execution = true,
+            "--allow-support-export" if !surfaces.support_export => surfaces.support_export = true,
             _ => {
                 eprintln!("mcp_invalid_arguments");
                 return 2;
@@ -448,7 +474,8 @@ fn serve_stdio(loaded: LoadedCredential, surfaces: Surfaces) -> io::Result<()> {
         surfaces.database,
         surfaces.domain,
     )
-    .with_execution_actions(surfaces.execution);
+    .with_execution_actions(surfaces.execution)
+    .with_support_export_actions(surfaces.support_export);
     let (input_tx, input_rx) = mpsc::sync_channel(QUEUE);
     let reader = thread::spawn(move || {
         let stdin = io::stdin();

@@ -4,6 +4,8 @@
 
 ## 2026-11-16
 
+- **A07 support artifact:** finite cached doctor/runbook preview, grant-bound opaque read and separately approved local export of exact bytes to the private control directory. Content sources, platform limits and validation are recorded in [contract](../architecture/metadata-diagnostics.md) and [execution](execution-status.md).
+
 - **A06 scoped mail:** MailContent-gated show/filter/detail and filtered mail wait, bounded MIME and attachment metadata, usable sensitive URL candidates without fetch, opaque cursor filters and timely cache cleanup. Actual disposable SMTP→MCP fixture and scoped privacy/burst/old-ID checks passed locally. Masking remains best effort; export/delete are separate. [Contract](../architecture/metadata-diagnostics.md), [execution](execution-status.md).
 
 - **A05 observed-event correlation:** project/grant/revision-bound Inspector and log marks, sequence-based bounded wait, optional context narrowing, nonblocking actor/quit and explicit unverified continuity. Project-specific anchor and omitted-row checks distinguish known loss from other-project sequence gaps. [Contract](../architecture/metadata-diagnostics.md), [execution](execution-status.md).

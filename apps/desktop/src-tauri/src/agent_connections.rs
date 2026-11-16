@@ -109,6 +109,11 @@ pub enum Target {
     YamlSave {
         byte_count: u64,
     },
+    SupportExport {
+        destination: String,
+        content_sha256: Digest,
+        byte_count: u64,
+    },
     DatabaseBind {
         instance_id: Id,
     },
@@ -958,6 +963,14 @@ mod tests {
         let safe = serde_json::to_string(&review_details(&machine)).unwrap();
         assert!(safe.contains("system_hosts") && safe.contains("b.devforge.test"));
         assert!(!safe.contains("native-private-key-canary"));
+        let export = json!({"kind":"support_export","destination":"/fixture/support.json","content_sha256":"a".repeat(64),"byte_count":42,"private_content":"not-for-renderer"});
+        let target: Target = serde_json::from_value(export).unwrap();
+        let safe = serde_json::to_value(target).unwrap();
+        assert_eq!(
+            safe,
+            json!({"kind":"support_export","destination":"/fixture/support.json","content_sha256":"a".repeat(64),"byte_count":42})
+        );
+        assert!(serde_json::from_value::<Target>(json!({"kind":"support_export","destination":"/fixture/support.json","content_sha256":"invalid","byte_count":42})).is_err());
         let execution = json!({"kind":"execution","tool":"php","arg_count":2,"managed_test":true,"timeout_ms":1000,"context":{"environment":false,"database":false,"cache":false,"mail":false,"test_isolated":true},"safe_arguments":["[REDACTED]","owned-script.php"],"raw_arguments":["secret-execution-raw-canary"]});
         let target: Target = serde_json::from_value(execution).unwrap();
         let safe = serde_json::to_string(&target).unwrap();

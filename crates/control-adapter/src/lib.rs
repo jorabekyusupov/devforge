@@ -39,6 +39,10 @@ impl<'a> BackendContext<'a> {
 }
 /// Configuration planning is a read-only domain method, not a Command mutation.
 pub enum Dispatch {
+    SupportExport {
+        project_id: String,
+        artifact_id: devforge_control::Id,
+    },
     Execution {
         project_id: String,
         request: devforge_workspace::execution_control::ExecutionRequest,
@@ -95,6 +99,13 @@ pub fn map_mutation(
     }
     let id = current.project_id().as_str().to_owned();
     let command = match &prepared.request().input {
+        MutationInput::SupportExport(input) => {
+            backend_review(prepared, context)?;
+            return Ok(Dispatch::SupportExport {
+                project_id: id,
+                artifact_id: input.artifact_id.clone(),
+            });
+        }
         MutationInput::ExecutePhp(_)
         | MutationInput::ExecuteArtisan(_)
         | MutationInput::ExecuteComposer(_)

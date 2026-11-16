@@ -4201,3 +4201,459 @@ fn a06_mail_wait_uses_mark_filters_and_returns_only_new_authorized_mail() {
     let revoked = a05_wait(&rig.endpoint, &grant, &project.id, advanced, 1500);
     assert_eq!(revoked["error"]["code"], "grant_revoked", "{revoked}");
 }
+
+#[test]
+fn a07_support_preview_is_scoped_stable_and_never_contains_private_sources() {
+    use devforge_control::tools::{SupportPreviewInput, SupportReadInput};
+
+    let mut rig = Rig::new(None);
+    let a = rig.projects[0].clone();
+    let b = rig.projects[1].clone();
+    let issue = |rig: &mut Rig, project: &str| {
+        rig.native
+            .issue_external_grant(&id(project), &[Scope::Observer], Duration::from_secs(600))
+            .unwrap()
+    };
+    let owner = issue(&mut rig, &a.id);
+    let other_client = issue(&mut rig, &a.id);
+    let foreign = issue(&mut rig, &b.id);
+    let revocable = issue(&mut rig, &a.id);
+    let mut client = rig.diagnostics(&owner);
+    let mut other = rig.diagnostics(&other_client);
+    let mut foreign_client = rig.diagnostics(&foreign);
+    let mut revoke_client = rig.diagnostics(&revocable);
+    let preview = |project: &str, revision| Request {
+        api_version: Default::default(),
+        request_id: id("a07-preview"),
+        project_id: id(project),
+        expected_revision: revision,
+        idempotency_key: None,
+        input: SupportPreviewInput {},
+    };
+    let read = |project: &str, artifact: Id, revision| Request {
+        api_version: Default::default(),
+        request_id: id("a07-read"),
+        project_id: id(project),
+        expected_revision: revision,
+        idempotency_key: None,
+        input: SupportReadInput {
+            artifact_id: artifact,
+        },
+    };
+    let env = a.path.join(".env");
+    let private_file = a.path.join("PRIVATE_FILENAME_CANARY.txt");
+    std::fs::write(
+        &env,
+        "APP_KEY=PRIVATE_ENV_CANARY\nDB_PASSWORD=PRIVATE_PASSWORD_CANARY\n",
+    )
+    .unwrap();
+    std::fs::write(&private_file, "PRIVATE_FILE_CONTENT_CANARY").unwrap();
+    let inspector = rig.root.path().join("inspector");
+    std::fs::create_dir_all(&inspector).unwrap();
+    let bad_collector = inspector.join("events.sqlite3");
+    std::fs::write(&bad_collector, "PRIVATE_LOG_CANARY not sqlite").unwrap();
+    let mail = rig.root.path().join("mail").join(&a.id);
+    std::fs::create_dir_all(&mail).unwrap();
+    let bad_mail = mail.join("inbox.sqlite3");
+    std::fs::write(&bad_mail, "PRIVATE_MAIL_CANARY not sqlite").unwrap();
+    let initial_env = std::fs::read(&env).unwrap();
+    let initial_file = std::fs::read(&private_file).unwrap();
+
+    // Bad collectors prove support preview does not read raw log/mail stores.
+    let first = client
+        .support_preview(&preview(&a.id, Some(a.revision)))
+        .unwrap();
+    assert!(first.is_ok(), "{:?}", first.error());
+    let output = first.data().unwrap();
+    let artifact = output.artifact_id.clone();
+    let first_preview = serde_json::to_value(&output.preview).unwrap();
+    assert_eq!(first_preview["schema_version"], 1);
+    assert_eq!(first_preview["doctor"]["origin"], "cached");
+    assert!(first_preview["runbook"]["evidence"].is_string());
+    assert!(first_preview["runbook"]["impact"].is_string());
+    for omitted in [
+        "environment_values",
+        "private_keys",
+        "database_dumps",
+        "logs_and_mail_content",
+        "arbitrary_files",
+    ] {
+        assert!(
+            first_preview["omitted"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|v| v.as_str() == Some(omitted)),
+            "missing omitted section {omitted}"
+        );
+    }
+    let serialized = serde_json::to_string(&first).unwrap();
+    for secret in [
+        "PRIVATE_ENV_CANARY",
+        "PRIVATE_PASSWORD_CANARY",
+        "PRIVATE_FILENAME_CANARY",
+        "PRIVATE_FILE_CONTENT_CANARY",
+        "PRIVATE_LOG_CANARY",
+        "PRIVATE_MAIL_CANARY",
+        owner.credential.expose_secret(),
+        a.path.to_str().unwrap(),
+    ] {
+        assert!(
+            !serialized.contains(secret),
+            "support preview exposed private source: {secret}"
+        );
+    }
+    let again = client
+        .support_read(&read(&a.id, artifact.clone(), Some(a.revision)))
+        .unwrap();
+    assert!(again.is_ok(), "{:?}", again.error());
+    assert_eq!(again.data().unwrap().artifact_id, artifact);
+    assert_eq!(
+        serde_json::to_value(&again.data().unwrap().preview).unwrap(),
+        first_preview,
+        "read must use the exact preview, not recompute a different snapshot"
+    );
+    assert_eq!(again.data().unwrap().expires_at, output.expires_at);
+
+    let other_result = other
+        .support_read(&read(&a.id, artifact.clone(), Some(a.revision)))
+        .unwrap();
+    assert_eq!(
+        other_result.error().unwrap().code,
+        ErrorCode::CursorExpired,
+        "same-project foreign client/grant cannot read artifact"
+    );
+    let mismatch = client
+        .support_read(&read(&b.id, artifact.clone(), None))
+        .unwrap();
+    assert_eq!(mismatch.error().unwrap().code, ErrorCode::ProjectMismatch);
+    // Existing and nonexistent foreign project IDs are indistinguishable to
+    // an A-bound credential; an unknown token cannot read any artifact.
+    let nonexistent = "f".repeat(32);
+    for foreign_project in [&b.id, &nonexistent] {
+        let denied = client
+            .support_preview(&preview(foreign_project, None))
+            .unwrap();
+        assert_eq!(denied.error().unwrap().code, ErrorCode::ProjectMismatch);
+    }
+    let unknown_credential = ExternalCredential::from_wire(&"0".repeat(64)).unwrap();
+    let mut unknown_client =
+        DiagnosticsClient::connect(rig.endpoint.clone(), unknown_credential).unwrap();
+    let denied = unknown_client
+        .support_read(&read(&a.id, artifact.clone(), None))
+        .unwrap();
+    assert_eq!(denied.error().unwrap().code, ErrorCode::Unauthorized);
+    let mismatch = foreign_client
+        .support_read(&read(&b.id, artifact.clone(), None))
+        .unwrap();
+    assert_eq!(mismatch.error().unwrap().code, ErrorCode::CursorExpired);
+    let unknown = client
+        .support_read(&read(&a.id, id("unknown-artifact"), None))
+        .unwrap();
+    assert_eq!(unknown.error().unwrap().code, ErrorCode::CursorExpired);
+    let revision = client
+        .support_read(&read(&a.id, artifact.clone(), Some(a.revision + 1)))
+        .unwrap();
+    assert_eq!(revision.error().unwrap().code, ErrorCode::RevisionConflict);
+
+    let revoke_preview = revoke_client
+        .support_preview(&preview(&a.id, Some(a.revision)))
+        .unwrap();
+    assert!(revoke_preview.is_ok());
+    let revoke_id = revoke_preview.data().unwrap().artifact_id.clone();
+    rig.native
+        .revoke_external_grant(&revocable.record.grant_id)
+        .unwrap();
+    let revoked = revoke_client
+        .support_read(&read(&a.id, revoke_id, None))
+        .unwrap();
+    assert_eq!(revoked.error().unwrap().code, ErrorCode::GrantRevoked);
+    assert_eq!(std::fs::read(&env).unwrap(), initial_env);
+    assert_eq!(std::fs::read(&private_file).unwrap(), initial_file);
+    assert_eq!(
+        std::fs::read(&bad_collector).unwrap(),
+        b"PRIVATE_LOG_CANARY not sqlite"
+    );
+    assert_eq!(
+        std::fs::read(&bad_mail).unwrap(),
+        b"PRIVATE_MAIL_CANARY not sqlite"
+    );
+
+    // A valid existing artifact cannot silently rebind to a changed revision.
+    rig.runtime_metadata();
+    let stale = client
+        .support_read(&read(&a.id, artifact.clone(), None))
+        .unwrap();
+    assert_eq!(
+        stale.error().unwrap().code,
+        ErrorCode::CursorExpired,
+        "artifact must be bound to its original project revision"
+    );
+    let stale_revision = client
+        .support_read(&read(&a.id, artifact, Some(a.revision)))
+        .unwrap();
+    assert_eq!(
+        stale_revision.error().unwrap().code,
+        ErrorCode::RevisionConflict
+    );
+}
+
+#[test]
+fn a07_support_export_requires_native_review_and_preserves_exact_preview() {
+    use devforge_control::{mutations::SupportExportInput, tools::SupportPreviewInput};
+    use devforge_manager::service_control::ReviewTarget;
+    let mut rig = Rig::new(None);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(rig.root.path(), std::fs::Permissions::from_mode(0o755)).unwrap();
+    }
+    let project = rig.projects[0].clone();
+    let grant = rig
+        .native
+        .issue_external_grant(
+            &id(&project.id),
+            &[
+                Scope::Observer,
+                Scope::ProjectManage,
+                Scope::SensitiveOperation,
+            ],
+            Duration::from_secs(600),
+        )
+        .unwrap();
+    let observer = rig
+        .native
+        .issue_external_grant(
+            &id(&project.id),
+            &[Scope::Observer],
+            Duration::from_secs(600),
+        )
+        .unwrap();
+    let mut client = rig.diagnostics(&grant);
+    let mut denied = rig.diagnostics(&observer);
+    let preview_request = Request {
+        api_version: Default::default(),
+        request_id: id("export-preview"),
+        project_id: id(&project.id),
+        expected_revision: Some(project.revision),
+        idempotency_key: None,
+        input: SupportPreviewInput {},
+    };
+    let preview = client
+        .support_preview(&preview_request)
+        .unwrap()
+        .data()
+        .unwrap()
+        .clone();
+    let bytes = serde_json::to_vec(&preview.preview).unwrap();
+    let request = |key: &str, artifact_id: Id| {
+        env_request(
+            &project.id,
+            project.revision,
+            key,
+            MutationInput::SupportExport(SupportExportInput {
+                artifact_id,
+                limits: None,
+            }),
+        )
+    };
+    let req = request("a07-export-one", preview.artifact_id.clone());
+    assert!(!denied.support_export_plan(&req).unwrap().is_ok());
+    let plan = client
+        .support_export_plan(&req)
+        .unwrap()
+        .data()
+        .unwrap()
+        .clone();
+    let pending = rig.native.pending_reviews().unwrap();
+    let review = pending
+        .iter()
+        .find(|review| review.digest == plan.digest)
+        .unwrap();
+    let destination = match &review.target {
+        ReviewTarget::SupportExport {
+            destination,
+            byte_count,
+            ..
+        } => {
+            assert_eq!(*byte_count, bytes.len() as u64);
+            std::path::PathBuf::from(destination)
+        }
+        _ => panic!("wrong review target"),
+    };
+    assert_eq!(
+        destination.parent(),
+        Some(
+            std::fs::canonicalize(rig.root.path().join("control"))
+                .unwrap()
+                .as_path()
+        )
+    );
+    assert!(!destination.exists());
+    assert!(
+        !client
+            .support_export_apply(&req, &plan.digest)
+            .unwrap()
+            .is_ok()
+    );
+    assert!(!destination.exists());
+    let changed = request("a07-export-one", id("different-artifact"));
+    assert!(
+        !client
+            .support_export_apply(&changed, &plan.digest)
+            .unwrap()
+            .is_ok()
+    );
+    assert!(!destination.exists());
+    rig.native.approve_service_plan(&plan.digest).unwrap();
+    let applied = client.support_export_apply(&req, &plan.digest).unwrap();
+    let receipt = applied
+        .data()
+        .unwrap_or_else(|| panic!("apply: {:?}", applied.error()))
+        .clone();
+    assert_eq!(rig.complete(&grant, &receipt), OperationState::Succeeded);
+    assert_eq!(std::fs::read(&destination).unwrap(), bytes);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        assert_eq!(
+            std::fs::metadata(&destination)
+                .unwrap()
+                .permissions()
+                .mode()
+                & 0o077,
+            0
+        );
+    }
+    // Replaying the same idempotency key is a lookup, never another write.
+    std::fs::write(&destination, b"existing-content").unwrap();
+    let replay = client.support_export_apply(&req, &plan.digest).unwrap();
+    assert!(replay.is_ok(), "{:?}", replay.error());
+    assert_eq!(std::fs::read(&destination).unwrap(), b"existing-content");
+    // A newly approved plan for this artifact still must not overwrite a file.
+    let second = request("a07-export-two", preview.artifact_id.clone());
+    let second_plan = client
+        .support_export_plan(&second)
+        .unwrap()
+        .data()
+        .unwrap()
+        .clone();
+    rig.native
+        .approve_service_plan(&second_plan.digest)
+        .unwrap();
+    let second_result = client
+        .support_export_apply(&second, &second_plan.digest)
+        .unwrap();
+    if let Some(receipt) = second_result.data() {
+        assert_ne!(rig.complete(&grant, receipt), OperationState::Succeeded);
+    }
+    assert_eq!(std::fs::read(&destination).unwrap(), b"existing-content");
+
+    let revoke = rig
+        .native
+        .issue_external_grant(
+            &id(&project.id),
+            &[
+                Scope::Observer,
+                Scope::ProjectManage,
+                Scope::SensitiveOperation,
+            ],
+            Duration::from_secs(600),
+        )
+        .unwrap();
+    let mut revoke_client = rig.diagnostics(&revoke);
+    let p = revoke_client
+        .support_preview(&preview_request)
+        .unwrap()
+        .data()
+        .unwrap()
+        .clone();
+    let r = request("a07-export-revoked", p.artifact_id);
+    let planned = revoke_client
+        .support_export_plan(&r)
+        .unwrap()
+        .data()
+        .unwrap()
+        .clone();
+    let revoked_destination = rig
+        .native
+        .pending_reviews()
+        .unwrap()
+        .into_iter()
+        .find_map(|v| {
+            if v.digest == planned.digest {
+                if let ReviewTarget::SupportExport { destination, .. } = v.target {
+                    Some(std::path::PathBuf::from(destination))
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        })
+        .unwrap();
+    rig.native.approve_service_plan(&planned.digest).unwrap();
+    rig.native
+        .revoke_external_grant(&revoke.record.grant_id)
+        .unwrap();
+    assert!(
+        !revoke_client
+            .support_export_apply(&r, &planned.digest)
+            .unwrap()
+            .is_ok()
+    );
+    assert!(!revoked_destination.exists());
+
+    let expiring = rig
+        .native
+        .issue_external_grant(
+            &id(&project.id),
+            &[
+                Scope::Observer,
+                Scope::ProjectManage,
+                Scope::SensitiveOperation,
+            ],
+            Duration::from_secs(3),
+        )
+        .unwrap();
+    let mut expiring_client = rig.diagnostics(&expiring);
+    let p = expiring_client
+        .support_preview(&preview_request)
+        .unwrap()
+        .data()
+        .unwrap()
+        .clone();
+    let r = request("a07-export-expired", p.artifact_id);
+    let planned = expiring_client
+        .support_export_plan(&r)
+        .unwrap()
+        .data()
+        .unwrap()
+        .clone();
+    let expired_destination = rig
+        .native
+        .pending_reviews()
+        .unwrap()
+        .into_iter()
+        .find_map(|v| {
+            if v.digest == planned.digest {
+                if let ReviewTarget::SupportExport { destination, .. } = v.target {
+                    Some(std::path::PathBuf::from(destination))
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        })
+        .unwrap();
+    rig.native.approve_service_plan(&planned.digest).unwrap();
+    thread::sleep(Duration::from_millis(3200));
+    assert!(
+        !expiring_client
+            .support_export_apply(&r, &planned.digest)
+            .unwrap()
+            .is_ok()
+    );
+    assert!(!expired_destination.exists());
+}

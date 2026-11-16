@@ -612,6 +612,7 @@ impl ActorHandle {
             MutationInput::DatabaseRestore(_) => MutationOutput::DatabaseRestore(output),
             MutationInput::DomainApply(_) => MutationOutput::DomainApply(output),
             MutationInput::DomainCleanup(_) => MutationOutput::DomainCleanup(output),
+            MutationInput::SupportExport(_) => MutationOutput::SupportExport(output),
             MutationInput::ExecutePhp(_) => MutationOutput::ExecutePhp(output),
             MutationInput::ExecuteArtisan(_) => MutationOutput::ExecuteArtisan(output),
             MutationInput::ExecuteComposer(_) => MutationOutput::ExecuteComposer(output),
