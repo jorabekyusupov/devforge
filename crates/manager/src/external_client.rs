@@ -1497,11 +1497,7 @@ fn diagnostics_request(
     match &request.input {
         ToolInput::Health(_) | ToolInput::Inspector(_) => {}
         ToolInput::Log(_) => {}
-        ToolInput::Mail(input) => {
-            if input.subject.is_some() || input.recipient.is_some() {
-                return Err(ErrorCode::Unauthorized);
-            }
-        }
+        ToolInput::Mail(_) => {}
         _ => return Err(ErrorCode::UnsupportedCapability),
     }
     if request
@@ -1900,6 +1896,19 @@ impl Drop for SecretRequest {
     fn drop(&mut self) {
         if let Some(Value::String(value)) = self.0.get_mut("credential") {
             value.zeroize();
+        }
+        // Mail filters are private request data, just like execution arguments.
+        for path in [
+            "/request/input/arguments/subject",
+            "/request/input/arguments/recipient",
+            "/request/input/arguments/sender",
+            "/request/input/subject",
+            "/request/input/recipient",
+            "/request/input/sender",
+        ] {
+            if let Some(Value::String(value)) = self.0.pointer_mut(path) {
+                value.zeroize();
+            }
         }
         if let Some(Value::Array(args)) = self.0.pointer_mut("/request/input/arguments/args") {
             for value in args {

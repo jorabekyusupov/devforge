@@ -254,6 +254,7 @@ impl Controller {
                 if let Ok(mut store) = maintenance.payloads.try_lock() {
                     store.expire(Instant::now());
                 }
+                maintenance.services.expire_diagnostics();
             }
         });
         let result = runtime

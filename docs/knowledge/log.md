@@ -4,6 +4,8 @@
 
 ## 2026-11-16
 
+- **A06 scoped mail:** MailContent-gated show/filter/detail and filtered mail wait, bounded MIME and attachment metadata, usable sensitive URL candidates without fetch, opaque cursor filters and timely cache cleanup. Actual disposable SMTP→MCP fixture and scoped privacy/burst/old-ID checks passed locally. Masking remains best effort; export/delete are separate. [Contract](../architecture/metadata-diagnostics.md), [execution](execution-status.md).
+
 - **A05 observed-event correlation:** project/grant/revision-bound Inspector and log marks, sequence-based bounded wait, optional context narrowing, nonblocking actor/quit and explicit unverified continuity. Project-specific anchor and omitted-row checks distinguish known loss from other-project sequence gaps. [Contract](../architecture/metadata-diagnostics.md), [execution](execution-status.md).
 
 - **A04 Inspector details:** explicit InspectorQueries gate, bounded redacted request/job/query/cache/dump projections and captured profile/repetition evidence, scoped cursors. Cache producer captures finite operations without keys/values; old owned companion upgrade preserved. Dump is bounded/best-effort masked; request URL is withheld and missing capture completeness remains unknown. [Contract](../architecture/metadata-diagnostics.md), [execution](execution-status.md).

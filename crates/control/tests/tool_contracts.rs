@@ -428,3 +428,66 @@ fn prepared_projection_cannot_be_checked_against_another_binding() {
         Err(ErrorCode::ProjectMismatch)
     );
 }
+
+#[test]
+fn mail_sensitive_filters_and_links_are_redacted_in_debug() {
+    let input = ActivityMarkInput {
+        stream: ActivityStream::Mail,
+        detail: true,
+        context_id: None,
+        subject: Some(Text::new("PRIVATE_SUBJECT".into()).unwrap()),
+        recipient: Some(Text::new("PRIVATE_RECIPIENT".into()).unwrap()),
+        sender: Some(Text::new("PRIVATE_SENDER".into()).unwrap()),
+        since: None,
+    };
+    let request = MailInput {
+        page: None,
+        subject: input.subject.clone(),
+        recipient: input.recipient.clone(),
+        sender: input.sender.clone(),
+        since: None,
+        detail: Some(true),
+        mail_id: None,
+    };
+    let detail = MailContentDetail {
+        subject: Text::new("PRIVATE_SUBJECT".into()).unwrap(),
+        from: Text::new("sender".into()).unwrap(),
+        to: Text::new("recipient".into()).unwrap(),
+        text: Text::new("PRIVATE_BODY".into()).unwrap(),
+        links: vec![Text::new("https://example.invalid/reset?token=PRIVATE_TOKEN".into()).unwrap()],
+        attachment_metadata: vec![],
+        truncated: false,
+    };
+    let debug = format!("{input:?} {request:?} {detail:?}");
+    for secret in [
+        "PRIVATE_SUBJECT",
+        "PRIVATE_RECIPIENT",
+        "PRIVATE_SENDER",
+        "PRIVATE_BODY",
+        "PRIVATE_TOKEN",
+    ] {
+        assert!(!debug.contains(secret), "{secret}");
+    }
+    assert!(debug.contains("[REDACTED]"));
+}
+
+#[test]
+fn mail_projection_enforces_requested_id_and_explicit_detail() {
+    let observer = grant(vec![Scope::Observer]);
+    let metadata = prepare(call("mail.list", json!({})), &observer).unwrap();
+    let detail = serde_json::json!({"subject":"s","from":"a","to":"b","text":"body","links":[],"attachment_metadata":[],"truncated":false});
+    let output:ToolOutput=serde_json::from_value(json!({"tool":"mail.list","data":{"freshness":{"origin":"live","observed_at":99,"revision":1},"items":[{"mail_id":"other","received_at":99,"attachments":0,"detail":detail}],"next_cursor":null}})).unwrap();
+    assert_eq!(
+        metadata.check_output(&output, &binding("project", 1), 100),
+        Err(ErrorCode::ProjectMismatch)
+    );
+    let requested = prepare(
+        call("mail.list", json!({"mail_id":"requested","detail":true})),
+        &observer,
+    )
+    .unwrap();
+    assert_eq!(
+        requested.check_output(&output, &binding("project", 1), 100),
+        Err(ErrorCode::ProjectMismatch)
+    );
+}

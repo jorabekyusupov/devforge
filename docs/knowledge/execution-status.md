@@ -1573,3 +1573,28 @@ lookup, closing an error-code distinction between existing and nonexistent
 foreign project IDs. A focused fixture checks both IDs, unknown credentials and
 expired/revoked grants with no Inspector source creation. Subsequent grant and
 source checks remain mandatory; this does not change older diagnostics routes.
+
+
+## A06 — scoped mail detail and wait (2026-11-16)
+
+A06 adds MailContent-gated sender/recipient/subject filters, exact `mail.show`,
+bounded message/attachment metadata and sensitive URL candidates, plus filtered
+mail marks/wait using A05 project/grant/revision/anchor checks. Observer metadata
+and since filter remain available; subject/sender/recipient/mail_id/detail require
+MailContent, even for empty filters. Links can include usable reset/verification
+tokens, are candidates only and are never fetched or logged intentionally. Raw MIME
+and attachment bytes are not exposed. Best-effort masking cannot identify every
+unlabeled secret. Mail metadata/detail reads remain project-bound and noncreating.
+
+The source uses exact-ID lookup independent of newer MIME volume, parses only the
+earliest matching new MIME for an anchored wait, and bounds parsing/projection.
+Cursor filter digests remain private; public filter tokens are random. Idle expired
+windows are pruned by existing maintenance and revoked grant windows are evicted;
+post-insert failure cleanup closes the revoke/insert race. A05 unverified-continuity
+and bounded timeout semantics remain. Attachment export/delete remain separate.
+
+Focused source, manager, contract/SDK/MCP and disposable actual SMTP→MCP tests passed
+locally; the exact PR CI records macOS and Windows checks. Actual Windows native
+SMTP/MCP producer behavior is not inferred from local macOS evidence. Default MCP
+surface is 12 tools; all opt-ins expose 41. A07 has not started. Existing deferred
+ReportViews/locales remain excluded.

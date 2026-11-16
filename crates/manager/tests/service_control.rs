@@ -1494,6 +1494,10 @@ fn metadata_policy_masks_payloads_and_binds_sequence_cursors_to_grant_filter_and
             page: None,
             subject: None,
             recipient: None,
+            sender: None,
+            since: None,
+            detail: None,
+            mail_id: None,
         }),
     };
     let mail = client.read(&mail_request).unwrap();
@@ -3549,4 +3553,651 @@ fn a05_sparse_other_project_sequences_and_same_file_clear_are_distinguished() {
         pruned["error"]["code"], "cursor_expired",
         "globally pruned anchor must resync: {pruned}"
     );
+}
+
+// A06 uses disposable mailbox SQLite only; it never sends mail or opens a real link.
+fn a06_mailbox(root: &Path, project: &str) -> rusqlite::Connection {
+    let dir = root.join("mail").join(project);
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join(".devforge-inbox"), b"devforge-inbox-v1\n").unwrap();
+    let db = rusqlite::Connection::open(dir.join("inbox.sqlite3")).unwrap();
+    db.execute_batch("PRAGMA journal_mode=DELETE; CREATE TABLE messages(sequence INTEGER PRIMARY KEY AUTOINCREMENT,id TEXT UNIQUE NOT NULL,received INTEGER NOT NULL,summary TEXT NOT NULL,search TEXT NOT NULL,raw BLOB NOT NULL); PRAGMA user_version=1;").unwrap();
+    db
+}
+fn a06_insert_mail(
+    db: &rusqlite::Connection,
+    message_id: &str,
+    received: i64,
+    sender: &str,
+    recipient: &str,
+    subject: &str,
+    token: &str,
+) {
+    let raw = format!(
+        "From: {sender}\r\nTo: {recipient}\r\nSubject: {subject}\r\nMIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary=fixture\r\n\r\n--fixture\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\nHello https://example.test/reset?token={token}\r\n--fixture\r\nContent-Type: text/plain; name=report.txt\r\nContent-Disposition: attachment; filename=report.txt\r\nContent-Transfer-Encoding: base64\r\n\r\nQVRUQUNITUVOVF9QUklWQVRFX0NBTkFSWQ==\r\n--fixture--\r\n"
+    );
+    let summary = json!({"id":message_id,"received_ms":received,"subject":subject,"from":sender,"to":recipient,"bytes":raw.len(),"attachments":1});
+    db.execute(
+        "INSERT INTO messages(id,received,summary,search,raw) VALUES(?1,?2,?3,?4,?5)",
+        rusqlite::params![
+            message_id,
+            received,
+            summary.to_string(),
+            format!("{sender} {recipient} {subject}").to_lowercase(),
+            raw.as_bytes()
+        ],
+    )
+    .unwrap();
+}
+fn a06_read(
+    endpoint: &devforge_manager::Endpoint,
+    grant: &IssuedGrant,
+    project: &str,
+    arguments: serde_json::Value,
+) -> serde_json::Value {
+    a05_call(
+        endpoint,
+        &grant.credential,
+        project,
+        "diagnostics_read",
+        json!({"tool":"mail.list","arguments":arguments}),
+    )
+}
+
+#[test]
+fn a06_mail_detail_filters_are_project_and_grant_scoped() {
+    use devforge_control::InformationScope;
+    use devforge_control::tools::{ActivityMarkInput, MailContentDetail, MailInput};
+    use sha2::{Digest as _, Sha256};
+    let input: MailInput = serde_json::from_value(json!({"subject":"PRIVATE_FILTER_CANARY","recipient":"PRIVATE_RECIPIENT_CANARY","sender":"PRIVATE_SENDER_CANARY","detail":true})).unwrap();
+    let mark: ActivityMarkInput = serde_json::from_value(json!({"stream":"mail","detail":true,"subject":"PRIVATE_FILTER_CANARY","recipient":"PRIVATE_RECIPIENT_CANARY","sender":"PRIVATE_SENDER_CANARY"})).unwrap();
+    assert!(
+        !format!("{input:?} {mark:?}").contains("PRIVATE_"),
+        "sensitive filters must be absent from Debug"
+    );
+    let mut rig = Rig::new(None);
+    let project = rig.projects[0].clone();
+    let other_project = rig.projects[1].clone();
+    let observer = rig
+        .native
+        .issue_external_grant(
+            &id(&project.id),
+            &[Scope::Observer],
+            Duration::from_secs(600),
+        )
+        .unwrap();
+    let grant = rig
+        .native
+        .issue_external_grant_with_information(
+            &id(&project.id),
+            &[Scope::Observer],
+            &[InformationScope::MailContent],
+            Duration::from_secs(600),
+        )
+        .unwrap();
+    let second = rig
+        .native
+        .issue_external_grant_with_information(
+            &id(&project.id),
+            &[Scope::Observer],
+            &[InformationScope::MailContent],
+            Duration::from_secs(600),
+        )
+        .unwrap();
+    for args in [
+        json!({"detail":true}),
+        json!({"subject":""}),
+        json!({"recipient":""}),
+        json!({"sender":""}),
+        json!({"mail_id":"a".repeat(32)}),
+    ] {
+        let denied = a06_read(&rig.endpoint, &observer, &project.id, args);
+        assert_eq!(denied["error"]["code"], "unauthorized", "{denied}");
+        assert!(
+            !rig.root.path().join("mail").exists(),
+            "unauthorized read must not create a mailbox"
+        );
+    }
+    let denied = a06_read(
+        &rig.endpoint,
+        &observer,
+        &project.id,
+        json!({"subject":"PRIVATE_FILTER_CANARY"}),
+    );
+    assert_eq!(denied["error"]["code"], "unauthorized", "{denied}");
+    assert!(
+        !serde_json::to_string(&denied)
+            .unwrap()
+            .contains("PRIVATE_FILTER_CANARY")
+    );
+    let db = a06_mailbox(rig.root.path(), &project.id);
+    let foreign_db = a06_mailbox(rig.root.path(), &other_project.id);
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as i64;
+    let first_id = "a".repeat(32);
+    let second_id = "b".repeat(32);
+    let foreign_id = "c".repeat(32);
+    a06_insert_mail(
+        &db,
+        &first_id,
+        now,
+        "sender@example.test",
+        "alpha@example.test",
+        "Reset account",
+        "ALPHA_TOKEN_CANARY",
+    );
+    a06_insert_mail(
+        &db,
+        &second_id,
+        now + 1,
+        "sender@example.test",
+        "alpha@example.test",
+        "Reset account",
+        "SECOND_TOKEN_CANARY",
+    );
+    // Real reset emails often carry their signed link only in an HTML href.
+    let html_id = "d".repeat(32);
+    let listener = std::net::TcpListener::bind(("127.0.0.1", 0)).unwrap();
+    listener.set_nonblocking(true).unwrap();
+    let local_url = format!(
+        "http://127.0.0.1:{}/never-fetch?token=LOCAL_TOKEN_CANARY",
+        listener.local_addr().unwrap().port()
+    );
+    let html_raw = format!(
+        "From: sender@example.test\r\nTo: alpha@example.test\r\nSubject: HTML verify\r\nMIME-Version: 1.0\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n<a href=\"https://example.test/verify?expires=123&amp;signature=HTML_SIGNATURE_CANARY\">Verify</a><a href=\"{local_url}\">Never fetch</a>"
+    );
+    let html_summary = json!({"id":html_id,"received_ms":now,"subject":"HTML verify","from":"sender@example.test","to":"alpha@example.test","bytes":html_raw.len(),"attachments":0});
+    db.execute(
+        "INSERT INTO messages(id,received,summary,search,raw) VALUES(?1,?2,?3,?4,?5)",
+        rusqlite::params![
+            html_id,
+            now,
+            html_summary.to_string(),
+            "html verify",
+            html_raw.as_bytes()
+        ],
+    )
+    .unwrap();
+    a06_insert_mail(
+        &foreign_db,
+        &foreign_id,
+        now + 2,
+        "foreign@example.test",
+        "bravo@example.test",
+        "Reset account",
+        "FOREIGN_TOKEN_CANARY",
+    );
+    let metadata = a06_read(&rig.endpoint, &observer, &project.id, json!({}));
+    assert_eq!(metadata["ok"], true, "{metadata}");
+    let public = serde_json::to_string(&metadata).unwrap();
+    for private in [
+        "sender@example.test",
+        "alpha@example.test",
+        "Reset account",
+        "ALPHA_TOKEN_CANARY",
+        "SECOND_TOKEN_CANARY",
+        "HTML_SIGNATURE_CANARY",
+        "HTML verify",
+        "report.txt",
+        "ATTACHMENT_PRIVATE_CANARY",
+    ] {
+        assert!(!public.contains(private), "Observer leaked {private}");
+    }
+    let since_metadata = a06_read(
+        &rig.endpoint,
+        &observer,
+        &project.id,
+        json!({"since":now+2}),
+    );
+    assert_eq!(since_metadata["ok"], true, "{since_metadata}");
+    assert_eq!(
+        since_metadata["data"]["data"]["items"]
+            .as_array()
+            .unwrap()
+            .len(),
+        0,
+        "since alone must remain Observer-safe"
+    );
+    let page = json!({"limit":1,"max_bytes":65536,"timeout_ms":5000});
+    let first = a06_read(
+        &rig.endpoint,
+        &grant,
+        &project.id,
+        json!({"detail":true,"subject":"reset","recipient":"alpha@","sender":"sender@","page":page}),
+    );
+    assert_eq!(first["ok"], true, "{first}");
+    let serialized = serde_json::to_string(&first).unwrap();
+    assert!(
+        !serialized.contains("FOREIGN_TOKEN_CANARY")
+            && !serialized.contains("ATTACHMENT_PRIVATE_CANARY")
+            && !serialized.contains("QVRUQUNITUVOVF9QUklWQVRFX0NBTkFSWQ==")
+    );
+    let items = first["data"]["data"]["items"].as_array().unwrap();
+    assert_eq!(items.len(), 1);
+    let cursor = first["data"]["data"]["next_cursor"].clone();
+    assert!(!cursor.is_null(), "{first}");
+    let cursor_text = serde_json::to_string(&cursor).unwrap();
+    for private in ["reset", "alpha@", "sender@", "ALPHA_TOKEN_CANARY"] {
+        assert!(
+            !cursor_text.contains(private),
+            "cursor leaked private filter or token"
+        );
+    }
+    let canonical = serde_json::to_vec(&(
+        "mail.list",
+        Some("reset"),
+        Some("alpha@"),
+        Some("sender@"),
+        Option::<u64>::None,
+        Some(true),
+        Option::<String>::None,
+    ))
+    .unwrap();
+    let guessable_hash: String = Sha256::digest(canonical)
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect();
+    assert_ne!(
+        cursor["context"]["filter"].as_str(),
+        Some(guessable_hash.as_str()),
+        "public cursor must not expose deterministic filter hash"
+    );
+    let fresh = a06_read(
+        &rig.endpoint,
+        &grant,
+        &project.id,
+        json!({"detail":true,"subject":"reset","recipient":"alpha@","sender":"sender@","page":{"limit":1,"max_bytes":65536,"timeout_ms":5000}}),
+    );
+    assert_eq!(fresh["ok"], true, "{fresh}");
+    assert_ne!(
+        cursor["context"]["filter"], fresh["data"]["data"]["next_cursor"]["context"]["filter"],
+        "filter binding must be opaque per window"
+    );
+    let wrong = a06_read(
+        &rig.endpoint,
+        &second,
+        &project.id,
+        json!({"detail":true,"subject":"reset","recipient":"alpha@","sender":"sender@","page":{"limit":1,"max_bytes":65536,"timeout_ms":5000,"cursor":cursor}}),
+    );
+    assert_eq!(wrong["error"]["code"], "cursor_expired", "{wrong}");
+    assert!(
+        !serde_json::to_string(&wrong)
+            .unwrap()
+            .contains("ALPHA_TOKEN_CANARY")
+    );
+    let changed = a06_read(
+        &rig.endpoint,
+        &grant,
+        &project.id,
+        json!({"detail":true,"subject":"different","recipient":"alpha@","sender":"sender@","page":{"limit":1,"max_bytes":65536,"timeout_ms":5000,"cursor":cursor}}),
+    );
+    assert_eq!(changed["error"]["code"], "cursor_expired", "{changed}");
+    // The cursor represents the original frozen observation, not live state.
+    // A message deleted after page 1 may still appear until the window expires,
+    // and the response must identify that fact and preserve observation time.
+    let observed = first["data"]["data"]["freshness"]["observed_at"].clone();
+    db.execute("DELETE FROM messages WHERE id=?1", [&first_id])
+        .unwrap();
+    let cached = a06_read(
+        &rig.endpoint,
+        &grant,
+        &project.id,
+        json!({"detail":true,"subject":"reset","recipient":"alpha@","sender":"sender@","page":{"limit":1,"max_bytes":65536,"timeout_ms":5000,"cursor":cursor}}),
+    );
+    assert_eq!(cached["ok"], true, "{cached}");
+    assert_eq!(
+        cached["data"]["data"]["freshness"]["origin"], "cached",
+        "{cached}"
+    );
+    assert_eq!(
+        cached["data"]["data"]["freshness"]["observed_at"], observed,
+        "{cached}"
+    );
+    assert_eq!(
+        cached["data"]["data"]["items"][0]["mail_id"], first_id,
+        "{cached}"
+    );
+    // Restore this disposable synthetic mail for subsequent exact-ID tests.
+    a06_insert_mail(
+        &db,
+        &first_id,
+        now,
+        "sender@example.test",
+        "alpha@example.test",
+        "Reset account",
+        "ALPHA_TOKEN_CANARY",
+    );
+    let foreign = a06_read(
+        &rig.endpoint,
+        &grant,
+        &other_project.id,
+        json!({"detail":true,"mail_id":foreign_id}),
+    );
+    assert!(
+        matches!(
+            foreign["error"]["code"].as_str(),
+            Some("project_mismatch" | "unauthorized")
+        ),
+        "{foreign}"
+    );
+    assert!(
+        !serde_json::to_string(&foreign)
+            .unwrap()
+            .contains("FOREIGN_TOKEN_CANARY")
+    );
+    let foreign_id_in_own_project = a06_read(
+        &rig.endpoint,
+        &grant,
+        &project.id,
+        json!({"detail":true,"mail_id":foreign_id}),
+    );
+    assert_eq!(
+        foreign_id_in_own_project["ok"], true,
+        "{foreign_id_in_own_project}"
+    );
+    assert!(
+        foreign_id_in_own_project["data"]["data"]["items"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        !serde_json::to_string(&foreign_id_in_own_project)
+            .unwrap()
+            .contains("FOREIGN_TOKEN_CANARY")
+    );
+    let html = a06_read(
+        &rig.endpoint,
+        &grant,
+        &project.id,
+        json!({"detail":true,"mail_id":html_id}),
+    );
+    assert_eq!(html["ok"], true, "{html}");
+    assert!(
+        html["data"]["data"]["items"][0]["detail"]["links"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|link| link.as_str()
+                == Some("https://example.test/verify?expires=123&signature=HTML_SIGNATURE_CANARY")),
+        "HTML entity must decode into usable authorized URL: {html}"
+    );
+    assert!(
+        html["data"]["data"]["items"][0]["detail"]["links"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|link| link.as_str() == Some(local_url.as_str())),
+        "{html}"
+    );
+    assert_eq!(
+        listener.accept().unwrap_err().kind(),
+        std::io::ErrorKind::WouldBlock,
+        "mail links must never be fetched automatically"
+    );
+    let show = a06_read(
+        &rig.endpoint,
+        &grant,
+        &project.id,
+        json!({"detail":true,"mail_id":first_id}),
+    );
+    assert_eq!(show["ok"], true, "{show}");
+    let text = serde_json::to_string(&show).unwrap();
+    let detail = &show["data"]["data"]["items"][0]["detail"];
+    let typed: MailContentDetail = serde_json::from_value(detail.clone()).unwrap();
+    let debug = format!("{typed:?}");
+    for private in [
+        "ALPHA_TOKEN_CANARY",
+        "sender@example.test",
+        "alpha@example.test",
+        "Reset account",
+    ] {
+        assert!(!debug.contains(private), "Debug leaked {private}");
+    }
+    assert!(
+        detail["links"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|v| v.as_str() == Some("https://example.test/reset?token=ALPHA_TOKEN_CANARY")),
+        "authorized verification URL remains usable: {show}"
+    );
+    assert!(
+        detail["attachment_metadata"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|v| v["name"] == "report.txt" && v["size"].as_u64().unwrap_or(0) > 0),
+        "authorized attachment metadata: {show}"
+    );
+    assert!(
+        !text.contains("ATTACHMENT_PRIVATE_CANARY")
+            && !text.contains("QVRUQUNITUVOVF9QUklWQVRFX0NBTkFSWQ==")
+    );
+    // A direct authorized show must locate an older exact ID even if newer
+    // large MIME messages exceed the regular 16 MiB source-window budget.
+    let large = vec![b'x'; 1_900_000];
+    db.execute_batch("BEGIN IMMEDIATE").unwrap();
+    for n in 0..9 {
+        let large_id = format!("{:032x}", n + 1000);
+        let received = now + 10 + n;
+        let summary = json!({"id":large_id,"received_ms":received,"subject":"newer","from":"sender@example.test","to":"alpha@example.test","bytes":large.len(),"attachments":0});
+        db.execute(
+            "INSERT INTO messages(id,received,summary,search,raw) VALUES(?1,?2,?3,'newer',?4)",
+            rusqlite::params![large_id, received, summary.to_string(), &large],
+        )
+        .unwrap();
+    }
+    db.execute_batch("COMMIT").unwrap();
+    let older = a06_read(
+        &rig.endpoint,
+        &grant,
+        &project.id,
+        json!({"detail":true,"mail_id":first_id}),
+    );
+    assert_eq!(older["ok"], true, "{older}");
+    assert_eq!(
+        older["data"]["data"]["items"][0]["mail_id"], first_id,
+        "older exact ID must not be lost behind newer large bodies"
+    );
+    assert!(
+        older["data"]["data"]["items"][0]["detail"]["links"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|v| v.as_str() == Some("https://example.test/reset?token=ALPHA_TOKEN_CANARY"))
+    );
+    rig.native
+        .revoke_external_grant(&grant.record.grant_id)
+        .unwrap();
+    let revoked = a06_read(
+        &rig.endpoint,
+        &grant,
+        &project.id,
+        json!({"detail":true,"mail_id":first_id}),
+    );
+    assert_eq!(revoked["error"]["code"], "grant_revoked", "{revoked}");
+    assert!(
+        !serde_json::to_string(&revoked)
+            .unwrap()
+            .contains("ALPHA_TOKEN_CANARY")
+    );
+}
+
+#[test]
+fn a06_mail_wait_uses_mark_filters_and_returns_only_new_authorized_mail() {
+    use devforge_control::InformationScope;
+    let mut rig = Rig::new(None);
+    let project = rig.projects[0].clone();
+    let observer = rig
+        .native
+        .issue_external_grant(
+            &id(&project.id),
+            &[Scope::Observer],
+            Duration::from_secs(600),
+        )
+        .unwrap();
+    let grant = rig
+        .native
+        .issue_external_grant_with_information(
+            &id(&project.id),
+            &[Scope::Observer],
+            &[InformationScope::MailContent],
+            Duration::from_secs(600),
+        )
+        .unwrap();
+    let rejected = a05_call(
+        &rig.endpoint,
+        &observer.credential,
+        &project.id,
+        "activity_mark",
+        json!({"stream":"mail","detail":true,"subject":"reset"}),
+    );
+    assert_eq!(rejected["error"]["code"], "unauthorized", "{rejected}");
+    let filtered = a05_call(
+        &rig.endpoint,
+        &observer.credential,
+        &project.id,
+        "activity_mark",
+        json!({"stream":"mail","detail":false,"subject":""}),
+    );
+    assert_eq!(filtered["error"]["code"], "unauthorized", "{filtered}");
+    let missing = a05_call(
+        &rig.endpoint,
+        &grant.credential,
+        &project.id,
+        "activity_mark",
+        json!({"stream":"mail","detail":true}),
+    );
+    assert_eq!(missing["error"]["code"], "precondition_failed", "{missing}");
+    assert!(!rig.root.path().join("mail").exists());
+    let db = a06_mailbox(rig.root.path(), &project.id);
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as i64;
+    a06_insert_mail(
+        &db,
+        &"d".repeat(32),
+        now,
+        "sender@example.test",
+        "alpha@example.test",
+        "Reset account",
+        "OLD_TOKEN_CANARY",
+    );
+    let metadata_mark = a05_call(
+        &rig.endpoint,
+        &observer.credential,
+        &project.id,
+        "activity_mark",
+        json!({"stream":"mail","detail":false,"since":now}),
+    );
+    assert_eq!(metadata_mark["ok"], true, "{metadata_mark}");
+    let metadata_bookmark = metadata_mark["data"]["bookmark"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let marked = a05_call(
+        &rig.endpoint,
+        &grant.credential,
+        &project.id,
+        "activity_mark",
+        json!({"stream":"mail","detail":true,"subject":"reset","recipient":"alpha@","sender":"sender@","since":now}),
+    );
+    assert_eq!(marked["ok"], true, "{marked}");
+    let bookmark = marked["data"]["bookmark"].as_str().unwrap().to_owned();
+    a06_insert_mail(
+        &db,
+        &"e".repeat(32),
+        now + 1,
+        "other@example.test",
+        "other@example.test",
+        "Receipt",
+        "UNMATCHED_TOKEN_CANARY",
+    );
+    // Metadata-only wait and a nonmatching filtered mail must not parse MIME.
+    db.execute(
+        "UPDATE messages SET raw=X'00' WHERE id=?1",
+        ["e".repeat(32)],
+    )
+    .unwrap();
+    a06_insert_mail(
+        &db,
+        &"f".repeat(32),
+        now + 2,
+        "sender@example.test",
+        "alpha@example.test",
+        "Reset account",
+        "NEW_TOKEN_CANARY",
+    );
+    let metadata_wait = a05_wait(
+        &rig.endpoint,
+        &observer,
+        &project.id,
+        &metadata_bookmark,
+        2000,
+    );
+    assert_eq!(metadata_wait["ok"], true, "{metadata_wait}");
+    assert_eq!(metadata_wait["data"]["event"]["stream"], "mail");
+    let metadata_text = serde_json::to_string(&metadata_wait).unwrap();
+    for secret in [
+        "OLD_TOKEN_CANARY",
+        "NEW_TOKEN_CANARY",
+        "UNMATCHED_TOKEN_CANARY",
+        "other@example.test",
+        "Receipt",
+    ] {
+        assert!(
+            !metadata_text.contains(secret),
+            "Observer mail wait leaked {secret}"
+        );
+    }
+    let result = a05_wait(&rig.endpoint, &grant, &project.id, &bookmark, 2000);
+    assert_eq!(result["ok"], true, "{result}");
+    assert_eq!(result["data"]["timed_out"], false, "{result}");
+    assert_eq!(result["data"]["continuity"], "unverified");
+    assert_eq!(result["data"]["event"]["stream"], "mail");
+    let text = serde_json::to_string(&result).unwrap();
+    assert!(
+        text.contains("https://example.test/reset?token=NEW_TOKEN_CANARY"),
+        "{result}"
+    );
+    assert!(!text.contains("OLD_TOKEN_CANARY") && !text.contains("UNMATCHED_TOKEN_CANARY"));
+    let advanced = result["data"]["bookmark"].as_str().unwrap();
+    let timeout = a05_wait(&rig.endpoint, &grant, &project.id, advanced, 1500);
+    assert_eq!(timeout["ok"], true, "{timeout}");
+    assert_eq!(timeout["data"]["timed_out"], true, "{timeout}");
+    // A burst larger than the 16-MIME display cap must not be mistaken for
+    // lost activity: a wait returns the earliest new matching mail, then the next.
+    for n in 0..17 {
+        a06_insert_mail(
+            &db,
+            &format!("{:032x}", n + 100),
+            now + 3 + n,
+            "sender@example.test",
+            "alpha@example.test",
+            "Reset account",
+            &format!("BURST_TOKEN_{n}"),
+        );
+    }
+    let burst_first = a05_wait(&rig.endpoint, &grant, &project.id, advanced, 2500);
+    assert_eq!(burst_first["ok"], true, "{burst_first}");
+    assert_eq!(
+        burst_first["data"]["event"]["data"]["mail_id"],
+        format!("{:032x}", 100)
+    );
+    let next_bookmark = burst_first["data"]["bookmark"].as_str().unwrap();
+    let burst_next = a05_wait(&rig.endpoint, &grant, &project.id, next_bookmark, 2500);
+    assert_eq!(burst_next["ok"], true, "{burst_next}");
+    assert_eq!(
+        burst_next["data"]["event"]["data"]["mail_id"],
+        format!("{:032x}", 101)
+    );
+    rig.native
+        .revoke_external_grant(&grant.record.grant_id)
+        .unwrap();
+    let revoked = a05_wait(&rig.endpoint, &grant, &project.id, advanced, 1500);
+    assert_eq!(revoked["error"]["code"], "grant_revoked", "{revoked}");
 }

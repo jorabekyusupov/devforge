@@ -495,7 +495,7 @@ fn a02_native_selected_content_rights_are_explicit_persisted_and_not_agent_autho
         "information":["log_content"],"ttl_ms":60000}))
         .unwrap();
     assert_eq!(forged["ok"], false);
-    // Explicit rights do not activate the later mail content reader.
+    // Observer without MailContent cannot use mail content filters.
     for input in [
         json!({"tool":"mail.list","arguments":{"subject":""}}),
         json!({"tool":"mail.list","arguments":{"recipient":""}}),
@@ -503,7 +503,7 @@ fn a02_native_selected_content_rights_are_explicit_persisted_and_not_agent_autho
         let response = owner
             .transport
             .request(&json!({"method":"diagnostics_read",
-            "credential":selected.credential.expose_secret(),"request":{"api_version":1,
+            "credential":baseline.credential.expose_secret(),"request":{"api_version":1,
                 "request_id":"a02-no-new-reader","project_id":a.id,"input":input}}))
             .unwrap();
         assert_eq!(response["error"]["code"], "unauthorized");

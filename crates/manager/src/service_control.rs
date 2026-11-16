@@ -1814,6 +1814,9 @@ impl Services {
     pub(crate) fn interrupt_activity_waits(&self) {
         self.diagnostics.interrupt_waits();
     }
+    pub(crate) fn expire_diagnostics(&self) {
+        self.diagnostics.expire_cached_state();
+    }
     pub(crate) fn clear(&self) {
         self.diagnostics.clear();
         self.plans
@@ -1870,6 +1873,7 @@ impl Services {
         Ok(selection)
     }
     pub(crate) fn revoked(&self, grant: &Id) {
+        self.diagnostics.evict_grant_windows(grant);
         if let Ok(plans) = self.plans.lock() {
             for plan in plans.iter().filter(|p| &p.grant == grant) {
                 if let Ok(cancel) = plan.cancellation.lock()

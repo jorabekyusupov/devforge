@@ -30,6 +30,33 @@ macro_rules! contract {
         }
     }
 }
+// Sensitive mail filters and content must never be rendered by Debug.
+macro_rules! private_contract {
+    ($name:ident {$($(#[$field_meta:meta])* $field:ident : $ty:ty),* $(,)?}) => {
+        #[derive(Clone,Serialize,Deserialize)]
+        #[serde(deny_unknown_fields)]
+        pub struct $name { $($(#[$field_meta])* pub $field:$ty),* }
+        impl std::fmt::Debug for $name {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str(concat!(stringify!($name), "([REDACTED])"))
+            }
+        }
+        impl Wire for $name {
+            fn schema()->Value {
+                let mut properties=serde_json::Map::new(); let mut required=vec![];
+                $(properties.insert(stringify!($field).into(),<$ty as Wire>::schema());
+                  if !<$ty as Wire>::optional(){required.push(stringify!($field));})*
+                json!({"type":"object","additionalProperties":false,"properties":properties,"required":required})
+            }
+            fn ts()->String {stringify!($name).into()}
+            fn declaration()->Option<String> {
+                let mut s=format!("export interface {} {{\n",stringify!($name));
+                $(s.push_str(&format!("  {}{}: {};\n",stringify!($field),if <$ty as Wire>::optional(){"?"}else{""},<$ty as Wire>::ts()));)*
+                s.push_str("}\n"); Some(s)
+            }
+        }
+    }
+}
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ServiceState {
@@ -84,21 +111,22 @@ contract!(InspectorInput{page:Option<PageRequest>,context_id:Option<Id>,#[serde(
 pub enum ActivityStream {
     Inspector,
     Logs,
+    Mail,
 }
 impl Wire for ActivityStream {
     fn schema() -> Value {
-        json!({"type":"string","enum":["inspector","logs"]})
+        json!({"type":"string","enum":["inspector","logs","mail"]})
     }
     fn ts() -> String {
-        "\"inspector\" | \"logs\"".into()
+        "\"inspector\" | \"logs\" | \"mail\"".into()
     }
 }
-contract!(ActivityMarkInput{stream:ActivityStream,detail:bool,context_id:Option<Id>});
+private_contract!(ActivityMarkInput{stream:ActivityStream,detail:bool,context_id:Option<Id>,#[serde(default,skip_serializing_if="Option::is_none")] subject:Option<Text<256>>,#[serde(default,skip_serializing_if="Option::is_none")] recipient:Option<Text<256>>,#[serde(default,skip_serializing_if="Option::is_none")] sender:Option<Text<256>>,#[serde(default,skip_serializing_if="Option::is_none")] since:Option<SafeInt>});
 contract!(ActivityMarkOutput { bookmark: Id });
 contract!(ActivityWaitInput{bookmark:Id,timeout_ms:Bounded<3000>,context_id:Option<Id>});
 
 contract!(DebuggerInput{page:Option<PageRequest>});
-contract!(MailInput{page:Option<PageRequest>,subject:Option<Text<256>>,recipient:Option<Text<256>>});
+private_contract!(MailInput{page:Option<PageRequest>,subject:Option<Text<256>>,recipient:Option<Text<256>>,#[serde(default,skip_serializing_if="Option::is_none")] sender:Option<Text<256>>,#[serde(default,skip_serializing_if="Option::is_none")] since:Option<SafeInt>,#[serde(default,skip_serializing_if="Option::is_none")] detail:Option<bool>,#[serde(default,skip_serializing_if="Option::is_none")] mail_id:Option<Id>});
 contract!(ExecutionInput{page:Option<PageRequest>,operation_id:Id});
 contract!(HttpInput{page:Option<PageRequest>,operation_id:Id});
 contract!(WorkspaceInput{page:Option<PageRequest>});
@@ -127,19 +155,21 @@ contract!(InspectorItem{context_id:Id,method:Text<16>,status:Option<u16>,queries
 pub enum ActivityEvent {
     Inspector { data: InspectorItem },
     Logs { context_id: Id, data: LogItem },
+    Mail { data: MailItem },
 }
 impl Wire for ActivityEvent {
     fn schema() -> Value {
         json!({"oneOf":[
             {"type":"object","additionalProperties":false,"required":["stream","data"],"properties":{"stream":{"const":"inspector"},"data":InspectorItem::schema()}},
-            {"type":"object","additionalProperties":false,"required":["stream","context_id","data"],"properties":{"stream":{"const":"logs"},"context_id":Id::schema(),"data":LogItem::schema()}}
+            {"type":"object","additionalProperties":false,"required":["stream","context_id","data"],"properties":{"stream":{"const":"logs"},"context_id":Id::schema(),"data":LogItem::schema()}},
+            {"type":"object","additionalProperties":false,"required":["stream","data"],"properties":{"stream":{"const":"mail"},"data":MailItem::schema()}}
         ]})
     }
     fn ts() -> String {
         "ActivityEvent".into()
     }
     fn declaration() -> Option<String> {
-        Some("export type ActivityEvent = { stream: \"inspector\"; data: InspectorItem } | { stream: \"logs\"; context_id: string; data: LogItem };\n".into())
+        Some("export type ActivityEvent = { stream: \"inspector\"; data: InspectorItem } | { stream: \"logs\"; context_id: string; data: LogItem } | { stream: \"mail\"; data: MailItem };\n".into())
     }
 }
 /// Polling cannot prove that no event was inserted and removed between reads.
@@ -159,10 +189,14 @@ impl Wire for ActivityContinuity {
 contract!(ActivityWaitOutput{bookmark:Id,event:Option<ActivityEvent>,timed_out:bool,continuity:ActivityContinuity});
 
 contract!(DebuggerItem{installed:bool,mode:Text<32>,primitive_assignment_supported:bool});
+private_contract!(MailAttachmentMetadata{name:Text<256>,mime:Text<128>,size:SafeInt});
+private_contract!(MailContentDetail{subject:Text<512>,from:Text<512>,to:Text<1024>,text:Text<8192>,links:Vec<Text<2048>>,attachment_metadata:Vec<MailAttachmentMetadata>,truncated:bool});
 contract!(MailItem {
     mail_id: Id,
     received_at: SafeInt,
-    attachments: SafeInt
+    attachments: SafeInt,
+    #[serde(default,skip_serializing_if="Option::is_none")]
+    detail:Option<MailContentDetail>
 });
 contract!(ExecutionItem{operation_id:Id,state:OperationState,exit_code:Option<i32>});
 contract!(HttpItem{operation_id:Id,status:Option<u16>,tls_verified:Option<bool>});
@@ -367,6 +401,10 @@ impl PreparedRead {
                 .items
                 .iter()
                 .all(|item| item.artifact_id == input.artifact_id),
+            (ToolInput::Mail(input), ToolOutput::Mail(result)) => result.items.iter().all(|item| {
+                input.mail_id.as_ref().is_none_or(|id| id == &item.mail_id)
+                    && (input.detail == Some(true) || item.detail.is_none())
+            }),
             _ => true,
         };
         if !matches_resource {
@@ -487,6 +525,8 @@ pub fn declarations() -> Vec<String> {
         InspectorDetail,
         InspectorItem,
         DebuggerItem,
+        MailAttachmentMetadata,
+        MailContentDetail,
         MailItem,
         ExecutionItem,
         HttpItem,

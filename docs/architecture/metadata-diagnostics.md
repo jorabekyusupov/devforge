@@ -12,8 +12,7 @@ all existing action opt-ins29); no new surface flag grants authority.
 In the original metadata slice, Observer grant, project registration/root/filesystem
 identity and revision were checked; content issuance and all log query/mail content
 filters were denied. A02 and A03 change issuance and log query as recorded below;
-mail subject/recipient filters, including an empty string, remain denied before
-registration/source IO. MCP omits and rejects those
+mail content filters remained denied before source IO until the A06 follow-up below. MCP omits and rejects those
 keys, including explicit null. Level/context metadata filters remain scoped.
 
 Outputs allow only health codes/retry/next-action IDs; Inspector context/method/
@@ -82,7 +81,7 @@ now supports explicit native-owner InformationScope selection. Metadata reads us
 its central `authorize_read(None)` gate at admission, dequeue/source and output.
 At A02, content grants did not install live readers and query/subject/recipient
 filters remained refused before source IO. A03 changes log query as described below;
-mail subject/recipient filters remain refused.
+A06 changes mail content filtering as described below.
 Log/Inspector/mail/source-artifact/DB content consumers remain later packets.
 The initial statement about no issuance describes the original metadata slice;
 A02 changes issuance only, preserving its metadata-only output/privacy contract.
@@ -194,3 +193,54 @@ successful observation. Sequence after a mark is temporal evidence,
 not proof that an action caused it. Context narrows the association; HTTP-probe
 correlation and mail waiting remain A08/A06, respectively. Exact platform/test
 results are recorded by the A05 PR; no unrelated source or bulk data is exposed.
+
+
+## A06 scoped mail detail and wait (2026-11-16)
+
+`mail.list` remains metadata-only for Observer by default. `since` alone is
+metadata-safe. Explicit detail, mail_id, sender, recipient or subject filters
+require the project-bound MailContent right before mailbox IO and again before
+output; empty filters are still explicit content requests. `mail.show` is a thin
+MCP alias for one ID with detail, including an optional page byte budget. Exact ID
+lookup is independent of newer message volume. Filter-only metadata does not parse
+MIME or retain old verification links. Time and filters are bound to opaque cursors;
+public cursor filter tokens are random and filter-equivalence digests remain private.
+
+Authorized detail may contain subject/from/to, masked text, attachment name/MIME/
+size metadata and HTTP(S) link candidates. Candidates retain query tokens so they
+can be used, may contain private verification/reset credentials, and are never
+fetched or validated by DevForge. Trailing punctuation can produce both trimmed and
+original candidates; clients must not assume either was verified. Body text and
+headers are masked on a best-effort basis for recognizable patterns; arbitrary
+unlabeled secrets cannot be guaranteed absent. No raw MIME, attachment bytes,
+automatic external send/fetch, export or delete is exposed by these tools.
+
+The noncreating read-only source keeps the existing 200-message/16 MiB window;
+detail parsing is bounded to 16 matching messages and 4 MiB raw/4 MiB projected per
+list window, 2 MiB per message, 16 link candidates and 50 attachment entries.
+Truncation is explicit; use metadata listing plus `mail.show` for an exact ID.
+Mail activity marks bind sender/recipient/subject/since and the project/grant to the
+existing A05 bookmark. A filtered metadata-only mark requires MailContent but does
+not parse MIME. A detail wait checks the same mailbox anchor in its read-only
+snapshot, scans retained summaries and parses only the earliest matching new MIME;
+a burst of 17 messages does not create a false gap. A05 `continuity=unverified`,
+3s polling plus bounded validation grace, expiry/revoke and stdio serialization
+limitations remain in force. Mail context_id is invalid.
+
+Sensitive source buffers and cached detail strings are zeroized on drop. Existing
+one-second maintenance prunes expired windows/bookmarks when it can acquire the
+locks; this is near-TTL cleanup, not a hard real-time guarantee. Grant revoke evicts
+cached windows, and a failed in-flight sensitive read removes its own newly inserted
+window to close revoke/insert races. A same-file native deletion does not change the
+source epoch: a frozen cursor can still return rows included in its server snapshot
+until TTL, even if a deleted row was not previously delivered to the client. Such
+results are labeled Cached and retain the original observation time. Revoke evicts grant windows; deleting a local
+message does not itself revoke a remote verification token. Responses to authorized
+clients intentionally contain candidate link tokens. Existing JSON CLI mail command remains metadata-only.
+
+Focused source and manager tests cover authorization/noncreating IO, project and
+filter/cursor scope, opaque filter tokens, candidate URL extraction without fetch,
+attachment metadata, old-ID lookup behind large newer messages, burst wait and revoke.
+A disposable real SMTP→MCP mark/wait/show fixture passed locally on macOS. The PR
+records exact CI for macOS/Windows; actual Windows SMTP/MCP producer evidence is not
+claimed by the local fixture. Attachment export/delete remain separately reviewed.

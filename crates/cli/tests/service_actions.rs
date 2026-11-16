@@ -599,14 +599,14 @@ fn mcp_service_surface_is_explicit_and_native_review_remains_required() {
             .as_array()
             .unwrap()
             .len(),
-        11
+        12
     );
     let denied=readonly.call("tools/call",json!({"name":"services.stop","arguments":{"expected_revision":fixture.revision,"idempotency_key":"no-optin","review":"a".repeat(64)}}));
     assert_eq!(denied["error"]["code"], -32602);
     readonly.close();
     let mut mcp = Mcp::start(&fixture, true);
     let tools = mcp.call("tools/list", json!({}));
-    assert_eq!(tools["result"]["tools"].as_array().unwrap().len(), 15);
+    assert_eq!(tools["result"]["tools"].as_array().unwrap().len(), 16);
     assert!(
         tools["result"]["tools"]
             .as_array()
@@ -947,10 +947,10 @@ fn runtime_mcp_opt_in_is_independent_and_only_exposes_install_select() {
         .unwrap()["project"]
         .clone();
     for (service, runtime, count) in [
-        (false, false, 11),
-        (true, false, 15),
-        (false, true, 14),
-        (true, true, 18),
+        (false, false, 12),
+        (true, false, 16),
+        (false, true, 15),
+        (true, true, 19),
     ] {
         let mut mcp = Mcp::with_flags(&fixture, service, runtime);
         let tools = mcp.call("tools/list", json!({}));
@@ -1138,9 +1138,9 @@ fn environment_mcp_surface_is_masked_and_flag_never_grants_sensitive_authority()
     let path = PathBuf::from(row["project"]["path"].as_str().unwrap()).join("devforge.yaml");
     fs::write(&path, "schema: [\n# mcp-yaml-private-canary\n").unwrap();
     for (service, runtime, environment, count) in [
-        (false, false, false, 11),
-        (false, false, true, 14),
-        (true, true, true, 21),
+        (false, false, false, 12),
+        (false, false, true, 15),
+        (true, true, true, 22),
     ] {
         let mut mcp = Mcp::with_environment(&fixture, service, runtime, environment);
         let tools = mcp.call("tools/list", json!({}));
@@ -1315,9 +1315,9 @@ fn database_choices_and_mutation_denials_do_not_start_a_database_or_expose_priva
 fn database_mcp_opt_in_only_adds_choices_reviewed_bind_and_restore() {
     let mut fixture = Fixture::new();
     for (service, runtime, environment, database, count) in [
-        (false, false, false, false, 11),
-        (false, false, false, true, 14),
-        (true, true, true, true, 24),
+        (false, false, false, false, 12),
+        (false, false, false, true, 15),
+        (true, true, true, true, 25),
     ] {
         let mut mcp = Mcp::with_database(&fixture, service, runtime, environment, database);
         let listed = mcp.call("tools/list", json!({}));
@@ -1476,9 +1476,9 @@ fn domain_mcp_flag_exposes_exact_seven_operations_without_elevation_or_configure
     let mut fixture = Fixture::new();
     let ca = fixture.root.join("serving/authority");
     for (service, runtime, environment, database, domain, count) in [
-        (false, false, false, false, false, 11),
-        (false, false, false, false, true, 18),
-        (true, true, true, true, true, 31),
+        (false, false, false, false, false, 12),
+        (false, false, false, false, true, 19),
+        (true, true, true, true, true, 32),
     ] {
         let mut mcp = Mcp::with_domain(&fixture, service, runtime, environment, database, domain);
         let listed = mcp.call("tools/list", json!({}));
@@ -1531,68 +1531,27 @@ fn domain_mcp_flag_exposes_exact_seven_operations_without_elevation_or_configure
 }
 
 #[test]
-fn diagnostics_sdk_rejects_content_filters_before_any_read_transport() {
+fn diagnostics_mail_filter_debug_never_exposes_private_values() {
     use devforge_control::{
-        Request,
         limits::Text,
         tools::{MailInput, ToolInput},
     };
-    use devforge_manager::{
-        Owner, Server, StopSignal, external_auth::ExternalCredential,
-        external_client::DiagnosticsClient,
-    };
-    use std::sync::atomic::{AtomicUsize, Ordering};
-    let root = common::root("df-diag-guard-");
-    let owner = Owner::acquire(root.path()).unwrap();
-    let endpoint = owner.endpoint().clone();
-    let stop = StopSignal::default();
-    let server_stop = stop.clone();
-    let reads = Arc::new(AtomicUsize::new(0));
-    let server_reads = reads.clone();
-    let server = thread::spawn(move || {
-        Server::new(owner).run(server_stop,move|_,request|{if request["method"]=="health"{Ok(json!({"ok":true,"data":{"api_version":1,"owner_pid":std::process::id(),"state":"ready"}}))}else{server_reads.fetch_add(1,Ordering::SeqCst);Err(devforge_manager::Error::HandlerFailed)}})
+    let input = ToolInput::Mail(MailInput {
+        page: None,
+        subject: Some(Text::new("PRIVATE_SUBJECT".into()).unwrap()),
+        recipient: Some(Text::new("PRIVATE_RECIPIENT".into()).unwrap()),
+        sender: Some(Text::new("PRIVATE_SENDER".into()).unwrap()),
+        since: None,
+        detail: Some(true),
+        mail_id: None,
     });
-    let started = Instant::now();
-    while devforge_manager::Client::new(endpoint.clone())
-        .request(&json!({"method":"health"}))
-        .is_err()
-    {
-        assert!(started.elapsed() < Duration::from_secs(5));
-        thread::sleep(Duration::from_millis(10));
-    }
-    let mut client = DiagnosticsClient::connect(
-        endpoint,
-        ExternalCredential::from_wire(&"a".repeat(64)).unwrap(),
-    )
-    .unwrap();
-    for input in [
-        ToolInput::Mail(MailInput {
-            page: None,
-            subject: Some(Text::new(String::new()).unwrap()),
-            recipient: None,
-        }),
-        ToolInput::Mail(MailInput {
-            page: None,
-            subject: None,
-            recipient: Some(Text::new("private-content-filter".into()).unwrap()),
-        }),
-    ] {
-        let request = Request {
-            api_version: Default::default(),
-            request_id: Id::new("local-denial").unwrap(),
-            project_id: Id::new("project").unwrap(),
-            expected_revision: None,
-            idempotency_key: None,
-            input,
-        };
-        assert_eq!(
-            client.read(&request).unwrap_err(),
-            devforge_control::ErrorCode::Unauthorized
-        );
-    }
-    assert_eq!(reads.load(Ordering::SeqCst), 0);
-    stop.request();
-    server.join().unwrap().unwrap();
+    let debug = format!("{input:?}");
+    assert!(
+        !debug.contains("PRIVATE_SUBJECT")
+            && !debug.contains("PRIVATE_RECIPIENT")
+            && !debug.contains("PRIVATE_SENDER")
+    );
+    assert!(debug.contains("[REDACTED]"));
 }
 
 #[test]
@@ -1601,7 +1560,7 @@ fn diagnostics_mcp_defaults_are_readonly_metadata_and_legacy_health_is_preserved
     let mut mcp = Mcp::start(&fixture, false);
     let tools = mcp.call("tools/list", json!({}));
     let tools = tools["result"]["tools"].as_array().unwrap();
-    assert_eq!(tools.len(), 11);
+    assert_eq!(tools.len(), 12);
     for name in [
         "health.doctor",
         "logs.search",
@@ -1610,8 +1569,11 @@ fn diagnostics_mcp_defaults_are_readonly_metadata_and_legacy_health_is_preserved
     ] {
         let tool = tools.iter().find(|tool| tool["name"] == name).unwrap();
         assert_eq!(tool["annotations"]["readOnlyHint"], true);
-        for forbidden in ["subject", "recipient"] {
-            assert!(tool["inputSchema"]["properties"].get(forbidden).is_none());
+        for field in ["subject", "recipient"] {
+            assert_eq!(
+                tool["inputSchema"]["properties"].get(field).is_some(),
+                name == "mail.list"
+            );
         }
         assert_eq!(
             tool["inputSchema"]["properties"].get("query").is_some(),
@@ -1619,7 +1581,7 @@ fn diagnostics_mcp_defaults_are_readonly_metadata_and_legacy_health_is_preserved
         );
         assert_eq!(
             tool["inputSchema"]["properties"].get("detail").is_some(),
-            name == "inspector.request"
+            name == "inspector.request" || name == "mail.list"
         );
     }
     let doctor = mcp.call("tools/call", json!({"name":"health.doctor","arguments":{}}));
@@ -1641,13 +1603,36 @@ fn diagnostics_mcp_defaults_are_readonly_metadata_and_legacy_health_is_preserved
         ("logs.search", json!({"content":null})),
         ("logs.search", json!({"since":null})),
         ("inspector.request", json!({"detail":null})),
-        ("mail.list", json!({"subject":"private-mail-filter-canary"})),
         ("mail.list", json!({"recipient":null})),
     ] {
         let reply = mcp.call("tools/call", json!({"name":name,"arguments":args}));
         assert_eq!(reply["error"]["code"], -32602);
         assert!(!reply.to_string().contains("private-mail-filter-canary"));
     }
+    assert!(tools.iter().any(|tool| tool["name"] == "mail.show"));
+    let missing_id = mcp.call("tools/call", json!({"name":"mail.show","arguments":{}}));
+    assert_eq!(missing_id["error"]["code"], -32602);
+    let show_denied = mcp.call(
+        "tools/call",
+        json!({"name":"mail.show","arguments":{"mail_id":"f".repeat(32)}}),
+    );
+    assert_eq!(
+        show_denied["result"]["structuredContent"]["error"]["code"],
+        "unauthorized"
+    );
+    let mail_denied = mcp.call(
+        "tools/call",
+        json!({"name":"mail.list","arguments":{"subject":"private-mail-filter-canary"}}),
+    );
+    assert_eq!(
+        mail_denied["result"]["structuredContent"]["error"]["code"],
+        "unauthorized"
+    );
+    assert!(
+        !mail_denied
+            .to_string()
+            .contains("private-mail-filter-canary")
+    );
     // Inspector details require their own explicit right, independent of management.
     let denied_detail = mcp.call(
         "tools/call",
@@ -1748,14 +1733,14 @@ fn execution_mcp_optin_is_finite_cancellable_and_requires_real_review() {
     let mut fixture = Fixture::new();
     let mut readonly = Mcp::start(&fixture, false);
     let tools = readonly.call("tools/list", json!({}));
-    assert_eq!(tools["result"]["tools"].as_array().unwrap().len(), 11);
+    assert_eq!(tools["result"]["tools"].as_array().unwrap().len(), 12);
     let denied=readonly.call("tools/call",json!({"name":"execution.php","arguments":{"action":"plan","expected_revision":fixture.revision,"idempotency_key":"readonly-exec","args":["--version"]}}));
     assert!(denied.get("error").is_some());
     readonly.close();
     let mut mcp = Mcp::with_surfaces(&fixture, [false, false, false, false, false, true]);
     let tools = mcp.call("tools/list", json!({}));
     let tools = tools["result"]["tools"].as_array().unwrap();
-    assert_eq!(tools.len(), 20);
+    assert_eq!(tools.len(), 21);
     for name in [
         "execution.php",
         "execution.artisan",
@@ -1985,4 +1970,141 @@ fn activity_mcp_mark_wait_timeout_and_content_scope() {
     );
     mcp.close();
     drop(collector);
+}
+
+#[test]
+fn a06_smtp_to_mcp_mail_show_and_wait_preserves_authorized_link() {
+    use devforge_control::InformationScope;
+    use std::io::{BufRead, BufReader};
+    fn encode(bytes: &[u8]) -> String {
+        const TABLE: &[u8; 64] =
+            b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+        let mut out = String::new();
+        for chunk in bytes.chunks(3) {
+            let a = chunk[0];
+            let b = *chunk.get(1).unwrap_or(&0);
+            let c = *chunk.get(2).unwrap_or(&0);
+            out.push(TABLE[(a >> 2) as usize] as char);
+            out.push(TABLE[(((a & 3) << 4) | (b >> 4)) as usize] as char);
+            out.push(if chunk.len() > 1 {
+                TABLE[(((b & 15) << 2) | (c >> 6)) as usize] as char
+            } else {
+                '='
+            });
+            out.push(if chunk.len() > 2 {
+                TABLE[(c & 63) as usize] as char
+            } else {
+                '='
+            });
+        }
+        out
+    }
+    fn reply(r: &mut BufReader<std::net::TcpStream>) -> String {
+        let mut all = String::new();
+        loop {
+            let mut line = String::new();
+            r.read_line(&mut line).unwrap();
+            assert!(!line.is_empty());
+            let last = line.as_bytes().get(3) != Some(&b'-');
+            all.push_str(&line);
+            if last {
+                return all;
+            }
+        }
+    }
+    fn send(r: &mut BufReader<std::net::TcpStream>, text: &str) -> String {
+        r.get_mut().write_all(text.as_bytes()).unwrap();
+        reply(r)
+    }
+    let mut fixture = Fixture::new();
+    let password = "a".repeat(64);
+    let server = devforge_inspector::mail::MailServer::start(
+        &fixture.root.join("projects"),
+        &fixture.project,
+        password.clone(),
+    )
+    .unwrap();
+    let grant = fixture
+        .native
+        .issue_external_grant_with_information(
+            &Id::new(&fixture.project).unwrap(),
+            &[Scope::Observer],
+            &[InformationScope::MailContent],
+            Duration::from_secs(300),
+        )
+        .unwrap();
+    let mut authorized = Mcp::with_grant(&fixture, [false; 6], &grant);
+    let mark=authorized.call("tools/call",json!({"name":"activity.mark","arguments":{"stream":"mail","detail":true,"subject":"Verify","recipient":"reader@example.test"}}));
+    assert_eq!(mark["result"]["isError"], false, "{mark}");
+    let bookmark = mark["result"]["structuredContent"]["data"]["bookmark"]
+        .as_str()
+        .unwrap();
+    let stream = std::net::TcpStream::connect(("127.0.0.1", server.session.port)).unwrap();
+    stream
+        .set_read_timeout(Some(Duration::from_secs(5)))
+        .unwrap();
+    let mut smtp = BufReader::new(stream);
+    assert!(reply(&mut smtp).starts_with("220"));
+    assert!(send(&mut smtp, "EHLO example.test\r\n").contains("AUTH PLAIN"));
+    let auth = encode(format!("\0{}\0{}", fixture.project, password).as_bytes());
+    assert!(send(&mut smtp, &format!("AUTH PLAIN {auth}\r\n")).starts_with("235"));
+    assert!(send(&mut smtp, "MAIL FROM:<sender@example.test>\r\n").starts_with("250"));
+    assert!(send(&mut smtp, "RCPT TO:<reader@example.test>\r\n").starts_with("250"));
+    assert!(send(&mut smtp, "DATA\r\n").starts_with("354"));
+    let link = "https://example.invalid/verify?token=MCP_LINK_CANARY&expires=123";
+    let mail = format!(
+        "From: sender@example.test\r\nTo: reader@example.test\r\nSubject: Verify account\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\n\r\nVisit {link}\r\n.\r\n"
+    );
+    assert!(send(&mut smtp, &mail).starts_with("250"));
+    assert!(send(&mut smtp, "QUIT\r\n").starts_with("221"));
+    let waited = authorized.call(
+        "tools/call",
+        json!({"name":"activity.wait","arguments":{"bookmark":bookmark,"timeout_ms":2500}}),
+    );
+    assert_eq!(waited["result"]["isError"], false, "{waited}");
+    let data = &waited["result"]["structuredContent"]["data"];
+    assert_eq!(data["timed_out"], false, "{data}");
+    assert_eq!(data["event"]["stream"], "mail");
+    let item = &data["event"]["data"];
+    let mail_id = item["mail_id"].as_str().unwrap();
+    assert!(
+        item["detail"]["links"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|v| v == link)
+    );
+    let shown = authorized.call(
+        "tools/call",
+        json!({"name":"mail.show","arguments":{"mail_id":mail_id}}),
+    );
+    assert_eq!(shown["result"]["isError"], false, "{shown}");
+    let items = shown["result"]["structuredContent"]["data"]["data"]["items"]
+        .as_array()
+        .unwrap();
+    assert_eq!(items.len(), 1);
+    assert!(
+        items[0]["detail"]["links"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|v| v == link)
+    );
+    let mut observer = Mcp::with_grant(&fixture, [false; 6], &fixture.full);
+    let denied = observer.call(
+        "tools/call",
+        json!({"name":"mail.show","arguments":{"mail_id":mail_id}}),
+    );
+    assert_eq!(
+        denied["result"]["structuredContent"]["error"]["code"],
+        "unauthorized"
+    );
+    assert!(!denied.to_string().contains("MCP_LINK_CANARY"));
+    let listed = observer.call("tools/call", json!({"name":"mail.list","arguments":{}}));
+    assert_eq!(listed["result"]["isError"], false);
+    assert!(!listed.to_string().contains("MCP_LINK_CANARY"));
+    observer.close();
+    authorized.close();
+    drop(smtp);
+    drop(server);
 }

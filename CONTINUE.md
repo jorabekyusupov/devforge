@@ -53,8 +53,17 @@ unverified; transient insert/delete between polls can be missed. Timeout means n
 matching event observed, not proof no event existed. Wait ≤3s plus validation grace,
 max four waiters; quit interrupts and one MCP session serializes its calls.
 
-Next planned package is A06 mail details; A05 did not implement mail wait or HTTP probe.
-Do not start it from this A05 handoff. Subsequent order remains diagnostics/correlation/wait/mail/artifacts ->
+## A06 completed slice
+MailContent gates sender/recipient/subject filters, `mail.show`, bounded masked text,
+attachment metadata and usable sensitive link candidates. No automatic fetch, raw
+attachment export or delete. Observer keeps metadata/since. Filtered mail wait uses
+A05 marks and parses the earliest matching new MIME; continuity remains unverified.
+Opaque cursor filters, revoke/expiry cache cleanup and project binding protect scope.
+Local actual SMTP→MCP fixture passed; Windows native producer is unverified. See
+`docs/architecture/metadata-diagnostics.md`.
+
+Next planned package is A07 support bundle/runbook/artifact. Do not start it from
+this A06 handoff; A08 HTTP probe remains separate. Subsequent order remains diagnostics/correlation/wait/mail/artifacts ->
 advanced debug/HTTP/workspaces/recovery -> HTTP MCP -> remaining UX/docs -> final
 capability/client/OS acceptance -> M14 -> M15. E/D conditions remain unchanged.
 

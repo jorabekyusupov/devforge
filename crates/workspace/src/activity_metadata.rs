@@ -1,7 +1,9 @@
 //! Scoped metadata-only adapter. No global Snapshot, native keys, listeners,
 //! creating Store::open/MailStore::open or content query/filter path.
 use super::*;
-pub use devforge_inspector::metadata::{ActivityKind, MetadataItem, MetadataRow, MetadataWindow};
+pub use devforge_inspector::metadata::{
+    ActivityKind, MailContentDetail, MetadataItem, MetadataRow, MetadataWindow,
+};
 fn mapped(cause: devforge_inspector::metadata::Error) -> Error {
     error(match cause {
         devforge_inspector::metadata::Error::InvalidInput => "activity_invalid_input",

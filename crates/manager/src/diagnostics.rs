@@ -113,7 +113,10 @@ struct ObservedWindow {
     project: Id,
     revision: u64,
     tool: Id,
+    // Public cursor carries a random opaque value; the deterministic filter
+    // digest stays private, preventing offline guessing of mail addresses.
     filter: Digest,
+    filter_binding: Digest,
     source: devforge_workspace::activity_metadata::MetadataWindow,
     expires: Instant,
     expires_at: u64,
@@ -149,6 +152,16 @@ impl Windows {
         self.bytes += window.bytes;
         self.windows.push_back(window);
         Ok(())
+    }
+    fn evict_window(&mut self, id: &Id) {
+        self.windows.retain(|window| &window.id != id);
+        self.handles.retain(|handle| &handle.window.id != id);
+        self.bytes = self.windows.iter().map(|window| window.bytes).sum();
+    }
+    fn evict_grant(&mut self, grant: &Id) {
+        self.windows.retain(|window| &window.grant != grant);
+        self.handles.retain(|handle| &handle.window.grant != grant);
+        self.bytes = self.windows.iter().map(|window| window.bytes).sum();
     }
     fn get(&mut self, cursor: &Cursor) -> Result<Arc<ObservedWindow>, ErrorCode> {
         self.prune();
@@ -195,6 +208,29 @@ impl Windows {
         Ok(cursor)
     }
 }
+#[derive(Clone, Default)]
+struct MailWatchFilter {
+    subject: Option<String>,
+    recipient: Option<String>,
+    sender: Option<String>,
+    since: Option<u64>,
+}
+impl Drop for MailWatchFilter {
+    fn drop(&mut self) {
+        use zeroize::Zeroize;
+        self.subject.zeroize();
+        self.recipient.zeroize();
+        self.sender.zeroize();
+    }
+}
+impl MailWatchFilter {
+    fn sensitive(&self) -> bool {
+        self.subject.is_some() || self.recipient.is_some() || self.sender.is_some()
+    }
+    fn empty(&self) -> bool {
+        !self.sensitive() && self.since.is_none()
+    }
+}
 #[derive(Clone)]
 struct ActivityBookmark {
     id: Id,
@@ -205,6 +241,7 @@ struct ActivityBookmark {
     stream: ActivityStream,
     detail: bool,
     context: Option<Id>,
+    mail: MailWatchFilter,
     epoch: String,
     high_water: u64,
     expires: Instant,
@@ -234,6 +271,21 @@ impl Diagnostics {
     }
     pub(crate) fn interrupt_waits(&self) {
         self.stopping.store(true, Ordering::Release);
+    }
+    /// Reclaim expired sensitive mail windows and bookmark filters even when idle.
+    /// Nonblocking: a busy cache is revisited by the next maintenance tick.
+    pub(crate) fn evict_grant_windows(&self, grant: &Id) {
+        if let Ok(mut windows) = self.windows.lock() {
+            windows.evict_grant(grant);
+        }
+    }
+    pub(crate) fn expire_cached_state(&self) {
+        if let Ok(mut windows) = self.windows.try_lock() {
+            windows.prune();
+        }
+        if let Ok(mut activity) = self.activity.try_lock() {
+            activity.retain(|v| Instant::now() < v.expires);
+        }
     }
     pub(crate) fn clear(&self) {
         *self
@@ -458,8 +510,24 @@ impl Diagnostics {
                 let credential =
                     ExternalCredential::from_wire(&wire.credential.0).map_err(grant_error)?;
                 let input = wire.request.input;
-                let kind = activity_kind(input.stream, input.detail, input.context_id.as_ref())?;
-                let content = activity_scope(input.stream, input.detail);
+                let mail = MailWatchFilter {
+                    subject: input.subject.as_ref().map(|v| v.as_str().to_owned()),
+                    recipient: input.recipient.as_ref().map(|v| v.as_str().to_owned()),
+                    sender: input.sender.as_ref().map(|v| v.as_str().to_owned()),
+                    since: input.since.as_ref().map(|v| v.get()),
+                };
+                let mut kind =
+                    activity_kind(input.stream, input.detail, input.context_id.as_ref(), &mail)?;
+                // A mark needs only a high-water/epoch; never parse earlier MIME
+                // or retain old verification links merely to start watching.
+                if let devforge_workspace::activity_metadata::ActivityKind::MailContent {
+                    include_detail,
+                    ..
+                } = &mut kind
+                {
+                    *include_detail = false;
+                }
+                let content = activity_scope(input.stream, input.detail, &mail);
                 let deadline = Instant::now() + Duration::from_secs(4);
                 // Resolve the credential-bound project before asking the actor
                 // anything about a client-supplied project identifier. This
@@ -527,6 +595,7 @@ impl Diagnostics {
                     stream: input.stream,
                     detail: input.detail,
                     context: input.context_id,
+                    mail,
                     epoch: source.epoch,
                     high_water: source.high_water,
                     expires: Instant::now() + TTL,
@@ -590,9 +659,13 @@ impl Diagnostics {
                 };
                 let credential =
                     ExternalCredential::from_wire(&wire.credential.0).map_err(grant_error)?;
-                let kind =
-                    activity_kind(bookmark.stream, bookmark.detail, bookmark.context.as_ref())?;
-                let content = activity_scope(bookmark.stream, bookmark.detail);
+                let kind = activity_kind(
+                    bookmark.stream,
+                    bookmark.detail,
+                    bookmark.context.as_ref(),
+                    &bookmark.mail,
+                )?;
+                let content = activity_scope(bookmark.stream, bookmark.detail, &bookmark.mail);
                 let deadline =
                     Instant::now() + Duration::from_millis(wire.request.input.timeout_ms.get());
                 // Leave time for an in-flight read and the fresh actor/grant
@@ -715,7 +788,7 @@ impl Diagnostics {
                         .filter(|row| row.sequence > bookmark.high_water)
                         .min_by_key(|row| row.sequence)
                     {
-                        let event = activity_event(&row.item)?;
+                        let event = activity_event(&row.item, bookmark.detail)?;
                         let current = self.query_until(
                             actor,
                             peer,
@@ -865,9 +938,28 @@ impl Diagnostics {
             ToolInput::Inspector(p) if p.detail == Some(true) => {
                 Some(devforge_control::InformationScope::InspectorQueries)
             }
+            ToolInput::Mail(p)
+                if p.detail == Some(true)
+                    || p.mail_id.is_some()
+                    || p.subject.is_some()
+                    || p.recipient.is_some()
+                    || p.sender.is_some() =>
+            {
+                Some(devforge_control::InformationScope::MailContent)
+            }
             _ => None,
         };
         let credential = ExternalCredential::from_wire(&wire.credential.0).map_err(grant_error)?;
+        if matches!(wire.request.input, ToolInput::Mail(_)) {
+            let bound = self.activity_credential_project(
+                peer,
+                &credential,
+                Instant::now() + Duration::from_secs(4),
+            )?;
+            if bound != wire.request.project_id {
+                return Err(ErrorCode::ProjectMismatch);
+            }
+        }
         let registration = self.query(
             actor,
             peer,
@@ -904,167 +996,268 @@ impl Diagnostics {
             None,
         )?;
         drop(grants);
-        let output = if matches!(wire.request.input, ToolInput::Health(_)) {
-            if wire.request.input.page().cursor.is_some() {
-                return Err(ErrorCode::CursorExpired);
-            }
-            doctor(actor, &registration.binding)?
-        } else {
-            let page = wire.request.input.page();
-            let filter = filter_digest(&wire.request.input)?;
-            let (window, before, continued) = if let Some(cursor) = &page.cursor {
-                let window = self
-                    .windows
-                    .lock()
-                    .map_err(|_| ErrorCode::StorageUnavailable)?
-                    .get(cursor)?;
-                if window.client != client
-                    || window.grant != grant_id
-                    || window.project != wire.request.project_id
-                    || window.revision != registration.binding.revision()
-                    || window.tool.as_str() != wire.request.input.tool()
-                    || window.filter != filter
-                {
+        let mut inserted_mail_window = None;
+        let result = (|| -> Result<ToolOutput, ErrorCode> {
+            let output = if matches!(wire.request.input, ToolInput::Health(_)) {
+                if wire.request.input.page().cursor.is_some() {
                     return Err(ErrorCode::CursorExpired);
                 }
-                let epoch = self
-                    .query(
+                doctor(actor, &registration.binding)?
+            } else {
+                let page = wire.request.input.page();
+                let filter = filter_digest(&wire.request.input)?;
+                let (window, before, continued) = if let Some(cursor) = &page.cursor {
+                    let window = self
+                        .windows
+                        .lock()
+                        .map_err(|_| ErrorCode::StorageUnavailable)?
+                        .get(cursor)?;
+                    if window.client != client
+                        || window.grant != grant_id
+                        || window.project != wire.request.project_id
+                        || window.revision != registration.binding.revision()
+                        || window.tool.as_str() != wire.request.input.tool()
+                        || window.filter_binding != filter
+                    {
+                        return Err(ErrorCode::CursorExpired);
+                    }
+                    let epoch = self
+                        .query(
+                            actor,
+                            peer,
+                            &credential,
+                            &wire.request.project_id,
+                            ReadMode::Epoch(kind(&wire.request.input)?),
+                            (content, Some(registration.binding.revision())),
+                        )?
+                        .epoch
+                        .ok_or(ErrorCode::CursorExpired)?;
+                    if epoch != window.source.epoch {
+                        return Err(ErrorCode::CursorExpired);
+                    }
+                    (window, cursor.offset.get(), true)
+                } else {
+                    let read = self.query(
                         actor,
                         peer,
                         &credential,
                         &wire.request.project_id,
-                        ReadMode::Epoch(kind(&wire.request.input)?),
+                        ReadMode::Window(kind(&wire.request.input)?),
                         (content, Some(registration.binding.revision())),
-                    )?
-                    .epoch
-                    .ok_or(ErrorCode::CursorExpired)?;
-                if epoch != window.source.epoch {
-                    return Err(ErrorCode::CursorExpired);
-                }
-                (window, cursor.offset.get(), true)
-            } else {
-                let read = self.query(
+                    )?;
+                    if read.binding.revision() != registration.binding.revision()
+                        || read.binding.root() != registration.binding.root()
+                    {
+                        return Err(ErrorCode::RevisionConflict);
+                    }
+                    let source = read.window.ok_or(ErrorCode::StorageUnavailable)?;
+                    let bytes = bounded_size(&source)?;
+                    let window = Arc::new(ObservedWindow {
+                        id: opaque_id()?,
+                        client: client.clone(),
+                        grant: grant_id.clone(),
+                        project: wire.request.project_id.clone(),
+                        revision: registration.binding.revision(),
+                        tool: Id::new(wire.request.input.tool())?,
+                        filter: crate::environment_control::opaque()?,
+                        filter_binding: filter,
+                        expires: Instant::now() + TTL,
+                        expires_at: now + TTL.as_millis() as u64,
+                        bytes,
+                        source,
+                    });
+                    self.windows
+                        .lock()
+                        .map_err(|_| ErrorCode::StorageUnavailable)?
+                        .insert(window.clone())?;
+                    if content == Some(devforge_control::InformationScope::MailContent) {
+                        inserted_mail_window = Some(window.id.clone());
+                    }
+                    let before = window.source.high_water.saturating_add(1);
+                    (window, before, false)
+                };
+                let rows = window
+                    .source
+                    .rows
+                    .iter()
+                    .filter(|r| r.sequence < before && r.sequence <= window.source.high_water)
+                    .take(page.limit.get() as usize)
+                    .collect::<Vec<_>>();
+                let last = rows.last().map(|r| r.sequence);
+                let more =
+                    last.is_some_and(|last| window.source.rows.iter().any(|r| r.sequence < last));
+                let cursor = if more {
+                    Some(
+                        self.windows
+                            .lock()
+                            .map_err(|_| ErrorCode::StorageUnavailable)?
+                            .issue(window.clone(), last.ok_or(ErrorCode::StorageUnavailable)?)?,
+                    )
+                } else {
+                    None
+                };
+                project(&wire.request.input, &window, &rows, cursor, continued)?
+            };
+            prepared.check_deadline()?;
+            // Re-resolve the registry-owned binding before returning sensitive data;
+            // an MCP request need not supply an expected revision itself.
+            if content.is_some() {
+                let current = self.query(
                     actor,
                     peer,
                     &credential,
                     &wire.request.project_id,
-                    ReadMode::Window(kind(&wire.request.input)?),
+                    ReadMode::Registration,
                     (content, Some(registration.binding.revision())),
                 )?;
-                if read.binding.revision() != registration.binding.revision()
-                    || read.binding.root() != registration.binding.root()
-                {
-                    return Err(ErrorCode::RevisionConflict);
+                if current.binding.root() != registration.binding.root() {
+                    return Err(ErrorCode::ProjectMismatch);
                 }
-                let source = read.window.ok_or(ErrorCode::StorageUnavailable)?;
-                let bytes = bounded_size(&source)?;
-                let window = Arc::new(ObservedWindow {
-                    id: opaque_id()?,
-                    client: client.clone(),
-                    grant: grant_id.clone(),
-                    project: wire.request.project_id.clone(),
-                    revision: registration.binding.revision(),
-                    tool: Id::new(wire.request.input.tool())?,
-                    filter,
-                    expires: Instant::now() + TTL,
-                    expires_at: now + TTL.as_millis() as u64,
-                    bytes,
-                    source,
-                });
-                self.windows
-                    .lock()
-                    .map_err(|_| ErrorCode::StorageUnavailable)?
-                    .insert(window.clone())?;
-                let before = window.source.high_water.saturating_add(1);
-                (window, before, false)
-            };
-            let rows = window
-                .source
-                .rows
-                .iter()
-                .filter(|r| r.sequence < before && r.sequence <= window.source.high_water)
-                .take(page.limit.get() as usize)
-                .collect::<Vec<_>>();
-            let last = rows.last().map(|r| r.sequence);
-            let more =
-                last.is_some_and(|last| window.source.rows.iter().any(|r| r.sequence < last));
-            let cursor = if more {
-                Some(
-                    self.windows
-                        .lock()
-                        .map_err(|_| ErrorCode::StorageUnavailable)?
-                        .issue(window.clone(), last.ok_or(ErrorCode::StorageUnavailable)?)?,
-                )
-            } else {
-                None
-            };
-            project(&wire.request.input, &window, &rows, cursor, continued)?
-        };
-        prepared.check_deadline()?;
-        // Re-resolve the registry-owned binding before returning sensitive data;
-        // an MCP request need not supply an expected revision itself.
-        if content.is_some() {
-            let current = self.query(
-                actor,
-                peer,
-                &credential,
-                &wire.request.project_id,
-                ReadMode::Registration,
-                (content, Some(registration.binding.revision())),
-            )?;
-            if current.binding.root() != registration.binding.root() {
-                return Err(ErrorCode::ProjectMismatch);
             }
+            let mut grants = self
+                .grants
+                .registry
+                .lock()
+                .map_err(|_| ErrorCode::StorageUnavailable)?;
+            let proof = grants
+                .as_mut()
+                .ok_or(ErrorCode::Interrupted)?
+                .authorize_read(
+                    peer,
+                    &credential,
+                    &registration.binding,
+                    content,
+                    wire.request.expected_revision,
+                )
+                .map_err(grant_error)?;
+            prepared.check_output(&output, &registration.binding, proof.observed_at())?;
+            Ok(output)
+        })();
+        // Revocation may race a new cache insert. On any failed read, reclaim
+        // the exact newly inserted sensitive window after all grant locks drop.
+        if result.is_err()
+            && let Some(id) = inserted_mail_window
+            && let Ok(mut windows) = self.windows.lock()
+        {
+            windows.evict_window(&id);
         }
-        let mut grants = self
-            .grants
-            .registry
-            .lock()
-            .map_err(|_| ErrorCode::StorageUnavailable)?;
-        let proof = grants
-            .as_mut()
-            .ok_or(ErrorCode::Interrupted)?
-            .authorize_read(
-                peer,
-                &credential,
-                &registration.binding,
-                content,
-                wire.request.expected_revision,
-            )
-            .map_err(grant_error)?;
-        prepared.check_output(&output, &registration.binding, proof.observed_at())?;
-        Ok(output)
+        result
     }
 }
 fn activity_scope(
     stream: ActivityStream,
     detail: bool,
+    mail: &MailWatchFilter,
 ) -> Option<devforge_control::InformationScope> {
+    if stream == ActivityStream::Mail && mail.sensitive() {
+        return Some(devforge_control::InformationScope::MailContent);
+    }
     if !detail {
         return None;
     }
     Some(match stream {
         ActivityStream::Inspector => devforge_control::InformationScope::InspectorQueries,
         ActivityStream::Logs => devforge_control::InformationScope::LogContent,
+        ActivityStream::Mail => devforge_control::InformationScope::MailContent,
     })
 }
 fn activity_kind(
     stream: ActivityStream,
     detail: bool,
     context: Option<&Id>,
+    mail: &MailWatchFilter,
 ) -> Result<devforge_workspace::activity_metadata::ActivityKind, ErrorCode> {
     use devforge_workspace::activity_metadata::ActivityKind;
     let context = context.map(|v| v.as_str().to_owned());
     let kind = match (stream, detail) {
-        (ActivityStream::Inspector, false) => ActivityKind::Inspector { context },
-        (ActivityStream::Inspector, true) => ActivityKind::InspectorDetail { context },
-        (ActivityStream::Logs, detail) => ActivityKind::WatchLogs { context, detail },
+        (ActivityStream::Inspector, false) if mail.empty() => ActivityKind::Inspector { context },
+        (ActivityStream::Inspector, true) if mail.empty() => {
+            ActivityKind::InspectorDetail { context }
+        }
+        (ActivityStream::Logs, detail) if mail.empty() => {
+            ActivityKind::WatchLogs { context, detail }
+        }
+        (ActivityStream::Mail, _) if context.is_some() => return Err(ErrorCode::InvalidInput),
+        (ActivityStream::Mail, _) if detail || mail.sensitive() => ActivityKind::MailContent {
+            subject: mail.subject.clone(),
+            recipient: mail.recipient.clone(),
+            sender: mail.sender.clone(),
+            since: mail.since,
+            mail_id: None,
+            include_detail: detail,
+        },
+        (ActivityStream::Mail, _) => match mail.since {
+            Some(since) => ActivityKind::MailSince { since },
+            None => ActivityKind::Mail,
+        },
+        _ => return Err(ErrorCode::InvalidInput),
     };
     kind.validate().map_err(|_| ErrorCode::InvalidInput)?;
     Ok(kind)
 }
+fn mail_item(
+    item: &devforge_workspace::activity_metadata::MetadataItem,
+    include_detail: bool,
+) -> Result<MailItem, ErrorCode> {
+    use devforge_workspace::activity_metadata::MetadataItem;
+    let (mail_id, received_at, attachments, detail) = match item {
+        MetadataItem::Mail {
+            mail_id,
+            received_at,
+            attachments,
+        } => (mail_id, received_at, attachments, None),
+        MetadataItem::MailContent {
+            mail_id,
+            received_at,
+            attachments,
+            detail,
+        } => (mail_id, received_at, attachments, detail.as_ref()),
+        _ => return Err(ErrorCode::StorageUnavailable),
+    };
+    if include_detail && detail.is_none() {
+        return Err(ErrorCode::StorageUnavailable);
+    }
+    let detail = if include_detail {
+        detail
+            .map(|d| {
+                Ok::<_, ErrorCode>(MailContentDetail {
+                    subject: devforge_control::limits::Text::new(d.subject.clone())?,
+                    from: devforge_control::limits::Text::new(d.from.clone())?,
+                    to: devforge_control::limits::Text::new(d.to.clone())?,
+                    text: devforge_control::limits::Text::new(d.text.clone())?,
+                    links: d
+                        .links
+                        .iter()
+                        .map(|v| devforge_control::limits::Text::new(v.clone()))
+                        .collect::<Result<_, _>>()?,
+                    attachment_metadata: d
+                        .attachment_metadata
+                        .iter()
+                        .map(|v| {
+                            Ok(MailAttachmentMetadata {
+                                name: devforge_control::limits::Text::new(v.name.clone())?,
+                                mime: devforge_control::limits::Text::new(v.mime.clone())?,
+                                size: SafeInt::new(v.size)?,
+                            })
+                        })
+                        .collect::<Result<_, ErrorCode>>()?,
+                    truncated: d.truncated,
+                })
+            })
+            .transpose()?
+    } else {
+        None
+    };
+    Ok(MailItem {
+        mail_id: Id::new(mail_id)?,
+        received_at: SafeInt::new(*received_at)?,
+        attachments: SafeInt::new(*attachments)?,
+        detail,
+    })
+}
 fn activity_event(
     item: &devforge_workspace::activity_metadata::MetadataItem,
+    include_detail: bool,
 ) -> Result<ActivityEvent, ErrorCode> {
     use devforge_workspace::activity_metadata::MetadataItem;
     match item {
@@ -1140,6 +1333,9 @@ fn activity_event(
                 },
             })
         }
+        MetadataItem::Mail { .. } | MetadataItem::MailContent { .. } => Ok(ActivityEvent::Mail {
+            data: mail_item(item, include_detail)?,
+        }),
         _ => Err(ErrorCode::StorageUnavailable),
     }
 }
@@ -1148,8 +1344,7 @@ fn check_input(input: &ToolInput) -> Result<(), ErrorCode> {
         ToolInput::Health(_) => Ok(()),
         ToolInput::Log(_) => Ok(()),
         ToolInput::Inspector(_) => Ok(()),
-        ToolInput::Mail(input) if input.subject.is_none() && input.recipient.is_none() => Ok(()),
-        ToolInput::Mail(_) => Err(ErrorCode::Unauthorized),
+        ToolInput::Mail(_) => Ok(()),
         _ => Err(ErrorCode::UnsupportedCapability),
     }
 }
@@ -1175,24 +1370,49 @@ fn kind(
             level: p.level.as_ref().map(|v| v.as_str().into()),
             since: p.since.as_ref().map(|v| v.get()),
         }),
-        ToolInput::Mail(_) => Ok(ActivityKind::Mail),
+        ToolInput::Mail(p)
+            if p.detail == Some(true)
+                || p.mail_id.is_some()
+                || p.subject.is_some()
+                || p.recipient.is_some()
+                || p.sender.is_some() =>
+        {
+            Ok(ActivityKind::MailContent {
+                subject: p.subject.as_ref().map(|v| v.as_str().to_owned()),
+                recipient: p.recipient.as_ref().map(|v| v.as_str().to_owned()),
+                sender: p.sender.as_ref().map(|v| v.as_str().to_owned()),
+                mail_id: p.mail_id.as_ref().map(|v| v.as_str().to_owned()),
+                since: p.since.as_ref().map(|v| v.get()),
+                include_detail: p.detail == Some(true),
+            })
+        }
+        ToolInput::Mail(p) => Ok(match &p.since {
+            Some(since) => ActivityKind::MailSince { since: since.get() },
+            None => ActivityKind::Mail,
+        }),
         _ => Err(ErrorCode::UnsupportedCapability),
     }
 }
 fn filter_digest(input: &ToolInput) -> Result<Digest, ErrorCode> {
-    let value = match input {
+    let bytes = match input {
         ToolInput::Log(p) => {
-            json!({"tool":input.tool(),"level":p.level,"content":p.content,"query":p.query,"since":p.since})
+            serde_json::to_vec(&(input.tool(), &p.level, &p.content, &p.query, &p.since))
         }
-        ToolInput::Inspector(p) => {
-            json!({"tool":input.tool(),"context":p.context_id,"detail":p.detail})
-        }
-        ToolInput::Mail(_) => json!({"tool":input.tool()}),
+        ToolInput::Inspector(p) => serde_json::to_vec(&(input.tool(), &p.context_id, &p.detail)),
+        ToolInput::Mail(p) => serde_json::to_vec(&(
+            input.tool(),
+            &p.subject,
+            &p.recipient,
+            &p.sender,
+            &p.since,
+            &p.detail,
+            &p.mail_id,
+        )),
         _ => return Err(ErrorCode::UnsupportedCapability),
-    };
-    devforge_control_adapter::sha256(
-        &serde_json::to_vec(&value).map_err(|_| ErrorCode::InvalidInput)?,
-    )
+    }
+    .map_err(|_| ErrorCode::InvalidInput)?;
+    let bytes = zeroize::Zeroizing::new(bytes);
+    devforge_control_adapter::sha256(&bytes)
 }
 fn opaque_id() -> Result<Id, ErrorCode> {
     let digest = crate::environment_control::opaque()?;
@@ -1350,24 +1570,10 @@ fn project(
                 next_cursor,
             }))
         }
-        ToolInput::Mail(_) => {
+        ToolInput::Mail(input) => {
             let items = rows
                 .iter()
-                .map(|row| {
-                    let MetadataItem::Mail {
-                        mail_id,
-                        received_at,
-                        attachments,
-                    } = &row.item
-                    else {
-                        return Err(ErrorCode::StorageUnavailable);
-                    };
-                    Ok(MailItem {
-                        mail_id: Id::new(mail_id)?,
-                        received_at: SafeInt::new(*received_at)?,
-                        attachments: SafeInt::new(*attachments)?,
-                    })
-                })
+                .map(|row| mail_item(&row.item, input.detail == Some(true)))
                 .collect::<Result<_, _>>()?;
             Ok(ToolOutput::Mail(MailOutput {
                 freshness: freshness()?,
@@ -1452,4 +1658,111 @@ struct Wire {
     method: String,
     credential: Token,
     request: Request<ToolInput>,
+}
+
+#[cfg(test)]
+mod mail_cache_tests {
+    use super::*;
+    use devforge_workspace::activity_metadata::{
+        MailContentDetail, MetadataItem, MetadataRow, MetadataWindow,
+    };
+    #[test]
+    fn maintenance_prune_releases_expired_sensitive_windows_and_handles() {
+        let id = |v| Id::new(v).unwrap();
+        let mut windows = Windows::default();
+        let source = MetadataWindow {
+            rows: vec![MetadataRow {
+                sequence: 1,
+                item: MetadataItem::MailContent {
+                    mail_id: "a".repeat(32),
+                    received_at: 1,
+                    attachments: 0,
+                    detail: Some(MailContentDetail {
+                        subject: "subject".into(),
+                        from: "from".into(),
+                        to: "to".into(),
+                        text: "text".into(),
+                        links: vec!["https://example.test/?token=PRIVATE".into()],
+                        attachment_metadata: vec![],
+                        truncated: false,
+                    }),
+                },
+            }],
+            epoch: "0".repeat(64),
+            high_water: 1,
+            low_water: 1,
+            observed_at: 1,
+            row_truncated: false,
+            byte_truncated: false,
+            missing: false,
+            origin: "fixture",
+            source_rows: 1,
+            source_bytes: 1,
+            anchor_present: None,
+            first_omitted: None,
+        };
+        let window = Arc::new(ObservedWindow {
+            id: id("window"),
+            client: id("client"),
+            grant: id("grant"),
+            project: id("project"),
+            revision: 1,
+            tool: id("mail.list"),
+            filter: Digest::new("1".repeat(64)).unwrap(),
+            filter_binding: Digest::new("2".repeat(64)).unwrap(),
+            source,
+            expires: Instant::now() - Duration::from_millis(1),
+            expires_at: 1,
+            bytes: 256,
+        });
+        let weak = Arc::downgrade(&window);
+        windows.windows.push_back(window.clone());
+        windows.bytes = 256;
+        windows.issue(window.clone(), 1).unwrap();
+        drop(window);
+        assert!(weak.upgrade().is_some());
+        windows.prune();
+        assert!(weak.upgrade().is_none());
+        assert!(windows.windows.is_empty() && windows.handles.is_empty());
+        assert_eq!(windows.bytes, 0);
+        let active = Arc::new(ObservedWindow {
+            id: id("active"),
+            client: id("client"),
+            grant: id("grant"),
+            project: id("project"),
+            revision: 1,
+            tool: id("mail.list"),
+            filter: Digest::new("3".repeat(64)).unwrap(),
+            filter_binding: Digest::new("4".repeat(64)).unwrap(),
+            source: MetadataWindow {
+                rows: vec![],
+                epoch: "0".repeat(64),
+                high_water: 1,
+                low_water: 1,
+                observed_at: 1,
+                row_truncated: false,
+                byte_truncated: false,
+                missing: false,
+                origin: "fixture",
+                source_rows: 1,
+                source_bytes: 1,
+                anchor_present: None,
+                first_omitted: None,
+            },
+            expires: Instant::now() + Duration::from_secs(10),
+            expires_at: 10,
+            bytes: 128,
+        });
+        let weak = Arc::downgrade(&active);
+        windows.windows.push_back(active.clone());
+        windows.bytes = 128;
+        windows.issue(active.clone(), 1).unwrap();
+        drop(active);
+        windows.evict_grant(&id("other"));
+        assert!(weak.upgrade().is_some());
+        windows.evict_grant(&id("grant"));
+        assert!(weak.upgrade().is_none());
+        assert!(windows.handles.is_empty() && windows.windows.is_empty());
+        assert_eq!(windows.bytes, 0);
+    }
 }
