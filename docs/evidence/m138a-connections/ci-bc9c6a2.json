@@ -1,0 +1,119 @@
+{
+  "source_sha": "bc9c6a28ebc0daec39c90afe949e854cc132e6eb",
+  "run_id": 43622856038,
+  "url": "https://github.com/jorabekyusupov/devforge/actions/runs/43622856038",
+  "conclusion": "success",
+  "jobs": [
+    {
+      "id": 132532153188,
+      "name": "scope-baseline",
+      "conclusion": "success",
+      "passed_steps": [
+        "Set up job",
+        "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+        "Run actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1",
+        "Find last ancestor validated on both platforms",
+        "Post Run actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1",
+        "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+        "Complete job"
+      ]
+    },
+    {
+      "id": 132532154661,
+      "name": "xdebug-native",
+      "conclusion": "skipped",
+      "passed_steps": []
+    },
+    {
+      "id": 132532189615,
+      "name": "check (windows-latest)",
+      "conclusion": "success",
+      "passed_steps": [
+        "Set up job",
+        "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+        "Run actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1",
+        "Select checks from changed paths",
+        "Prepare toolchain from rust-toolchain.toml",
+        "Select Rust packages and consumers",
+        "Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+        "Run npm ci",
+        "Run python -m unittest scripts/test_distribution.py",
+        "Run npm run check:locales",
+        "Run node --test scripts/check_locales.test.mjs",
+        "Run npm run typecheck",
+        "Run npm test",
+        "Rust fmt for selected scope",
+        "Rust clippy for selected scope",
+        "Rust test for selected scope",
+        "Build native desktop binary with embedded frontend",
+        "Run python -m unittest discover -s tests -p 'test_ci_*.py'",
+        "Run python -m unittest discover -s tests -p test_rust_scope.py",
+        "Run python -m pip install -r scripts/requirements-knowledge.txt",
+        "Run python scripts/validate_knowledge.py --strict",
+        "Post Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+        "Post Run actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1",
+        "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+        "Complete job"
+      ]
+    },
+    {
+      "id": 132532189679,
+      "name": "check (macos-latest)",
+      "conclusion": "success",
+      "passed_steps": [
+        "Set up job",
+        "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+        "Run actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1",
+        "Select checks from changed paths",
+        "Prepare toolchain from rust-toolchain.toml",
+        "Select Rust packages and consumers",
+        "Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+        "Run npm ci",
+        "Run python -m unittest scripts/test_distribution.py",
+        "Run npm run check:locales",
+        "Run node --test scripts/check_locales.test.mjs",
+        "Run npm run typecheck",
+        "Run npm test",
+        "Rust fmt for selected scope",
+        "Rust clippy for selected scope",
+        "Rust test for selected scope",
+        "Build native desktop binary with embedded frontend",
+        "Run python -m unittest discover -s tests -p 'test_ci_*.py'",
+        "Run python -m unittest discover -s tests -p test_rust_scope.py",
+        "Run python -m pip install -r scripts/requirements-knowledge.txt",
+        "Run python scripts/validate_knowledge.py --strict",
+        "Post Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+        "Post Run actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1",
+        "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+        "Complete job"
+      ]
+    }
+  ],
+  "windows_runner_os_log": [
+    "2026-11-14T17:45:56.2792105Z ##[group]Operating System",
+    "2026-11-14T17:45:56.2792454Z Microsoft Windows Server 2025",
+    "2026-11-14T17:45:56.2792818Z 10.0.26100",
+    "2026-11-14T17:45:56.2793111Z Datacenter",
+    "2026-11-14T17:45:56.2793434Z ##[endgroup]"
+  ],
+  "actual_windows_native_backend_unit_cases": {
+    "private_export": [
+      "2026-11-14T17:54:08.4004010Z test native_export_creates_only_fresh_private_leaves_and_loads_without_repair ... ok",
+      "2026-11-14T17:53:05.7794920Z test agent_connections::tests::fresh_export_is_protected_path_only_and_never_overwrites_or_adopts ... ok"
+    ],
+    "tauri_compensation_and_renderer_projection": [
+      "2026-11-14T17:53:05.6666538Z test agent_connections::tests::export_compensation_retries_busy_and_requires_confirmed_revocation ... ok",
+      "2026-11-14T17:53:05.6474728Z test agent_connections::tests::renderer_contract_and_review_projection_exclude_authority_and_secret_values ... ok"
+    ],
+    "pending_native_authority": [
+      "2026-11-14T17:55:54.6762116Z test owner_peer_root_epoch_and_pending_reservations_are_enforced ... ok",
+      "2026-11-14T17:56:08.0123017Z test native_pending_review_and_grant_scoped_operation_controls_never_accept_external_authority ... ok"
+    ]
+  },
+  "actual_windows_vitest_agents_unit_file": [
+    "2026-11-14T17:46:46.1966706Z  \u2713 src/agents.test.tsx (13 tests) 1941ms"
+  ],
+  "actual_native_windows_ui": "unverified; these are backend/unit/build checks, not WebView2 interaction",
+  "mac_native_ui_flow": "separate archived evidence supplied by Root, not rerun here",
+  "minimum_os_signing_native_credentials": "unverified"
+}

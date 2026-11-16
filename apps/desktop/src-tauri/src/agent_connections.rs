@@ -72,16 +72,50 @@ impl From<GrantRecord> for Grant {
     }
 }
 #[derive(Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ExecutionContext {
+    environment: bool,
+    database: bool,
+    cache: bool,
+    mail: bool,
+    test_isolated: bool,
+}
+#[derive(Clone, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Target {
-    Service { action: String },
-    RuntimeInstall { package_id: Id },
-    RuntimeSelect { php: Id, node: Id },
-    EnvironmentApply { write_env: bool },
-    YamlSave { byte_count: u64 },
-    DatabaseBind { instance_id: Id },
-    DatabaseRestore { backup_id: Id },
-    Domain { action: String },
+    Execution {
+        tool: devforge_control::mutations::ExecutionTool,
+        arg_count: u64,
+        managed_test: bool,
+        timeout_ms: u64,
+        context: ExecutionContext,
+        safe_arguments: Vec<String>,
+    },
+    Service {
+        action: String,
+    },
+    RuntimeInstall {
+        package_id: Id,
+    },
+    RuntimeSelect {
+        php: Id,
+        node: Id,
+    },
+    EnvironmentApply {
+        write_env: bool,
+    },
+    YamlSave {
+        byte_count: u64,
+    },
+    DatabaseBind {
+        instance_id: Id,
+    },
+    DatabaseRestore {
+        backup_id: Id,
+    },
+    Domain {
+        action: String,
+    },
 }
 #[derive(Clone, Serialize)]
 #[serde(untagged)]
@@ -507,6 +541,9 @@ fn config(
     if grant.scopes.contains(&Scope::ProjectManage) {
         args.extend(["--allow-service-actions", "--allow-runtime-actions"]);
     }
+    if grant.scopes.contains(&Scope::ExecutionTest) {
+        args.push("--allow-execution-actions");
+    }
     if grant.scopes.contains(&Scope::SensitiveOperation) {
         args.extend([
             "--allow-environment-actions",
@@ -562,17 +599,45 @@ fn existing_config(
     if loaded.project_id() != &grant.project_id {
         return Err(error("agent_config_unavailable"));
     }
-    let config = config(root, artifact, grant)?;
+    let mut config = config(root, artifact, grant)?;
     let metadata =
         fs::symlink_metadata(&config.config_path).map_err(|_| error("agent_config_unavailable"))?;
-    if !metadata.is_file()
-        || metadata.file_type().is_symlink()
-        || metadata.len() > 65536
-        || fs::read_to_string(&config.config_path).map_err(|_| error("agent_config_unavailable"))?
-            != config.config_snippet
+    if !metadata.is_file() || metadata.file_type().is_symlink() || metadata.len() > 65536 {
+        return Err(error("agent_config_unavailable"));
+    }
+    let stored =
+        fs::read_to_string(&config.config_path).map_err(|_| error("agent_config_unavailable"))?;
+    let candidate: Value =
+        serde_json::from_str(&stored).map_err(|_| error("agent_config_unavailable"))?;
+    let mut expected: Value = serde_json::from_str(&config.config_snippet)
+        .map_err(|_| error("agent_config_unavailable"))?;
+    let key = format!("devforge-{}", grant.grant_id.as_str());
+    let actual_args = candidate["mcpServers"][&key]["args"]
+        .as_array()
+        .ok_or_else(|| error("agent_config_unavailable"))?;
+    let allowed_args = expected["mcpServers"][&key]["args"]
+        .as_array()
+        .ok_or_else(|| error("agent_config_unavailable"))?;
+    // Previously exported immutable configs may select fewer surfaces. Their
+    // fixed executable, credential path, root and server key remain exact.
+    let mut selected = std::collections::BTreeSet::new();
+    if actual_args.len() < 4
+        || actual_args[..4] != allowed_args[..4]
+        || actual_args[4..].iter().any(|arg| {
+            !allowed_args[4..].contains(arg) || arg.as_str().is_none_or(|arg| !selected.insert(arg))
+        })
     {
         return Err(error("agent_config_unavailable"));
     }
+    expected["mcpServers"][&key]["args"] = Value::Array(actual_args.clone());
+    if candidate != expected
+        || serde_json::to_string_pretty(&candidate)
+            .map_err(|_| error("agent_config_unavailable"))?
+            != stored
+    {
+        return Err(error("agent_config_unavailable"));
+    }
+    config.config_snippet = stored;
     Ok(config)
 }
 fn plan(value: PendingReview) -> Result<Plan> {
@@ -826,6 +891,32 @@ mod tests {
         }
         assert!(export_new(root.as_path(), &artifact, &issued).is_err());
         assert!(existing_config(root.as_path(), &artifact, &grant).is_ok());
+        let mut legacy: Value = serde_json::from_str(&config.config_snippet).unwrap();
+        let args = legacy["mcpServers"]["devforge-grant-fixture"]["args"]
+            .as_array_mut()
+            .unwrap();
+        assert!(args.contains(&json!("--allow-execution-actions")));
+        args.retain(|arg| arg != "--allow-execution-actions");
+        let legacy = serde_json::to_string_pretty(&legacy).unwrap();
+        fs::write(&config.config_path, &legacy).unwrap();
+        assert_eq!(
+            existing_config(root.as_path(), &artifact, &grant)
+                .unwrap()
+                .config_snippet,
+            legacy
+        );
+        assert_eq!(fs::read_to_string(&config.config_path).unwrap(), legacy);
+        let mut unknown: Value = serde_json::from_str(&legacy).unwrap();
+        unknown["mcpServers"]["devforge-grant-fixture"]["args"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!("--allow-unrestricted-shell"));
+        fs::write(
+            &config.config_path,
+            serde_json::to_string_pretty(&unknown).unwrap(),
+        )
+        .unwrap();
+        assert!(existing_config(root.as_path(), &artifact, &grant).is_err());
         fs::write(&config.config_path, b"changed").unwrap();
         assert!(existing_config(root.as_path(), &artifact, &grant).is_err());
         let result = IssueResult {
@@ -857,5 +948,10 @@ mod tests {
         let safe = serde_json::to_string(&review_details(&machine)).unwrap();
         assert!(safe.contains("system_hosts") && safe.contains("b.devforge.test"));
         assert!(!safe.contains("native-private-key-canary"));
+        let execution = json!({"kind":"execution","tool":"php","arg_count":2,"managed_test":true,"timeout_ms":1000,"context":{"environment":false,"database":false,"cache":false,"mail":false,"test_isolated":true},"safe_arguments":["[REDACTED]","owned-script.php"],"raw_arguments":["secret-execution-raw-canary"]});
+        let target: Target = serde_json::from_value(execution).unwrap();
+        let safe = serde_json::to_string(&target).unwrap();
+        assert!(safe.contains("owned-script.php") && safe.contains("test_isolated"));
+        assert!(!safe.contains("secret-execution-raw-canary"));
     }
 }

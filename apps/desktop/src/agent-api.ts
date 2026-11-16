@@ -5,7 +5,9 @@ export type AgentConnectionState = "disconnected" | "starting" | "authenticating
 export interface AgentOwner { state: AgentConnectionState; code?: string; }
 export interface AgentProject { id: string; name: string; }
 export interface AgentGrant { grant_id: string; client_id: string; project_id: string; scopes: AgentScope[]; created_at: number; expires_at: number; revoked: boolean; expired: boolean; }
+export interface AgentExecutionContext { environment: boolean; database: boolean; cache: boolean; mail: boolean; test_isolated: boolean; }
 export type AgentReviewTarget =
+  | { kind: "execution"; tool: "php" | "artisan" | "composer" | "node" | "npm" | "git"; arg_count: number; managed_test: boolean; timeout_ms: number; context: AgentExecutionContext; safe_arguments: string[] }
   | { kind: "service"; action: string }
   | { kind: "runtime_install"; package_id: string }
   | { kind: "runtime_select"; php: string; node: string }

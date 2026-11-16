@@ -142,7 +142,7 @@ Parallel agent boshlangan yoki tugagan itemni integrator evidence bilan yangilay
 | M13.3 | validated_local_and_ci | Bounded stdio and actual Inspector/Codex/VS Code local clients; Windows backend CI, desktop/client matrix remains M13.9. |
 | M13.4 | implemented_with_gates | Five reviewed service/runtime/env/DB/domain slices; scoped/native evidence below. Real helper/dialog/signing/minimum-OS acceptance remains M13.9/M15. |
 | M13.5 | in_progress | First safe metadata/cursor slice integrated; explicit content rights, richer correlation/wait/mail/artifact slices remain. |
-| M13.6 | planned | Execution/debug/workspace kontrakti, actual isolated scenario va preservation. |
+| M13.6 | in_progress | First finite execution slice locally validated; real Laravel test isolation, debugger/HTTP/workspace/recovery remain. |
 | M13.7 | planned | HTTP auth/origin/revoke/version; remote bridge alohida M14. |
 | M13.8 | minimal_validated_local | Native connection/grant/config/approval UI actual macOS WebView passed; new Windows CI and full audit/docs UX remain. |
 | M13.9 | planned | M13 slice evidence reconciliation va applicable client/OS matrix. |
@@ -1430,3 +1430,18 @@ downloads/securitypermissions untouched; no real OS helper. Windows native new
 bridge/UI/privatefile and signing/minimumOS gates remain. Deferred report files
 and namespaces preserved outside this delivery. Next is M13.6a managed exec/test
 with necessary isolation, per user-approved order.
+
+M13.8a baselinebc9c6a2 [run43622856038](https://github.com/jorabekyusupov/devforge/actions/runs/43622856038)
+passed both macOS/Windows tests/builds. Actual Windows Server2025 privateexport2,
+Tauri compensation/privacy2, pending native authority2 and agents UI unit13
+passed. [Proof](../evidence/m138a-connections/ci-bc9c6a2.json) preserves the
+distinction from actual native Windows UI, signing/minimum OS and real OS writes.
+
+
+## 2026-11-16 resumed minimal M13.6a integration
+
+Completed old worktree tips are ancestors of main. Native proof branches 6bd1382/acf1932 were history-merged as efa4f37 only after all four changed test/helper files matched main byte-for-byte; the merge tree is unchanged and temporary workflows excluded. Checkpoint bb4263d is preserved as backup rather than wholesale merged because it also carries deferred report UI.
+
+First managed execution slice is integrated from exact reviewed WIP paths: six finite tools + strict data-free managed test, redacted/zeroizing args, exact review, own output/cancel/key lookup, ResultUnavailable and legacy config compatibility. Core5/context1/Git1, manager/client/contracts and tiny UI cases from the checkpoint are reused unchanged. Actual public cached PHP report passed exit7->fix/newreview/key->exit0, replay/output-scope/revoke/redaction/ledger checks (docs/evidence/m136a-execution/actual.json). No Laravel producer/strong DB isolation or native SSH/network proof.
+
+The missing final Git-follow-up gate now passed: cargo clippy --locked -p devforge-projects -p devforge-workspace --lib --test execution_control -- -D warnings,36.34s. No full suite/native rerun. Source/evidence reconciliation and clean staged gates precede publication. Real Laravel job-specific SQLite/worktree isolation and the remaining plan stay outstanding; deferred reports/locales are preserved outside this delivery.

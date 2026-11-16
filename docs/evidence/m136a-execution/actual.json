@@ -1,0 +1,24 @@
+{
+  "actual_cached_php": "php-8.4.27-staticphp20261113-cli-macos-arm64",
+  "data_free_managed_test_context": true,
+  "downloads": false,
+  "existing_metadata_read": true,
+  "fixed_exit": 0,
+  "host": {
+    "arch": "aarch64",
+    "os": "macos"
+  },
+  "initial_exit": 7,
+  "laravel_producer": false,
+  "native_exact_review": true,
+  "native_secret_store": false,
+  "other_grant_output_denied": true,
+  "passed": true,
+  "public_execution_client": true,
+  "raw_arg_and_canonical_arg_hash_absent_ledger": true,
+  "revoked_output_denied": true,
+  "same_key_replay_no_rerun": true,
+  "source_cache_mutated": false,
+  "strong_database_isolation": false,
+  "supplied_arg_masked_output": true
+}

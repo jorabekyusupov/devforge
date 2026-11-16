@@ -1579,11 +1579,268 @@ impl BoundDiagnosticsActionsClient {
     }
 }
 
+/// Finite reviewed execution. Arguments never become native authority, shell
+/// strings, journal fingerprints or automatic retry inputs in this adapter.
+pub struct ExecutionClient {
+    inner: ServiceClient,
+}
+impl std::fmt::Debug for ExecutionClient {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ExecutionClient")
+            .field("owner_pid", &self.inner.client.peer.process_id)
+            .finish_non_exhaustive()
+    }
+}
+impl ExecutionClient {
+    pub fn connect(
+        endpoint: Endpoint,
+        credential: ExternalCredential,
+    ) -> std::result::Result<Self, ErrorCode> {
+        Ok(Self {
+            inner: ServiceClient::connect(endpoint, credential)?,
+        })
+    }
+    pub fn plan(
+        &mut self,
+        request: &Request<MutationInput>,
+    ) -> std::result::Result<Response<PlanReceipt>, ErrorCode> {
+        execution_plan(&mut self.inner, request)
+    }
+    /// Never retries. Retain the original key on admission uncertainty or after
+    /// volatile argument equivalence expires; look up the existing receipt.
+    pub fn apply(
+        &mut self,
+        request: &Request<MutationInput>,
+        review: &Digest,
+    ) -> std::result::Result<Response<MutationReceipt>, ErrorCode> {
+        execution_apply(&mut self.inner, request, review)
+    }
+    /// None is only a point-in-time observation, not proof of non-admission or
+    /// equivalence with a previously retained sensitive argument body.
+    pub fn lookup(
+        &mut self,
+        id: Id,
+        project: &Id,
+        key: &Id,
+    ) -> std::result::Result<Response<Option<MutationReceipt>>, ErrorCode> {
+        execution_lookup(&mut self.inner, id, project, key)
+    }
+    pub fn cancel(
+        &mut self,
+        id: Id,
+        project: &Id,
+        operation: &Id,
+    ) -> std::result::Result<ExternalReply, ErrorCode> {
+        execution_cancel(&mut self.inner, id, project, operation)
+    }
+    pub fn output(
+        &mut self,
+        id: Id,
+        project: &Id,
+        operation: &Id,
+    ) -> std::result::Result<crate::service_control::ExecutionOutputReply, ErrorCode> {
+        execution_output(&mut self.inner, id, project, operation)
+    }
+}
+fn execution_request(request: &Request<MutationInput>) -> std::result::Result<(), ErrorCode> {
+    if !matches!(
+        request.input,
+        MutationInput::ExecutePhp(_)
+            | MutationInput::ExecuteArtisan(_)
+            | MutationInput::ExecuteComposer(_)
+            | MutationInput::ExecuteNode(_)
+            | MutationInput::ExecuteNpm(_)
+            | MutationInput::ExecuteGit(_)
+            | MutationInput::ManagedTest(_)
+    ) {
+        return Err(ErrorCode::UnsupportedCapability);
+    }
+    if !request
+        .expected_revision
+        .is_some_and(|revision| revision <= devforge_control::limits::SafeInt::MAX)
+        || request.idempotency_key.is_none()
+    {
+        return Err(ErrorCode::InvalidInput);
+    }
+    if request.input.limits().timeout_ms.get() > 300_000 {
+        return Err(ErrorCode::InvalidInput);
+    }
+    Ok(())
+}
+fn execution_plan(
+    client: &mut ServiceClient,
+    request: &Request<MutationInput>,
+) -> std::result::Result<Response<PlanReceipt>, ErrorCode> {
+    execution_request(request)?;
+    let reply: Response<PlanReceipt> = client.exchange(
+        &request.request_id,
+        json!({"method":"execution_plan","request":request}),
+        false,
+    )?;
+    if reply.data().is_some_and(|plan| {
+        plan.project_id != request.project_id
+            || Some(plan.revision.get()) != request.expected_revision
+    }) {
+        return Err(ErrorCode::InvalidInput);
+    }
+    Ok(reply)
+}
+fn execution_apply(
+    client: &mut ServiceClient,
+    request: &Request<MutationInput>,
+    review: &Digest,
+) -> std::result::Result<Response<MutationReceipt>, ErrorCode> {
+    execution_request(request)?;
+    let reply: Response<MutationReceipt> = client.exchange(
+        &request.request_id,
+        json!({"method":"execution_apply","request":request,"review":review}),
+        true,
+    )?;
+    if reply.data().is_some_and(|receipt| {
+        receipt.project_id != request.project_id
+            || Some(receipt.revision.get()) != request.expected_revision
+            || reply
+                .operation_id()
+                .is_some_and(|id| id != &receipt.operation_id)
+    }) {
+        return Err(ErrorCode::AdmissionUnconfirmed);
+    }
+    Ok(reply)
+}
+fn execution_lookup(
+    client: &mut ServiceClient,
+    id: Id,
+    project: &Id,
+    key: &Id,
+) -> std::result::Result<Response<Option<MutationReceipt>>, ErrorCode> {
+    let reply:Response<Option<MutationReceipt>>=client.exchange(&id,json!({"method":"execution_lookup","request_id":id,"project_id":project,"idempotency_key":key}),false)?;
+    if reply
+        .data()
+        .and_then(Option::as_ref)
+        .is_some_and(|receipt| {
+            &receipt.project_id != project
+                || reply
+                    .operation_id()
+                    .is_some_and(|id| id != &receipt.operation_id)
+        })
+    {
+        return Err(ErrorCode::InvalidInput);
+    }
+    Ok(reply)
+}
+fn execution_cancel(
+    client: &mut ServiceClient,
+    id: Id,
+    project: &Id,
+    operation: &Id,
+) -> std::result::Result<ExternalReply, ErrorCode> {
+    client
+        .client
+        .request(
+            id,
+            ExternalInput::OperationCancel {
+                project_id: project.clone(),
+                operation_id: operation.clone(),
+            },
+            None,
+        )
+        .map_err(Error::control_code)
+}
+fn execution_output(
+    client: &mut ServiceClient,
+    id: Id,
+    project: &Id,
+    operation: &Id,
+) -> std::result::Result<crate::service_control::ExecutionOutputReply, ErrorCode> {
+    let reply:crate::service_control::ExecutionOutputReply=client.exchange(&id,json!({"method":"execution_output","request_id":id,"project_id":project,"operation_id":operation}),false)?;
+    if reply.data().is_some_and(|output| {
+        output.logs.iter().map(|log| log.text.len()).sum::<usize>() > 16384
+            || serde_json::to_vec(output).map_or(true, |bytes| bytes.len() > 32768)
+    }) {
+        return Err(ErrorCode::OutputLimitExceeded);
+    }
+    Ok(reply)
+}
+/// Only this explicit composition adds execution; older finite wrappers remain
+/// unchanged. Project binding is checked before any protected execution request.
+pub struct BoundExecutionClient {
+    previous: BoundDiagnosticsActionsClient,
+}
+impl BoundExecutionClient {
+    pub fn connect(
+        endpoint: Endpoint,
+        loaded: crate::credential_file::LoadedCredential,
+    ) -> std::result::Result<Self, ErrorCode> {
+        Ok(Self {
+            previous: BoundDiagnosticsActionsClient::connect(endpoint, loaded)?,
+        })
+    }
+    pub fn previous(&mut self) -> &mut BoundDiagnosticsActionsClient {
+        &mut self.previous
+    }
+    fn project(&self) -> &Id {
+        self.previous.diagnostics.project()
+    }
+    fn transport(&mut self) -> &mut ServiceClient {
+        self.previous.diagnostics.transport()
+    }
+    pub fn plan(
+        &mut self,
+        request: &Request<MutationInput>,
+    ) -> std::result::Result<Response<PlanReceipt>, ErrorCode> {
+        if &request.project_id != self.project() {
+            return Err(ErrorCode::ProjectMismatch);
+        }
+        execution_plan(self.transport(), request)
+    }
+    pub fn apply(
+        &mut self,
+        request: &Request<MutationInput>,
+        review: &Digest,
+    ) -> std::result::Result<Response<MutationReceipt>, ErrorCode> {
+        if &request.project_id != self.project() {
+            return Err(ErrorCode::ProjectMismatch);
+        }
+        execution_apply(self.transport(), request, review)
+    }
+    pub fn lookup(
+        &mut self,
+        id: Id,
+        key: &Id,
+    ) -> std::result::Result<Response<Option<MutationReceipt>>, ErrorCode> {
+        let project = self.project().clone();
+        execution_lookup(self.transport(), id, &project, key)
+    }
+    pub fn cancel(
+        &mut self,
+        id: Id,
+        operation: &Id,
+    ) -> std::result::Result<ExternalReply, ErrorCode> {
+        let project = self.project().clone();
+        execution_cancel(self.transport(), id, &project, operation)
+    }
+    pub fn output(
+        &mut self,
+        id: Id,
+        operation: &Id,
+    ) -> std::result::Result<crate::service_control::ExecutionOutputReply, ErrorCode> {
+        let project = self.project().clone();
+        execution_output(self.transport(), id, &project, operation)
+    }
+}
+
 struct SecretRequest(Value);
 impl Drop for SecretRequest {
     fn drop(&mut self) {
         if let Some(Value::String(value)) = self.0.get_mut("credential") {
             value.zeroize();
+        }
+        if let Some(Value::Array(args)) = self.0.pointer_mut("/request/input/arguments/args") {
+            for value in args {
+                if let Value::String(value) = value {
+                    value.zeroize();
+                }
+            }
         }
         if self
             .0

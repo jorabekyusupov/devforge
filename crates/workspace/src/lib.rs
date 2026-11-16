@@ -9,6 +9,7 @@ pub mod discovery;
 pub mod domain_control;
 pub mod environment_control;
 pub mod environment_report;
+pub mod execution_control;
 mod mail;
 pub mod repro;
 pub mod runtime_control;

@@ -1136,7 +1136,8 @@
       "yaml_save": "Save portable configuration",
       "database_bind": "Bind database",
       "database_restore": "Restore backup",
-      "domain": "System domain or trust change"
+      "domain": "System domain or trust change",
+      "execution": "Execute project command"
     },
     "domainActions": {
       "hosts": "Owned hosts entries",
@@ -1211,6 +1212,12 @@
     "systemTargets": {
       "system_hosts": "System hosts file",
       "system_trust_store": "System trust store"
-    }
+    },
+    "execCommand": "Reviewed invocation",
+    "execContext": "Execution context",
+    "execTimeout": "Timeout (milliseconds)",
+    "execManagedTest": "Managed test job",
+    "execSummaryHint": "The native owner provides a bounded, redacted invocation summary. Arguments are data, not a shell command; secret values are not shown.",
+    "scopeDependency": "Every grant requires read access. For execution or sensitive permissions, explicitly select project management too; broader permissions are never added automatically."
   }
 }

@@ -29,6 +29,8 @@ mavzuni tanlang, so'ng faqat tegishli hujjatlar va ularning manbalarini o'qing.
 
 ## Manba va yuritish
 
+- [M13.6a managed execution](../architecture/managed-execution.md) - six managed tools, sensitive arguments, own output/cancel va hali qolgan Laravel test isolation.
+
 - [M13.8a native agent connections](../architecture/native-agent-connections.md) - minimal Settings grant/config/approval UI, Rust-only tokens va actual WebView evidence.
 
 - [M13.5 metadata diagnostics](../architecture/metadata-diagnostics.md) - scoped doctor/Inspector/log/mail, safe frozen windows/cursors va explicit content-right chegarasi.

@@ -2,6 +2,10 @@
 
 - **M7–M12 functional completion**: [yakun yozuvi](m7-m12-completion.md): shared Rust core,7-method request builder va revision-guarded primitive locals, verified common MySQL8.4.11 oilasi, reviewed YAML GUI, same-ID archive restoration/purge, recursive isolated submodules va external PG/MySQL staged copy. macOS ARM64/Intel hamda Windows native backend/CLI/UI qabul; har target22 axe case/0 violation. Concurrent main996a11d saqlandi, filesystem-identity interop regressiyalari qo'shildi. Latest core macOS134/Windows131 Rust va44 frontend/OS;1 OS-credential test M15 ignored. Failure/infrastructure history, runtime hash rollover va aniq source projection evidence'da.30-doc strict close; M13–M15'ga avtomatik o'tilmadi.
 
+## 2026-11-16
+
+- **Minimal execution integration:** completed proof histories recorded without temporary workflows; exact M13.6a WIP integrated, missing Git-follow-up lint passed, previous green evidence reused. Real Laravel test isolation and deferred report work remain. [Execution](execution-status.md), [contract](../architecture/managed-execution.md).
+
 ## 2026-11-14
 
 - **Reordered M13.8a:** minimal native Settings grant/config/approval/operation UI implemented, protected Rust-only token delivery, reviewable semantic/machine details. Focus and Busy compensation blockers fixed with exact regressions. Actual same-fixture WebView flow/4captures/3axe0 passed; source hashes and focus-visible/Windows/OS gates explicit. No extra report/dashboard/content features. [Contract](../architecture/native-agent-connections.md), [execution](execution-status.md).

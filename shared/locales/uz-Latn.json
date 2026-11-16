@@ -1136,7 +1136,8 @@
       "yaml_save": "Portable konfiguratsiyani saqlash",
       "database_bind": "Bazani bog‘lash",
       "database_restore": "Backup tiklash",
-      "domain": "Tizim domeni yoki trust’ni o‘zgartirish"
+      "domain": "Tizim domeni yoki trust’ni o‘zgartirish",
+      "execution": "Loyiha buyrug‘ini bajarish"
     },
     "domainActions": {
       "hosts": "Tegishli hosts yozuvlari",
@@ -1211,6 +1212,12 @@
     "systemTargets": {
       "system_hosts": "Tizim hosts fayli",
       "system_trust_store": "Tizim trust store’i"
-    }
+    },
+    "execCommand": "Tekshiriladigan chaqiruv",
+    "execContext": "Bajarish muhiti",
+    "execTimeout": "Timeout (millisekund)",
+    "execManagedTest": "Boshqariladigan test",
+    "execSummaryHint": "Native owner chegaralangan, maxfiy qiymatlari yashirilgan chaqiruv tavsifini beradi. Argumentlar ma’lumot, shell buyrug‘i emas; secret qiymatlari ko‘rsatilmaydi.",
+    "scopeDependency": "Har bir ruxsat o‘qish huquqini talab qiladi. Kod bajarish yoki sensitive amallar uchun loyihani boshqarishni ham aniq tanlang; kengroq ruxsatlar avtomatik qo‘shilmaydi."
   }
 }

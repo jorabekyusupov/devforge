@@ -152,6 +152,9 @@ describe("minimal agent settings", () => {
     await user.click(
       screen.getByRole("checkbox", { name: "Run project code and tests" }),
     );
+    await user.click(
+      screen.getByRole("checkbox", { name: "Manage project environment" }),
+    );
     await user.selectOptions(
       screen.getByRole("combobox", { name: "Access duration" }),
       "604800",
@@ -162,7 +165,7 @@ describe("minimal agent settings", () => {
     });
     expect(api.issue).toHaveBeenCalledWith({
       project_id: "project-b",
-      scopes: ["observer", "execution_test"],
+      scopes: ["observer", "execution_test", "project_manage"],
       ttl_seconds: 604800,
     });
     expect(document.body).not.toHaveTextContent("NEVER_RENDER_TOKEN");
@@ -451,6 +454,107 @@ describe("minimal agent settings", () => {
       "Exact review details",
     );
     expect(api.approve).not.toHaveBeenCalled();
+  });
+  it("reviews the safe execution invocation and exact context, rejecting count-only execution summaries", async () => {
+    const { api, view } = fixture();
+    const execution = plan();
+    execution.tool = "execution.artisan";
+    execution.required_scopes = ["execution_test"];
+    execution.machine_confirmation_required = false;
+    execution.details = [];
+    execution.target = {
+      kind: "execution",
+      tool: "artisan",
+      arg_count: 2,
+      managed_test: true,
+      timeout_ms: 30000,
+      context: {
+        environment: true,
+        database: false,
+        cache: false,
+        mail: false,
+        test_isolated: false,
+      },
+      safe_arguments: [],
+    };
+    view.plans = [execution];
+    const { user } = await mount(api);
+    await screen.findByText("Connected");
+    await user.click(screen.getByRole("button", { name: "Review plan" }));
+    let dialog = screen.getByRole("dialog");
+    await user.click(
+      within(dialog).getByRole("checkbox", {
+        name: "I reviewed this project and the exact changes shown.",
+      }),
+    );
+    expect(
+      within(dialog).getByRole("button", { name: "Approve reviewed plan" }),
+    ).toBeDisabled();
+    expect(api.approve).not.toHaveBeenCalled();
+    await user.click(within(dialog).getByRole("button", { name: "Close" }));
+    execution.target.safe_arguments = ["test", "--filter=SafeFixture"];
+    await user.click(screen.getByRole("button", { name: "Refresh" }));
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Review plan" })).toBeEnabled(),
+    );
+    await user.click(screen.getByRole("button", { name: "Review plan" }));
+    dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveTextContent("artisan");
+    expect(dialog).toHaveTextContent("--filter=SafeFixture");
+    expect(dialog).toHaveTextContent("30000");
+    expect(dialog).toHaveTextContent("test_isolated: No");
+    expect(
+      within(dialog).getByRole("button", { name: "Approve reviewed plan" }),
+    ).toBeDisabled();
+    await user.click(
+      within(dialog).getByRole("checkbox", {
+        name: "I reviewed this project and the exact changes shown.",
+      }),
+    );
+    await user.click(
+      within(dialog).getByRole("button", { name: "Approve reviewed plan" }),
+    );
+    await waitFor(() =>
+      expect(api.approve).toHaveBeenCalledWith(execution.digest),
+    );
+    expect(api.confirmMachine).not.toHaveBeenCalled();
+  });
+  it("requires explicit project management for execution and sensitive grant scopes without broadening permissions automatically", async () => {
+    const { api } = fixture();
+    const { user } = await mount(api);
+    await screen.findByText("Connected");
+    const management = screen.getByRole("checkbox", {
+      name: "Manage project environment",
+    });
+    await user.click(
+      screen.getByRole("checkbox", { name: "Run project code and tests" }),
+    );
+    expect(management).not.toBeChecked();
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "explicitly select project management",
+    );
+    expect(screen.getByRole("button", { name: "Create grant" })).toBeDisabled();
+    await user.click(
+      screen.getByRole("checkbox", { name: "Sensitive operations" }),
+    );
+    expect(management).not.toBeChecked();
+    await user.click(screen.getByRole("button", { name: "Create grant" }));
+    expect(api.issue).not.toHaveBeenCalled();
+    await user.click(management);
+    expect(screen.getByRole("button", { name: "Create grant" })).toBeEnabled();
+    await user.click(screen.getByRole("button", { name: "Create grant" }));
+    await waitFor(() =>
+      expect(api.issue).toHaveBeenCalledWith({
+        project_id: "project-a",
+        scopes: [
+          "observer",
+          "execution_test",
+          "sensitive_operation",
+          "project_manage",
+        ],
+        ttl_seconds: 3600,
+      }),
+    );
   });
   it.each(["ru", "uz-Latn"])(
     "uses %s catalog for the same native controls",

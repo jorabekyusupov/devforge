@@ -94,6 +94,12 @@ export function AgentConnections({ api }: { api?: AgentApi }) {
     !!api && view?.owner?.state === "connected" && !pending && !stale;
   const projectName = (id: string) =>
     view?.projects.find((p) => p.id === id)?.name ?? id;
+  const scopeDependencyError =
+    selectedScopes.length > 0 &&
+    (!selectedScopes.includes("observer") ||
+      ((selectedScopes.includes("execution_test") ||
+        selectedScopes.includes("sensitive_operation")) &&
+        !selectedScopes.includes("project_manage")));
   const timestamp = (value: number) => {
     const date = new Date(value);
     return Number.isSafeInteger(value) && !Number.isNaN(date.getTime())
@@ -132,6 +138,32 @@ export function AgentConnections({ api }: { api?: AgentApi }) {
   const reviewComplete = (plan: AgentPlan) => {
     if (["expired", "revoked", "stale", "claimed"].includes(plan.state))
       return false;
+    if (plan.target.kind === "execution") {
+      const target = plan.target;
+      return (
+        ["php", "artisan", "composer", "node", "npm", "git"].includes(
+          target.tool,
+        ) &&
+        Number.isSafeInteger(target.arg_count) &&
+        target.arg_count >= 0 &&
+        target.arg_count <= 64 &&
+        Array.isArray(target.safe_arguments) &&
+        target.safe_arguments.length === target.arg_count &&
+        target.safe_arguments.every(
+          (argument) => typeof argument === "string",
+        ) &&
+        Number.isSafeInteger(target.timeout_ms) &&
+        target.timeout_ms > 0 &&
+        target.timeout_ms <= 300000 &&
+        typeof target.managed_test === "boolean" &&
+        !!target.context &&
+        ["environment", "database", "cache", "mail", "test_isolated"].every(
+          (key) =>
+            typeof target.context[key as keyof typeof target.context] ===
+            "boolean",
+        )
+      );
+    }
     if (
       !["yaml_save", "environment_apply", "domain"].includes(plan.target.kind)
     )
@@ -283,6 +315,7 @@ export function AgentConnections({ api }: { api?: AgentApi }) {
                     setScopeError(true);
                     return;
                   }
+                  if (scopeDependencyError) return;
                   setScopeError(false);
                   setConfiguration(null);
                   const current = generation.current;
@@ -342,7 +375,7 @@ export function AgentConnections({ api }: { api?: AgentApi }) {
                     </label>
                   </div>
                   <fieldset
-                    aria-describedby={`${heading}-scope-hint${scopeError ? ` ${heading}-scope-error` : ""}`}
+                    aria-describedby={`${heading}-scope-hint${scopeError ? ` ${heading}-scope-error` : ""}${scopeDependencyError ? ` ${heading}-scope-dependency` : ""}`}
                   >
                     <legend>{t("agentConnections.scopeLegend")}</legend>
                     <p id={`${heading}-scope-hint`} className="muted">
@@ -369,6 +402,11 @@ export function AgentConnections({ api }: { api?: AgentApi }) {
                       ))}
                     </div>
                   </fieldset>
+                  {scopeDependencyError && (
+                    <p id={`${heading}-scope-dependency`} role="alert">
+                      {t("agentConnections.scopeDependency")}
+                    </p>
+                  )}
                   {scopeError && (
                     <p id={`${heading}-scope-error`} role="alert">
                       {t("agentConnections.noScopes")}
@@ -378,7 +416,7 @@ export function AgentConnections({ api }: { api?: AgentApi }) {
                     <button
                       className="primary"
                       type="submit"
-                      disabled={!projectId}
+                      disabled={!projectId || scopeDependencyError}
                     >
                       {t("agentConnections.createGrant")}
                     </button>
@@ -806,6 +844,59 @@ function PlanReview({ plan, machine }: { plan: AgentPlan; machine: boolean }) {
       <dl>
         <dt>{t("agentConnections.targetKind")}</dt>
         <dd>{t(`agentConnections.targets.${target.kind}`)}</dd>
+        {target.kind === "execution" && (
+          <>
+            <dt>{t("agentConnections.execCommand")}</dt>
+            <dd>
+              <code translate="no">{target.tool}</code>
+              <ol>
+                {target.safe_arguments?.map((argument, index) => (
+                  <li key={index}>
+                    <code translate="no">{argument}</code>
+                  </li>
+                ))}
+              </ol>
+              <p className="muted">{t("agentConnections.execSummaryHint")}</p>
+            </dd>
+            <dt>{t("agentConnections.execTimeout")}</dt>
+            <dd>{target.timeout_ms}</dd>
+            <dt>{t("agentConnections.execManagedTest")}</dt>
+            <dd>
+              {t(
+                target.managed_test
+                  ? "agentConnections.yes"
+                  : "agentConnections.no",
+              )}
+            </dd>
+            <dt>{t("agentConnections.execContext")}</dt>
+            <dd>
+              <ul>
+                {target.context &&
+                  (
+                    [
+                      "environment",
+                      "database",
+                      "cache",
+                      "mail",
+                      "test_isolated",
+                    ] as const
+                  ).map((key) => (
+                    <li key={key}>
+                      <code translate="no">{key}</code>
+                      {": "}
+                      {t(
+                        typeof target.context[key] !== "boolean"
+                          ? "agentConnections.unknown"
+                          : target.context[key]
+                            ? "agentConnections.yes"
+                            : "agentConnections.no",
+                      )}
+                    </li>
+                  ))}
+              </ul>
+            </dd>
+          </>
+        )}
         {target.kind === "service" && (
           <>
             <dt>{t("agentConnections.tool")}</dt>

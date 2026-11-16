@@ -39,7 +39,9 @@ pub const COMMAND_BYTES: usize = 8 * 1024 * 1024;
 pub const QUEUE_BYTES: usize = 16 * 1024 * 1024;
 pub const SNAPSHOT_BYTES: usize = 4_194_304;
 // Reserved heap budget for either finite environment or database read request.
-const ENV_QUERY_BYTES: usize = 4096;
+// Reserve the bounded execution argv (16 KiB) plus private query metadata.
+// Other private reads share this conservative charge and the existing two slots.
+const ENV_QUERY_BYTES: usize = 24 * 1024;
 /// Receipt namespace for genuinely global desktop operations, never a project.
 pub const ROOT_SUBJECT: &str = "desktop-root";
 
@@ -255,6 +257,7 @@ enum Message {
     Database(Box<crate::database_control::DatabaseRead>),
     Domain(Box<crate::domain_control::DomainRead>),
     Metadata(Box<crate::diagnostics::MetadataRead>),
+    Execution(Box<crate::execution_control::ExecutionRead>),
 }
 
 /// Owns and joins exactly one real Workspace thread. Dropping a Handle does not
@@ -443,6 +446,12 @@ impl ActorHandle {
     pub(crate) fn queue_metadata(&self, query: crate::diagnostics::MetadataRead) -> Result<()> {
         self.queue_private(Message::Metadata(Box::new(query)))
     }
+    pub(crate) fn queue_execution(
+        &self,
+        query: crate::execution_control::ExecutionRead,
+    ) -> Result<()> {
+        self.queue_private(Message::Execution(Box::new(query)))
+    }
     fn queue_private(&self, message: Message) -> Result<()> {
         let state = self
             .shared
@@ -603,6 +612,13 @@ impl ActorHandle {
             MutationInput::DatabaseRestore(_) => MutationOutput::DatabaseRestore(output),
             MutationInput::DomainApply(_) => MutationOutput::DomainApply(output),
             MutationInput::DomainCleanup(_) => MutationOutput::DomainCleanup(output),
+            MutationInput::ExecutePhp(_) => MutationOutput::ExecutePhp(output),
+            MutationInput::ExecuteArtisan(_) => MutationOutput::ExecuteArtisan(output),
+            MutationInput::ExecuteComposer(_) => MutationOutput::ExecuteComposer(output),
+            MutationInput::ExecuteNode(_) => MutationOutput::ExecuteNode(output),
+            MutationInput::ExecuteNpm(_) => MutationOutput::ExecuteNpm(output),
+            MutationInput::ExecuteGit(_) => MutationOutput::ExecuteGit(output),
+            MutationInput::ManagedTest(_) => MutationOutput::ManagedTest(output),
             _ => return Err(E::UnsupportedCapability),
         })?;
         let transaction = state
@@ -1313,6 +1329,31 @@ impl ActorHandle {
             .map_err(|_| ActorError::StorageUnavailable)?
             .get(client, project, operation)
     }
+    pub(crate) fn external_result(
+        &self,
+        client: &Id,
+        project: &Id,
+        operation: &Id,
+    ) -> Result<Value> {
+        let state = self
+            .shared
+            .state
+            .lock()
+            .map_err(|_| ActorError::StorageUnavailable)?;
+        let receipt = state.get(client, project, operation)?;
+        if !receipt.state.terminal() {
+            return Err(ActorError::NotReady);
+        }
+        state
+            .results
+            .iter()
+            .find(|r| &r.operation_id == operation)
+            .and_then(|r| match &r.outcome {
+                RetainedOutcome::Success(value) => Some(value.clone()),
+                _ => None,
+            })
+            .ok_or(ActorError::ResultUnavailable)
+    }
     /// Called with the external grant registry serialized. Revalidate the exact
     /// original client grant after the cancellation lock wait, before the bit.
     pub(crate) fn external_cancel<F: FnOnce() -> Result<()>>(
@@ -1439,6 +1480,15 @@ fn worker_loop(
                             project_id: None,
                         }));
                     }
+                    Message::Execution(query) => {
+                        shared.environment_queued.fetch_sub(1, Ordering::AcqRel);
+                        shared.environment_reads.fetch_sub(1, Ordering::AcqRel);
+                        let _ = query.reply.send(Err(devforge_workspace::Error {
+                            scope: "workspace",
+                            code: "interrupted".into(),
+                            project_id: None,
+                        }));
+                    }
                 }
             }
             shared
@@ -1500,6 +1550,13 @@ fn worker_loop(
                 shared.environment_reads.fetch_sub(1, Ordering::AcqRel);
             }
             Message::Metadata(query) => {
+                shared.environment_queued.fetch_sub(1, Ordering::AcqRel);
+                shared.active.store(true, Ordering::Release);
+                query.execute(&workspace);
+                shared.active.store(false, Ordering::Release);
+                shared.environment_reads.fetch_sub(1, Ordering::AcqRel);
+            }
+            Message::Execution(query) => {
                 shared.environment_queued.fetch_sub(1, Ordering::AcqRel);
                 shared.active.store(true, Ordering::Release);
                 query.execute(&workspace);

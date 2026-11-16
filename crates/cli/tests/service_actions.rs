@@ -493,8 +493,15 @@ impl Mcp {
         database: bool,
         domain: bool,
     ) -> Self {
+        Self::with_surfaces(
+            fixture,
+            [service, runtime, environment, database, domain, false],
+        )
+    }
+    fn with_surfaces(fixture: &Fixture, surfaces: [bool; 6]) -> Self {
+        let [service, runtime, environment, database, domain, execution] = surfaces;
         let file = fixture.parent.path().join(format!(
-            "grant-service-{service}-runtime-{runtime}-environment-{environment}-database-{database}-domain-{domain}.json"
+            "grant-service-{service}-runtime-{runtime}-environment-{environment}-database-{database}-domain-{domain}-execution-{execution}.json"
         ));
         let bytes=zeroize::Zeroizing::new(serde_json::to_vec(&json!({"schema":1,"project_id":fixture.project,"credential":fixture.full.credential.expose_secret()})).unwrap());
         common::credential_file(&file, &bytes);
@@ -517,6 +524,9 @@ impl Mcp {
         }
         if domain {
             command.arg("--allow-domain-actions");
+        }
+        if execution {
+            command.arg("--allow-execution-actions");
         }
         let mut child = command
             .stdin(Stdio::piped())
@@ -1659,4 +1669,161 @@ fn diagnostics_mcp_defaults_are_readonly_metadata_and_legacy_health_is_preserved
     assert!(owner["data"].get("tool").is_none());
     mcp.close();
     assert!(fixture.native.snapshot().is_ok());
+}
+
+#[test]
+fn execution_mcp_optin_is_finite_cancellable_and_requires_real_review() {
+    let mut fixture = Fixture::new();
+    let mut readonly = Mcp::start(&fixture, false);
+    let tools = readonly.call("tools/list", json!({}));
+    assert_eq!(tools["result"]["tools"].as_array().unwrap().len(), 9);
+    let denied=readonly.call("tools/call",json!({"name":"execution.php","arguments":{"action":"plan","expected_revision":fixture.revision,"idempotency_key":"readonly-exec","args":["--version"]}}));
+    assert!(denied.get("error").is_some());
+    readonly.close();
+    let mut mcp = Mcp::with_surfaces(&fixture, [false, false, false, false, false, true]);
+    let tools = mcp.call("tools/list", json!({}));
+    let tools = tools["result"]["tools"].as_array().unwrap();
+    assert_eq!(tools.len(), 18);
+    for name in [
+        "execution.php",
+        "execution.artisan",
+        "execution.composer",
+        "execution.node",
+        "execution.npm",
+        "execution.git",
+        "execution.managed_test_job",
+        "execution.output",
+        "execution.cancel",
+    ] {
+        assert!(tools.iter().any(|tool| tool["name"] == name));
+    }
+    for args in [
+        json!({"action":"apply","expected_revision":fixture.revision,"idempotency_key":"no-review","args":["--version"]}),
+        json!({"action":"plan","expected_revision":fixture.revision,"idempotency_key":"no-trusted","args":["secret-argument-canary"],"trusted":true}),
+        json!({"action":"plan","expected_revision":fixture.revision,"idempotency_key":"no-shell","args":["--version"],"shell":"sh"}),
+        json!({"action":"plan","expected_revision":fixture.revision,"idempotency_key":"too-long","args":["x".repeat(16385)]}),
+    ] {
+        let reply = mcp.call(
+            "tools/call",
+            json!({"name":"execution.php","arguments":args}),
+        );
+        assert_eq!(reply["error"]["code"], -32602);
+        assert!(!reply.to_string().contains("secret-argument-canary"));
+    }
+    let output = mcp.call(
+        "tools/call",
+        json!({"name":"execution.output","arguments":{"operation_id":"missing"}}),
+    );
+    assert_eq!(output["result"]["isError"], true);
+    let cancel = mcp.call(
+        "tools/call",
+        json!({"name":"execution.cancel","arguments":{"operation_id":"missing"}}),
+    );
+    assert_eq!(cancel["result"]["isError"], true);
+    let key = mcp.call(
+        "tools/call",
+        json!({"name":"operations.status","arguments":{"idempotency_key":"not-admitted"}}),
+    );
+    assert_eq!(key["result"]["isError"], false);
+    assert!(key["result"]["structuredContent"]["data"].is_null());
+    mcp.close();
+    let file = fixture.parent.path().join("execution-manage.json");
+    common::credential_file(&file,&serde_json::to_vec(&json!({"schema":1,"project_id":fixture.project,"credential":fixture.manage.credential.expose_secret()})).unwrap());
+    let (code, reply) = env_cli(
+        &fixture,
+        &file,
+        &[
+            "api",
+            "execution",
+            "plan",
+            "php",
+            &fixture.project,
+            "--revision",
+            &fixture.revision.to_string(),
+            "--idempotency-key",
+            "denied-exec",
+            "--input-stdin",
+        ],
+        Some(br#"{"args":["secret-argument-canary"]}"#),
+    );
+    assert_eq!(code, 3);
+    assert_eq!(reply["error"]["code"], "unauthorized");
+    assert!(!reply.to_string().contains("secret-argument-canary"));
+    assert!(fixture.native.snapshot().is_ok());
+}
+
+#[test]
+fn execution_sdk_rejects_other_families_and_timeout_before_payload_io() {
+    use devforge_control::{
+        Request,
+        limits::Bounded,
+        mutations::{
+            ExecutionArguments, ExecutionCommandInput, MutationInput, MutationLimits,
+            ServiceActionInput,
+        },
+    };
+    use devforge_manager::{
+        Server, StopSignal, external_auth::ExternalCredential, external_client::ExecutionClient,
+    };
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    let root = common::root("df-exec-guard-");
+    let owner = Owner::acquire(root.path()).unwrap();
+    let endpoint = owner.endpoint().clone();
+    let stop = StopSignal::default();
+    let server_stop = stop.clone();
+    let requests = Arc::new(AtomicUsize::new(0));
+    let received = requests.clone();
+    let server = thread::spawn(move || {
+        Server::new(owner).run(server_stop,move|_,request|{if request["method"]=="health"{Ok(json!({"ok":true,"data":{"api_version":1,"owner_pid":std::process::id(),"state":"ready"}}))}else{received.fetch_add(1,Ordering::SeqCst);Err(devforge_manager::Error::HandlerFailed)}})
+    });
+    let start = Instant::now();
+    while devforge_manager::Client::new(endpoint.clone())
+        .request(&json!({"method":"health"}))
+        .is_err()
+    {
+        assert!(start.elapsed() < Duration::from_secs(5));
+        thread::sleep(Duration::from_millis(10));
+    }
+    let mut client = ExecutionClient::connect(
+        endpoint,
+        ExternalCredential::from_wire(&"a".repeat(64)).unwrap(),
+    )
+    .unwrap();
+    let args = ExecutionArguments::new(vec!["secret-execution-argument-canary".into()]).unwrap();
+    assert!(!format!("{args:?}").contains("secret-execution-argument-canary"));
+    for (input, code) in [
+        (
+            MutationInput::Stop(ServiceActionInput { limits: None }),
+            devforge_control::ErrorCode::UnsupportedCapability,
+        ),
+        (
+            MutationInput::ExecutePhp(ExecutionCommandInput {
+                args,
+                limits: Some(MutationLimits {
+                    timeout_ms: Bounded::new(300001).unwrap(),
+                    max_output_bytes: Bounded::new(1024).unwrap(),
+                }),
+            }),
+            devforge_control::ErrorCode::InvalidInput,
+        ),
+    ] {
+        let request = Request {
+            api_version: Default::default(),
+            request_id: Id::new("local-exec-denial").unwrap(),
+            project_id: Id::new("project").unwrap(),
+            expected_revision: Some(1),
+            idempotency_key: Some(Id::new("original-key").unwrap()),
+            input,
+        };
+        assert_eq!(client.plan(&request).unwrap_err(), code);
+        assert_eq!(
+            client
+                .apply(&request, &Digest::new("b".repeat(64)).unwrap())
+                .unwrap_err(),
+            code
+        );
+    }
+    assert_eq!(requests.load(Ordering::SeqCst), 0);
+    stop.request();
+    server.join().unwrap().unwrap();
 }
