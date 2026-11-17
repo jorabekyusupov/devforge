@@ -976,6 +976,15 @@ impl DatabaseClient {
     ) -> std::result::Result<Response<crate::service_control::DatabaseChoices>, ErrorCode> {
         database_choices(&mut self.inner, id, project)
     }
+    pub fn backup_result(
+        &mut self,
+        id: Id,
+        project: &Id,
+        operation: &Id,
+    ) -> std::result::Result<Response<devforge_control::tools::DatabaseBackupResult>, ErrorCode>
+    {
+        database_backup_result(&mut self.inner, id, project, operation)
+    }
     pub fn plan(
         &mut self,
         request: &Request<MutationInput>,
@@ -1001,7 +1010,9 @@ impl DatabaseClient {
 fn database_request(request: &Request<MutationInput>) -> std::result::Result<(), ErrorCode> {
     if !matches!(
         request.input,
-        MutationInput::DatabaseBind(_) | MutationInput::DatabaseRestore(_)
+        MutationInput::DatabaseBind(_)
+            | MutationInput::DatabaseBackup(_)
+            | MutationInput::DatabaseRestore(_)
     ) {
         return Err(ErrorCode::UnsupportedCapability);
     }
@@ -1030,6 +1041,22 @@ fn database_choices(
                 .current_instance_id
                 .as_ref()
                 .is_some_and(|current| !choices.instance_ids.contains(current))
+    }) {
+        return Err(ErrorCode::InvalidInput);
+    }
+    Ok(reply)
+}
+fn database_backup_result(
+    client: &mut ServiceClient,
+    id: Id,
+    project: &Id,
+    operation: &Id,
+) -> std::result::Result<Response<devforge_control::tools::DatabaseBackupResult>, ErrorCode> {
+    let reply: Response<devforge_control::tools::DatabaseBackupResult> = client.exchange(
+        &id, json!({"method":"db_backup_result","request_id":id,"project_id":project,"operation_id":operation}), false,
+    )?;
+    if reply.data().is_some_and(|result| {
+        &result.project_id != project || &result.operation_id != operation || !result.created
     }) {
         return Err(ErrorCode::InvalidInput);
     }
@@ -1131,6 +1158,15 @@ impl BoundDatabaseClient {
     ) -> std::result::Result<Response<crate::service_control::DatabaseChoices>, ErrorCode> {
         let project = self.project().clone();
         database_choices(self.transport(), id, &project)
+    }
+    pub fn backup_result(
+        &mut self,
+        id: Id,
+        operation: &Id,
+    ) -> std::result::Result<Response<devforge_control::tools::DatabaseBackupResult>, ErrorCode>
+    {
+        let project = self.project().clone();
+        database_backup_result(self.transport(), id, &project, operation)
     }
     pub fn plan(
         &mut self,

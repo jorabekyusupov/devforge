@@ -277,6 +277,10 @@ pub fn map_mutation(
                 consent: true,
             }
         }
+        MutationInput::DatabaseBackup(_) => {
+            backend_review(prepared, context)?;
+            Command::CreateBackup { id }
+        }
         MutationInput::DatabaseRestore(input) => {
             backend_review(prepared, context)?;
             Command::RestoreBackup {

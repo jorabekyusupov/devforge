@@ -28,6 +28,12 @@ fn reviewed_database_actions_map_only_owned_ids_and_synthesize_consent() {
     assert!(
         matches!(*command,Command::SwitchDatabase{id,instance,consent:true}if id=="p1"&&instance=="instance-a")
     );
+    let backup = fixture.prepare("database.backup", json!({}));
+    let Dispatch::Command(command) = map_mutation(&backup, &binding, &context).unwrap() else {
+        panic!("commandexpected")
+    };
+    assert!(matches!(*command, Command::CreateBackup { id } if id == "p1"));
+    assert!(map_mutation(&backup, &binding, &BackendContext::default()).is_err());
     let restore = fixture.prepare("database.restore", json!({"backup_id":"backup-a"}));
     let Dispatch::Command(command) = map_mutation(&restore, &binding, &context).unwrap() else {
         panic!("commandexpected")

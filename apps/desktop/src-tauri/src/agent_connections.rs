@@ -153,6 +153,11 @@ pub enum Target {
         content_sha256: Digest,
         byte_count: u64,
     },
+    DatabaseBackup {
+        instance_id: Id,
+        engine: String,
+        version: String,
+    },
     DatabaseBind {
         instance_id: Id,
     },
@@ -1042,6 +1047,13 @@ mod tests {
                 json!({"kind":"debugger_install","php_runtime":"php-8.4-arm64"})
             )
             .is_ok()
+        );
+        let backup = json!({"kind":"database_backup","instance_id":"instance-a","engine":"postgresql","version":"18.6","database":"PRIVATE_DB","secret":"PRIVATE_KEY","path":"PRIVATE_PATH"});
+        let target: Target = serde_json::from_value(backup).unwrap();
+        let safe = serde_json::to_value(target).unwrap();
+        assert_eq!(
+            safe,
+            json!({"kind":"database_backup","instance_id":"instance-a","engine":"postgresql","version":"18.6"})
         );
         let workspace = json!({"kind":"workspace","action":"create","workspace_id":null,"name":"review","branch":"feature","base":"main","new_branch":true,"database":"clone","dependencies":false,"copy_environment":true,"create_source_commit":"c".repeat(40),"create_source_dirty":null,"create_isolated":false,"source_path":"secret-path","environment_values":"secret-value"});
         let target: Target = serde_json::from_value(workspace).unwrap();

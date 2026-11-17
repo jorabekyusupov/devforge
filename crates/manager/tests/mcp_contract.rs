@@ -517,3 +517,41 @@ fn workspace_surface_is_opt_in_scoped_and_requires_review_shape() {
         );
     }
 }
+
+#[test]
+fn database_backup_requires_opt_in_and_exact_review_without_paths() {
+    use devforge_control::mutations::MutationInput;
+    use devforge_manager::mcp_contract::DatabaseInput;
+    let plan = json!({"name":"database.plan","arguments":{"action":"backup","expected_revision":4,"idempotency_key":"key"}});
+    let mut disabled = Protocol::new(id("project-a"));
+    assert_eq!(
+        reply(disabled.receive(modern(json!(1), "tools/call", plan.clone())))["error"]["code"],
+        -32602
+    );
+    let mut enabled = Protocol::with_database_surfaces(id("project-a"), false, false, false, true);
+    assert!(
+        matches!(enabled.receive(modern(json!(2),"tools/call",plan)),Action::Database(call) if matches!(call.input,DatabaseInput::Plan(ref request) if matches!(request.input, MutationInput::DatabaseBackup(_))))
+    );
+    let apply = json!({"name":"database.backup","arguments":{"expected_revision":4,"idempotency_key":"key","review":"a".repeat(64)}});
+    assert!(
+        matches!(enabled.receive(modern(json!(3),"tools/call",apply)),Action::Database(call) if matches!(call.input,DatabaseInput::Apply{ref request,..} if matches!(request.input, MutationInput::DatabaseBackup(_))))
+    );
+    let result = json!({"name":"database.backup_result","arguments":{"operation_id":"owned-op"}});
+    assert_eq!(
+        reply(disabled.receive(modern(json!(5), "tools/call", result.clone())))["error"]["code"],
+        -32602
+    );
+    assert!(
+        matches!(enabled.receive(modern(json!(5),"tools/call",result)),Action::Database(call) if matches!(call.input, DatabaseInput::BackupResult{ref operation_id} if operation_id.as_str() == "owned-op"))
+    );
+    for arguments in [
+        json!({"name":"database.backup_result","arguments":{"operation_id":"owned-op","path":"/tmp/no"}}),
+        json!({"name":"database.backup","arguments":{"expected_revision":4,"idempotency_key":"key"}}),
+        json!({"name":"database.plan","arguments":{"action":"backup","expected_revision":4,"idempotency_key":"key","path":"/tmp/not-permitted"}}),
+    ] {
+        assert_eq!(
+            reply(enabled.receive(modern(json!(4), "tools/call", arguments)))["error"]["code"],
+            -32602
+        );
+    }
+}

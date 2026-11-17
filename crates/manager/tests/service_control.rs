@@ -8215,3 +8215,374 @@ fn a10_workspace_approval_disconnect_and_quit_do_not_approve_late() {
         "Quit must prevent late workspace approval"
     );
 }
+
+#[test]
+fn a11_backup_requires_scoped_sensitive_authority_before_owned_database_io() {
+    use devforge_control::mutations::DatabaseBackupInput;
+    let mut rig = Rig::new(None);
+    let project = rig.projects[0].clone();
+    let other = rig.projects[1].clone();
+    let owner = rig.env_grant(0, false);
+    let pm = rig.grant(0, false);
+    let mut allowed = rig.database(&owner);
+    let mut denied = rig.database(&pm);
+    let request = env_request(
+        &project.id,
+        project.revision,
+        "a11-backup",
+        MutationInput::DatabaseBackup(DatabaseBackupInput { limits: None }),
+    );
+    let source_canary = project.path.join("public/index.php");
+    let other_canary = other.path.join("public/index.php");
+    let backup_namespace = rig.root.path().join("projects/backups").join(&project.id);
+    let backup_existed = backup_namespace.exists();
+    let source_before = std::fs::read(&source_canary).unwrap();
+    let other_before = std::fs::read(&other_canary).unwrap();
+    let secrets_before = rig
+        .secrets
+        .get_count
+        .load(std::sync::atomic::Ordering::SeqCst);
+    let denied_reply = denied.plan(&request).unwrap();
+    assert_eq!(denied_reply.error().unwrap().code, ErrorCode::Unauthorized);
+    assert_eq!(
+        rig.secrets
+            .get_count
+            .load(std::sync::atomic::Ordering::SeqCst),
+        secrets_before
+    );
+    let no_binding = allowed.plan(&request).unwrap();
+    assert_eq!(
+        no_binding.error().unwrap().code,
+        ErrorCode::PreconditionFailed
+    );
+    let mut wrong = request.clone();
+    wrong.project_id = id(&other.id);
+    let foreign = allowed.plan(&wrong).unwrap();
+    assert_eq!(foreign.error().unwrap().code, ErrorCode::ProjectMismatch);
+    let lookup = allowed
+        .lookup(
+            id("a11-existing-lookup"),
+            &id(&project.id),
+            &id("a11-no-such-key"),
+        )
+        .unwrap();
+    assert!(
+        lookup.is_ok(),
+        "valid same-project DB lookup must stay compatible"
+    );
+    assert!(lookup.data().unwrap().is_none());
+    for foreign_project in [&other.id, &"f".repeat(32)] {
+        let lookup = allowed
+            .lookup(
+                id("a11-foreign-lookup"),
+                &id(foreign_project),
+                &id("a11-no-such-key"),
+            )
+            .unwrap();
+        assert_eq!(lookup.error().unwrap().code, ErrorCode::ProjectMismatch);
+    }
+    let mut stale = request.clone();
+    stale.expected_revision = Some(project.revision.saturating_add(1));
+    let stale = allowed.plan(&stale).unwrap();
+    assert!(matches!(
+        stale.error().map(|e| e.code),
+        Some(ErrorCode::RevisionConflict | ErrorCode::PreconditionFailed)
+    ));
+    rig.native
+        .revoke_external_grant(&owner.record.grant_id)
+        .unwrap();
+    let revoked = allowed.plan(&request).unwrap();
+    assert_eq!(revoked.error().unwrap().code, ErrorCode::GrantRevoked);
+    assert_eq!(backup_namespace.exists(), backup_existed);
+    assert_eq!(std::fs::read(source_canary).unwrap(), source_before);
+    assert_eq!(std::fs::read(other_canary).unwrap(), other_before);
+    let db =
+        rusqlite::Connection::open(rig.root.path().join("control/operations.sqlite3")).unwrap();
+    assert_eq!(
+        db.query_row("SELECT count(*) FROM operations", [], |row| row
+            .get::<_, i64>(0))
+            .unwrap(),
+        0
+    );
+}
+
+#[test]
+fn a11_backup_native_review_binds_owned_database_and_denies_unapproved_apply() {
+    use devforge_control::mutations::DatabaseBackupInput;
+    use devforge_manager::service_control::ReviewTarget;
+    use devforge_projects::database::{Binding, Engine, Instance};
+    let instance_id = "a".repeat(32);
+    let fixture_id = instance_id.clone();
+    let mut rig = Rig::runtime_setup_with(None, false, false, move |root, projects| {
+        let catalog = Catalog::bundled();
+        let package = catalog
+            .packages
+            .iter()
+            .find(|(_, p)| {
+                p.kind == "postgresql"
+                    && p.variant == "server"
+                    && p.target == Target::current().unwrap()
+            })
+            .unwrap()
+            .0
+            .clone();
+        // Only metadata and private fixture binaries are exercised: the fake
+        // executables are never launched and cannot connect to a real database.
+        let runtime = root.join("runtimes");
+        let package_store =
+            devforge_runtime::package::PackageStore::open(&runtime, Default::default()).unwrap();
+        drop(package_store);
+        for selected in catalog.packages.values().filter(|p| {
+            p.target == Target::current().unwrap()
+                && ((p.kind == "postgresql" && p.variant == "server")
+                    || p.kind == "postgresql-tools")
+        }) {
+            let dir = runtime.join("packages").join(selected.key().unwrap());
+            std::fs::create_dir_all(&dir).unwrap();
+            let mut hashes = std::collections::BTreeMap::new();
+            for (name, relative) in &selected.executables {
+                let file = dir.join(relative);
+                std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+                std::fs::write(&file, b"synthetic fixture never executed").unwrap();
+                hashes.insert(
+                    name.clone(),
+                    devforge_runtime::package::hash_file(&file).unwrap(),
+                );
+            }
+            std::fs::write(
+                dir.join(".devforge-receipt.json"),
+                serde_json::to_vec(
+                    &json!({"schema":1,"package":selected,"hashes":hashes,"resource_hashes":{}}),
+                )
+                .unwrap(),
+            )
+            .unwrap();
+        }
+        let instance = Instance {
+            engine: Engine::Postgresql,
+            id: fixture_id.clone(),
+            package,
+            port: 18081,
+            admin: "private-admin-canary".into(),
+            secret_ref: "private-secret-reference-canary".into(),
+            ready: true,
+        };
+        let binding = Binding {
+            project_id: projects[0].id.clone(),
+            instance_id: fixture_id.clone(),
+            database: "private-database-canary".into(),
+            role: "private-role-canary".into(),
+            secret_ref: "private-binding-canary".into(),
+            ready: true,
+        };
+        std::fs::create_dir_all(
+            root.join("projects/databases")
+                .join(&fixture_id)
+                .join("data"),
+        )
+        .unwrap();
+        let db = rusqlite::Connection::open(root.join("projects/projects.sqlite3")).unwrap();
+        db.execute(
+            "INSERT INTO instances(id, record) VALUES(?1, ?2)",
+            rusqlite::params![fixture_id, serde_json::to_string(&instance).unwrap()],
+        )
+        .unwrap();
+        db.execute(
+            "INSERT INTO database_bindings(project_id, instance_id, record) VALUES(?1, ?2, ?3)",
+            rusqlite::params![
+                projects[0].id,
+                instance.id,
+                serde_json::to_string(&binding).unwrap()
+            ],
+        )
+        .unwrap();
+    });
+    let project = rig.projects[0].clone();
+    let grant = rig.env_grant(0, false);
+    let mut client = rig.database(&grant);
+    let request = env_request(
+        &project.id,
+        project.revision,
+        "a11-native-review",
+        MutationInput::DatabaseBackup(DatabaseBackupInput { limits: None }),
+    );
+    let plan = client.plan(&request).unwrap();
+    assert!(plan.is_ok(), "backup plan: {:?}", plan.error());
+    let plan = plan.data().unwrap();
+    let serialized = serde_json::to_string(plan).unwrap();
+    for secret in [
+        "private-admin-canary",
+        "private-secret-reference-canary",
+        "private-database-canary",
+        "private-role-canary",
+        "private-binding-canary",
+        project.path.to_str().unwrap(),
+    ] {
+        assert!(!serialized.contains(secret));
+    }
+    let unapproved = client.apply(&request, &plan.digest).unwrap();
+    assert_eq!(unapproved.error().unwrap().code, ErrorCode::Unauthorized);
+    let reviews = rig.native.pending_reviews().unwrap();
+    let review = reviews
+        .iter()
+        .find(|v| v.digest == plan.digest)
+        .expect("native review");
+    assert!(
+        matches!(&review.target, ReviewTarget::DatabaseBackup { instance_id: selected, engine, .. } if selected.as_str() == instance_id && engine == "postgresql")
+    );
+    let visible = serde_json::to_string(&review.target).unwrap();
+    for secret in [
+        "private-admin-canary",
+        "private-secret-reference-canary",
+        "private-database-canary",
+        "private-role-canary",
+        "private-binding-canary",
+        project.path.to_str().unwrap(),
+    ] {
+        assert!(!visible.contains(secret));
+    }
+    rig.native.approve_service_plan(&plan.digest).unwrap();
+    let changed = env_request(
+        &project.id,
+        project.revision,
+        "a11-changed-backup",
+        MutationInput::DatabaseBackup(DatabaseBackupInput { limits: None }),
+    );
+    let refused = client.apply(&changed, &plan.digest).unwrap();
+    assert_eq!(refused.error().unwrap().code, ErrorCode::ReviewMismatch);
+    // A changed owned server instance must invalidate an approved review even
+    // when the project revision and opaque backup request remain unchanged.
+    let db = rusqlite::Connection::open(rig.root.path().join("projects/projects.sqlite3")).unwrap();
+    db.execute(
+        "UPDATE instances SET record = json_set(record, '$.port', 18082) WHERE id=?1",
+        [&instance_id],
+    )
+    .unwrap();
+    let stale = client.apply(&request, &plan.digest).unwrap();
+    assert!(
+        matches!(
+            stale.error().map(|e| e.code),
+            Some(ErrorCode::ReviewMismatch | ErrorCode::PreconditionFailed)
+        ),
+        "changed instance must invalidate approval: {:?}",
+        stale.error()
+    );
+    db.execute(
+        "UPDATE instances SET record = json_set(record, '$.port', 18081) WHERE id=?1",
+        [&instance_id],
+    )
+    .unwrap();
+    rig.native
+        .revoke_external_grant(&grant.record.grant_id)
+        .unwrap();
+    let revoked = client.apply(&request, &plan.digest).unwrap();
+    assert_eq!(revoked.error().unwrap().code, ErrorCode::GrantRevoked);
+    let store = ProjectStore::open(rig.root.path().join("projects")).unwrap();
+    let binding = store.binding(&project.id).unwrap().unwrap();
+    assert_eq!(binding.database, "private-database-canary");
+    assert_eq!(binding.instance_id, instance_id);
+}
+
+#[test]
+fn a11_backup_result_rejects_other_operations_and_foreign_grants() {
+    let mut rig = Rig::new(None);
+    let project = rig.projects[0].clone();
+    let foreign_project = rig.projects[1].clone();
+    let grant = rig.env_grant(0, false);
+    let same_project_other_grant = rig.env_grant(0, false);
+    let mut service = rig.service(&grant);
+    let first_request = request(&project.id, "stop", "a11-non-backup-operation");
+    let plan = service
+        .plan(&first_request)
+        .unwrap()
+        .data()
+        .unwrap()
+        .clone();
+    rig.native.approve_service_plan(&plan.digest).unwrap();
+    let receipt = service
+        .apply(&first_request, &plan.digest)
+        .unwrap()
+        .data()
+        .unwrap()
+        .clone();
+    assert_eq!(rig.complete(&grant, &receipt), OperationState::Succeeded);
+    let mut owner = rig.database(&grant);
+    let wrong_type = owner
+        .backup_result(
+            id("a11-wrong-result"),
+            &id(&project.id),
+            &receipt.operation_id,
+        )
+        .unwrap();
+    assert!(
+        wrong_type.data().is_none(),
+        "a service operation must never be exposed as a backup result"
+    );
+    assert_eq!(
+        wrong_type.error().unwrap().code,
+        ErrorCode::UnsupportedCapability
+    );
+    let other = rig
+        .database(&same_project_other_grant)
+        .backup_result(
+            id("a11-foreign-client"),
+            &id(&project.id),
+            &receipt.operation_id,
+        )
+        .unwrap();
+    assert!(
+        other.data().is_none(),
+        "another grant must not see the original operation result"
+    );
+    assert_eq!(other.error().unwrap().code, ErrorCode::Unauthorized);
+    // A queued operation must never expose a result before it is terminal.
+    let queued_request = request(&project.id, "stop", "a11-pending-result");
+    let queued_plan = service
+        .plan(&queued_request)
+        .unwrap()
+        .data()
+        .unwrap()
+        .clone();
+    rig.native
+        .approve_service_plan(&queued_plan.digest)
+        .unwrap();
+    let release = rig.block();
+    let queued = service
+        .apply(&queued_request, &queued_plan.digest)
+        .unwrap()
+        .data()
+        .unwrap()
+        .clone();
+    let pending = owner
+        .backup_result(
+            id("a11-pending-result-read"),
+            &id(&project.id),
+            &queued.operation_id,
+        )
+        .unwrap();
+    assert!(pending.data().is_none());
+    assert_eq!(pending.error().unwrap().code, ErrorCode::Busy);
+    drop(release);
+    assert_eq!(rig.complete(&grant, &queued), OperationState::Succeeded);
+    let foreign = owner
+        .backup_result(
+            id("a11-foreign-project"),
+            &id(&foreign_project.id),
+            &receipt.operation_id,
+        )
+        .unwrap();
+    assert!(foreign.data().is_none());
+    assert_eq!(foreign.error().unwrap().code, ErrorCode::ProjectMismatch);
+    rig.native
+        .revoke_external_grant(&grant.record.grant_id)
+        .unwrap();
+    let revoked = owner
+        .backup_result(
+            id("a11-revoked-result"),
+            &id(&project.id),
+            &receipt.operation_id,
+        )
+        .unwrap();
+    assert!(revoked.data().is_none());
+    assert_eq!(revoked.error().unwrap().code, ErrorCode::GrantRevoked);
+}

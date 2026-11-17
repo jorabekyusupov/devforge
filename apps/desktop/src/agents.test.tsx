@@ -943,6 +943,41 @@ describe("minimal agent settings", () => {
       within(dialog).getByRole("button", { name: "Approve reviewed plan" }),
     ).toBeDisabled();
   });
+  it("shows the exact managed database backup details before approval", async () => {
+    const { api, view } = fixture();
+    const pending = plan();
+    pending.target = { kind: "database_backup", instance_id: "instance-a", engine: "postgresql", version: "18.6" };
+    pending.tool = "database.backup";
+    pending.machine_confirmation_required = false;
+    pending.details = [];
+    view.plans = [pending];
+    const { user } = await mount(api);
+    await screen.findByText("Connected");
+    await user.click(screen.getByRole("button", { name: "Review plan" }));
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveTextContent("Create database backup");
+    expect(dialog).toHaveTextContent("instance-a");
+    expect(dialog).toHaveTextContent("postgresql");
+    expect(dialog).toHaveTextContent("18.6");
+    expect(dialog).toHaveTextContent("Its managed database service may start.");
+    await user.click(within(dialog).getByRole("checkbox", { name: "I reviewed this project and the exact changes shown." }));
+    await user.click(within(dialog).getByRole("button", { name: "Approve reviewed plan" }));
+    await waitFor(() => expect(api.approve).toHaveBeenCalledWith(pending.digest));
+  });
+  it("refuses incomplete database backup review details", async () => {
+    const { api, view } = fixture();
+    const pending = plan();
+    pending.target = { kind: "database_backup", instance_id: "instance-a", engine: "mysql", version: "" };
+    pending.machine_confirmation_required = false;
+    pending.details = [];
+    view.plans = [pending];
+    const { user } = await mount(api);
+    await screen.findByText("Connected");
+    await user.click(screen.getByRole("button", { name: "Review plan" }));
+    const dialog = screen.getByRole("dialog");
+    await user.click(within(dialog).getByRole("checkbox", { name: "I reviewed this project and the exact changes shown." }));
+    expect(within(dialog).getByRole("button", { name: "Approve reviewed plan" })).toBeDisabled();
+  });
   it("shows the owned debugger export path, digest, and size", async () => {
     const { api, view } = fixture();
     const pending = plan();

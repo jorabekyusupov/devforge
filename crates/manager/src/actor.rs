@@ -634,6 +634,7 @@ impl ActorHandle {
             MutationInput::YamlSave(_) => MutationOutput::YamlSave(output),
             MutationInput::DatabaseBind(_) => MutationOutput::DatabaseBind(output),
             MutationInput::DatabaseRestore(_) => MutationOutput::DatabaseRestore(output),
+            MutationInput::DatabaseBackup(_) => MutationOutput::DatabaseBackup(output),
             MutationInput::DomainApply(_) => MutationOutput::DomainApply(output),
             MutationInput::DomainCleanup(_) => MutationOutput::DomainCleanup(output),
             MutationInput::SupportExport(_) => MutationOutput::SupportExport(output),

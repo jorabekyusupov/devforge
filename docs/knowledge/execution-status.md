@@ -1737,3 +1737,21 @@ fixture because Git for Windows interpreted a verbatim canonical path as a remot
 hostname. Canonical paths remain authoritative for ownership checks; only paths
 passed to Git clone/fetch and object alternates are simplified. The affected
 isolated merge test passed on macOS; final Windows evidence is in the next CI run.
+
+## A11 — reviewed database backup (2026-11-17)
+
+A11 adds project-scoped native-reviewed backup and an original-owner metadata-only
+result to the existing staged database restore flow. Reviewed binding, instance,
+root identity, grant and cancellation checks protect secret lookup, dump, copy and
+publication. Pre-publication refusal preserves previous backups and the active
+binding; already-completed publication is not claimed to roll back. The
+[contract](../architecture/reviewed-service-actions.md) records cooperative
+cancellation and volatile operation-result limits.
+
+Focused synthetic tests cover stale binding before secret read, cancelled or
+refused publication, prior archive preservation, native review, foreign/revoked/
+pending/wrong-operation denial and redacted receipt. Positive real database backup
+and Windows native service evidence remain unverified unless a separately observed
+disposable verified-runtime fixture is available. CI results apply only to the
+exact reviewed PR head. Native visual review was unavailable where `agent-desktop`
+is not installed.

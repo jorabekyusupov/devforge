@@ -255,6 +255,18 @@ export function AgentConnections({ api }: { api?: AgentApi }) {
         target.copy_environment == null
       );
     }
+    if (plan.target.kind === "database_backup") {
+      const target = plan.target;
+      return (
+        typeof target.instance_id === "string" &&
+        /^[A-Za-z0-9_.:-]{1,128}$/.test(target.instance_id) &&
+        ["postgresql", "mysql"].includes(target.engine) &&
+        typeof target.version === "string" &&
+        target.version.length > 0 &&
+        target.version.length <= 128 &&
+        !/[\u0000-\u001f\u007f-\u009f]/.test(target.version)
+      );
+    }
     if (plan.target.kind === "debugger_install") {
       return (
         typeof plan.target.php_runtime === "string" &&
@@ -1339,6 +1351,19 @@ function PlanReview({ plan, machine }: { plan: AgentPlan; machine: boolean }) {
                     i18n.resolvedLanguage ?? i18n.language,
                   ).format(target.byte_count)
                 : "—"}
+            </dd>
+          </>
+        )}
+        {target.kind === "database_backup" && (
+          <>
+            <dt>{t("agentConnections.databaseInstance")}</dt>
+            <dd><code translate="no">{target.instance_id}</code></dd>
+            <dt>{t("agentConnections.backupEngine")}</dt>
+            <dd><code translate="no">{target.engine}</code></dd>
+            <dt>{t("agentConnections.backupVersion")}</dt>
+            <dd>
+              <code translate="no">{target.version}</code>
+              <p className="muted">{t("agentConnections.backupReviewHint")}</p>
             </dd>
           </>
         )}

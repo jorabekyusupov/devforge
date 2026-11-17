@@ -4,6 +4,8 @@
 
 ## 2026-11-17
 
+- **A11 reviewed database backup:** scoped backup, checked publication and original-operation metadata result; existing staged restore retained. [Contract](../architecture/reviewed-service-actions.md), [execution](execution-status.md).
+
 - **A10 scoped workspace lifecycle:** native-reviewed owned create/archive/restore/purge and source-to-worktree merge; explicit content/secret rights, scoped receipts, cancellation and stated Git/OS limits. [Contract](../architecture/reviewed-service-actions.md), [execution](execution-status.md).
 
 ## 2026-11-16

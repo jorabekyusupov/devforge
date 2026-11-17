@@ -68,12 +68,26 @@ impl DatabaseActionState {
     pub fn fingerprint(&self) -> Result<String> {
         fingerprint(self)
     }
+    pub fn backup_native_summary(&self) -> Result<(String, &'static str, String)> {
+        if self.action != "backup" {
+            return Err(error("database_action_unsupported"));
+        }
+        Ok((
+            self.target.id.clone(),
+            match self.target.engine {
+                Engine::Postgresql => "postgresql",
+                Engine::Mysql => "mysql",
+            },
+            self.package.version.clone(),
+        ))
+    }
 }
 fn valid_id(id: &str) -> bool {
     id.len() == 32 && id.bytes().all(|b| b.is_ascii_hexdigit())
 }
 fn input(command: &Command) -> Result<(&str, &str, &str)> {
     match command {
+        Command::CreateBackup { id } if valid_id(id) => Ok(("backup", id, "")),
         Command::SwitchDatabase {
             id,
             instance,
@@ -205,6 +219,14 @@ fn read_state(
             None
         };
         (Some(manifest), Some(digest), tools)
+    } else if action == "backup" && target.engine == Engine::Postgresql {
+        let tools = catalog
+            .packages
+            .values()
+            .find(|p| p.kind == "postgresql-tools" && Some(p.target) == Target::current().ok())
+            .ok_or_else(|| error("database_precondition_missing"))?
+            .clone();
+        (None, None, Some(tools))
     } else {
         (None, None, None)
     };
@@ -426,6 +448,58 @@ impl Workspace {
             &guarded,
         )?;
         match &command {
+            Command::CreateBackup { id } => {
+                let original = RefCell::new(None);
+                let callback = || {
+                    guarded().map_err(|e| {
+                        *original.borrow_mut() = Some(e);
+                        devforge_projects::ProjectError::ExecutionFailed
+                    })
+                };
+                let state_check = |active: &Binding, instance: &Instance| {
+                    let verified = (|| {
+                        if fingerprint(&expected.active)? != fingerprint(&Some(active))?
+                            || fingerprint(&expected.target)? != fingerprint(instance)?
+                        {
+                            return Err(error("database_review_changed"));
+                        }
+                        verify_state(
+                            &self.projects,
+                            &self.catalog,
+                            &command,
+                            expected,
+                            None,
+                            &guarded,
+                        )
+                    })();
+                    verified.map_err(|e| {
+                        *original.borrow_mut() = Some(e);
+                        devforge_projects::ProjectError::ExecutionFailed
+                    })
+                };
+                let result = self.projects.create_backup_checked(
+                    id,
+                    &self.catalog,
+                    &self.packages,
+                    self.secrets.as_ref(),
+                    cancel,
+                    &callback,
+                    &state_check,
+                );
+                let manifest = result.map_err(|e| {
+                    original.borrow_mut().take().unwrap_or_else(|| {
+                        if cancel.is_cancelled() {
+                            error("cancelled")
+                        } else {
+                            e.into()
+                        }
+                    })
+                })?;
+                // Only a finite project-scoped identifier is returned, never archive path, checksum or content.
+                Ok(
+                    serde_json::json!({"kind":"database_backup", "backup_id": manifest.id, "created": true}),
+                )
+            }
             Command::SwitchDatabase { id, instance, .. } => {
                 if expected
                     .active

@@ -113,7 +113,7 @@ fn every_initial_command_has_typed_mapping_and_can_be_prepared_without_execution
             .iter()
             .filter(|c| c.schema_status == SchemaStatus::TypedMutation)
             .count(),
-        32
+        33
     );
     assert_eq!(
         contracts
