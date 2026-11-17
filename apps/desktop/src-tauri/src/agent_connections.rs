@@ -83,6 +83,29 @@ pub struct ExecutionContext {
     test_isolated: bool,
 }
 #[derive(Clone, Serialize, Deserialize)]
+pub struct WorkspaceTarget {
+    action: String,
+    workspace_id: Option<String>,
+    name: Option<String>,
+    branch: Option<String>,
+    base: Option<String>,
+    new_branch: Option<bool>,
+    database: Option<String>,
+    dependencies: Option<bool>,
+    copy_environment: Option<bool>,
+    source_commit: Option<String>,
+    target_commit: Option<String>,
+    target_branch: Option<String>,
+    target_project_revision: Option<u64>,
+    source_dirty: Option<bool>,
+    merge_effect: Option<String>,
+    result_tree: Option<String>,
+    isolated: Option<bool>,
+    create_source_commit: Option<String>,
+    create_source_dirty: Option<bool>,
+    create_isolated: Option<bool>,
+}
+#[derive(Clone, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Target {
     Execution {
@@ -124,28 +147,7 @@ pub enum Target {
         content_sha256: Digest,
         byte_count: u64,
     },
-    Workspace {
-        action: String,
-        workspace_id: Option<String>,
-        name: Option<String>,
-        branch: Option<String>,
-        base: Option<String>,
-        new_branch: Option<bool>,
-        database: Option<String>,
-        dependencies: Option<bool>,
-        copy_environment: Option<bool>,
-        source_commit: Option<String>,
-        target_commit: Option<String>,
-        target_branch: Option<String>,
-        target_project_revision: Option<u64>,
-        source_dirty: Option<bool>,
-        merge_effect: Option<String>,
-        result_tree: Option<String>,
-        isolated: Option<bool>,
-        create_source_commit: Option<String>,
-        create_source_dirty: Option<bool>,
-        create_isolated: Option<bool>,
-    },
+    Workspace(Box<WorkspaceTarget>),
     SupportExport {
         destination: String,
         content_sha256: Digest,
@@ -1026,6 +1028,7 @@ mod tests {
         let workspace = json!({"kind":"workspace","action":"create","workspace_id":null,"name":"review","branch":"feature","base":"main","new_branch":true,"database":"clone","dependencies":false,"copy_environment":true,"create_source_commit":"c".repeat(40),"create_source_dirty":null,"create_isolated":false,"source_path":"secret-path","environment_values":"secret-value"});
         let target: Target = serde_json::from_value(workspace).unwrap();
         let safe = serde_json::to_value(target).unwrap();
+        assert_eq!(safe["kind"], "workspace");
         assert_eq!(safe["action"], "create");
         assert_eq!(safe["database"], "clone");
         assert_eq!(safe["create_source_commit"], "c".repeat(40));
@@ -1034,6 +1037,9 @@ mod tests {
         let merge = json!({"kind":"workspace","action":"merge","workspace_id":"owned", "name":null,"branch":null,"base":null,"new_branch":null,"database":null,"dependencies":null,"copy_environment":null,"source_commit":"a".repeat(40),"target_commit":"b".repeat(40),"target_branch":"work/feature","target_project_revision":7,"source_dirty":true,"merge_effect":"merge_commit","isolated":true,"result_tree":"d".repeat(40),"source_path":"private-canary"});
         let target: Target = serde_json::from_value(merge).unwrap();
         let safe = serde_json::to_value(target).unwrap();
+        assert_eq!(safe["kind"], "workspace");
+        assert_eq!(safe["action"], "merge");
+        assert_eq!(safe["merge_effect"], "merge_commit");
         assert_eq!(safe["source_commit"], "a".repeat(40));
         assert_eq!(safe["target_project_revision"], 7);
         assert_eq!(safe["isolated"], true);

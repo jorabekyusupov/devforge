@@ -1705,3 +1705,8 @@ a real submodule copied committed nested data and left source nested dirty chang
 untouched. macOS/Windows CI results
 belong to the exact PR head; actual Windows Create/Clone and native UI visual
 inspection remain unverified unless separately observed. No adversarial same-user filesystem sandbox is claimed.
+
+Initial A10 CI run 44000646512 failed desktop Clippy on both macOS and Windows:
+the new Workspace review enum variant exceeded the size-difference lint. The
+internal projection was boxed without changing its JSON contract; desktop Clippy
+and the focused projection test passed locally. Final CI records platform results.
