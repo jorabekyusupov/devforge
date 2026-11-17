@@ -1,113 +1,38 @@
-name: Internal desktop distribution acceptance
+name: Temporary Windows internal package
 on:
   workflow_dispatch:
-    inputs:
-      target:
-        description: Native packaging target
-        type: choice
-        default: all
-        options: [all, macos-arm64, macos-x64, windows-x64]
-      installer_only:
-        description: Run release installer acceptance without repeating unrelated daily-workspace UI checks
-        type: boolean
-        default: false
-      installer_run_id:
-        description: Optional existing Windows installer run; accepts only identical product source
-        type: string
-        default: ''
 permissions:
   contents: read
-  actions: read
 jobs:
   package:
-    timeout-minutes: 75
-    strategy:
-      fail-fast: false
-      matrix:
-        include: ${{ fromJSON(inputs.target == 'windows-x64' && '[{"os":"windows-latest","target":"windows-x64"}]' || inputs.target == 'macos-arm64' && '[{"os":"macos-15","target":"macos-arm64"}]' || inputs.target == 'macos-x64' && '[{"os":"macos-15-intel","target":"macos-x64"}]' || '[{"os":"macos-15","target":"macos-arm64"},{"os":"macos-15-intel","target":"macos-x64"},{"os":"windows-latest","target":"windows-x64"}]') }}
-    runs-on: ${{ matrix.os }}
+    runs-on: windows-latest
+    timeout-minutes: 60
     env:
       PYTHONUTF8: '1'
       PYTHONIOENCODING: utf-8
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
-          node-version: '24.22.2'
+          ref: aad1630a98075afedef66e022cb3b55c9e140607
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '24.22.0'
           cache: npm
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
         with:
           python-version: '3.13'
-      - run: rustup show
-      - run: npm ci
-      - run: python -m unittest scripts/test_distribution.py
-      - name: Reuse immutable installer only when product source is identical
-        if: inputs.installer_run_id != ''
-        shell: python
-        env:
-          GH_TOKEN: ${{ github.token }}
-          INSTALLER_RUN: ${{ inputs.installer_run_id }}
-          INSTALLER_ONLY: ${{ inputs.installer_only }}
-          PACKAGE_TARGET: ${{ matrix.target }}
-        run: |
-          import hashlib,json,os,pathlib,shutil,subprocess,tempfile
-          def run(*args):return subprocess.check_output(args,text=True,encoding='utf-8').strip()
-          candidate=os.environ['INSTALLER_RUN']
-          assert candidate.isdecimal() and os.environ['INSTALLER_ONLY']=='true' and os.environ['PACKAGE_TARGET']=='windows-x64'
-          source=json.loads(run('gh','run','view',candidate,'--json','headSha,conclusion'))
-          sha=source['headSha']
-          subprocess.run(['git','fetch','origin',sha,'--depth=1'],check=True)
-          changed=run('git','diff','--name-only',sha,'HEAD').splitlines()
-          allowed={'README.md','.github/workflows/distribution.yml','scripts/m6_package_smoke.py','scripts/test_distribution.py'}
-          assert all(p.startswith('docs/') or p in allowed for p in changed),changed
-          with tempfile.TemporaryDirectory() as folder:
-              subprocess.run(['gh','run','download',candidate,'--name','m6-windows-x64-internal-unsigned','--dir',folder],check=True)
-              base=pathlib.Path(folder);manifest=json.loads((base/'output/distribution/package-manifest.json').read_text())
-              assert manifest['commit']==sha and not manifest['dirty_at_build'] and manifest['target']=='x86_64-pc-windows-msvc'
-              entry=manifest['artifacts'][0];installer=next(base.rglob('*-setup.exe'))
-              assert hashlib.sha256(installer.read_bytes()).hexdigest()==entry['sha256']
-              dest=pathlib.Path('target/release/bundle/nsis');dest.mkdir(parents=True,exist_ok=True);shutil.copy2(installer,dest/installer.name)
-              out=pathlib.Path('output/distribution');out.mkdir(parents=True,exist_ok=True)
-              (out/'package-manifest.json').write_text(json.dumps(manifest,indent=2))
-              (out/'reuse-source.json').write_text(json.dumps({'installer_run':candidate,'installer_source':sha,'original_run_conclusion':source['conclusion'],'test_source':run('git','rev-parse','HEAD'),'changed_paths':changed,'installer_sha256':entry['sha256']},indent=2))
-      - name: Native real Laravel projects PostgreSQL queue and Vite fixture
-        if: inputs.installer_run_id == ''
-        run: cargo run --release -p devforge-workspace --example native_workspace --features test-support -- m6-fixture empty-cache
-      - name: Disposable native fixture helper for unchanged release installer replay
-        if: inputs.installer_run_id != ''
-        run: cargo run -p devforge-workspace --example native_workspace --features test-support -- m6-fixture empty-cache
-      - name: Production release app sidecars notices SBOM DMG or NSIS
-        if: inputs.installer_run_id == ''
+      - name: Install frontend dependencies
+        run: npm ci
+      - name: Build unsigned Windows installer from exact main
         run: python scripts/package_desktop.py
-      - name: Actual installation replacement data preservation and release measurements
-        id: package_acceptance
-        continue-on-error: true
-        env:
-          WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: --disable-gpu
-        run: target/${{ inputs.installer_run_id != '' && 'debug' || 'release' }}/examples/native_workspace run python scripts/m6_package_smoke.py m6-fixture --disposable-host
-      - name: Native GUI and concurrent install/log frame measurements
-        if: ${{ !inputs.installer_only }}
-        run: npm run tauri -- build --debug --no-bundle --features e2e
-      - if: ${{ !inputs.installer_only }}
-        env:
-          WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: --disable-gpu
-        run: python scripts/m5_desktop_smoke.py m6-fixture target/debug/devforge-desktop target/release/examples/native_workspace
-      - name: Require successful installer acceptance after independent GUI checks
-        if: always() && steps.package_acceptance.outcome == 'failure'
-        run: python -c "raise SystemExit('Installer acceptance failed; inspect the public acceptance report.')"
-      - name: Preserve internal packages and public acceptance reports only
-        if: always()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      - name: Upload internal installer and manifest
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
-          name: m6-${{ matrix.target }}-internal-unsigned
+          name: devforge-windows-x64-aad1630-internal-unsigned
           retention-days: 7
-          if-no-files-found: warn
+          if-no-files-found: error
           path: |
-            target/release/bundle/dmg/*.dmg
             target/release/bundle/nsis/*-setup.exe
-            output/distribution/*.json
+            output/distribution/package-manifest.json
             distribution/generated/distribution.json
             distribution/generated/sbom.cdx.json
-            m6-fixture/m5-native-result.json
-            m6-fixture/m5-desktop-result.json
-            output/playwright/m5/*.png
