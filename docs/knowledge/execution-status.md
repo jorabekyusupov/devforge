@@ -1731,3 +1731,9 @@ omits linked/reparse entries without following them and marks the list incomplet
 strict ownership and mutation lookups remain fail-closed. Recovery association
 also refuses to infer ownership from an incomplete snapshot. Focused macOS tests
 passed; the subsequent Windows CI run verifies the actual junction fixture.
+
+Run 44011520940 passed the Windows junction case but failed the isolated Git
+fixture because Git for Windows interpreted a verbatim canonical path as a remote
+hostname. Canonical paths remain authoritative for ownership checks; only paths
+passed to Git clone/fetch and object alternates are simplified. The affected
+isolated merge test passed on macOS; final Windows evidence is in the next CI run.

@@ -1177,8 +1177,8 @@ fn merge_isolated_owned_worktree_supports_reviewed_commits_without_source_mutati
         &[
             "clone",
             "--no-hardlinks",
-            source.path.to_str().unwrap(),
-            path.to_str().unwrap(),
+            dunce::simplified(&source.path).to_str().unwrap(),
+            dunce::simplified(&path).to_str().unwrap(),
         ],
     );
     git(&path, &["checkout", "-qb", &input.branch]);

@@ -429,8 +429,14 @@ fn isolated_analysis(
     if init.exit_code != Some(0) {
         return Err(error("worktree_git_failed"));
     }
-    let alternates = std::env::join_paths([source_objects, target_objects])
-        .map_err(|_| error("worktree_merge_unsupported"))?;
+    // Git for Windows does not consistently accept verbatim `\\?\C:\...`
+    // paths. Keep canonical paths for the ownership checks above, but hand Git
+    // equivalent simplified local paths.
+    let alternates = std::env::join_paths([
+        dunce::simplified(source_objects),
+        dunce::simplified(target_objects),
+    ])
+    .map_err(|_| error("worktree_merge_unsupported"))?;
     let mut env = isolated.to_vec();
     env.push(("GIT_DIR", bare.as_os_str().to_os_string()));
     env.push(("GIT_ALTERNATE_OBJECT_DIRECTORIES", alternates));
@@ -813,7 +819,7 @@ impl Workspace {
                     "--no-write-commit-graph",
                     "--",
                 ]);
-                fetch.push(source.path.as_os_str().to_os_string());
+                fetch.push(dunce::simplified(&source.path).as_os_str().to_os_string());
                 fetch.push(plan.source_head.clone().into());
                 let local_only = [("GIT_ALLOW_PROTOCOL", "file".into())];
                 let result = run_git(&self.root, &path, &fetch, &local_only, cancel)
