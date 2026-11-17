@@ -1456,6 +1456,7 @@ impl Protocol {
                 | "workspaces.archive"
                 | "workspaces.restore"
                 | "workspaces.purge"
+                | "workspaces.merge"
                 | "workspaces.lookup"
         ) {
             return None;
@@ -2358,11 +2359,15 @@ fn tool_definitions(
     if workspace {
         use devforge_control::export::Wire;
         definitions.push(json!({"name":"workspaces.list","description":"Read bounded cached metadata for workspaces belonging to the bound project only; observed_at is the original observation time and truncated reports an incomplete list.","inputSchema":devforge_control::tools::WorkspaceListInput::schema(),"annotations":{"readOnlyHint":true,"openWorldHint":false}}));
-        definitions.push(json!({"name":"workspaces.prepare","description":"Prepare a private project-scoped worktree plan; content inspection or hashing requires explicit WorkspaceContentScan. Copying environment secrets additionally requires explicit WorkspaceSecretCopy and SensitiveOperation. Restore and purge are currently unavailable because safe owned-tree traversal is not established. Returns safe metadata and an opaque ticket, never raw content or arbitrary paths.","inputSchema":devforge_control::tools::WorkspacePrepareInput::schema(),"annotations":{"readOnlyHint":true,"openWorldHint":false}}));
+        definitions.push(json!({"name":"workspaces.prepare","description":"Prepare a private project-scoped worktree plan; content inspection or hashing requires explicit WorkspaceContentScan. Copying environment secrets additionally requires explicit WorkspaceSecretCopy and SensitiveOperation. With new_branch=true, the source repository shared Git refs may change; its HEAD and working files are preserved. Static symlink and junction containment is enforced; an equivalent same-user process is not sandboxed. Returns safe metadata and an opaque ticket, never raw content or arbitrary paths.","inputSchema":devforge_control::tools::WorkspacePrepareInput::schema(),"annotations":{"readOnlyHint":true,"openWorldHint":false}}));
         for (name, schema) in [
             (
                 "workspaces.create",
                 devforge_control::mutations::WorkspaceCreateInput::schema(),
+            ),
+            (
+                "workspaces.merge",
+                devforge_control::mutations::WorkspaceLifecycleInput::schema(),
             ),
             (
                 "workspaces.archive",
@@ -2377,7 +2382,7 @@ fn tool_definitions(
                 devforge_control::mutations::WorkspaceLifecycleInput::schema(),
             ),
         ] {
-            definitions.push(json!({"name":name,"description":if name=="workspaces.restore" || name=="workspaces.purge" {"Currently unavailable: safe owned-tree traversal is not established. No apply is admitted."} else {"Plan or apply a project-scoped worktree operation using its prepared opaque ticket. Native owner approval and granted rights are mandatory."},"inputSchema":{"type":"object","additionalProperties":false,"properties":{"action":{"enum":["plan","apply"]},"expected_revision":devforge_control::limits::SafeInt::schema(),"idempotency_key":Id::schema(),"input":schema,"review":Digest::schema()},"required":["action","expected_revision","idempotency_key","input"]},"annotations":{"readOnlyHint":false,"destructiveHint":name=="workspaces.purge","openWorldHint":false}}));
+            definitions.push(json!({"name":name,"description":if name=="workspaces.merge" {"Merge only the bound source project current HEAD commit into the selected owned worktree. Fast-forward and clean non-conflicting merge commits are supported; source HEAD and files are preserved. Conflicts, gitlinks and unsafe trees are blocked. Isolated targets are supported only when the verified owned local source is safe. Native exact owner approval and ExecutionTest are mandatory; an approved merge may execute Git filters or project code. Preview does not execute project code. On error or cancellation the target may already have changed; inspect its Git status and the reviewed old target HEAD before manual recovery. Do not retry automatically or assume rollback."} else {"Plan or apply a project-scoped worktree operation using its prepared opaque ticket. Native owner approval and granted rights are mandatory. Same-user concurrent replacement is not sandboxed; completed effects cannot be undone by cancellation."},"inputSchema":{"type":"object","additionalProperties":false,"properties":{"action":{"enum":["plan","apply"]},"expected_revision":devforge_control::limits::SafeInt::schema(),"idempotency_key":Id::schema(),"input":schema,"review":Digest::schema()},"required":["action","expected_revision","idempotency_key","input"]},"annotations":{"readOnlyHint":false,"destructiveHint":name=="workspaces.purge","openWorldHint":false}}));
         }
         definitions.push(json!({"name":"workspaces.lookup","description":"Look up this client's own worktree operation by idempotency key.","inputSchema":{"type":"object","additionalProperties":false,"properties":{"idempotency_key":Id::schema()},"required":["idempotency_key"]},"annotations":{"readOnlyHint":true,"openWorldHint":false}}));
     }

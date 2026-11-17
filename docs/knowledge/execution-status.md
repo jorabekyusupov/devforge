@@ -1681,3 +1681,27 @@ still expected a breakpoint write while an active debugger exists, which the fac
 now safely rejects. The fixture now changes project revision through an allowed
 mode action and preserves the stale/revoked value-masking assertions. That focused
 test passed locally; the next CI run records final platform status.
+
+## A10 — scoped workspace lifecycle (2026-11-17)
+
+The workspace facade exposes source-scoped list/prepare and native-reviewed
+create/archive/restore/purge/merge. Merge direction was explicitly selected by the
+user: source committed HEAD into the owned worktree. Shared and isolated (without
+submodules) fast-forward, already-included and clean nonconflicting divergent
+merges are supported; conflicts, submodules, unsafe Git configuration and
+dirty/running targets are refused, not silently merged. Partial
+Git failure may leave target changes and is reported as `worktree_merge_incomplete`.
+Explicit WorkspaceContentScan and WorkspaceSecretCopy information rights do not
+extend existing grants; DB clone and secret copy require sensitive authority.
+Review, recovery, source preservation and same-user concurrency limitations are
+recorded in [the facade contract](../architecture/reviewed-service-actions.md).
+
+Focused disposable fixtures cover owned archive → restore → purge, fast-forward
+source preservation, ignored-file collision, foreign project, grant/revoke,
+review/stale/cancellation and source ownership. A disposable macOS manager fixture passed native-reviewed Create and SQLite Clone
+using a copied verified runtime cache: child DB data was read back and source `.env`,
+two SQLite canaries, HEAD and dirty status were preserved; an isolated Create with
+a real submodule copied committed nested data and left source nested dirty changes
+untouched. macOS/Windows CI results
+belong to the exact PR head; actual Windows Create/Clone and native UI visual
+inspection remain unverified unless separately observed. No adversarial same-user filesystem sandbox is claimed.

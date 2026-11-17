@@ -87,6 +87,12 @@ impl Rig {
         Self::runtime_setup(cache, legacy, false)
     }
     fn runtime_setup(cache: Option<&Path>, legacy: bool, alternative: bool) -> Self {
+        Self::runtime_setup_with(cache, legacy, alternative, |_, _| {})
+    }
+    fn runtime_setup_with<F>(cache: Option<&Path>, legacy: bool, alternative: bool, seed: F) -> Self
+    where
+        F: FnOnce(&Path, &mut Vec<devforge_projects::project::Project>),
+    {
         let root = common::root("df-service-");
         let catalog = Catalog::bundled();
         let target = Target::current().unwrap();
@@ -167,6 +173,7 @@ impl Rig {
             }
             drop(setup);
         }
+        seed(root.path(), &mut projects);
         let control = Arc::new(Memory::default());
         let secrets = Arc::new(Memory::default());
         let owner = common::acquire(root.path()).unwrap();
@@ -5945,9 +5952,33 @@ fn a10_workspace_create_preview_ticket_is_bound_and_requires_exact_review() {
     assert!(denied.data().is_none());
     assert_eq!(git(&["rev-parse", "HEAD"]), head);
     rig.native.approve_service_plan(&plan.digest).unwrap();
+    let worktree_root = rig.root.path().join("worktrees");
+    let count_receipts = || {
+        std::fs::read_dir(&worktree_root)
+            .ok()
+            .into_iter()
+            .flatten()
+            .filter_map(Result::ok)
+            .filter(|d| d.path().join("receipt.json").is_file())
+            .count()
+    };
+    let receipts_before = count_receipts();
     std::fs::write(source.join("dirty-canary"), "untouched source").unwrap();
     let stale = client.workspace_apply(&mutation, &plan.digest).unwrap();
-    assert!(stale.data().is_none());
+    if let Some(receipt) = stale.data() {
+        assert_ne!(
+            rig.complete(&full, receipt),
+            OperationState::Succeeded,
+            "stale admitted work must fail before effects"
+        );
+    } else {
+        assert!(stale.error().is_some());
+    }
+    assert_eq!(
+        count_receipts(),
+        receipts_before,
+        "stale request must not reserve a child"
+    );
     assert_eq!(git(&["rev-parse", "HEAD"]), head);
     assert_eq!(
         std::fs::read_to_string(source.join("dirty-canary")).unwrap(),
@@ -5992,7 +6023,7 @@ fn a10_workspace_mutation_rejects_foreign_ids_before_project_lookup() {
 }
 
 #[test]
-fn a10_restore_and_purge_fail_closed_before_untrusted_workspace_io() {
+fn a10_lifecycle_rejects_symlinked_workspace_outside_owned_root() {
     use devforge_control::{
         InformationScope,
         tools::{WorkspacePrepareAction, WorkspacePrepareInput},
@@ -6021,7 +6052,42 @@ fn a10_restore_and_purge_fail_closed_before_untrusted_workspace_io() {
     let child = worktrees.join(&name);
     #[cfg(unix)]
     std::os::unix::fs::symlink(&outside, &child).unwrap();
-    #[cfg(not(unix))]
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::MetadataExt;
+        // Paths are supplied only as environment values, never interpolated in
+        // PowerShell source; this creates a real, unprivileged directory junction.
+        const CREATE: &str = "$ErrorActionPreference='Stop'; Microsoft.PowerShell.Management\\New-Item -ItemType Junction -Path $env:DEVFORGE_TEST_JUNCTION_LINK -Target $env:DEVFORGE_TEST_JUNCTION_TARGET -ErrorAction Stop | Out-Null";
+        let powershell =
+            std::path::PathBuf::from(std::env::var_os("SystemRoot").expect("SystemRoot"))
+                .join("System32/WindowsPowerShell/v1.0/powershell.exe");
+        let output = std::process::Command::new(powershell)
+            .args([
+                "-NoLogo",
+                "-NoProfile",
+                "-NonInteractive",
+                "-Command",
+                CREATE,
+            ])
+            .env("DEVFORGE_TEST_JUNCTION_LINK", &child)
+            .env("DEVFORGE_TEST_JUNCTION_TARGET", &outside)
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "junction fixture creation failed: {:?}",
+            output.status.code()
+        );
+        assert_ne!(
+            std::fs::symlink_metadata(&child).unwrap().file_attributes() & 0x400,
+            0
+        );
+        assert_eq!(
+            std::fs::canonicalize(&child).unwrap(),
+            std::fs::canonicalize(&outside).unwrap()
+        );
+    }
+    #[cfg(not(any(unix, windows)))]
     std::fs::create_dir(&child).unwrap();
     let mut client = rig.diagnostics(&grant);
     for action in [
@@ -6048,9 +6114,13 @@ fn a10_restore_and_purge_fail_closed_before_untrusted_workspace_io() {
             },
         };
         let response = client.workspace_prepare(&req).unwrap();
-        assert_eq!(
-            response.error().unwrap().code,
-            ErrorCode::UnsupportedCapability
+        let fault = response
+            .error()
+            .expect("unowned or symlinked workspace must be refused");
+        assert_ne!(
+            fault.code,
+            ErrorCode::UnsupportedCapability,
+            "lifecycle is implemented"
         );
     }
     assert_eq!(
@@ -6064,6 +6134,20 @@ fn a10_restore_and_purge_fail_closed_before_untrusted_workspace_io() {
             .file_type()
             .is_symlink()
     );
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::MetadataExt;
+        assert_ne!(
+            std::fs::symlink_metadata(&child).unwrap().file_attributes() & 0x400,
+            0
+        );
+        // Remove the junction itself, never the target directory.
+        std::fs::remove_dir(&child).unwrap();
+        assert_eq!(
+            std::fs::read(outside.join("receipt.json")).unwrap(),
+            b"A10_UNTRUSTED_CANARY"
+        );
+    }
 }
 
 #[test]
@@ -6149,4 +6233,1666 @@ fn a10_delayed_workspace_preview_returns_no_ticket_and_does_not_mutate() {
         existed,
         "timed-out preview must not create a worktree"
     );
+}
+
+// Seed an owned Git worktree before starting the manager; no test-only IPC or
+// production authority bypass is required. All paths belong to this temporary Rig.
+fn seed_a10_owned_worktree(root: &Path, projects: &mut Vec<devforge_projects::project::Project>) {
+    use devforge_workspace::{
+        Workspace,
+        worktrees::{DatabaseMode, Input, Record},
+    };
+    use std::process::Command;
+    let mut w = Workspace::open(root, Arc::new(Memory::default())).unwrap();
+    let original = projects[0].clone();
+    w.execute(
+        devforge_workspace::Command::Configure {
+            id: original.id.clone(),
+            revision: original.revision,
+            name: original.name.clone(),
+            php: original.php.clone(),
+            node: original.node.clone(),
+            domain: "alpha.devforge.test".into(),
+            https: false,
+            vite: false,
+            queue: false,
+        },
+        &Default::default(),
+    )
+    .unwrap();
+    let source = w.projects.get(&original.id).unwrap();
+    projects[0] = source.clone();
+    let git = |path: &Path, args: &[&str]| {
+        let out = Command::new("git")
+            .arg("-C")
+            .arg(path)
+            .args(args)
+            .output()
+            .unwrap();
+        assert!(
+            out.status.success(),
+            "git {:?}: {}",
+            args,
+            String::from_utf8_lossy(&out.stderr)
+        );
+        String::from_utf8(out.stdout).unwrap().trim().to_owned()
+    };
+    std::fs::create_dir_all(source.path.join("database")).unwrap();
+    std::fs::write(source.path.join("database/.gitkeep"), "").unwrap();
+    std::fs::write(
+        source.path.join(".env.example"),
+        "APP_KEY=\nDB_CONNECTION=sqlite\n",
+    )
+    .unwrap();
+    std::fs::write(
+        source.path.join(".gitignore"),
+        ".env\n/database/*.sqlite\n/vendor\n/node_modules\n",
+    )
+    .unwrap();
+    git(&source.path, &["init", "-q"]);
+    git(&source.path, &["config", "user.name", "Fixture"]);
+    git(
+        &source.path,
+        &["config", "user.email", "fixture@example.test"],
+    );
+    let php = w
+        .catalog
+        .get(&source.php)
+        .unwrap()
+        .version
+        .split('-')
+        .next()
+        .unwrap();
+    let node = w
+        .catalog
+        .get(&source.node)
+        .unwrap()
+        .version
+        .trim_start_matches('v');
+    w.manifest_init(&source.path, php, node, "2.11.2").unwrap();
+    git(&source.path, &["add", "."]);
+    git(&source.path, &["commit", "-qm", "fixture base"]);
+    let input = Input {
+        source_id: source.id.clone(),
+        name: "A10 owned".into(),
+        branch: "a10-owned".into(),
+        base: "HEAD".into(),
+        new_branch: true,
+        database: DatabaseMode::Empty,
+        dependencies: false,
+        copy_environment: false,
+    };
+    let plan = w.worktree_plan(&input).unwrap();
+    assert!(plan.blockers.is_empty(), "{:?}", plan.blockers);
+    let wid = "a".repeat(32);
+    let dir = root.join("worktrees").join(&wid);
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("tree");
+    git(
+        &source.path,
+        &[
+            "worktree",
+            "add",
+            "-qb",
+            &input.branch,
+            path.to_str().unwrap(),
+        ],
+    );
+    let child = w
+        .projects
+        .import(&path, &input.name, &source.php, &source.node, &w.catalog)
+        .unwrap();
+    w.projects
+        .claim_worktree(&child.id, child.revision, &wid)
+        .unwrap();
+    let child = w.projects.get(&child.id).unwrap();
+    let record = Record {
+        isolated: false,
+        schema: 1,
+        id: wid,
+        input,
+        source_path: source.path.clone(),
+        common_dir: std::fs::canonicalize(source.path.join(".git")).unwrap(),
+        git_dir: Some(
+            std::fs::canonicalize(git(&path, &["rev-parse", "--absolute-git-dir"])).unwrap(),
+        ),
+        commit: plan.commit.clone(),
+        domain: plan.domain,
+        review_digest: plan.digest,
+        project_id: Some(child.id.clone()),
+        stage: "ready".into(),
+        last_error: None,
+        configuration: plan.configuration,
+    };
+    std::fs::write(
+        dir.join("receipt.json"),
+        serde_json::to_vec(&record).unwrap(),
+    )
+    .unwrap();
+    // New committed source change creates an exact fast-forward opportunity.
+    std::fs::write(source.path.join("a10-new.txt"), "committed source\n").unwrap();
+    git(&source.path, &["add", "a10-new.txt"]);
+    git(&source.path, &["commit", "-qm", "source change"]);
+    std::fs::write(source.path.join("dirty-canary"), "source remains untouched").unwrap();
+    projects.push(child);
+}
+
+fn a10_lifecycle_action(
+    rig: &mut Rig,
+    grant: &IssuedGrant,
+    workspace: &str,
+    action: devforge_control::tools::WorkspacePrepareAction,
+    key: &str,
+) -> OperationState {
+    use devforge_control::{
+        mutations::WorkspaceLifecycleInput,
+        tools::{WorkspacePrepareAction as A, WorkspacePrepareInput},
+    };
+    let project = rig.projects[0].clone();
+    let mut client = rig.diagnostics(grant);
+    let prepare = Request {
+        api_version: Default::default(),
+        request_id: id(&format!("{key}-prepare")),
+        project_id: id(&project.id),
+        expected_revision: Some(project.revision),
+        idempotency_key: None,
+        input: WorkspacePrepareInput {
+            action,
+            workspace_id: Some(id(workspace)),
+            name: None,
+            branch: None,
+            base: None,
+            new_branch: None,
+            database: None,
+            dependencies: None,
+            copy_environment: None,
+        },
+    };
+    let reply = client.workspace_prepare(&prepare).unwrap();
+    assert!(
+        reply.error().is_none(),
+        "{key} prepare: {:?}",
+        reply.error()
+    );
+    let preview = reply.data().unwrap();
+    assert!(
+        preview.blockers.is_empty(),
+        "{key} blockers {:?}",
+        preview.blockers
+    );
+    let param = WorkspaceLifecycleInput {
+        workspace_id: id(workspace),
+        plan: preview.plan.clone().unwrap(),
+        limits: None,
+    };
+    let input = match action {
+        A::Archive => MutationInput::WorkspaceArchive(param),
+        A::Restore => MutationInput::WorkspaceRestore(param),
+        A::Purge => MutationInput::WorkspacePurge(param),
+        A::Merge => MutationInput::WorkspaceMerge(param),
+        _ => panic!("unexpected action"),
+    };
+    let request = env_request(&project.id, project.revision, key, input);
+    let reply = client.workspace_plan(&request).unwrap();
+    assert!(reply.error().is_none(), "{key} plan: {:?}", reply.error());
+    let plan = reply.data().unwrap().clone();
+    let pending = rig.native.pending_reviews().unwrap();
+    let summary = pending
+        .iter()
+        .find(|s| s.digest == plan.digest)
+        .expect("exact native review");
+    assert_eq!(
+        summary.state,
+        devforge_manager::service_control::ReviewState::Pending
+    );
+    let no_approval = client.workspace_apply(&request, &plan.digest).unwrap();
+    assert!(
+        no_approval.data().is_none(),
+        "{key} must require native review"
+    );
+    rig.native.approve_service_plan(&plan.digest).unwrap();
+    let applied = client.workspace_apply(&request, &plan.digest).unwrap();
+    assert!(
+        applied.error().is_none(),
+        "{key} apply: {:?}",
+        applied.error()
+    );
+    rig.complete(grant, applied.data().unwrap())
+}
+
+#[test]
+fn a10_owned_archive_restore_purge_preserves_source_and_ignored_data() {
+    use devforge_control::{InformationScope, tools::WorkspacePrepareAction as A};
+    let mut rig = Rig::runtime_setup_with(None, false, false, seed_a10_owned_worktree);
+    let source = rig.projects[0].clone();
+    let child = rig.projects[2].clone();
+    let wid = child.worktree.as_ref().unwrap().clone();
+    let target = rig.root.path().join("worktrees").join(&wid).join("tree");
+    let retained = rig
+        .root
+        .path()
+        .join("worktrees")
+        .join(&wid)
+        .join("retained");
+    let git = |path: &Path, args: &[&str]| {
+        let out = std::process::Command::new("git")
+            .arg("-C")
+            .arg(path)
+            .args(args)
+            .output()
+            .unwrap();
+        assert!(
+            out.status.success(),
+            "{:?}: {}",
+            args,
+            String::from_utf8_lossy(&out.stderr)
+        );
+        String::from_utf8(out.stdout).unwrap().trim().to_owned()
+    };
+    let source_head = git(&source.path, &["rev-parse", "HEAD"]);
+    let source_status = git(&source.path, &["status", "--porcelain"]);
+    std::fs::write(target.join(".env"), "PRIVATE=kept").unwrap();
+    let grant = rig
+        .native
+        .issue_external_grant_with_information(
+            &id(&source.id),
+            &[
+                Scope::Observer,
+                Scope::ProjectManage,
+                Scope::ExecutionTest,
+                Scope::SensitiveOperation,
+            ],
+            &[InformationScope::WorkspaceContentScan],
+            Duration::from_secs(600),
+        )
+        .unwrap();
+    assert_eq!(
+        a10_lifecycle_action(&mut rig, &grant, &wid, A::Archive, "a10-archive-1"),
+        OperationState::Succeeded
+    );
+    assert!(!target.exists() && retained.exists());
+    assert_eq!(
+        std::fs::read_to_string(retained.join(".env")).unwrap(),
+        "PRIVATE=kept"
+    );
+    assert_eq!(
+        a10_lifecycle_action(&mut rig, &grant, &wid, A::Restore, "a10-restore"),
+        OperationState::Succeeded
+    );
+    assert!(target.exists() && !retained.exists());
+    assert_eq!(
+        std::fs::read_to_string(target.join(".env")).unwrap(),
+        "PRIVATE=kept"
+    );
+    assert_eq!(
+        a10_lifecycle_action(&mut rig, &grant, &wid, A::Archive, "a10-archive-2"),
+        OperationState::Succeeded
+    );
+    assert_eq!(
+        a10_lifecycle_action(&mut rig, &grant, &wid, A::Purge, "a10-purge"),
+        OperationState::Succeeded
+    );
+    assert!(!target.exists() && !retained.exists());
+    assert_eq!(git(&source.path, &["rev-parse", "HEAD"]), source_head);
+    assert_eq!(git(&source.path, &["status", "--porcelain"]), source_status);
+    assert_eq!(
+        std::fs::read_to_string(source.path.join("dirty-canary")).unwrap(),
+        "source remains untouched"
+    );
+}
+
+#[test]
+fn a10_merge_fast_forwards_owned_worktree_and_preserves_source() {
+    use devforge_control::{
+        InformationScope,
+        mutations::WorkspaceLifecycleInput,
+        tools::{WorkspaceMergeEffect, WorkspacePrepareAction as A, WorkspacePrepareInput},
+    };
+    let mut rig = Rig::runtime_setup_with(None, false, false, seed_a10_owned_worktree);
+    let source = rig.projects[0].clone();
+    let child = rig.projects[2].clone();
+    let wid = child.worktree.as_ref().unwrap().clone();
+    let target = rig.root.path().join("worktrees").join(&wid).join("tree");
+    let git = |path: &Path, args: &[&str]| {
+        let out = std::process::Command::new("git")
+            .arg("-C")
+            .arg(path)
+            .args(args)
+            .output()
+            .unwrap();
+        assert!(
+            out.status.success(),
+            "{:?}: {}",
+            args,
+            String::from_utf8_lossy(&out.stderr)
+        );
+        String::from_utf8(out.stdout).unwrap().trim().to_owned()
+    };
+    let source_head = git(&source.path, &["rev-parse", "HEAD"]);
+    let target_head = git(&target, &["rev-parse", "HEAD"]);
+    assert_ne!(source_head, target_head);
+    let source_ref = git(&source.path, &["symbolic-ref", "HEAD"]);
+    let source_status = git(&source.path, &["status", "--porcelain"]);
+    let index = git(&source.path, &["write-tree"]);
+    let rights = [
+        Scope::Observer,
+        Scope::ProjectManage,
+        Scope::ExecutionTest,
+        Scope::SensitiveOperation,
+    ];
+    let grant = rig
+        .native
+        .issue_external_grant_with_information(
+            &id(&source.id),
+            &rights,
+            &[InformationScope::WorkspaceContentScan],
+            Duration::from_secs(600),
+        )
+        .unwrap();
+    let missing = rig
+        .native
+        .issue_external_grant(&id(&source.id), &rights, Duration::from_secs(600))
+        .unwrap();
+    let mut client = rig.diagnostics(&grant);
+    let mut denied = rig.diagnostics(&missing);
+    let prepare = Request {
+        api_version: Default::default(),
+        request_id: id("a10-merge-preview"),
+        project_id: id(&source.id),
+        expected_revision: Some(source.revision),
+        idempotency_key: None,
+        input: WorkspacePrepareInput {
+            action: A::Merge,
+            workspace_id: Some(id(&wid)),
+            name: None,
+            branch: None,
+            base: None,
+            new_branch: None,
+            database: None,
+            dependencies: None,
+            copy_environment: None,
+        },
+    };
+    assert_eq!(
+        denied
+            .workspace_prepare(&prepare)
+            .unwrap()
+            .error()
+            .unwrap()
+            .code,
+        ErrorCode::Unauthorized
+    );
+    let dirty = target.join("untracked-guard");
+    std::fs::write(&dirty, b"dirty").unwrap();
+    let blocked = client.workspace_prepare(&prepare).unwrap();
+    let blocked = blocked.data().expect("dirty preview");
+    assert!(
+        blocked
+            .blockers
+            .iter()
+            .any(|v| v.as_str() == "worktree_dirty")
+    );
+    assert!(blocked.plan.is_none());
+    std::fs::remove_file(&dirty).unwrap();
+    let preview = client.workspace_prepare(&prepare).unwrap();
+    assert!(preview.error().is_none(), "{:?}", preview.error());
+    let preview = preview.data().unwrap();
+    assert!(preview.blockers.is_empty(), "{:?}", preview.blockers);
+    let merge = preview.merge.as_ref().unwrap();
+    assert_eq!(merge.effect, WorkspaceMergeEffect::FastForward);
+    assert_eq!(merge.source_head.as_str(), source_head);
+    assert_eq!(merge.target_head.as_str(), target_head);
+    let request = env_request(
+        &source.id,
+        source.revision,
+        "a10-merge-approved",
+        MutationInput::WorkspaceMerge(WorkspaceLifecycleInput {
+            workspace_id: id(&wid),
+            plan: preview.plan.clone().unwrap(),
+            limits: None,
+        }),
+    );
+    let plan = client
+        .workspace_plan(&request)
+        .unwrap()
+        .data()
+        .unwrap()
+        .clone();
+    assert!(
+        client
+            .workspace_apply(&request, &plan.digest)
+            .unwrap()
+            .data()
+            .is_none(),
+        "native review mandatory"
+    );
+    rig.native.approve_service_plan(&plan.digest).unwrap();
+    let reply = client.workspace_apply(&request, &plan.digest).unwrap();
+    assert!(reply.error().is_none(), "{:?}", reply.error());
+    assert_eq!(
+        rig.complete(&grant, reply.data().unwrap()),
+        OperationState::Succeeded
+    );
+    assert_eq!(git(&target, &["rev-parse", "HEAD"]), source_head);
+    assert_eq!(git(&source.path, &["rev-parse", "HEAD"]), source_head);
+    assert_eq!(git(&source.path, &["symbolic-ref", "HEAD"]), source_ref);
+    assert_eq!(git(&source.path, &["status", "--porcelain"]), source_status);
+    assert_eq!(git(&source.path, &["write-tree"]), index);
+    assert_eq!(
+        std::fs::read_to_string(source.path.join("dirty-canary")).unwrap(),
+        "source remains untouched"
+    );
+}
+
+#[test]
+fn a10_merge_refuses_overwriting_ignored_file_and_reports_incomplete() {
+    use devforge_control::{
+        InformationScope,
+        mutations::WorkspaceLifecycleInput,
+        tools::{WorkspacePrepareAction as A, WorkspacePrepareInput},
+    };
+    let mut rig = Rig::runtime_setup_with(None, false, false, seed_a10_owned_worktree);
+    let source = rig.projects[0].clone();
+    let child = rig.projects[2].clone();
+    let wid = child.worktree.as_ref().unwrap().clone();
+    let target = rig.root.path().join("worktrees").join(&wid).join("tree");
+    let git = |path: &Path, args: &[&str]| {
+        let out = std::process::Command::new("git")
+            .arg("-C")
+            .arg(path)
+            .args(args)
+            .output()
+            .unwrap();
+        assert!(
+            out.status.success(),
+            "{:?}: {}",
+            args,
+            String::from_utf8_lossy(&out.stderr)
+        );
+        String::from_utf8(out.stdout).unwrap().trim().to_owned()
+    };
+    // Source explicitly commits an ignored name; target has a private ignored
+    // file at that name. Git must not overwrite the target when fast-forwarding.
+    std::fs::write(source.path.join(".env"), "FIXTURE_SOURCE=1").unwrap();
+    git(&source.path, &["add", "-f", ".env"]);
+    git(&source.path, &["commit", "-qm", "track fixture env"]);
+    std::fs::write(target.join(".env"), "TARGET_PRIVATE=preserve").unwrap();
+    let source_head = git(&source.path, &["rev-parse", "HEAD"]);
+    let target_head = git(&target, &["rev-parse", "HEAD"]);
+    let grant = rig
+        .native
+        .issue_external_grant_with_information(
+            &id(&source.id),
+            &[
+                Scope::Observer,
+                Scope::ProjectManage,
+                Scope::ExecutionTest,
+                Scope::SensitiveOperation,
+            ],
+            &[InformationScope::WorkspaceContentScan],
+            Duration::from_secs(600),
+        )
+        .unwrap();
+    let mut client = rig.diagnostics(&grant);
+    let req = Request {
+        api_version: Default::default(),
+        request_id: id("a10-ignored-preview"),
+        project_id: id(&source.id),
+        expected_revision: Some(source.revision),
+        idempotency_key: None,
+        input: WorkspacePrepareInput {
+            action: A::Merge,
+            workspace_id: Some(id(&wid)),
+            name: None,
+            branch: None,
+            base: None,
+            new_branch: None,
+            database: None,
+            dependencies: None,
+            copy_environment: None,
+        },
+    };
+    let preview = client.workspace_prepare(&req).unwrap();
+    assert!(preview.error().is_none(), "{:?}", preview.error());
+    let preview = preview.data().unwrap();
+    assert!(preview.blockers.is_empty(), "{:?}", preview.blockers);
+    let request = env_request(
+        &source.id,
+        source.revision,
+        "a10-ignored-merge",
+        MutationInput::WorkspaceMerge(WorkspaceLifecycleInput {
+            workspace_id: id(&wid),
+            plan: preview.plan.clone().unwrap(),
+            limits: None,
+        }),
+    );
+    let plan = client
+        .workspace_plan(&request)
+        .unwrap()
+        .data()
+        .unwrap()
+        .clone();
+    rig.native.approve_service_plan(&plan.digest).unwrap();
+    let applied = client.workspace_apply(&request, &plan.digest).unwrap();
+    assert!(applied.error().is_none(), "{:?}", applied.error());
+    let receipt = applied.data().unwrap().clone();
+    assert_eq!(rig.complete(&grant, &receipt), OperationState::Failed);
+    let status = rig
+        .native
+        .external_operation_status(&grant.record.grant_id, &receipt.operation_id)
+        .unwrap();
+    assert_eq!(status.code.as_deref(), Some("worktree_merge_incomplete"));
+    assert_eq!(
+        std::fs::read_to_string(target.join(".env")).unwrap(),
+        "TARGET_PRIVATE=preserve"
+    );
+    assert_eq!(git(&target, &["rev-parse", "HEAD"]), target_head);
+    assert_eq!(git(&source.path, &["rev-parse", "HEAD"]), source_head);
+}
+
+#[test]
+fn a10_merge_cancel_and_revoke_before_worker_preserve_both_checkouts() {
+    use devforge_control::{
+        InformationScope,
+        mutations::WorkspaceLifecycleInput,
+        tools::{WorkspacePrepareAction as A, WorkspacePrepareInput},
+    };
+    let mut rig = Rig::runtime_setup_with(None, false, false, seed_a10_owned_worktree);
+    let source = rig.projects[0].clone();
+    let child = rig.projects[2].clone();
+    let wid = child.worktree.as_ref().unwrap().clone();
+    let target = rig.root.path().join("worktrees").join(&wid).join("tree");
+    let git = |path: &Path, args: &[&str]| {
+        let out = std::process::Command::new("git")
+            .arg("-C")
+            .arg(path)
+            .args(args)
+            .output()
+            .unwrap();
+        assert!(
+            out.status.success(),
+            "{:?}: {}",
+            args,
+            String::from_utf8_lossy(&out.stderr)
+        );
+        String::from_utf8(out.stdout).unwrap().trim().to_owned()
+    };
+    let source_head = git(&source.path, &["rev-parse", "HEAD"]);
+    let target_head = git(&target, &["rev-parse", "HEAD"]);
+    let source_status = git(&source.path, &["status", "--porcelain"]);
+    let grant = rig
+        .native
+        .issue_external_grant_with_information(
+            &id(&source.id),
+            &[
+                Scope::Observer,
+                Scope::ProjectManage,
+                Scope::ExecutionTest,
+                Scope::SensitiveOperation,
+            ],
+            &[InformationScope::WorkspaceContentScan],
+            Duration::from_secs(600),
+        )
+        .unwrap();
+    let mut client = rig.diagnostics(&grant);
+    let prepare = Request {
+        api_version: Default::default(),
+        request_id: id("a10-cancel-preview"),
+        project_id: id(&source.id),
+        expected_revision: Some(source.revision),
+        idempotency_key: None,
+        input: WorkspacePrepareInput {
+            action: A::Merge,
+            workspace_id: Some(id(&wid)),
+            name: None,
+            branch: None,
+            base: None,
+            new_branch: None,
+            database: None,
+            dependencies: None,
+            copy_environment: None,
+        },
+    };
+    let preview = client.workspace_prepare(&prepare).unwrap();
+    assert!(preview.error().is_none(), "{:?}", preview.error());
+    let request = env_request(
+        &source.id,
+        source.revision,
+        "a10-cancel-merge",
+        MutationInput::WorkspaceMerge(WorkspaceLifecycleInput {
+            workspace_id: id(&wid),
+            plan: preview.data().unwrap().plan.clone().unwrap(),
+            limits: None,
+        }),
+    );
+    let plan = client
+        .workspace_plan(&request)
+        .unwrap()
+        .data()
+        .unwrap()
+        .clone();
+    rig.native.approve_service_plan(&plan.digest).unwrap();
+    let release = rig.block();
+    let reply = client.workspace_apply(&request, &plan.digest).unwrap();
+    assert!(reply.error().is_none(), "{:?}", reply.error());
+    let receipt = reply.data().unwrap().clone();
+    let cancel = rig
+        .external(&grant)
+        .request(
+            id("a10-cancel"),
+            ExternalInput::OperationCancel {
+                project_id: id(&source.id),
+                operation_id: receipt.operation_id.clone(),
+            },
+            None,
+        )
+        .unwrap();
+    assert!(cancel.ok);
+    drop(release);
+    assert_eq!(rig.complete(&grant, &receipt), OperationState::Cancelled);
+    assert_eq!(git(&target, &["rev-parse", "HEAD"]), target_head);
+    assert_eq!(git(&source.path, &["rev-parse", "HEAD"]), source_head);
+    assert_eq!(git(&source.path, &["status", "--porcelain"]), source_status);
+    let preview = client
+        .workspace_prepare(&prepare)
+        .unwrap()
+        .data()
+        .unwrap()
+        .clone();
+    let request = env_request(
+        &source.id,
+        source.revision,
+        "a10-revoke-merge",
+        MutationInput::WorkspaceMerge(WorkspaceLifecycleInput {
+            workspace_id: id(&wid),
+            plan: preview.plan.unwrap(),
+            limits: None,
+        }),
+    );
+    let plan = client
+        .workspace_plan(&request)
+        .unwrap()
+        .data()
+        .unwrap()
+        .clone();
+    rig.native.approve_service_plan(&plan.digest).unwrap();
+    let release = rig.block();
+    let reply = client.workspace_apply(&request, &plan.digest).unwrap();
+    assert!(reply.error().is_none(), "{:?}", reply.error());
+    let receipt = reply.data().unwrap().clone();
+    rig.native
+        .revoke_external_grant(&grant.record.grant_id)
+        .unwrap();
+    drop(release);
+    let until = Instant::now() + Duration::from_secs(8);
+    loop {
+        let db =
+            rusqlite::Connection::open(rig.root.path().join("control/operations.sqlite3")).unwrap();
+        let state: String = db
+            .query_row(
+                "SELECT state FROM operations WHERE operation_id=?1",
+                [receipt.operation_id.as_str()],
+                |r| r.get(0),
+            )
+            .unwrap();
+        if state == "cancelled" {
+            break;
+        }
+        assert!(Instant::now() < until, "revoked operation remained {state}");
+        thread::sleep(Duration::from_millis(20));
+    }
+    assert_eq!(git(&target, &["rev-parse", "HEAD"]), target_head);
+    assert_eq!(git(&source.path, &["rev-parse", "HEAD"]), source_head);
+    assert_eq!(git(&source.path, &["status", "--porcelain"]), source_status);
+}
+
+#[cfg(target_os = "macos")]
+#[test]
+#[ignore = "requires explicit DEVFORGE_SERVICE_CACHE immutable macOS runtime cache"]
+fn a10_native_reviewed_create_and_sqlite_clone_preserve_source_canaries() {
+    use devforge_control::{
+        InformationScope,
+        limits::Text,
+        mutations::WorkspaceCreateInput,
+        tools::{WorkspaceDatabase, WorkspacePrepareAction as A, WorkspacePrepareInput},
+    };
+    let cache = std::path::PathBuf::from(
+        std::env::var_os("DEVFORGE_SERVICE_CACHE").expect("explicit immutable cache"),
+    );
+    let mut rig = Rig::new(Some(&cache));
+    let source = rig.projects[0].clone();
+    std::fs::create_dir_all(source.path.join("database")).unwrap();
+    std::fs::write(source.path.join("database/.gitkeep"), "").unwrap();
+    std::fs::write(
+        source.path.join(".env.example"),
+        "APP_KEY=\nDB_CONNECTION=sqlite\n",
+    )
+    .unwrap();
+    std::fs::write(
+        source.path.join(".gitignore"),
+        ".env\n/database/*.sqlite\n/vendor\n/node_modules\n",
+    )
+    .unwrap();
+    std::fs::write(source.path.join("devforge.yaml"), environment_yaml(&rig, 0)).unwrap();
+    std::fs::write(
+        source.path.join(".env"),
+        "APP_KEY=base64:SOURCE_CANARY\nDB_CONNECTION=sqlite\n",
+    )
+    .unwrap();
+    let source_db = source.path.join("database/database.sqlite");
+    let db = rusqlite::Connection::open(&source_db).unwrap();
+    db.execute_batch("CREATE TABLE fixture_canary(value TEXT); INSERT INTO fixture_canary VALUES('SOURCE_DB_CANARY');").unwrap();
+    drop(db);
+    let source_db_bytes = std::fs::read(&source_db).unwrap();
+    std::fs::write(source.path.join("database/other.sqlite"), "OTHER_DB_CANARY").unwrap();
+    let git = |args: &[&str]| {
+        let out = std::process::Command::new("git")
+            .arg("-C")
+            .arg(&source.path)
+            .args(args)
+            .output()
+            .unwrap();
+        assert!(
+            out.status.success(),
+            "{:?}: {}",
+            args,
+            String::from_utf8_lossy(&out.stderr)
+        );
+        String::from_utf8(out.stdout).unwrap().trim().to_owned()
+    };
+    git(&["init", "-q"]);
+    git(&["config", "user.name", "Fixture"]);
+    git(&["config", "user.email", "fixture@example.test"]);
+    git(&["add", "."]);
+    git(&["commit", "-qm", "source base"]);
+    std::fs::write(source.path.join("dirty-canary"), "SOURCE_DIRTY_CANARY").unwrap();
+    let head = git(&["rev-parse", "HEAD"]);
+    let status = git(&["status", "--porcelain"]);
+    let grant = rig
+        .native
+        .issue_external_grant_with_information(
+            &id(&source.id),
+            &[Scope::Observer, Scope::ProjectManage, Scope::ExecutionTest],
+            &[InformationScope::WorkspaceContentScan],
+            Duration::from_secs(600),
+        )
+        .unwrap();
+    let mut client = rig.diagnostics(&grant);
+    let preview = Request {
+        api_version: Default::default(),
+        request_id: id("a10-native-preview"),
+        project_id: id(&source.id),
+        expected_revision: Some(source.revision),
+        idempotency_key: None,
+        input: WorkspacePrepareInput {
+            action: A::Create,
+            workspace_id: None,
+            name: Some(Text::new("Native child".into()).unwrap()),
+            branch: Some(Text::new("a10-native-child".into()).unwrap()),
+            base: Some(Text::new("HEAD".into()).unwrap()),
+            new_branch: Some(true),
+            database: Some(WorkspaceDatabase::Empty),
+            dependencies: Some(false),
+            copy_environment: Some(false),
+        },
+    };
+    let result = client.workspace_prepare(&preview).unwrap();
+    assert!(result.error().is_none(), "{:?}", result.error());
+    let preview = result.data().unwrap();
+    assert!(preview.blockers.is_empty(), "{:?}", preview.blockers);
+    let request = env_request(
+        &source.id,
+        source.revision,
+        "a10-native-create",
+        MutationInput::WorkspaceCreate(WorkspaceCreateInput {
+            plan: preview.plan.clone().unwrap(),
+            limits: None,
+        }),
+    );
+    let result = client.workspace_plan(&request).unwrap();
+    assert!(result.error().is_none(), "{:?}", result.error());
+    let plan = result.data().unwrap().clone();
+    rig.native.approve_service_plan(&plan.digest).unwrap();
+    let result = client.workspace_apply(&request, &plan.digest).unwrap();
+    assert!(result.error().is_none(), "{:?}", result.error());
+    let receipt = result.data().unwrap().clone();
+    let state = rig.complete(&grant, &receipt);
+    if state != OperationState::Succeeded {
+        let summaries = std::fs::read_dir(rig.root.path().join("worktrees"))
+            .ok()
+            .into_iter()
+            .flatten()
+            .filter_map(Result::ok)
+            .filter_map(|d| std::fs::read(d.path().join("receipt.json")).ok())
+            .filter_map(|b| serde_json::from_slice::<serde_json::Value>(&b).ok())
+            .map(|v| {
+                (
+                    v["stage"].as_str().unwrap_or("unknown").to_owned(),
+                    v["last_error"].as_str().unwrap_or("none").to_owned(),
+                )
+            })
+            .collect::<Vec<_>>();
+        panic!("native fixture operation {state:?}; safe stages: {summaries:?}");
+    }
+    let root = rig.root.path().join("worktrees");
+    let records = std::fs::read_dir(root)
+        .unwrap()
+        .filter_map(Result::ok)
+        .filter_map(|d| std::fs::read(d.path().join("receipt.json")).ok())
+        .filter_map(|b| serde_json::from_slice::<serde_json::Value>(&b).ok())
+        .collect::<Vec<_>>();
+    assert_eq!(records.len(), 1);
+    assert_eq!(records[0]["stage"], "ready");
+    assert_eq!(records[0]["input"]["database"], "empty");
+    assert_eq!(git(&["rev-parse", "HEAD"]), head);
+    assert_eq!(git(&["status", "--porcelain"]), status);
+    assert_eq!(
+        std::fs::read_to_string(source.path.join(".env")).unwrap(),
+        "APP_KEY=base64:SOURCE_CANARY\nDB_CONNECTION=sqlite\n"
+    );
+    assert_eq!(std::fs::read(&source_db).unwrap(), source_db_bytes);
+    assert_eq!(
+        std::fs::read_to_string(source.path.join("database/other.sqlite")).unwrap(),
+        "OTHER_DB_CANARY"
+    );
+    assert_eq!(
+        std::fs::read_to_string(source.path.join("dirty-canary")).unwrap(),
+        "SOURCE_DIRTY_CANARY"
+    );
+    // Mark only this fixture's conventional source SQLite as DevForge-owned.
+    let setup = rig.root.path().join("projects/setup-owned");
+    std::fs::create_dir_all(&setup).unwrap();
+    std::fs::write(
+        setup.join(format!("{}.json", source.id)),
+        r#"{"sqlite_complete":true}"#,
+    )
+    .unwrap();
+    let clone_grant = rig
+        .native
+        .issue_external_grant_with_information(
+            &id(&source.id),
+            &[
+                Scope::Observer,
+                Scope::ProjectManage,
+                Scope::ExecutionTest,
+                Scope::SensitiveOperation,
+            ],
+            &[InformationScope::WorkspaceContentScan],
+            Duration::from_secs(600),
+        )
+        .unwrap();
+    let mut clone_client = rig.diagnostics(&clone_grant);
+    let clone_preview = Request {
+        api_version: Default::default(),
+        request_id: id("a10-native-clone-preview"),
+        project_id: id(&source.id),
+        expected_revision: Some(source.revision),
+        idempotency_key: None,
+        input: WorkspacePrepareInput {
+            action: A::Create,
+            workspace_id: None,
+            name: Some(Text::new("Clone child".into()).unwrap()),
+            branch: Some(Text::new("a10-native-clone".into()).unwrap()),
+            base: Some(Text::new("HEAD".into()).unwrap()),
+            new_branch: Some(true),
+            database: Some(WorkspaceDatabase::Clone),
+            dependencies: Some(false),
+            copy_environment: Some(false),
+        },
+    };
+    let response = clone_client.workspace_prepare(&clone_preview).unwrap();
+    assert!(
+        response.error().is_none(),
+        "clone preview: {:?}",
+        response.error()
+    );
+    let preview = response.data().unwrap();
+    assert!(
+        preview.blockers.is_empty(),
+        "clone blockers: {:?}",
+        preview.blockers
+    );
+    let request = env_request(
+        &source.id,
+        source.revision,
+        "a10-native-clone",
+        MutationInput::WorkspaceCreate(WorkspaceCreateInput {
+            plan: preview.plan.clone().unwrap(),
+            limits: None,
+        }),
+    );
+    let response = clone_client.workspace_plan(&request).unwrap();
+    assert!(
+        response.error().is_none(),
+        "clone plan: {:?}",
+        response.error()
+    );
+    let plan = response.data().unwrap().clone();
+    rig.native.approve_service_plan(&plan.digest).unwrap();
+    let response = clone_client
+        .workspace_apply(&request, &plan.digest)
+        .unwrap();
+    assert!(
+        response.error().is_none(),
+        "clone apply: {:?}",
+        response.error()
+    );
+    let receipt = response.data().unwrap().clone();
+    let state = rig.complete(&clone_grant, &receipt);
+    if state != OperationState::Succeeded {
+        let summaries = std::fs::read_dir(rig.root.path().join("worktrees"))
+            .ok()
+            .into_iter()
+            .flatten()
+            .filter_map(Result::ok)
+            .filter_map(|d| std::fs::read(d.path().join("receipt.json")).ok())
+            .filter_map(|b| serde_json::from_slice::<serde_json::Value>(&b).ok())
+            .map(|v| {
+                (
+                    v["stage"].as_str().unwrap_or("unknown").to_owned(),
+                    v["last_error"].as_str().unwrap_or("none").to_owned(),
+                )
+            })
+            .collect::<Vec<_>>();
+        panic!("native clone operation {state:?}; safe stages: {summaries:?}");
+    }
+    let records = std::fs::read_dir(rig.root.path().join("worktrees"))
+        .unwrap()
+        .filter_map(Result::ok)
+        .filter_map(|d| std::fs::read(d.path().join("receipt.json")).ok())
+        .filter_map(|b| serde_json::from_slice::<serde_json::Value>(&b).ok())
+        .collect::<Vec<_>>();
+    let clone = records
+        .iter()
+        .find(|r| r["input"]["branch"] == "a10-native-clone")
+        .unwrap();
+    assert_eq!(clone["stage"], "ready");
+    let clone_id = clone["id"].as_str().unwrap();
+    let cloned_db = rig
+        .root
+        .path()
+        .join("worktrees")
+        .join(clone_id)
+        .join("tree/database/database.sqlite");
+    let db = rusqlite::Connection::open_with_flags(
+        cloned_db,
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
+    )
+    .unwrap();
+    let value: String = db
+        .query_row("SELECT value FROM fixture_canary", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(value, "SOURCE_DB_CANARY");
+    assert_eq!(std::fs::read(&source_db).unwrap(), source_db_bytes);
+    assert_eq!(
+        std::fs::read_to_string(source.path.join("database/other.sqlite")).unwrap(),
+        "OTHER_DB_CANARY"
+    );
+    assert_eq!(
+        std::fs::read_to_string(source.path.join(".env")).unwrap(),
+        "APP_KEY=base64:SOURCE_CANARY\nDB_CONNECTION=sqlite\n"
+    );
+    assert_eq!(git(&["rev-parse", "HEAD"]), head);
+    assert_eq!(git(&["status", "--porcelain"]), status);
+
+    // A real committed submodule selects isolated creation. Nested dirty state
+    // remains unverified without executing the untrusted nested clean filter.
+    std::fs::remove_file(source.path.join("dirty-canary")).unwrap();
+    let module = rig.root.path().join("native-module-source");
+    std::fs::create_dir_all(&module).unwrap();
+    let module_git = |args: &[&str]| {
+        let out = std::process::Command::new("git")
+            .arg("-C")
+            .arg(&module)
+            .args(args)
+            .output()
+            .unwrap();
+        assert!(
+            out.status.success(),
+            "module git {:?}: {}",
+            args,
+            String::from_utf8_lossy(&out.stderr)
+        );
+    };
+    module_git(&["init", "-q"]);
+    module_git(&["config", "user.name", "Fixture"]);
+    module_git(&["config", "user.email", "fixture@example.test"]);
+    std::fs::write(module.join("nested.txt"), "AAAA").unwrap();
+    module_git(&["add", "."]);
+    module_git(&["commit", "-qm", "nested base"]);
+    git(&[
+        "-c",
+        "protocol.file.allow=always",
+        "submodule",
+        "add",
+        "-q",
+        module.to_str().unwrap(),
+        "module",
+    ]);
+    git(&["add", ".gitmodules", "module"]);
+    git(&["commit", "-qm", "add fixture module"]);
+    let isolated_head = git(&["rev-parse", "HEAD"]);
+    let nested = source.path.join("module");
+    let nested_git = |args: &[&str]| {
+        let out = std::process::Command::new("git")
+            .arg("-C")
+            .arg(&nested)
+            .args(args)
+            .output()
+            .unwrap();
+        assert!(out.status.success(), "nested config failed");
+    };
+    nested_git(&[
+        "config",
+        "filter.a10nested.clean",
+        "sh -c 'printf clean > a10-nested-marker; cat'",
+    ]);
+    std::fs::write(
+        nested.join(".gitattributes"),
+        "nested.txt filter=a10nested\n",
+    )
+    .unwrap();
+    std::fs::write(nested.join("nested.txt"), "BBBB").unwrap();
+    let isolated_preview = Request {
+        api_version: Default::default(),
+        request_id: id("a10-native-isolated-preview"),
+        project_id: id(&source.id),
+        expected_revision: Some(source.revision),
+        idempotency_key: None,
+        input: WorkspacePrepareInput {
+            action: A::Create,
+            workspace_id: None,
+            name: Some(Text::new("Isolated child".into()).unwrap()),
+            branch: Some(Text::new("a10-native-isolated".into()).unwrap()),
+            base: Some(Text::new("HEAD".into()).unwrap()),
+            new_branch: Some(true),
+            database: Some(WorkspaceDatabase::Empty),
+            dependencies: Some(false),
+            copy_environment: Some(false),
+        },
+    };
+    let response = client.workspace_prepare(&isolated_preview).unwrap();
+    assert!(
+        response.error().is_none(),
+        "isolated preview: {:?}",
+        response.error()
+    );
+    let preview = response.data().unwrap();
+    assert!(
+        preview.blockers.is_empty(),
+        "isolated blockers: {:?}",
+        preview.blockers
+    );
+    let details = preview.create.as_ref().expect("create details");
+    assert!(details.isolated);
+    assert!(details.source_dirty.is_none());
+    assert_eq!(details.source_commit.as_str(), isolated_head);
+    let request = env_request(
+        &source.id,
+        source.revision,
+        "a10-native-isolated",
+        MutationInput::WorkspaceCreate(WorkspaceCreateInput {
+            plan: preview.plan.clone().unwrap(),
+            limits: None,
+        }),
+    );
+    let response = client.workspace_plan(&request).unwrap();
+    assert!(
+        response.error().is_none(),
+        "isolated plan: {:?}",
+        response.error()
+    );
+    let plan = response.data().unwrap().clone();
+    let pending = rig.native.pending_reviews().unwrap();
+    let review = pending.iter().find(|v| v.digest == plan.digest).unwrap();
+    assert!(matches!(
+        &review.target,
+        devforge_manager::service_control::ReviewTarget::Workspace {
+            create_source_dirty: None,
+            create_isolated: Some(true),
+            ..
+        }
+    ));
+    rig.native.approve_service_plan(&plan.digest).unwrap();
+    let response = client.workspace_apply(&request, &plan.digest).unwrap();
+    assert!(
+        response.error().is_none(),
+        "isolated apply: {:?}",
+        response.error()
+    );
+    let receipt = response.data().unwrap().clone();
+    let state = rig.complete(&grant, &receipt);
+    if state != OperationState::Succeeded {
+        let summaries = std::fs::read_dir(rig.root.path().join("worktrees"))
+            .ok()
+            .into_iter()
+            .flatten()
+            .filter_map(Result::ok)
+            .filter_map(|d| std::fs::read(d.path().join("receipt.json")).ok())
+            .filter_map(|b| serde_json::from_slice::<serde_json::Value>(&b).ok())
+            .map(|v| {
+                (
+                    v["stage"].as_str().unwrap_or("unknown").to_owned(),
+                    v["last_error"].as_str().unwrap_or("none").to_owned(),
+                )
+            })
+            .collect::<Vec<_>>();
+        panic!("native isolated create {state:?}; safe stages: {summaries:?}");
+    }
+    let records = std::fs::read_dir(rig.root.path().join("worktrees"))
+        .unwrap()
+        .filter_map(Result::ok)
+        .filter_map(|d| std::fs::read(d.path().join("receipt.json")).ok())
+        .filter_map(|b| serde_json::from_slice::<serde_json::Value>(&b).ok())
+        .collect::<Vec<_>>();
+    let isolated = records
+        .iter()
+        .find(|r| r["input"]["branch"] == "a10-native-isolated")
+        .unwrap();
+    assert_eq!(isolated["stage"], "ready");
+    assert_eq!(isolated["isolated"], true);
+    let isolated_id = isolated["id"].as_str().unwrap();
+    let child_nested = rig
+        .root
+        .path()
+        .join("worktrees")
+        .join(isolated_id)
+        .join("tree/module/nested.txt");
+    assert_eq!(std::fs::read_to_string(child_nested).unwrap(), "AAAA");
+    assert_eq!(
+        std::fs::read_to_string(nested.join("nested.txt")).unwrap(),
+        "BBBB"
+    );
+    assert!(!nested.join("a10-nested-marker").exists());
+    assert_eq!(git(&["rev-parse", "HEAD"]), isolated_head);
+    assert_eq!(std::fs::read(&source_db).unwrap(), source_db_bytes);
+}
+
+#[test]
+fn a10_merge_stale_source_is_refused_and_clean_divergence_is_reviewed() {
+    use devforge_control::{
+        InformationScope,
+        mutations::WorkspaceLifecycleInput,
+        tools::{WorkspacePrepareAction as A, WorkspacePrepareInput},
+    };
+    let mut rig = Rig::runtime_setup_with(None, false, false, seed_a10_owned_worktree);
+    let source = rig.projects[0].clone();
+    let child = rig.projects[2].clone();
+    let wid = child.worktree.as_ref().unwrap().clone();
+    let target = rig.root.path().join("worktrees").join(&wid).join("tree");
+    let git = |path: &Path, args: &[&str]| {
+        let out = std::process::Command::new("git")
+            .arg("-C")
+            .arg(path)
+            .args(args)
+            .output()
+            .unwrap();
+        assert!(
+            out.status.success(),
+            "{:?}: {}",
+            args,
+            String::from_utf8_lossy(&out.stderr)
+        );
+        String::from_utf8(out.stdout).unwrap().trim().to_owned()
+    };
+    let grant = rig
+        .native
+        .issue_external_grant_with_information(
+            &id(&source.id),
+            &[
+                Scope::Observer,
+                Scope::ProjectManage,
+                Scope::ExecutionTest,
+                Scope::SensitiveOperation,
+            ],
+            &[InformationScope::WorkspaceContentScan],
+            Duration::from_secs(600),
+        )
+        .unwrap();
+    let mut client = rig.diagnostics(&grant);
+    let prepare = Request {
+        api_version: Default::default(),
+        request_id: id("a10-diverge-preview"),
+        project_id: id(&source.id),
+        expected_revision: Some(source.revision),
+        idempotency_key: None,
+        input: WorkspacePrepareInput {
+            action: A::Merge,
+            workspace_id: Some(id(&wid)),
+            name: None,
+            branch: None,
+            base: None,
+            new_branch: None,
+            database: None,
+            dependencies: None,
+            copy_environment: None,
+        },
+    };
+    let target_head = git(&target, &["rev-parse", "HEAD"]);
+    let preview = client.workspace_prepare(&prepare).unwrap();
+    assert!(preview.error().is_none(), "{:?}", preview.error());
+    let request = env_request(
+        &source.id,
+        source.revision,
+        "a10-stale-merge",
+        MutationInput::WorkspaceMerge(WorkspaceLifecycleInput {
+            workspace_id: id(&wid),
+            plan: preview.data().unwrap().plan.clone().unwrap(),
+            limits: None,
+        }),
+    );
+    let plan = client
+        .workspace_plan(&request)
+        .unwrap()
+        .data()
+        .unwrap()
+        .clone();
+    rig.native.approve_service_plan(&plan.digest).unwrap();
+    std::fs::write(source.path.join("more.txt"), "source later commit").unwrap();
+    git(&source.path, &["add", "more.txt"]);
+    git(&source.path, &["commit", "-qm", "later source"]);
+    let new_source_head = git(&source.path, &["rev-parse", "HEAD"]);
+    let stale = client.workspace_apply(&request, &plan.digest).unwrap();
+    if let Some(receipt) = stale.data() {
+        assert_ne!(rig.complete(&grant, receipt), OperationState::Succeeded);
+    } else {
+        assert!(stale.error().is_some());
+    }
+    assert_eq!(git(&target, &["rev-parse", "HEAD"]), target_head);
+    assert_eq!(git(&source.path, &["rev-parse", "HEAD"]), new_source_head);
+    std::fs::write(target.join("target-only.txt"), "target divergence").unwrap();
+    git(&target, &["add", "target-only.txt"]);
+    git(&target, &["commit", "-qm", "diverge"]);
+    let divergent_head = git(&target, &["rev-parse", "HEAD"]);
+    let blocked = client.workspace_prepare(&prepare).unwrap();
+    assert!(blocked.error().is_none(), "{:?}", blocked.error());
+    let preview = blocked.data().unwrap();
+    assert!(preview.blockers.is_empty(), "{:?}", preview.blockers);
+    let merge = preview.merge.as_ref().expect("merge preview");
+    assert_eq!(
+        merge.effect,
+        devforge_control::tools::WorkspaceMergeEffect::MergeCommit
+    );
+    let reviewed_tree = merge
+        .result_tree
+        .as_ref()
+        .expect("reviewed merge tree")
+        .as_str()
+        .to_owned();
+    assert!(preview.plan.is_some());
+    let source_status = git(&source.path, &["status", "--porcelain"]);
+    assert_eq!(
+        a10_lifecycle_action(&mut rig, &grant, &wid, A::Merge, "a10-divergent-merge"),
+        OperationState::Succeeded
+    );
+    let merged_head = git(&target, &["rev-parse", "HEAD"]);
+    assert_ne!(merged_head, divergent_head);
+    assert_eq!(git(&target, &["rev-parse", "HEAD^{tree}"]), reviewed_tree);
+    let parents = git(&target, &["rev-list", "--parents", "-n", "1", "HEAD"]);
+    assert_eq!(
+        parents.split_whitespace().collect::<Vec<_>>(),
+        vec![
+            merged_head.as_str(),
+            divergent_head.as_str(),
+            new_source_head.as_str()
+        ]
+    );
+    assert_eq!(git(&source.path, &["rev-parse", "HEAD"]), new_source_head);
+    assert_eq!(git(&source.path, &["status", "--porcelain"]), source_status);
+    assert_eq!(
+        std::fs::read_to_string(source.path.join("dirty-canary")).unwrap(),
+        "source remains untouched"
+    );
+}
+
+#[test]
+fn a10_external_create_and_archive_previews_never_execute_git_filters_or_fsmonitor() {
+    use devforge_control::{
+        InformationScope,
+        limits::Text,
+        tools::{WorkspaceDatabase, WorkspacePrepareAction as A, WorkspacePrepareInput},
+    };
+    let mut rig = Rig::runtime_setup_with(None, false, false, seed_a10_owned_worktree);
+    let source = rig.projects[0].clone();
+    let child = rig.projects[2].clone();
+    let wid = child.worktree.as_ref().unwrap().clone();
+    let target = rig.root.path().join("worktrees").join(&wid).join("tree");
+    let git = |path: &Path, args: &[&str]| {
+        let out = std::process::Command::new("git")
+            .arg("-C")
+            .arg(path)
+            .args(args)
+            .output()
+            .unwrap();
+        assert!(
+            out.status.success(),
+            "git {:?}: {}",
+            args,
+            String::from_utf8_lossy(&out.stderr)
+        );
+        String::from_utf8(out.stdout).unwrap().trim().to_owned()
+    };
+    let head = git(&source.path, &["rev-parse", "HEAD"]);
+    // Static, harmless commands create fixture markers if a filter/fsmonitor is
+    // ever executed. All paths remain local to the disposable fixture.
+    git(
+        &source.path,
+        &[
+            "config",
+            "filter.a10clean.clean",
+            "sh -c 'printf clean > a10-clean-marker; cat'",
+        ],
+    );
+    git(
+        &source.path,
+        &[
+            "config",
+            "filter.a10process.process",
+            "sh -c 'printf process > a10-process-marker; exit 1'",
+        ],
+    );
+    git(
+        &source.path,
+        &[
+            "config",
+            "core.fsmonitor",
+            "sh -c 'printf monitor > a10-fsmonitor-marker'",
+        ],
+    );
+    for path in [&source.path, &target] {
+        std::fs::write(
+            path.join(".gitattributes"),
+            "public/index.php filter=a10clean\ncomposer.json filter=a10process\n",
+        )
+        .unwrap();
+        let mut php = std::fs::read(path.join("public/index.php")).unwrap();
+        let last = php.len() - 1;
+        php[last] = if php[last] == b'X' { b'Y' } else { b'X' };
+        std::fs::write(path.join("public/index.php"), php).unwrap();
+        let mut json = std::fs::read(path.join("composer.json")).unwrap();
+        json.push(b' ');
+        std::fs::write(path.join("composer.json"), json).unwrap();
+    }
+    let scan = [InformationScope::WorkspaceContentScan];
+    let grant = rig
+        .native
+        .issue_external_grant_with_information(
+            &id(&source.id),
+            &[Scope::Observer],
+            &scan,
+            Duration::from_secs(600),
+        )
+        .unwrap();
+    let mut client = rig.diagnostics(&grant);
+    let create = Request {
+        api_version: Default::default(),
+        request_id: id("a10-filter-create"),
+        project_id: id(&source.id),
+        expected_revision: Some(source.revision),
+        idempotency_key: None,
+        input: WorkspacePrepareInput {
+            action: A::Create,
+            workspace_id: None,
+            name: Some(Text::new("filter child".into()).unwrap()),
+            branch: Some(Text::new("a10-filter-child".into()).unwrap()),
+            base: Some(Text::new("HEAD".into()).unwrap()),
+            new_branch: Some(true),
+            database: Some(WorkspaceDatabase::Empty),
+            dependencies: Some(false),
+            copy_environment: Some(false),
+        },
+    };
+    let archive = Request {
+        api_version: Default::default(),
+        request_id: id("a10-filter-archive"),
+        project_id: id(&source.id),
+        expected_revision: Some(source.revision),
+        idempotency_key: None,
+        input: WorkspacePrepareInput {
+            action: A::Archive,
+            workspace_id: Some(id(&wid)),
+            name: None,
+            branch: None,
+            base: None,
+            new_branch: None,
+            database: None,
+            dependencies: None,
+            copy_environment: None,
+        },
+    };
+    let check_markers = |phase: &str| {
+        for (label, path) in [("source", &source.path), ("target", &target)] {
+            for name in [
+                "a10-clean-marker",
+                "a10-process-marker",
+                "a10-fsmonitor-marker",
+            ] {
+                assert!(
+                    !path.join(name).exists(),
+                    "untrusted filter ran in {label} during {phase}: {name}"
+                );
+            }
+        }
+    };
+    check_markers("fixture setup");
+    let created = client.workspace_prepare(&create).unwrap();
+    assert!(
+        created.error().is_none(),
+        "safe create preview: {:?}",
+        created.error()
+    );
+    check_markers("create preview");
+    let archived = client.workspace_prepare(&archive).unwrap();
+    assert!(
+        archived.error().is_none(),
+        "safe archive preview: {:?}",
+        archived.error()
+    );
+    assert!(
+        archived
+            .data()
+            .unwrap()
+            .blockers
+            .iter()
+            .any(|b| b.as_str() == "worktree_dirty")
+    );
+    check_markers("archive preview");
+    check_markers("after archive");
+    // A staged gitlink must be rejected before any status walk, even when the
+    // caller holds the read-only content-scan right.
+    git(
+        &source.path,
+        &[
+            "-c",
+            "core.fsmonitor=false",
+            "-c",
+            "filter.a10clean.clean=",
+            "-c",
+            "filter.a10process.process=",
+            "update-index",
+            "--add",
+            "--cacheinfo",
+            &format!("160000,{head},a10-submodule"),
+        ],
+    );
+    check_markers("staging gitlink");
+    let staged = client.workspace_prepare(&create).unwrap();
+    if let Some(preview) = staged.data() {
+        assert_ne!(
+            preview.create.as_ref().unwrap().source_dirty,
+            Some(false),
+            "nested source must not be reported clean when it is known dirty"
+        );
+    } else {
+        assert!(staged.error().is_some());
+    }
+    check_markers("staged preview");
+    // Commit only the staged index tree using commit-tree/update-ref, which do
+    // not inspect dirty worktree bytes or invoke the configured clean filters.
+    let tree = git(
+        &source.path,
+        &[
+            "-c",
+            "core.fsmonitor=false",
+            "-c",
+            "filter.a10clean.clean=",
+            "-c",
+            "filter.a10process.process=",
+            "write-tree",
+        ],
+    );
+    let commit = git(
+        &source.path,
+        &[
+            "-c",
+            "core.fsmonitor=false",
+            "-c",
+            "filter.a10clean.clean=",
+            "-c",
+            "filter.a10process.process=",
+            "commit-tree",
+            &tree,
+            "-p",
+            &head,
+            "-m",
+            "fixture gitlink",
+        ],
+    );
+    git(
+        &source.path,
+        &[
+            "-c",
+            "core.fsmonitor=false",
+            "-c",
+            "filter.a10clean.clean=",
+            "-c",
+            "filter.a10process.process=",
+            "update-ref",
+            "HEAD",
+            &commit,
+            &head,
+        ],
+    );
+    check_markers("creating gitlink commit");
+    let committed = client.workspace_prepare(&create).unwrap();
+    assert!(
+        committed.data().is_none(),
+        "committed gitlink must not yield a create ticket"
+    );
+    check_markers("committed preview");
+}
+
+#[test]
+fn a10_isolated_create_preview_reports_nested_source_dirty_unknown_without_running_filters() {
+    use devforge_control::{
+        InformationScope,
+        limits::Text,
+        tools::{WorkspaceDatabase, WorkspacePrepareAction as A, WorkspacePrepareInput},
+    };
+    let mut rig = Rig::runtime_setup_with(None, false, false, seed_a10_owned_worktree);
+    let source = rig.projects[0].clone();
+    let module = rig.root.path().join("module-source");
+    std::fs::create_dir_all(&module).unwrap();
+    let git = |path: &Path, args: &[&str]| {
+        let out = std::process::Command::new("git")
+            .arg("-C")
+            .arg(path)
+            .args(args)
+            .output()
+            .unwrap();
+        assert!(
+            out.status.success(),
+            "git {:?}: {}",
+            args,
+            String::from_utf8_lossy(&out.stderr)
+        );
+        String::from_utf8(out.stdout).unwrap().trim().to_owned()
+    };
+    git(&module, &["init", "-q"]);
+    git(&module, &["config", "user.name", "Fixture"]);
+    git(&module, &["config", "user.email", "fixture@example.test"]);
+    std::fs::write(module.join("tracked.txt"), "AAAA").unwrap();
+    git(&module, &["add", "."]);
+    git(&module, &["commit", "-qm", "module"]);
+    std::fs::remove_file(source.path.join("dirty-canary")).unwrap();
+    git(
+        &source.path,
+        &[
+            "-c",
+            "protocol.file.allow=always",
+            "submodule",
+            "add",
+            "-q",
+            module.to_str().unwrap(),
+            "module",
+        ],
+    );
+    git(&source.path, &["add", ".gitmodules", "module"]);
+    git(&source.path, &["commit", "-qm", "add module"]);
+    let head = git(&source.path, &["rev-parse", "HEAD"]);
+    let nested = source.path.join("module");
+    git(
+        &nested,
+        &[
+            "config",
+            "filter.a10nested.clean",
+            "sh -c 'printf clean > a10-nested-marker; cat'",
+        ],
+    );
+    git(
+        &nested,
+        &[
+            "config",
+            "core.fsmonitor",
+            "sh -c 'printf monitor > a10-nested-monitor'",
+        ],
+    );
+    std::fs::write(
+        nested.join(".gitattributes"),
+        "tracked.txt filter=a10nested\n",
+    )
+    .unwrap();
+    std::fs::write(nested.join("tracked.txt"), "BBBB").unwrap();
+    let grant = rig
+        .native
+        .issue_external_grant_with_information(
+            &id(&source.id),
+            &[Scope::Observer],
+            &[InformationScope::WorkspaceContentScan],
+            Duration::from_secs(600),
+        )
+        .unwrap();
+    let mut client = rig.diagnostics(&grant);
+    let prepare = Request {
+        api_version: Default::default(),
+        request_id: id("a10-nested-preview"),
+        project_id: id(&source.id),
+        expected_revision: Some(source.revision),
+        idempotency_key: None,
+        input: WorkspacePrepareInput {
+            action: A::Create,
+            workspace_id: None,
+            name: Some(Text::new("isolated child".into()).unwrap()),
+            branch: Some(Text::new("a10-isolated-child".into()).unwrap()),
+            base: Some(Text::new("HEAD".into()).unwrap()),
+            new_branch: Some(true),
+            database: Some(WorkspaceDatabase::Empty),
+            dependencies: Some(false),
+            copy_environment: Some(false),
+        },
+    };
+    let response = client.workspace_prepare(&prepare).unwrap();
+    assert!(response.error().is_none(), "{:?}", response.error());
+    let preview = response.data().unwrap();
+    assert!(preview.blockers.is_empty(), "{:?}", preview.blockers);
+    let create = preview.create.as_ref().expect("create preview");
+    assert!(create.isolated);
+    assert_eq!(create.source_commit.as_str(), head);
+    assert!(
+        create.source_dirty.is_none(),
+        "nested source dirtiness must be unverified"
+    );
+    assert!(preview.plan.is_some());
+    assert!(!nested.join("a10-nested-marker").exists());
+    assert!(!nested.join("a10-nested-monitor").exists());
 }

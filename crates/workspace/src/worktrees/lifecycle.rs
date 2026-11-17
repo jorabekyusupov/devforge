@@ -1,7 +1,7 @@
 //! Reviewed archive lifecycle. Only the receipt-owned payload may be purged.
 use super::*;
 use std::io::Read;
-#[derive(Serialize)]
+#[derive(Clone, Serialize)]
 pub struct ArchivePlan {
     pub workspace: View,
     pub operation: String,
@@ -18,7 +18,9 @@ fn inventory(
     bytes: &mut u64,
     depth: usize,
     cancel: &Cancellation,
+    check: &dyn Fn() -> Result<()>,
 ) -> Result<()> {
+    check()?;
     if cancel.is_cancelled() {
         return Err(error("setup_cancelled"));
     }
@@ -49,7 +51,7 @@ fn inventory(
         for entry in entries {
             h.update(entry.file_name().to_string_lossy().as_bytes());
             h.update(b"\0");
-            inventory(&entry.path(), h, files, bytes, depth + 1, cancel)?;
+            inventory(&entry.path(), h, files, bytes, depth + 1, cancel, check)?;
         }
     } else if m.is_file() {
         *files += 1;
@@ -62,6 +64,7 @@ fn inventory(
         let mut buf = [0u8; 65536];
         let mut read = 0u64;
         loop {
+            check()?;
             if cancel.is_cancelled() {
                 return Err(error("setup_cancelled"));
             }
@@ -75,18 +78,74 @@ fn inventory(
             }
             h.update(&buf[..n]);
         }
+        if read != m.len() {
+            return Err(error("worktree_review_changed"));
+        }
     } else {
         return Err(error("worktree_ownership"));
     }
     Ok(())
+}
+/// Private owned-project review inputs, never returned directly to clients.
+pub struct ArchiveReviewSnapshot {
+    plan: ArchivePlan,
+    project: Option<Project>,
+    inventories: Vec<PathBuf>,
+}
+impl ArchiveReviewSnapshot {
+    pub fn fingerprint(&self) -> String {
+        digest(&(&self.plan, &self.project, &self.inventories))
+    }
+    pub fn finish(
+        &self,
+        cancel: &Cancellation,
+        check: &dyn Fn() -> Result<()>,
+    ) -> Result<ArchivePlan> {
+        let mut files = 0;
+        let mut bytes = 0;
+        let mut h = Sha256::new();
+        check()?;
+        let mut last = std::time::Instant::now();
+        let periodic = std::cell::RefCell::new(&mut last);
+        let bounded_check = || -> Result<()> {
+            if cancel.is_cancelled() {
+                return Err(error("setup_cancelled"));
+            }
+            let mut observed = periodic.borrow_mut();
+            if observed.elapsed() >= std::time::Duration::from_millis(200) {
+                check()?;
+                **observed = std::time::Instant::now();
+            }
+            Ok(())
+        };
+        for path in &self.inventories {
+            inventory(
+                path,
+                &mut h,
+                &mut files,
+                &mut bytes,
+                0,
+                cancel,
+                &bounded_check,
+            )?;
+        }
+        check()?;
+        let mut plan = self.plan.clone();
+        plan.files = files;
+        plan.bytes = bytes;
+        plan.digest = digest(&(&plan, &self.project, h.finalize().to_vec()));
+        Ok(plan)
+    }
 }
 fn copy_payload(
     source: &Path,
     destination: &Path,
     cancel: &Cancellation,
     root: bool,
+    check: &dyn Fn() -> Result<()>,
 ) -> Result<()> {
     for item in fs::read_dir(source)? {
+        check()?;
         if cancel.is_cancelled() {
             return Err(error("setup_cancelled"));
         }
@@ -118,7 +177,7 @@ fn copy_payload(
             }
         } else if m.is_dir() {
             fs::create_dir(&to)?;
-            copy_payload(&from, &to, cancel, false)?;
+            copy_payload(&from, &to, cancel, false, check)?;
         } else if m.is_file() {
             fs::copy(from, to)?;
         } else {
@@ -135,6 +194,7 @@ impl Workspace {
         cancel: &Cancellation,
         action: impl FnOnce() -> Result<T>,
     ) -> Result<T> {
+        let _safe = git::external_read_guard();
         git::with_read_cancellation(cancel, action)
     }
     pub fn worktree_archive_plan(&self, id: &str, operation: &str) -> Result<ArchivePlan> {
@@ -146,11 +206,32 @@ impl Workspace {
         operation: &str,
         cancel: &Cancellation,
     ) -> Result<ArchivePlan> {
+        let record = self.worktree_record(id)?;
+        let dir = self.worktree_dir(id)?;
+        self.archive_review_snapshot(record, dir, operation)?
+            .finish(cancel, &|| Ok(()))
+    }
+    /// Actor captures scoped private metadata without creating a worktree directory.
+    pub fn external_archive_review_snapshot(
+        &self,
+        source: &str,
+        id: &str,
+        operation: &str,
+    ) -> Result<ArchiveReviewSnapshot> {
+        let record = self.external_worktree_record(source, id)?;
+        let dir = self.root.join("worktrees").join(id);
+        self.archive_review_snapshot(record, dir, operation)
+    }
+    fn archive_review_snapshot(
+        &self,
+        record: Record,
+        dir: PathBuf,
+        operation: &str,
+    ) -> Result<ArchiveReviewSnapshot> {
+        let id = record.id.as_str();
         if !["restore", "purge"].contains(&operation) {
             return Err(error("worktree_ownership"));
         }
-        let record = self.worktree_record(id)?;
-        let dir = self.worktree_dir(id)?;
         let retained = dir.join("retained");
         let mut blockers = vec![];
         let restoring = operation == "restore" && record.stage == "restoring";
@@ -171,15 +252,6 @@ impl Workspace {
                 && (!restoring || Some(p.id.as_str()) != record.project_id.as_deref())
         }) {
             blockers.push("worktree_nested_project".into());
-        }
-        let mut files = 0;
-        let mut bytes = 0;
-        let mut h = Sha256::new();
-        if blockers.is_empty() && payload.exists() {
-            inventory(&payload, &mut h, &mut files, &mut bytes, 0, cancel)?;
-        }
-        if restoring && retained.exists() && dir.join("tree").exists() {
-            inventory(&dir.join("tree"), &mut h, &mut files, &mut bytes, 0, cancel)?;
         }
         let project = record
             .project_id
@@ -225,7 +297,16 @@ impl Workspace {
                 self.worktree_identity(&record, &payload)?;
             }
         }
-        let mut plan = ArchivePlan {
+        let inventories = if blockers.is_empty() && payload.exists() {
+            vec![payload.clone()]
+        } else {
+            Vec::new()
+        };
+        let mut inventories = inventories;
+        if restoring && retained.exists() && dir.join("tree").exists() {
+            inventories.push(dir.join("tree"));
+        }
+        let plan = ArchivePlan {
             workspace: View {
                 files_archived: ordinary(&retained),
                 record,
@@ -233,13 +314,16 @@ impl Workspace {
                 retained_path: retained,
             },
             operation: operation.into(),
-            files,
-            bytes,
+            files: 0,
+            bytes: 0,
             blockers,
             digest: String::new(),
         };
-        plan.digest = digest(&(&plan, project, h.finalize().to_vec()));
-        Ok(plan)
+        Ok(ArchiveReviewSnapshot {
+            plan,
+            project,
+            inventories,
+        })
     }
     pub fn worktree_archive(
         &mut self,
@@ -249,11 +333,29 @@ impl Workspace {
         consent: bool,
         cancel: &Cancellation,
     ) -> Result<Record> {
+        self.worktree_archive_guarded(id, operation, review, consent, cancel, &|| Ok(()))
+    }
+    pub fn worktree_archive_guarded(
+        &mut self,
+        id: &str,
+        operation: &str,
+        review: &str,
+        consent: bool,
+        cancel: &Cancellation,
+        check: &dyn Fn() -> Result<()>,
+    ) -> Result<Record> {
+        check()?;
         let _lock = self.worktree_lock()?;
+        check()?;
         if !consent {
             return Err(error("service_consent_required"));
         }
-        let plan = self.worktree_archive_review(id, operation, cancel)?;
+        let record = self.worktree_record(id)?;
+        let dir = self.worktree_dir(id)?;
+        let plan = self
+            .archive_review_snapshot(record, dir, operation)?
+            .finish(cancel, check)?;
+        check()?;
         if plan.digest != review {
             return Err(error("worktree_review_changed"));
         }
@@ -271,8 +373,10 @@ impl Workspace {
             if record.isolated && retained.exists() && record.stage != "purging" {
                 let recovery = self.worktree_dir(id)?.join("history.bundle");
                 if recovery.exists() {
+                    check()?;
                     fs::remove_file(&recovery)?;
                 }
+                check()?;
                 git::run(
                     &self.root,
                     &retained,
@@ -290,6 +394,7 @@ impl Workspace {
                 let mut number = 0;
                 while let Some(dir) = pending.pop() {
                     for item in fs::read_dir(&dir)? {
+                        check()?;
                         let item = item?;
                         let p = item.path();
                         if item.file_name() == ".git" {
@@ -302,8 +407,10 @@ impl Workspace {
                                     .worktree_dir(id)?
                                     .join(format!("submodule-{number}.bundle"));
                                 if bundle.exists() {
+                                    check()?;
                                     fs::remove_file(&bundle)?;
                                 }
+                                check()?;
                                 git::run(
                                     &self.root,
                                     &p,
@@ -324,7 +431,15 @@ impl Workspace {
                 }
             }
             if record.stage != "purging"
-                && self.worktree_archive_review(id, operation, cancel)?.digest != review
+                && self
+                    .archive_review_snapshot(
+                        self.worktree_record(id)?,
+                        self.worktree_dir(id)?,
+                        operation,
+                    )?
+                    .finish(cancel, check)?
+                    .digest
+                    != review
             {
                 return Err(error("worktree_review_changed"));
             }
@@ -332,9 +447,16 @@ impl Workspace {
             if cancel.is_cancelled() {
                 return Err(error("setup_cancelled"));
             }
+            check()?;
             record.stage = "purging".into();
             self.save_worktree(&record)?;
             if retained.exists() {
+                // Reauthorize after the journal write, immediately before the
+                // irreversible owned deletion begins. Once started, finish it.
+                check()?;
+                if cancel.is_cancelled() {
+                    return Err(error("setup_cancelled"));
+                }
                 erase::payload(&retained)?;
             }
             record.stage = "purged".into();
@@ -350,14 +472,17 @@ impl Workspace {
             .projects
             .archived_worktree(&project, id)
             .or_else(|_| self.projects.get(&project))?;
+        check()?;
         record.stage = "restoring".into();
         self.save_worktree(&record)?;
         if record.isolated {
             if !path.exists() {
+                check()?;
                 fs::rename(&retained, &path)?;
             }
         } else {
             if !path.exists() {
+                check()?;
                 self.worktree_git(
                     &record.common_dir,
                     vec![
@@ -378,11 +503,43 @@ impl Workspace {
             }
             self.worktree_identity(&record, &path)?;
             if retained.exists() {
+                // Bound content-scan reauthorization without a registry/SQLite
+                // transaction for every 64 KiB of a large retained file.
+                let last_check = std::cell::Cell::new(std::time::Instant::now());
+                let scan_check = || -> Result<()> {
+                    if cancel.is_cancelled() {
+                        return Err(error("setup_cancelled"));
+                    }
+                    if last_check.get().elapsed() >= std::time::Duration::from_millis(200) {
+                        check()?;
+                        last_check.set(std::time::Instant::now());
+                    }
+                    Ok(())
+                };
+                check()?;
                 let (mut before, mut files, mut bytes) = (Sha256::new(), 0, 0);
-                inventory(&retained, &mut before, &mut files, &mut bytes, 0, cancel)?;
-                copy_payload(&retained, &path, cancel, true)?;
+                inventory(
+                    &retained,
+                    &mut before,
+                    &mut files,
+                    &mut bytes,
+                    0,
+                    cancel,
+                    &scan_check,
+                )?;
+                check()?;
+                copy_payload(&retained, &path, cancel, true, check)?;
                 let (mut after, mut files, mut bytes) = (Sha256::new(), 0, 0);
-                inventory(&retained, &mut after, &mut files, &mut bytes, 0, cancel)?;
+                inventory(
+                    &retained,
+                    &mut after,
+                    &mut files,
+                    &mut bytes,
+                    0,
+                    cancel,
+                    &scan_check,
+                )?;
+                check()?;
                 if before.finalize() != after.finalize() {
                     return Err(error("worktree_review_changed"));
                 }
@@ -400,9 +557,11 @@ impl Workspace {
             return Err(error("worktree_review_changed"));
         }
         if !old.active {
+            check()?;
             self.projects
                 .reactivate_worktree(&project, id, &path, old.revision)?;
         }
+        check()?;
         self.sites.configure(
             &self.projects,
             Site {
@@ -421,11 +580,69 @@ impl Workspace {
         self.save()?;
         // The archive remains intact until activation succeeds; remove only this duplicate afterwards.
         if retained.exists() {
+            check()?;
             erase::payload(&retained)?;
         }
         record.stage = "ready".into();
         record.last_error = None;
         self.save_worktree(&record)?;
         Ok(record)
+    }
+}
+
+#[cfg(test)]
+mod guarded_inventory_tests {
+    use super::*;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    #[test]
+    fn scan_stops_before_content_when_authority_revoked() {
+        let root = tempfile::tempdir().unwrap();
+        let file = root.path().join("item");
+        fs::write(&file, b"fixture").unwrap();
+        let calls = AtomicUsize::new(0);
+        let denied = || {
+            calls.fetch_add(1, Ordering::SeqCst);
+            Err(error("grant_revoked"))
+        };
+        let result = inventory(
+            &file,
+            &mut Sha256::new(),
+            &mut 0,
+            &mut 0,
+            0,
+            &Cancellation::default(),
+            &denied,
+        );
+        assert_eq!(result.err().unwrap().code, "grant_revoked");
+        assert_eq!(calls.load(Ordering::SeqCst), 1);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn inventory_hashes_symlink_target_without_reading_external_content() {
+        use std::os::unix::fs::symlink;
+        let owned = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        let target = outside.path().join("private");
+        fs::write(&target, b"SYNTHETIC_OUTSIDE_CONTENT").unwrap();
+        let link = owned.path().join("link");
+        symlink(&target, &link).unwrap();
+        let (mut hash, mut files, mut bytes) = (Sha256::new(), 0, 0);
+        inventory(
+            &link,
+            &mut hash,
+            &mut files,
+            &mut bytes,
+            0,
+            &Cancellation::default(),
+            &|| Ok(()),
+        )
+        .unwrap();
+        assert_eq!((files, bytes), (0, 0));
+        assert_eq!(
+            hash.finalize().to_vec(),
+            Sha256::digest(target.as_os_str().to_string_lossy().as_bytes()).to_vec()
+        );
     }
 }

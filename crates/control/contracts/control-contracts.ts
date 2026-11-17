@@ -211,7 +211,7 @@ export interface WorkspaceListOutput {
   truncated: boolean;
 }
 export interface WorkspacePrepareInput {
-  action: "create" | "archive" | "restore" | "purge";
+  action: "create" | "archive" | "restore" | "purge" | "merge";
   workspace_id?: string | null;
   name?: string | null;
   branch?: string | null;
@@ -221,13 +221,30 @@ export interface WorkspacePrepareInput {
   dependencies?: boolean | null;
   copy_environment?: boolean | null;
 }
+export interface WorkspaceMergePreview {
+  source_head: string;
+  target_head: string;
+  target_branch: string;
+  target_project_revision: number;
+  source_dirty: boolean;
+  effect: "fast_forward" | "already_included" | "merge_commit";
+  result_tree?: string | null;
+  isolated: boolean;
+}
+export interface WorkspaceCreatePreview {
+  source_commit: string;
+  source_dirty?: boolean | null;
+  isolated: boolean;
+}
 export interface WorkspacePrepareOutput {
   project_id: string;
   revision: number;
-  kind: "create" | "archive" | "restore" | "purge";
+  kind: "create" | "archive" | "restore" | "purge" | "merge";
   workspace_id?: string | null;
   blockers: Array<string>;
   plan?: string | null;
+  create?: WorkspaceCreatePreview | null;
+  merge?: WorkspaceMergePreview | null;
 }
 export interface OperationInput {
   page?: PageRequest | null;
@@ -629,6 +646,7 @@ export interface MutationInputs {
   "debugger.primitive_assignment": DebuggerAssignInput;
   "debugger.export": DebuggerExportInput;
   "workspaces.create": WorkspaceCreateInput;
+  "workspaces.merge": WorkspaceLifecycleInput;
   "workspaces.archive": WorkspaceLifecycleInput;
   "workspaces.restore": WorkspaceLifecycleInput;
   "workspaces.purge": WorkspaceLifecycleInput;
@@ -663,6 +681,7 @@ export interface MutationOutputs {
   "debugger.primitive_assignment": MutationReceipt;
   "debugger.export": MutationReceipt;
   "workspaces.create": MutationReceipt;
+  "workspaces.merge": MutationReceipt;
   "workspaces.archive": MutationReceipt;
   "workspaces.restore": MutationReceipt;
   "workspaces.purge": MutationReceipt;

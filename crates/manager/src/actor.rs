@@ -637,6 +637,11 @@ impl ActorHandle {
             MutationInput::DomainApply(_) => MutationOutput::DomainApply(output),
             MutationInput::DomainCleanup(_) => MutationOutput::DomainCleanup(output),
             MutationInput::SupportExport(_) => MutationOutput::SupportExport(output),
+            MutationInput::WorkspaceCreate(_) => MutationOutput::WorkspaceCreate(output),
+            MutationInput::WorkspaceMerge(_) => MutationOutput::WorkspaceMerge(output),
+            MutationInput::WorkspaceArchive(_) => MutationOutput::WorkspaceArchive(output),
+            MutationInput::WorkspaceRestore(_) => MutationOutput::WorkspaceRestore(output),
+            MutationInput::WorkspacePurge(_) => MutationOutput::WorkspacePurge(output),
             MutationInput::DebuggerControl(_) => MutationOutput::DebuggerControl(output),
             MutationInput::DebuggerBreakpoints(_) => MutationOutput::DebuggerBreakpoints(output),
             MutationInput::DebuggerInstall(_) => MutationOutput::DebuggerInstall(output),
@@ -2222,6 +2227,7 @@ fn receipt(
                 | "runtime_failed"
                 | "serving_failed"
                 | "workspace_failed"
+                | "worktree_merge_incomplete"
                 | "debugger_failed"
                 | "result_output_limit"
                 | "owner_interrupted"
@@ -2289,6 +2295,9 @@ fn now() -> u64 {
         .as_millis() as u64
 }
 fn stable_code(scope: &str, code: &str) -> &'static str {
+    if scope == "workspace" && code == "worktree_merge_incomplete" {
+        return "worktree_merge_incomplete";
+    }
     if matches!(code, "cancelled" | "setup_cancelled") {
         return "cancelled";
     }

@@ -2,7 +2,10 @@
 //! serialized worktree records; only the manager retains these private plans.
 use devforge_control::{ErrorCode, Id};
 use devforge_runtime::Cancellation;
-use devforge_workspace::{Workspace, worktrees::Input};
+use devforge_workspace::{
+    Workspace,
+    worktrees::{Input, MergePlan, Record},
+};
 use std::sync::{
     Arc,
     atomic::{AtomicBool, Ordering},
@@ -15,6 +18,7 @@ pub(crate) enum Action {
     Archive(Id),
     Restore(Id),
     Purge(Id),
+    Merge(Id),
 }
 impl Action {
     pub(crate) fn name(&self) -> &'static str {
@@ -23,13 +27,14 @@ impl Action {
             Self::Archive(_) => "archive",
             Self::Restore(_) => "restore",
             Self::Purge(_) => "purge",
+            Self::Merge(_) => "merge",
         }
     }
     pub(crate) fn clones_database(&self) -> bool {
         matches!(self, Self::Create(input) if input.database == devforge_workspace::worktrees::DatabaseMode::Clone)
     }
     pub(crate) fn sensitive(&self) -> bool {
-        self.copies_secrets() || self.clones_database()
+        self.copies_secrets() || self.clones_database() || matches!(self, Self::Merge(_))
     }
     pub(crate) fn copies_secrets(&self) -> bool {
         matches!(self, Self::Create(input) if input.copy_environment)
@@ -37,21 +42,31 @@ impl Action {
     pub(crate) fn id(&self) -> Option<&Id> {
         match self {
             Self::Create(_) => None,
-            Self::Archive(id) | Self::Restore(id) | Self::Purge(id) => Some(id),
+            Self::Archive(id) | Self::Restore(id) | Self::Purge(id) | Self::Merge(id) => Some(id),
         }
     }
+}
+#[derive(Clone)]
+pub(crate) struct CreateReview {
+    pub source_commit: String,
+    pub source_dirty: Option<bool>,
+    pub isolated: bool,
 }
 #[derive(Clone)]
 pub(crate) struct Prepared {
     pub action: Action,
     pub core_digest: String,
     pub blockers: Vec<String>,
+    pub record: Option<Record>,
+    pub merge: Option<MergePlan>,
+    pub create: Option<CreateReview>,
 }
 impl Prepared {
     pub(crate) fn read(
         workspace: &Workspace,
         project: &Id,
         action: Action,
+        cancel: &Cancellation,
     ) -> devforge_workspace::Result<Self> {
         match &action {
             Action::Create(input) => {
@@ -59,17 +74,72 @@ impl Prepared {
                     return Err(crate::service_control::ws_error(ErrorCode::ProjectMismatch));
                 }
                 let plan = workspace.worktree_plan(input)?;
+                let source_dirty = if plan.source_dirty {
+                    Some(true)
+                } else if plan.source_dirty_unknown {
+                    None
+                } else {
+                    Some(false)
+                };
+                Ok(Self {
+                    action,
+                    create: Some(CreateReview {
+                        source_commit: plan.commit,
+                        source_dirty,
+                        isolated: plan.isolated,
+                    }),
+                    core_digest: plan.digest,
+                    blockers: plan.blockers,
+                    record: None,
+                    merge: None,
+                })
+            }
+            Action::Archive(id) => {
+                let record = workspace.external_worktree_record(project.as_str(), id.as_str())?;
+                let plan = workspace.worktree_cleanup_plan(id.as_str())?;
                 Ok(Self {
                     action,
                     core_digest: plan.digest,
                     blockers: plan.blockers,
+                    record: Some(record),
+                    merge: None,
+                    create: None,
                 })
             }
-            Action::Archive(_) | Action::Restore(_) | Action::Purge(_) => Err(
-                crate::service_control::ws_error(ErrorCode::UnsupportedCapability),
-            ),
+            Action::Restore(id) | Action::Purge(id) => {
+                let record = workspace.external_worktree_record(project.as_str(), id.as_str())?;
+                let plan = workspace.worktree_archive_review(id.as_str(), action.name(), cancel)?;
+                Ok(Self {
+                    action,
+                    core_digest: plan.digest,
+                    blockers: plan.blockers,
+                    record: Some(record),
+                    merge: None,
+                    create: None,
+                })
+            }
+            Action::Merge(id) => {
+                let record = workspace.external_worktree_record(project.as_str(), id.as_str())?;
+                let plan = workspace.worktree_merge_plan(project.as_str(), id.as_str())?;
+                Ok(Self {
+                    action,
+                    core_digest: plan.digest.clone(),
+                    blockers: plan.blockers.clone(),
+                    record: Some(record),
+                    merge: Some(plan),
+                    create: None,
+                })
+            }
         }
     }
+}
+pub(crate) enum Captured {
+    Ready(Box<Prepared>),
+    Archive {
+        action: Action,
+        record: Box<Record>,
+        snapshot: Box<devforge_workspace::worktrees::ArchiveReviewSnapshot>,
+    },
 }
 type Check = Box<dyn Fn(&Workspace) -> devforge_workspace::Result<()> + Send>;
 pub(crate) struct WorkspaceRead {
@@ -78,7 +148,7 @@ pub(crate) struct WorkspaceRead {
     pub check: Check,
     pub cancelled: Arc<AtomicBool>,
     pub cancel: Cancellation,
-    pub reply: SyncSender<devforge_workspace::Result<Prepared>>,
+    pub reply: SyncSender<devforge_workspace::Result<Captured>>,
 }
 impl WorkspaceRead {
     pub(crate) fn execute(self, workspace: &Workspace) {
@@ -95,7 +165,28 @@ impl WorkspaceRead {
             };
             check()?;
             let value = workspace.external_with_git_cancellation(&self.cancel, || {
-                Prepared::read(workspace, &self.project, self.action.clone())
+                Ok(match &self.action {
+                    Action::Restore(id) | Action::Purge(id) => {
+                        let record = workspace
+                            .external_worktree_record(self.project.as_str(), id.as_str())?;
+                        let snapshot = workspace.external_archive_review_snapshot(
+                            self.project.as_str(),
+                            id.as_str(),
+                            self.action.name(),
+                        )?;
+                        Captured::Archive {
+                            action: self.action.clone(),
+                            record: Box::new(record),
+                            snapshot: Box::new(snapshot),
+                        }
+                    }
+                    _ => Captured::Ready(Box::new(Prepared::read(
+                        workspace,
+                        &self.project,
+                        self.action.clone(),
+                        &self.cancel,
+                    )?)),
+                })
             })?;
             check()?;
             Ok(value)
@@ -144,6 +235,7 @@ pub(crate) fn parse(
                 Kind::Archive => Action::Archive(id),
                 Kind::Restore => Action::Restore(id),
                 Kind::Purge => Action::Purge(id),
+                Kind::Merge => Action::Merge(id),
                 _ => return Err(ErrorCode::InvalidInput),
             }
         }
@@ -158,6 +250,7 @@ pub(crate) fn reference(
         MutationInput::WorkspaceArchive(v) => Ok((&v.plan, Some(&v.workspace_id), "archive")),
         MutationInput::WorkspaceRestore(v) => Ok((&v.plan, Some(&v.workspace_id), "restore")),
         MutationInput::WorkspacePurge(v) => Ok((&v.plan, Some(&v.workspace_id), "purge")),
+        MutationInput::WorkspaceMerge(v) => Ok((&v.plan, Some(&v.workspace_id), "merge")),
         _ => Err(ErrorCode::UnsupportedCapability),
     }
 }

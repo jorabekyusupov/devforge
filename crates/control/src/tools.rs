@@ -136,13 +136,14 @@ pub enum WorkspacePrepareAction {
     Archive,
     Restore,
     Purge,
+    Merge,
 }
 impl Wire for WorkspacePrepareAction {
     fn schema() -> Value {
-        json!({"type":"string","enum":["create","archive","restore","purge"]})
+        json!({"type":"string","enum":["create","archive","restore","purge","merge"]})
     }
     fn ts() -> String {
-        "\"create\" | \"archive\" | \"restore\" | \"purge\"".into()
+        "\"create\" | \"archive\" | \"restore\" | \"purge\" | \"merge\"".into()
     }
 }
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -176,7 +177,24 @@ impl Wire for WorkspaceListInput {
 contract!(WorkspaceListItem { workspace_id: Id, name: Text<200>, stage: Id, project_id: Option<Id> });
 contract!(WorkspaceListOutput { project_id: Id, revision: SafeInt, origin: Origin, observed_at: SafeInt, items: Vec<WorkspaceListItem>, truncated: bool });
 contract!(WorkspacePrepareInput { action: WorkspacePrepareAction, workspace_id: Option<Id>, name: Option<Text<200>>, branch: Option<Text<256>>, base: Option<Text<256>>, new_branch: Option<bool>, database: Option<WorkspaceDatabase>, dependencies: Option<bool>, copy_environment: Option<bool> });
-contract!(WorkspacePrepareOutput { project_id: Id, revision: SafeInt, kind: WorkspacePrepareAction, workspace_id: Option<Id>, blockers: Vec<Id>, plan: Option<Digest> });
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum WorkspaceMergeEffect {
+    FastForward,
+    AlreadyIncluded,
+    MergeCommit,
+}
+impl Wire for WorkspaceMergeEffect {
+    fn schema() -> Value {
+        json!({"type":"string","enum":["fast_forward","already_included","merge_commit"]})
+    }
+    fn ts() -> String {
+        "\"fast_forward\" | \"already_included\" | \"merge_commit\"".into()
+    }
+}
+contract!(WorkspaceMergePreview { source_head: Text<64>, target_head: Text<64>, target_branch: Text<256>, target_project_revision: SafeInt, source_dirty: bool, effect: WorkspaceMergeEffect, result_tree: Option<Text<64>>, isolated: bool });
+contract!(WorkspaceCreatePreview { source_commit: Text<64>, source_dirty: Option<bool>, isolated: bool });
+contract!(WorkspacePrepareOutput { project_id: Id, revision: SafeInt, kind: WorkspacePrepareAction, workspace_id: Option<Id>, blockers: Vec<Id>, plan: Option<Digest>, create: Option<WorkspaceCreatePreview>, merge: Option<WorkspaceMergePreview> });
 contract!(WorkspaceInput{page:Option<PageRequest>});
 contract!(OperationInput{page:Option<PageRequest>,operation_id:Id});
 contract!(ArtifactInput{page:Option<PageRequest>,artifact_id:Id});
@@ -642,6 +660,8 @@ pub fn declarations() -> Vec<String> {
         WorkspaceListItem,
         WorkspaceListOutput,
         WorkspacePrepareInput,
+        WorkspaceMergePreview,
+        WorkspaceCreatePreview,
         WorkspacePrepareOutput,
         OperationInput,
         ArtifactInput,

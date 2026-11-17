@@ -365,6 +365,7 @@ mutation_set! {
     DebuggerAssign("debugger.primitive_assignment",DebuggerAssignInput,MutationReceipt,"debugger_assign"),
     DebuggerExport("debugger.export",DebuggerExportInput,MutationReceipt,"debugger_export"),
     WorkspaceCreate("workspaces.create",WorkspaceCreateInput,MutationReceipt,"worktree_create"),
+    WorkspaceMerge("workspaces.merge",WorkspaceLifecycleInput,MutationReceipt,"worktree_merge"),
     WorkspaceArchive("workspaces.archive",WorkspaceLifecycleInput,MutationReceipt,"worktree_cleanup"),
     WorkspaceRestore("workspaces.restore",WorkspaceLifecycleInput,MutationReceipt,"worktree_archive.restore"),
     WorkspacePurge("workspaces.purge",WorkspaceLifecycleInput,MutationReceipt,"worktree_archive.purge"),

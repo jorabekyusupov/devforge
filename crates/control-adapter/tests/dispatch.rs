@@ -240,6 +240,7 @@ fn workspace_lifecycle_requires_registered_source_owner_and_backend_review() {
     let own = record("p1");
     let other = record("p2");
     for tool in [
+        "workspaces.merge",
         "workspaces.archive",
         "workspaces.restore",
         "workspaces.purge",

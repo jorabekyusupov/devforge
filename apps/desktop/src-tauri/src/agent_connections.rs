@@ -134,6 +134,17 @@ pub enum Target {
         database: Option<String>,
         dependencies: Option<bool>,
         copy_environment: Option<bool>,
+        source_commit: Option<String>,
+        target_commit: Option<String>,
+        target_branch: Option<String>,
+        target_project_revision: Option<u64>,
+        source_dirty: Option<bool>,
+        merge_effect: Option<String>,
+        result_tree: Option<String>,
+        isolated: Option<bool>,
+        create_source_commit: Option<String>,
+        create_source_dirty: Option<bool>,
+        create_isolated: Option<bool>,
     },
     SupportExport {
         destination: String,
@@ -1012,12 +1023,22 @@ mod tests {
             )
             .is_ok()
         );
-        let workspace = json!({"kind":"workspace","action":"create","workspace_id":null,"name":"review","branch":"feature","base":"main","new_branch":true,"database":"clone","dependencies":false,"copy_environment":true,"source_path":"secret-path","environment_values":"secret-value"});
+        let workspace = json!({"kind":"workspace","action":"create","workspace_id":null,"name":"review","branch":"feature","base":"main","new_branch":true,"database":"clone","dependencies":false,"copy_environment":true,"create_source_commit":"c".repeat(40),"create_source_dirty":null,"create_isolated":false,"source_path":"secret-path","environment_values":"secret-value"});
         let target: Target = serde_json::from_value(workspace).unwrap();
         let safe = serde_json::to_value(target).unwrap();
         assert_eq!(safe["action"], "create");
         assert_eq!(safe["database"], "clone");
+        assert_eq!(safe["create_source_commit"], "c".repeat(40));
+        assert!(safe["create_source_dirty"].is_null());
         assert!(safe.get("source_path").is_none() && safe.get("environment_values").is_none());
+        let merge = json!({"kind":"workspace","action":"merge","workspace_id":"owned", "name":null,"branch":null,"base":null,"new_branch":null,"database":null,"dependencies":null,"copy_environment":null,"source_commit":"a".repeat(40),"target_commit":"b".repeat(40),"target_branch":"work/feature","target_project_revision":7,"source_dirty":true,"merge_effect":"merge_commit","isolated":true,"result_tree":"d".repeat(40),"source_path":"private-canary"});
+        let target: Target = serde_json::from_value(merge).unwrap();
+        let safe = serde_json::to_value(target).unwrap();
+        assert_eq!(safe["source_commit"], "a".repeat(40));
+        assert_eq!(safe["target_project_revision"], 7);
+        assert_eq!(safe["isolated"], true);
+        assert_eq!(safe["result_tree"], "d".repeat(40));
+        assert!(safe.get("source_path").is_none());
         let execution = json!({"kind":"execution","tool":"php","arg_count":2,"managed_test":true,"timeout_ms":1000,"context":{"environment":false,"database":false,"cache":false,"mail":false,"test_isolated":true},"safe_arguments":["[REDACTED]","owned-script.php"],"raw_arguments":["secret-execution-raw-canary"]});
         let target: Target = serde_json::from_value(execution).unwrap();
         let safe = serde_json::to_string(&target).unwrap();

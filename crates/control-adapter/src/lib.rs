@@ -305,7 +305,8 @@ pub fn map_mutation(
             backend_review(prepared, context)?;
             return Ok(Dispatch::WorkspaceAction { project_id: id });
         }
-        MutationInput::WorkspaceArchive(input)
+        MutationInput::WorkspaceMerge(input)
+        | MutationInput::WorkspaceArchive(input)
         | MutationInput::WorkspaceRestore(input)
         | MutationInput::WorkspacePurge(input) => {
             backend_review(prepared, context)?;

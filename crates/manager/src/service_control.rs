@@ -84,6 +84,17 @@ pub enum ReviewTarget {
         database: Option<String>,
         dependencies: Option<bool>,
         copy_environment: Option<bool>,
+        source_commit: Option<String>,
+        target_commit: Option<String>,
+        target_branch: Option<String>,
+        target_project_revision: Option<u64>,
+        source_dirty: Option<bool>,
+        merge_effect: Option<String>,
+        result_tree: Option<String>,
+        isolated: Option<bool>,
+        create_source_commit: Option<String>,
+        create_source_dirty: Option<bool>,
+        create_isolated: Option<bool>,
     },
     DebuggerInstall {
         php_runtime: String,
@@ -552,12 +563,16 @@ impl ServiceJob {
             sha256,
         )
         .map_err(ws_error)?;
-        let dispatch = map_mutation(
-            &prepared,
-            &current,
-            &BackendContext::reviewed(&self.intent.backend),
-        )
-        .map_err(ws_error)?;
+        let mut backend_context = BackendContext::reviewed(&self.intent.backend);
+        if let Some(record) = self
+            .intent
+            .workspace
+            .as_ref()
+            .and_then(|p| p.record.as_ref())
+        {
+            backend_context = backend_context.with_workspace(record);
+        }
+        let dispatch = map_mutation(&prepared, &current, &backend_context).map_err(ws_error)?;
         let check = || {
             self.check_basic().map_err(ws_error)?;
             self.authorize(&current).map_err(ws_error)?;
@@ -577,6 +592,7 @@ impl ServiceJob {
             Dispatch::WorkspaceAction { project_id } => {
                 let _git_cancel_guard =
                     devforge_workspace::worktrees::read_cancellation_guard(&self.cancellation);
+                let _safe_status_guard = devforge_workspace::worktrees::external_read_guard();
                 // The actor can be inside a Git/DB stage when a grant expires.
                 // Cooperatively cancel the shared token without waiting for the actor.
                 let monitor_done = Arc::new(AtomicBool::new(false));
@@ -630,26 +646,54 @@ impl ServiceJob {
                     .as_ref()
                     .ok_or_else(|| ws_error(ErrorCode::Unauthorized))?;
                 check()?;
-                let fresh = crate::workspace_control::Prepared::read(
-                    workspace,
-                    current.project_id(),
-                    original.action.clone(),
-                )?;
-                if !fresh.blockers.is_empty() || fresh.core_digest != original.core_digest {
-                    return Err(ws_error(ErrorCode::ReviewMismatch));
+                // Each core guarded operation re-derives and verifies its exact
+                // reviewed digest under its own worktree lock before effects.
+                // Avoid an additional potentially large inventory on the actor.
+                if let Some(id) = original.action.id() {
+                    workspace
+                        .external_worktree_record(current.project_id().as_str(), id.as_str())?;
                 }
                 check()?;
                 use crate::workspace_control::Action;
-                let record = match fresh.action {
+                let record = match original.action.clone() {
                     Action::Create(input) => workspace.worktree_create_guarded(
                         input,
-                        &fresh.core_digest,
+                        &original.core_digest,
                         true,
                         &self.cancellation,
                         &check,
                     )?,
-                    Action::Archive(_) | Action::Restore(_) | Action::Purge(_) => {
-                        return Err(ws_error(ErrorCode::UnsupportedCapability));
+                    Action::Archive(id) => workspace.worktree_cleanup_guarded(
+                        id.as_str(),
+                        &original.core_digest,
+                        true,
+                        &self.cancellation,
+                        &check,
+                    )?,
+                    Action::Restore(id) => workspace.worktree_archive_guarded(
+                        id.as_str(),
+                        "restore",
+                        &original.core_digest,
+                        true,
+                        &self.cancellation,
+                        &check,
+                    )?,
+                    Action::Purge(id) => workspace.worktree_archive_guarded(
+                        id.as_str(),
+                        "purge",
+                        &original.core_digest,
+                        true,
+                        &self.cancellation,
+                        &check,
+                    )?,
+                    Action::Merge(id) => {
+                        return workspace.worktree_merge_guarded(
+                            current.project_id().as_str(),
+                            id.as_str(),
+                            &original.core_digest,
+                            &self.cancellation,
+                            &check,
+                        );
                     }
                 };
                 return Ok(
@@ -1232,7 +1276,7 @@ impl Services {
         project: &Id,
         action: crate::workspace_control::Action,
         timing: (Option<u64>, Instant),
-    ) -> Result<crate::workspace_control::Prepared, ErrorCode> {
+    ) -> Result<crate::workspace_control::Captured, ErrorCode> {
         let (revision, deadline) = timing;
         self.workspace_prebind(peer, credential, project)?;
         let sensitive = action.sensitive();
@@ -1367,14 +1411,87 @@ impl Services {
         if Instant::now() >= deadline {
             return Err(ErrorCode::TimedOut);
         }
-        self.read_workspace_once(
+        let captured = self.read_workspace_once(
             actor,
             peer,
             credential,
             project,
-            action,
+            action.clone(),
             (revision, deadline),
-        )
+        )?;
+        match captured {
+            crate::workspace_control::Captured::Ready(value) => Ok(*value),
+            crate::workspace_control::Captured::Archive {
+                action,
+                record,
+                snapshot,
+            } => {
+                // Hash content outside the workspace actor with periodic authorization.
+                let view = actor.external_snapshot().map_err(actor_error)?;
+                let binding = project_binding(&view.snapshot, project)?;
+                request_revision_check(revision, &binding)?;
+                let check = || -> devforge_workspace::Result<()> {
+                    if Instant::now() >= deadline {
+                        return Err(ws_error(ErrorCode::TimedOut));
+                    }
+                    let view = actor
+                        .external_snapshot()
+                        .map_err(|e| ws_error(actor_error(e)))?;
+                    let current = project_binding(&view.snapshot, project).map_err(ws_error)?;
+                    if current.root() != binding.root() || current.revision() != binding.revision()
+                    {
+                        return Err(ws_error(ErrorCode::RevisionConflict));
+                    }
+                    self.grants
+                        .registry
+                        .lock()
+                        .map_err(|_| ws_error(ErrorCode::StorageUnavailable))?
+                        .as_mut()
+                        .ok_or_else(|| ws_error(ErrorCode::Interrupted))?
+                        .authorize_read(
+                            peer,
+                            credential,
+                            &current,
+                            Some(devforge_control::InformationScope::WorkspaceContentScan),
+                            Some(binding.revision()),
+                        )
+                        .map_err(|e| ws_error(grant_error(e)))?;
+                    if Instant::now() >= deadline {
+                        return Err(ws_error(ErrorCode::TimedOut));
+                    }
+                    Ok(())
+                };
+                let plan = snapshot
+                    .finish(&Cancellation::default(), &check)
+                    .map_err(environment_error)?;
+                let current = self.read_workspace_once(
+                    actor,
+                    peer,
+                    credential,
+                    project,
+                    action.clone(),
+                    (Some(binding.revision()), deadline),
+                )?;
+                let crate::workspace_control::Captured::Archive {
+                    snapshot: current, ..
+                } = current
+                else {
+                    return Err(ErrorCode::ReviewMismatch);
+                };
+                if current.fingerprint() != snapshot.fingerprint() {
+                    return Err(ErrorCode::ReviewMismatch);
+                }
+                check().map_err(environment_error)?;
+                Ok(crate::workspace_control::Prepared {
+                    action,
+                    core_digest: plan.digest,
+                    blockers: plan.blockers,
+                    record: Some(*record),
+                    merge: None,
+                    create: None,
+                })
+            }
+        }
     }
 
     fn workspace_prepare(
@@ -1391,17 +1508,6 @@ impl Services {
         }
         let kind = request.input.action;
         let action = crate::workspace_control::parse(&request.project_id, request.input)?;
-        // Path-based cleanup/restore/purge cannot guarantee ownership or
-        // containment under concurrent ancestor replacement on both targets.
-        // Keep external mutations fail-closed until handle-relative operations exist.
-        if matches!(
-            action,
-            crate::workspace_control::Action::Archive(_)
-                | crate::workspace_control::Action::Restore(_)
-                | crate::workspace_control::Action::Purge(_)
-        ) {
-            return Err(ErrorCode::UnsupportedCapability);
-        }
         let value = self.read_workspace(
             actor,
             peer,
@@ -1436,6 +1542,56 @@ impl Services {
                 request.expected_revision,
             )
             .map_err(grant_error)?;
+        let create = prepared
+            .create
+            .as_ref()
+            .map(
+                |v| -> Result<devforge_control::tools::WorkspaceCreatePreview, ErrorCode> {
+                    Ok(devforge_control::tools::WorkspaceCreatePreview {
+                        source_commit: devforge_control::limits::Text::new(
+                            v.source_commit.clone(),
+                        )?,
+                        source_dirty: v.source_dirty,
+                        isolated: v.isolated,
+                    })
+                },
+            )
+            .transpose()?;
+        let merge = prepared
+            .merge
+            .as_ref()
+            .map(
+                |m| -> Result<devforge_control::tools::WorkspaceMergePreview, ErrorCode> {
+                    Ok(devforge_control::tools::WorkspaceMergePreview {
+                        source_head: devforge_control::limits::Text::new(m.source_head.clone())?,
+                        target_head: devforge_control::limits::Text::new(m.target_head.clone())?,
+                        target_branch: devforge_control::limits::Text::new(
+                            m.target_branch.clone(),
+                        )?,
+                        target_project_revision: SafeInt::new(m.target_project_revision)?,
+                        source_dirty: m.source_dirty,
+                        effect: match m.effect.as_str() {
+                            "already_included" => {
+                                devforge_control::tools::WorkspaceMergeEffect::AlreadyIncluded
+                            }
+                            "fast_forward" => {
+                                devforge_control::tools::WorkspaceMergeEffect::FastForward
+                            }
+                            "merge_commit" => {
+                                devforge_control::tools::WorkspaceMergeEffect::MergeCommit
+                            }
+                            _ => return Err(ErrorCode::PreconditionFailed),
+                        },
+                        result_tree: m
+                            .result_tree
+                            .as_ref()
+                            .map(|v| devforge_control::limits::Text::new(v.clone()))
+                            .transpose()?,
+                        isolated: m.isolated,
+                    })
+                },
+            )
+            .transpose()?;
         let workspace_id = prepared.action.id().cloned();
         let blockers = prepared
             .blockers
@@ -1471,6 +1627,8 @@ impl Services {
             workspace_id,
             blockers,
             plan: ticket,
+            merge,
+            create,
         })
     }
     fn workspace_list(
@@ -3154,6 +3312,20 @@ impl Services {
                         database,
                         dependencies,
                         copy_environment,
+                        source_commit: p.merge.as_ref().map(|v| v.source_head.clone()),
+                        target_commit: p.merge.as_ref().map(|v| v.target_head.clone()),
+                        target_branch: p.merge.as_ref().map(|v| v.target_branch.clone()),
+                        target_project_revision: p
+                            .merge
+                            .as_ref()
+                            .map(|v| v.target_project_revision),
+                        source_dirty: p.merge.as_ref().map(|v| v.source_dirty),
+                        merge_effect: p.merge.as_ref().map(|v| v.effect.clone()),
+                        result_tree: p.merge.as_ref().and_then(|v| v.result_tree.clone()),
+                        isolated: p.merge.as_ref().map(|v| v.isolated),
+                        create_source_commit: p.create.as_ref().map(|v| v.source_commit.clone()),
+                        create_source_dirty: p.create.as_ref().and_then(|v| v.source_dirty),
+                        create_isolated: p.create.as_ref().map(|v| v.isolated),
                     }
                 }
                 MutationInput::DebuggerInstall(_) => ReviewTarget::DebuggerInstall {
@@ -3798,6 +3970,7 @@ impl Services {
             expires_at,
         )?;
         let sensitive_execution = execution.is_some()
+            || workspace.is_some()
             || matches!(
                 request.input,
                 MutationInput::DebuggerAssign(_) | MutationInput::DebuggerExport(_)
@@ -4075,7 +4248,8 @@ fn required_information(input: &MutationInput) -> Vec<devforge_control::Informat
         MutationInput::WorkspaceCreate(_)
         | MutationInput::WorkspaceArchive(_)
         | MutationInput::WorkspaceRestore(_)
-        | MutationInput::WorkspacePurge(_) => {
+        | MutationInput::WorkspacePurge(_)
+        | MutationInput::WorkspaceMerge(_) => {
             vec![devforge_control::InformationScope::WorkspaceContentScan]
         }
         MutationInput::DebuggerAssign(_) => {
@@ -4100,6 +4274,12 @@ fn debugger_primitive(kind: devforge_control::mutations::DebuggerPrimitive) -> &
 fn required(input: &MutationInput) -> Result<Vec<Scope>, ErrorCode> {
     match input {
         input if crate::execution_control::is_execution(input) => Ok(vec![Scope::ExecutionTest]),
+        MutationInput::WorkspaceMerge(_) => Ok(vec![
+            Scope::Observer,
+            Scope::ProjectManage,
+            Scope::ExecutionTest,
+            Scope::SensitiveOperation,
+        ]),
         MutationInput::WorkspaceCreate(_) => Ok(vec![
             Scope::Observer,
             Scope::ProjectManage,

@@ -5,8 +5,11 @@ use sha2::{Digest, Sha256};
 use std::{ffi::OsString, io::Write};
 mod erase;
 mod git;
-pub use git::read_cancellation_guard;
+pub use git::{external_read_guard, read_cancellation_guard};
 mod lifecycle;
+pub use lifecycle::ArchiveReviewSnapshot;
+mod merge;
+pub use merge::MergePlan;
 mod remote;
 fn digest(value: &impl Serialize) -> String {
     Sha256::digest(serde_json::to_vec(value).unwrap())
@@ -89,6 +92,9 @@ pub struct View {
     pub path: PathBuf,
     pub retained_path: PathBuf,
 }
+fn is_false(value: &bool) -> bool {
+    !*value
+}
 #[derive(Serialize)]
 pub struct Plan {
     pub isolated: bool,
@@ -97,6 +103,8 @@ pub struct Plan {
     pub commit: String,
     pub domain: String,
     pub source_dirty: bool,
+    #[serde(skip_serializing_if = "is_false")]
+    pub source_dirty_unknown: bool,
     pub configuration: Manifest,
     pub packages: BTreeMap<String, String>,
     pub source_database: Option<Binding>,
@@ -219,6 +227,38 @@ impl Workspace {
     }
     fn save_worktree(&self, record: &Record) -> Result<()> {
         atomic(&self.worktree_dir(&record.id)?.join("receipt.json"), record)
+    }
+    /// Read one source-bound worktree receipt without creating directories.
+    /// Caller checks the source project grant before and after this read.
+    pub fn external_worktree_record(&self, source: &str, id: &str) -> Result<Record> {
+        let project = self.projects.get(source)?;
+        if !valid_id(id) {
+            return Err(error("worktree_ownership"));
+        }
+        let root = self.root.join("worktrees");
+        let dir = root.join(id);
+        for path in [&root, &dir] {
+            let meta = fs::symlink_metadata(path).map_err(|_| error("worktree_ownership"))?;
+            if !meta.is_dir()
+                || devforge_projects::discovery::is_link(&meta)
+                || fs::canonicalize(path).ok().as_deref() != Some(path.as_path())
+            {
+                return Err(error("worktree_ownership"));
+            }
+        }
+        let bytes = devforge_projects::manifest::read_file(&dir.join("receipt.json"), 262144)
+            .map_err(|_| error("worktree_ownership"))?;
+        let record: Record =
+            serde_json::from_slice(&bytes).map_err(|_| error("worktree_ownership"))?;
+        if ![1, 2].contains(&record.schema)
+            || record.id != id
+            || record.input.source_id != source
+            || record.source_path != project.path
+            || !git::branch(&record.input.branch)
+        {
+            return Err(error("worktree_ownership"));
+        }
+        Ok(record)
     }
     pub fn worktrees(&self) -> Result<Vec<View>> {
         let mut out = Vec::new();
@@ -390,13 +430,15 @@ impl Workspace {
             .filter(|n| *n != "APP_KEY" && !n.starts_with("MAIL_") && !n.starts_with("REDIS_"))
             .cloned()
             .collect();
+        let (source_status, source_dirty_unknown) = git::source_status(&self.root, &source.path)?;
         let mut plan = Plan {
             isolated,
             submodule_sources,
             input: input.clone(),
             commit,
             domain,
-            source_dirty: !git::status(&self.root, &source.path)?.is_empty(),
+            source_dirty: !source_status.is_empty(),
+            source_dirty_unknown,
             configuration,
             packages,
             source_database,
@@ -1061,7 +1103,70 @@ impl Workspace {
         consent: bool,
         cancel: &Cancellation,
     ) -> Result<Record> {
+        self.worktree_cleanup_inner(id, review, consent, cancel, &|| Ok(()), false)
+    }
+    /// Recheck external authorization and directory identities before effects.
+    pub fn worktree_cleanup_guarded(
+        &mut self,
+        id: &str,
+        review: &str,
+        consent: bool,
+        cancel: &Cancellation,
+        check: &dyn Fn() -> Result<()>,
+    ) -> Result<Record> {
+        self.worktree_cleanup_inner(id, review, consent, cancel, check, true)
+    }
+    fn worktree_cleanup_inner(
+        &mut self,
+        id: &str,
+        review: &str,
+        consent: bool,
+        cancel: &Cancellation,
+        check: &dyn Fn() -> Result<()>,
+        strict_identity: bool,
+    ) -> Result<Record> {
+        check()?;
+        let _read_cancel = git::read_cancellation_guard(cancel);
         let _lock = self.worktree_lock()?;
+        if !valid_id(id) {
+            return Err(error("worktree_ownership"));
+        }
+        let owner_root = self.root.join("worktrees");
+        let container = owner_root.join(id);
+        let owner_identity = strict_identity
+            .then(|| owned_directory_identity(&owner_root))
+            .transpose()?;
+        let container_identity = strict_identity
+            .then(|| owned_directory_identity(&container))
+            .transpose()?;
+        let tree = container.join("tree");
+        let retained_tree = container.join("retained");
+        let moved = std::cell::Cell::new(!tree.exists() && retained_tree.exists());
+        let payload = if moved.get() { &retained_tree } else { &tree };
+        let payload_identity = if strict_identity && payload.exists() {
+            Some(owned_directory_identity(payload)?)
+        } else {
+            None
+        };
+        let verify_owned = || -> Result<()> {
+            if let (Some(owner), Some(child)) = (&owner_identity, &container_identity)
+                && (&owned_directory_identity(&owner_root)? != owner
+                    || &owned_directory_identity(&container)? != child)
+            {
+                return Err(error("worktree_ownership"));
+            }
+            if let Some(expected) = &payload_identity {
+                let current = if moved.get() { &retained_tree } else { &tree };
+                if &owned_directory_identity(current)? != expected {
+                    return Err(error("worktree_ownership"));
+                }
+            }
+            Ok(())
+        };
+        let scoped_check = || -> Result<()> {
+            check()?;
+            verify_owned()
+        };
         if !consent {
             return Err(error("service_consent_required"));
         }
@@ -1076,6 +1181,7 @@ impl Workspace {
             return Err(error("setup_cancelled"));
         }
         let mut record = plan.workspace.record;
+        scoped_check()?;
         if let Some(project) = &record.project_id {
             self.stop(project)?;
         }
@@ -1084,6 +1190,7 @@ impl Workspace {
             .as_deref()
             .map(|id| self.sites.project_mutation_guard(id))
             .transpose()?;
+        scoped_check()?;
         if let Some(project) = &record.project_id {
             self.mail.remove(project);
             let caches = self
@@ -1094,11 +1201,13 @@ impl Workspace {
                 .map(|c| c.id)
                 .collect::<Vec<_>>();
             for cache in caches {
+                scoped_check()?;
                 self.stop_cache(&cache)?;
             }
         }
         let path = plan.workspace.path;
         let retained = plan.workspace.retained_path;
+        scoped_check()?;
         self.worktree_stage(&mut record, "archiving")?;
         let result: Result<Record> = (|| {
             if path.exists() {
@@ -1118,8 +1227,11 @@ impl Workspace {
                 if retained.exists() {
                     return Err(error("worktree_ownership"));
                 }
+                scoped_check()?;
                 fs::rename(&path, &retained)?;
+                moved.set(true);
             } else if record.git_dir.is_none() && !retained.exists() {
+                scoped_check()?;
                 fs::create_dir(&retained)?;
             }
             if !record.isolated
@@ -1137,6 +1249,7 @@ impl Workspace {
                     if fs::symlink_metadata(&path).is_ok() {
                         return Err(error("worktree_ownership"));
                     }
+                    scoped_check()?;
                     self.worktree_git(
                         &record.common_dir,
                         vec![
@@ -1149,6 +1262,7 @@ impl Workspace {
                     )?;
                 }
             }
+            scoped_check()?;
             if let Some(project) = &record.project_id {
                 if let Ok(p) = self.projects.get(project) {
                     if p.worktree.as_deref() == Some(record.id.as_str()) {
@@ -1160,6 +1274,7 @@ impl Workspace {
                         return Err(error("worktree_ownership"));
                     }
                 }
+                scoped_check()?;
                 self.sites.remove(project)?;
                 self.preferences.development.remove(project);
                 self.preferences.navigation.remove(project);
@@ -1170,12 +1285,14 @@ impl Workspace {
                 record.commit = plan.head.clone();
                 record.input.branch = plan.branch.clone();
             }
+            scoped_check()?;
             record.stage = "removed".into();
             record.last_error = None;
             self.save_worktree(&record)?;
             Ok(record.clone())
         })();
         if let Err(e) = &result {
+            verify_owned()?;
             record.stage = "failed".into();
             record.last_error = Some(e.code.clone());
             self.save_worktree(&record)?;

@@ -197,8 +197,15 @@ export function AgentConnections({ api }: { api?: AgentApi }) {
         value.length > 0 &&
         value.length <= 512 &&
         !/[\u0000-\u001f\u007f-\u009f]/.test(value);
+      const isCommit = (value: unknown) =>
+        typeof value === "string" &&
+        /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(value);
       if (target.action === "create") {
         return (
+          isCommit(target.create_source_commit) &&
+          (target.create_source_dirty == null ||
+            typeof target.create_source_dirty === "boolean") &&
+          typeof target.create_isolated === "boolean" &&
           target.workspace_id == null &&
           validText(target.name) &&
           validText(target.branch) &&
@@ -207,6 +214,32 @@ export function AgentConnections({ api }: { api?: AgentApi }) {
           ["empty", "clone"].includes(target.database ?? "") &&
           typeof target.dependencies === "boolean" &&
           typeof target.copy_environment === "boolean"
+        );
+      }
+      if (target.action === "merge") {
+        return (
+          typeof target.workspace_id === "string" &&
+          /^[A-Za-z0-9_.:-]{1,128}$/.test(target.workspace_id) &&
+          isCommit(target.source_commit) &&
+          isCommit(target.target_commit) &&
+          validText(target.target_branch) &&
+          Number.isSafeInteger(target.target_project_revision) &&
+          (target.target_project_revision ?? -1) >= 0 &&
+          typeof target.source_dirty === "boolean" &&
+          typeof target.isolated === "boolean" &&
+          (target.merge_effect === "merge_commit"
+            ? isCommit(target.result_tree)
+            : target.result_tree == null || isCommit(target.result_tree)) &&
+          ["fast_forward", "already_included", "merge_commit"].includes(
+            target.merge_effect ?? "",
+          ) &&
+          target.name == null &&
+          target.branch == null &&
+          target.base == null &&
+          target.new_branch == null &&
+          target.database == null &&
+          target.dependencies == null &&
+          target.copy_environment == null
         );
       }
       return (
@@ -1059,6 +1092,32 @@ function PlanReview({ plan, machine }: { plan: AgentPlan; machine: boolean }) {
                 <dd>
                   <code translate="no">{target.base}</code>
                 </dd>
+                <dt>{t("agentConnections.workspaceCreateSourceCommit")}</dt>
+                <dd>
+                  <code translate="no">{target.create_source_commit}</code>
+                </dd>
+                <dt>{t("agentConnections.workspaceMergeSourceDirty")}</dt>
+                <dd>
+                  {t(
+                    target.create_source_dirty == null
+                      ? "agentConnections.unknown"
+                      : target.create_source_dirty
+                        ? "agentConnections.yes"
+                        : "agentConnections.no",
+                  )}
+                </dd>
+                <dt>{t("agentConnections.workspaceRepositoryKind")}</dt>
+                <dd>
+                  {t(
+                    target.create_isolated
+                      ? "agentConnections.workspaceIsolatedRepository"
+                      : "agentConnections.workspaceSharedRepository",
+                  )}
+                </dd>
+                <dt>{t("agentConnections.workspaceCreateUncommitted")}</dt>
+                <dd>
+                  {t("agentConnections.workspaceCreateUncommittedExplanation")}
+                </dd>
                 <dt>{t("agentConnections.workspaceNewBranch")}</dt>
                 <dd>
                   {t(
@@ -1068,7 +1127,11 @@ function PlanReview({ plan, machine }: { plan: AgentPlan; machine: boolean }) {
                   )}
                   {target.new_branch && (
                     <p className="muted">
-                      {t("agentConnections.workspaceBranchWarning")}
+                      {t(
+                        target.create_isolated
+                          ? "agentConnections.workspaceBranchIsolatedWarning"
+                          : "agentConnections.workspaceBranchWarning",
+                      )}
                     </p>
                   )}
                 </dd>
@@ -1095,11 +1158,86 @@ function PlanReview({ plan, machine }: { plan: AgentPlan; machine: boolean }) {
                   )}
                 </dd>
               </>
+            ) : target.action === "merge" ? (
+              <>
+                <dt>{t("agentConnections.workspaceId")}</dt>
+                <dd>
+                  <code translate="no">{target.workspace_id}</code>
+                </dd>
+                <dt>{t("agentConnections.workspaceMergeSourceCommit")}</dt>
+                <dd>
+                  <code translate="no">{target.source_commit}</code>
+                </dd>
+                <dt>{t("agentConnections.workspaceMergeTargetCommit")}</dt>
+                <dd>
+                  <code translate="no">{target.target_commit}</code>
+                </dd>
+                <dt>{t("agentConnections.workspaceMergeTargetBranch")}</dt>
+                <dd>
+                  <code translate="no">{target.target_branch}</code>
+                </dd>
+                <dt>{t("agentConnections.workspaceMergeTargetRevision")}</dt>
+                <dd>{target.target_project_revision}</dd>
+                <dt>{t("agentConnections.workspaceMergeSourceDirty")}</dt>
+                <dd>
+                  {t(
+                    target.source_dirty
+                      ? "agentConnections.yes"
+                      : "agentConnections.no",
+                  )}
+                </dd>
+                <dt>{t("agentConnections.workspaceRepositoryKind")}</dt>
+                <dd>
+                  {t(
+                    target.isolated
+                      ? "agentConnections.workspaceIsolatedRepository"
+                      : "agentConnections.workspaceSharedRepository",
+                  )}
+                </dd>
+                {target.result_tree && (
+                  <>
+                    <dt>{t("agentConnections.workspaceResultTree")}</dt>
+                    <dd>
+                      <code translate="no">{target.result_tree}</code>
+                    </dd>
+                  </>
+                )}
+                <dt>{t("agentConnections.workspaceMergeEffects")}</dt>
+                <dd>
+                  {t(
+                    `agentConnections.workspaceMergeOutcomes.${target.merge_effect}`,
+                  )}
+                  {target.merge_effect === "merge_commit" && (
+                    <p className="muted">
+                      {t(
+                        target.isolated
+                          ? "agentConnections.workspaceMergeCommitIsolatedWarning"
+                          : "agentConnections.workspaceMergeCommitWarning",
+                      )}
+                    </p>
+                  )}
+                  <p className="muted">
+                    {t("agentConnections.workspaceMergeExplanation")}
+                  </p>
+                  <p className="muted">
+                    {t("agentConnections.workspaceMergeGitCodeWarning")}
+                  </p>
+                  <p className="muted">
+                    {t("agentConnections.workspaceMergeFailureWarning")}
+                  </p>
+                </dd>
+              </>
             ) : (
               <>
                 <dt>{t("agentConnections.workspaceId")}</dt>
                 <dd>
                   <code translate="no">{target.workspace_id}</code>
+                </dd>
+                <dt>{t("agentConnections.workspaceActionEffect")}</dt>
+                <dd>
+                  {t(
+                    `agentConnections.workspaceActionEffects.${target.action}`,
+                  )}
                 </dd>
               </>
             )}

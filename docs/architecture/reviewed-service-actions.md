@@ -275,3 +275,36 @@ hosts/trust read/write, native credential service or OS permission change occurr
 Its evidence was reused after the accessor-only authorization fix. Production
 helper/UAC/macOS dialogs, signing, minimum OS and real trust-store/hosts mutation
 remain M13.9/M15 acceptance gates; this smoke does not close them.
+
+## A10 scoped workspace lifecycle (2026-11-17)
+
+The opt-in workspace facade binds each request to the original credential's
+source project. The manager retains private, bounded preparation tickets; the
+external client cannot supply a source or worktree filesystem path. Create,
+archive, restore, purge and merge use the existing owned worktree implementation,
+exact review digest and native owner approval, with project identity, grant and
+cancellation checks around significant effects. WorkspaceContentScan grants
+internal inspection and hashing for these plans, not bulk content output.
+Copying managed environment secrets additionally requires WorkspaceSecretCopy and
+SensitiveOperation; DB clone also requires SensitiveOperation. Existing grants
+inherit neither new information right.
+
+Merge uses the source project's committed HEAD and an owned child worktree as
+target; source HEAD, index and working files remain unchanged. The preview binds
+source and target commits, target branch/revision and whether the source is dirty.
+Shared and isolated worktrees support fast-forward, already-included and clean
+nonconflicting two-parent merges. Conflicts, Git submodules, unsafe Git configuration,
+and dirty or running targets are rejected. Preview isolates the merge object store
+and suppresses project Git filters and drivers. Reviewed apply can execute trusted
+project Git code; owner review identifies that effect. If Git fails or is cancelled after starting, target state may
+be partially changed: the operation reports `worktree_merge_incomplete`; inspect
+Git status and the reviewed old target HEAD before recovery. No automatic retry or
+rollback is claimed. Creating a new shared branch changes common repository refs,
+even though source HEAD and working files are preserved.
+
+Static path, symlink/junction and receipt ownership checks remain in force. The
+manager is not a sandbox against an equivalent same-user process racing filesystem
+replacement; an operation already in progress can leave recoverable partial stages,
+and purge may finish after irreversible deletion begins. Source: workspace
+`worktrees/`, manager `workspace_control.rs` and `service_control.rs`, control
+contracts and their scoped tests. OS-specific evidence is in execution status.

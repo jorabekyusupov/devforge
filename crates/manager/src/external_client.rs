@@ -1713,6 +1713,38 @@ fn workspace_prepare(
                 .expected_revision
                 .is_some_and(|rev| rev != v.revision.get())
             || (!v.blockers.is_empty() && v.plan.is_some())
+            || v.kind != request.input.action
+            || v.workspace_id != request.input.workspace_id
+            || (v.kind == devforge_control::tools::WorkspacePrepareAction::Merge
+                && v.plan.is_some()
+                && v.merge.is_none())
+            || (v.kind != devforge_control::tools::WorkspacePrepareAction::Merge
+                && v.merge.is_some())
+            || (v.kind == devforge_control::tools::WorkspacePrepareAction::Create
+                && v.plan.is_some()
+                && v.create.is_none())
+            || (v.kind != devforge_control::tools::WorkspacePrepareAction::Create
+                && v.create.is_some())
+            || v.create.as_ref().is_some_and(|c| {
+                let value = c.source_commit.as_str();
+                !matches!(value.len(), 40 | 64) || !value.bytes().all(|b| b.is_ascii_hexdigit())
+            })
+            || v.merge.as_ref().is_some_and(|m| {
+                let invalid_tree = m.result_tree.as_ref().is_some_and(|tree| {
+                    let value = tree.as_str();
+                    !matches!(value.len(), 40 | 64) || !value.bytes().all(|b| b.is_ascii_hexdigit())
+                });
+                let missing_tree = v.plan.is_some()
+                    && m.effect == devforge_control::tools::WorkspaceMergeEffect::MergeCommit
+                    && m.result_tree.is_none();
+                invalid_tree
+                    || missing_tree
+                    || [m.source_head.as_str(), m.target_head.as_str()]
+                        .iter()
+                        .any(|h| {
+                            !matches!(h.len(), 40 | 64) || !h.bytes().all(|b| b.is_ascii_hexdigit())
+                        })
+            })
     }) {
         return Err(ErrorCode::InvalidInput);
     }
@@ -1724,6 +1756,7 @@ fn workspace_action_request(
     if !matches!(
         request.input,
         MutationInput::WorkspaceCreate(_)
+            | MutationInput::WorkspaceMerge(_)
             | MutationInput::WorkspaceArchive(_)
             | MutationInput::WorkspaceRestore(_)
             | MutationInput::WorkspacePurge(_)

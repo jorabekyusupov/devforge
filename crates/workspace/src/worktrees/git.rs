@@ -3,6 +3,7 @@ use super::*;
 use std::process::Command as Process;
 thread_local! {
     static READ_CANCEL: std::cell::RefCell<Option<Cancellation>> = const { std::cell::RefCell::new(None) };
+    static EXTERNAL_SAFE_READ: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
 /// A scope-bound cancellation token for Git reads on the current thread.
 /// `!Send` is essential: dropping on another thread cannot restore this slot.
@@ -15,9 +16,32 @@ impl Drop for ReadCancellationGuard {
         READ_CANCEL.with(|slot| *slot.borrow_mut() = self.previous.take());
     }
 }
+pub(super) fn current_read_cancellation() -> Cancellation {
+    READ_CANCEL
+        .with(|slot| slot.borrow().clone())
+        .unwrap_or_default()
+}
 pub fn read_cancellation_guard(cancel: &Cancellation) -> ReadCancellationGuard {
     let previous = READ_CANCEL.with(|slot| slot.borrow_mut().replace(cancel.clone()));
     ReadCancellationGuard {
+        previous,
+        _thread_bound: std::marker::PhantomData,
+    }
+}
+/// Restrict external preview status operations without changing native semantics.
+/// A thread-bound guard prevents the flag from leaking to a later actor request.
+pub struct ExternalReadGuard {
+    previous: bool,
+    _thread_bound: std::marker::PhantomData<std::rc::Rc<()>>,
+}
+impl Drop for ExternalReadGuard {
+    fn drop(&mut self) {
+        EXTERNAL_SAFE_READ.with(|slot| slot.set(self.previous));
+    }
+}
+pub fn external_read_guard() -> ExternalReadGuard {
+    let previous = EXTERNAL_SAFE_READ.with(|slot| slot.replace(true));
+    ExternalReadGuard {
         previous,
         _thread_bound: std::marker::PhantomData,
     }
@@ -174,7 +198,26 @@ pub(super) fn oid(root: &Path, directory: &Path, reference: &str) -> Result<Stri
     }
     Ok(id)
 }
+/// The external Create preview never descends into submodule repositories: its
+/// own status remains useful, but nested dirtiness is explicitly unknown.
+pub(super) fn source_status(root: &Path, path: &Path) -> Result<(Vec<u8>, bool)> {
+    if EXTERNAL_SAFE_READ.with(|slot| slot.get()) {
+        let nested_unknown = submodules(root, path, Some("HEAD"))? || submodules(root, path, None)?;
+        let status = super::merge::safe_status(root, path, &current_read_cancellation())?;
+        Ok((status, nested_unknown))
+    } else {
+        Ok((status(root, path)?, false))
+    }
+}
 pub(super) fn status(root: &Path, path: &Path) -> Result<Vec<u8>> {
+    if EXTERNAL_SAFE_READ.with(|slot| slot.get()) {
+        // A parent diff can execute a clean/process filter configured only in a
+        // submodule. Reject both committed and staged gitlinks before status.
+        if submodules(root, path, Some("HEAD"))? || submodules(root, path, None)? {
+            return Err(error("worktree_submodules_unsupported"));
+        }
+        return super::merge::safe_status(root, path, &current_read_cancellation());
+    }
     // Compare actual normalized content, staged state and untracked files. A
     // porcelain stat result can report an unchanged LF overlay as modified after
     // a fresh CRLF checkout. Never stage data or rewrite a user's index to hide it.
