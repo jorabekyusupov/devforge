@@ -155,6 +155,9 @@ pub struct Log {
 pub struct Snapshot {
     pub discovery: discovery::View,
     pub worktrees: Vec<worktrees::View>,
+    /// A linked/reparse-point entry was omitted from the snapshot. Strict
+    /// ownership and mutation paths never use this tolerant projection.
+    pub worktrees_incomplete: bool,
     pub starter_constraint: String,
     pub projects: Vec<Row>,
     pub runtimes: Vec<Runtime>,
@@ -1326,12 +1329,14 @@ impl Workspace {
         });
         logs.truncate(500);
         logs.reverse();
+        let (worktrees, worktrees_incomplete) = self.worktrees_for_snapshot()?;
         Ok(Snapshot {
             discovery: discovery::View {
                 entries: discovered,
                 ..self.discovery.clone()
             },
-            worktrees: self.worktrees()?,
+            worktrees,
+            worktrees_incomplete,
             starter_constraint: self
                 .catalog
                 .defaults

@@ -1707,7 +1707,7 @@ impl Services {
             .iter()
             .filter(|v| v.record.input.source_id == request.project_id.as_str())
             .collect::<Vec<_>>();
-        let truncated = records.len() > 100;
+        let truncated = view.snapshot.worktrees_incomplete || records.len() > 100;
         let items = records
             .into_iter()
             .take(100)

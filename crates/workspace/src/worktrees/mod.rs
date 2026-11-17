@@ -261,11 +261,31 @@ impl Workspace {
         Ok(record)
     }
     pub fn worktrees(&self) -> Result<Vec<View>> {
+        self.collect_worktrees(false).map(|(views, _)| views)
+    }
+    /// A single untrusted link must not make the manager's entire cached
+    /// snapshot unavailable. This leniency is only for presentation: callers
+    /// that make ownership decisions must continue using `worktrees()` or the
+    /// exact source-bound receipt lookup.
+    pub(crate) fn worktrees_for_snapshot(&self) -> Result<(Vec<View>, bool)> {
+        self.collect_worktrees(true)
+    }
+    fn collect_worktrees(&self, skip_links: bool) -> Result<(Vec<View>, bool)> {
         let mut out = Vec::new();
+        let mut incomplete = false;
         for item in fs::read_dir(self.worktree_root()?)? {
             let item = item?;
             let id = item.file_name().to_string_lossy().to_string();
             if !valid_id(&id) {
+                continue;
+            }
+            // Inspect the directory entry itself without following it. Windows
+            // junctions are reparse points, not necessarily symlinks according
+            // to `FileType::is_symlink`.
+            if skip_links
+                && devforge_projects::discovery::is_link(&fs::symlink_metadata(item.path())?)
+            {
+                incomplete = true;
                 continue;
             }
             let record = self.worktree_record(&id)?;
@@ -281,7 +301,7 @@ impl Workspace {
             }
         }
         out.sort_by(|a, b| a.record.input.name.cmp(&b.record.input.name));
-        Ok(out)
+        Ok((out, incomplete))
     }
     pub(crate) fn managed_worktree(&self, project: &str) -> Result<bool> {
         Ok(self.worktrees()?.iter().any(|v| {

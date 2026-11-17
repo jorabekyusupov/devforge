@@ -365,6 +365,47 @@ fn cleanup_refuses_dirty_foreign_and_cancelled_worktrees_and_preserves_source() 
         "worktree_ownership"
     );
 }
+
+#[test]
+#[cfg(any(unix, windows))]
+fn snapshot_omits_linked_receipt_but_strict_worktree_listing_refuses_it() {
+    let temp = tempfile::tempdir().unwrap();
+    let (workspace, _, _) = fixture(temp.path());
+    let root = temp.path().join("data");
+    let outside = temp.path().join("outside");
+    fs::create_dir_all(&outside).unwrap();
+    fs::write(outside.join("receipt.json"), b"OUTSIDE_CANARY").unwrap();
+    let worktrees = root.join("worktrees");
+    fs::create_dir_all(&worktrees).unwrap();
+    let link = worktrees.join("f".repeat(32));
+    #[cfg(unix)]
+    std::os::unix::fs::symlink(&outside, &link).unwrap();
+    #[cfg(windows)]
+    {
+        let powershell = std::path::PathBuf::from(std::env::var_os("SystemRoot").unwrap())
+            .join("System32/WindowsPowerShell/v1.0/powershell.exe");
+        let output = Command::new(powershell)
+            .args(["-NoLogo", "-NoProfile", "-NonInteractive", "-Command", "$ErrorActionPreference='Stop'; Microsoft.PowerShell.Management\\New-Item -ItemType Junction -Path $env:DEVFORGE_TEST_LINK -Target $env:DEVFORGE_TEST_TARGET | Out-Null"])
+            .env("DEVFORGE_TEST_LINK", &link)
+            .env("DEVFORGE_TEST_TARGET", &outside)
+            .output()
+            .unwrap();
+        assert!(output.status.success(), "junction creation failed");
+    }
+    let snapshot = workspace.snapshot().unwrap();
+    assert!(snapshot.worktrees_incomplete);
+    assert!(snapshot.worktrees.is_empty());
+    assert_eq!(
+        workspace.worktrees().err().unwrap().code,
+        "worktree_ownership"
+    );
+    assert_eq!(
+        fs::read(outside.join("receipt.json")).unwrap(),
+        b"OUTSIDE_CANARY"
+    );
+    #[cfg(windows)]
+    fs::remove_dir(&link).unwrap();
+}
 #[test]
 fn project_layer_blocks_generic_forget_and_claim_replacement() {
     let temp = tempfile::tempdir().unwrap();

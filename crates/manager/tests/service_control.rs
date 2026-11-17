@@ -6133,7 +6133,50 @@ fn a10_lifecycle_rejects_symlinked_workspace_outside_owned_root() {
     }
     #[cfg(not(any(unix, windows)))]
     std::fs::create_dir(&child).unwrap();
+    // Wait for the actual actor cache refresh, rather than racing connection
+    // setup against the periodic snapshot. The owner remains usable while the
+    // omitted unsafe entry is reported as an incomplete worktree snapshot.
+    let deadline = Instant::now() + Duration::from_secs(10);
+    loop {
+        if let Ok(view) = rig.native.snapshot()
+            && view.error.is_none()
+            && view.snapshot["worktrees_incomplete"] == true
+        {
+            assert!(
+                view.snapshot["worktrees"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .all(|entry| entry["record"]["id"].as_str() != Some(name.as_str()))
+            );
+            break;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "owner snapshot did not recover after junction"
+        );
+        thread::sleep(Duration::from_millis(50));
+    }
+    // Connect only after the refreshed snapshot, which used to fail globally
+    // on Windows when the entry was a junction.
     let mut client = rig.diagnostics(&grant);
+    let listing = client
+        .workspace_list(&Request {
+            api_version: Default::default(),
+            request_id: id("a10-incomplete-worktree-snapshot"),
+            project_id: id(&project.id),
+            expected_revision: Some(project.revision),
+            idempotency_key: None,
+            input: devforge_control::tools::WorkspaceListInput {},
+        })
+        .unwrap();
+    assert!(
+        listing
+            .data()
+            .expect("safe listing remains available")
+            .truncated,
+        "a skipped junction must not be presented as a complete listing"
+    );
     for action in [
         WorkspacePrepareAction::Archive,
         WorkspacePrepareAction::Restore,

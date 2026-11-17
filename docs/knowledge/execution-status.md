@@ -1724,3 +1724,10 @@ fixture raced a brief `controller_busy` admission while attempting to revoke. Th
 fixture now retries only that transient response for at most three seconds, keeping
 the actor blocked until revoke succeeds and preserving the no-ticket/no-mutation
 checks. The affected test passed locally; final evidence belongs to the next run.
+
+Windows CI run 44008149441 exposed a junction in the worktree receipt directory
+invalidating the entire cached workspace snapshot. The snapshot-only projection now
+omits linked/reparse entries without following them and marks the list incomplete;
+strict ownership and mutation lookups remain fail-closed. Recovery association
+also refuses to infer ownership from an incomplete snapshot. Focused macOS tests
+passed; the subsequent Windows CI run verifies the actual junction fixture.
