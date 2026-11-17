@@ -1312,12 +1312,12 @@ fn database_choices_and_mutation_denials_do_not_start_a_database_or_expose_priva
     );
 }
 #[test]
-fn database_mcp_opt_in_only_adds_choices_reviewed_bind_and_restore() {
+fn database_mcp_opt_in_only_adds_choices_reviewed_bind_backup_and_restore() {
     let mut fixture = Fixture::new();
     for (service, runtime, environment, database, count) in [
         (false, false, false, false, 14),
-        (false, false, false, true, 17),
-        (true, true, true, true, 27),
+        (false, false, false, true, 19),
+        (true, true, true, true, 29),
     ] {
         let mut mcp = Mcp::with_database(&fixture, service, runtime, environment, database);
         let listed = mcp.call("tools/list", json!({}));
@@ -1351,6 +1351,8 @@ fn database_mcp_opt_in_only_adds_choices_reviewed_bind_and_restore() {
             let invalid=mcp.call("tools/call",json!({"name":"database.restore","arguments":{"backup_id":"id","expected_revision":fixture.revision,"idempotency_key":"bad-restore","review":"a".repeat(64),"path":"/tmp/not-accepted","sql":"private-sql-canary","consent":true}}));
             assert_eq!(invalid["error"]["code"], -32602);
             assert!(!invalid.to_string().contains("private-sql-canary"));
+            let invalid_backup=mcp.call("tools/call",json!({"name":"database.backup","arguments":{"expected_revision":fixture.revision,"idempotency_key":"bad-backup","review":"a".repeat(64),"path":"/tmp/not-accepted"}}));
+            assert_eq!(invalid_backup["error"]["code"], -32602);
             let clone=mcp.call("tools/call",json!({"name":"database.plan","arguments":{"action":"clone","expected_revision":fixture.revision,"idempotency_key":"no-clone"}}));
             assert_eq!(clone["error"]["code"], -32602);
         } else {
@@ -1478,7 +1480,7 @@ fn domain_mcp_flag_exposes_exact_seven_operations_without_elevation_or_configure
     for (service, runtime, environment, database, domain, count) in [
         (false, false, false, false, false, 14),
         (false, false, false, false, true, 21),
-        (true, true, true, true, true, 34),
+        (true, true, true, true, true, 36),
     ] {
         let mut mcp = Mcp::with_domain(&fixture, service, runtime, environment, database, domain);
         let listed = mcp.call("tools/list", json!({}));

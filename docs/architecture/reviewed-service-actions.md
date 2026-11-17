@@ -314,3 +314,27 @@ replacement; an operation already in progress can leave recoverable partial stag
 and purge may finish after irreversible deletion begins. Source: workspace
 `worktrees/`, manager `workspace_control.rs` and `service_control.rs`, control
 contracts and their scoped tests. OS-specific evidence is in execution status.
+
+## A11 reviewed database backup (2026-11-17)
+
+The database opt-in exposes a scoped `database.backup` plan/apply through the
+existing project grant, operation and native exact-review boundary. ProjectManage
+and SensitiveOperation are required. The private reviewed state binds the project
+identity and revision, active database binding, managed instance and data-root
+identity. Backup may start a managed database or prepare its owned tooling; it
+never accepts an external destination or exposes the archive or credentials.
+
+The guarded existing backup path checks authority and the reviewed binding before
+secret lookup, before database effects, during the dump and chunked hash/copy, and
+immediately before publishing. A denied or cancelled pre-publication attempt does
+not publish the new archive. A DB query or filesystem syscall already in flight is
+not a hard real-time cancellation boundary, and a successfully published backup is
+not rolled back by a later revoke. Existing restore uses its established staged
+generation and activation checks.
+
+`database.backup_result` reads only the original grant/client's owned operation and
+returns its project, operation and backup identifiers plus creation status; it does
+not return the private manifest, path, checksum or dump. Results are bounded and
+in memory: after eviction or restart they may be unavailable even if the backup
+remains in database choices, which does not establish operation correlation.
+Validation and native-platform limitations are in execution status.

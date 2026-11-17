@@ -246,6 +246,12 @@ export interface WorkspacePrepareOutput {
   create?: WorkspaceCreatePreview | null;
   merge?: WorkspaceMergePreview | null;
 }
+export interface DatabaseBackupResult {
+  project_id: string;
+  operation_id: string;
+  backup_id: string;
+  created: boolean;
+}
 export interface OperationInput {
   page?: PageRequest | null;
   operation_id: string;
@@ -508,6 +514,9 @@ export interface DatabaseBindInput {
   instance_id: string;
   limits?: MutationLimits | null;
 }
+export interface DatabaseBackupInput {
+  limits?: MutationLimits | null;
+}
 export interface DatabaseRestoreInput {
   backup_id: string;
   limits?: MutationLimits | null;
@@ -634,6 +643,7 @@ export interface MutationInputs {
   "environment.apply": EnvironmentApplyInput;
   "environment.yaml_save": YamlSaveInput;
   "database.bind": DatabaseBindInput;
+  "database.backup": DatabaseBackupInput;
   "database.restore": DatabaseRestoreInput;
   "domains.apply": DomainApplyInput;
   "domains.cleanup": DomainCleanupInput;
@@ -669,6 +679,7 @@ export interface MutationOutputs {
   "environment.apply": MutationReceipt;
   "environment.yaml_save": MutationReceipt;
   "database.bind": MutationReceipt;
+  "database.backup": MutationReceipt;
   "database.restore": MutationReceipt;
   "domains.apply": MutationReceipt;
   "domains.cleanup": MutationReceipt;

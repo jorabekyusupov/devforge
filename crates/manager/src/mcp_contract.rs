@@ -174,6 +174,9 @@ impl DomainCall {
 #[derive(Clone)]
 pub enum DatabaseInput {
     Choices,
+    BackupResult {
+        operation_id: Id,
+    },
     Plan(Request<MutationInput>),
     Apply {
         request: Request<MutationInput>,
@@ -1180,7 +1183,16 @@ impl Protocol {
             .cloned()
             .unwrap_or_else(|| json!({}));
         let lookup = name == "operations.status" && args.get("idempotency_key").is_some();
-        if !lookup && !matches!(name, "database.plan" | "database.bind" | "database.restore") {
+        if !lookup
+            && !matches!(
+                name,
+                "database.plan"
+                    | "database.bind"
+                    | "database.backup"
+                    | "database.backup_result"
+                    | "database.restore"
+            )
+        {
             return None;
         }
         if !keys(params, &["name", "arguments"]) {
@@ -1189,6 +1201,17 @@ impl Protocol {
         self.counter = self.counter.wrapping_add(1);
         let request_id = Id::new(format!("mcp-{}", self.counter)).expect("fixed request ID");
         let result = (|| {
+            if name == "database.backup_result" {
+                #[derive(Deserialize)]
+                #[serde(deny_unknown_fields)]
+                struct BackupResult {
+                    operation_id: Id,
+                }
+                let input: BackupResult = serde_json::from_value(args).map_err(|_| ())?;
+                return Ok(DatabaseInput::BackupResult {
+                    operation_id: input.operation_id,
+                });
+            }
             if lookup {
                 #[derive(Deserialize)]
                 #[serde(deny_unknown_fields)]
@@ -1220,6 +1243,7 @@ impl Protocol {
             }
             let tool = match action.as_str() {
                 "bind" => "database.bind",
+                "backup" => "database.backup",
                 "restore" => "database.restore",
                 _ => return Err(()),
             };
@@ -2598,13 +2622,14 @@ fn database_tool_definitions() -> Vec<Value> {
             properties.insert("idempotency_key".into(), Id::schema());
             properties.insert("limits".into(),json!({"anyOf":[devforge_control::mutations::MutationLimits::schema(),{"type":"null"}]}));
             required.extend(["expected_revision", "idempotency_key"]);
-            let target = if action == "bind" {
-                "instance_id"
-            } else {
-                "backup_id"
-            };
-            properties.insert(target.into(), Id::schema());
-            required.push(target);
+            if let Some(target) = match action {
+                "bind" => Some("instance_id"),
+                "restore" => Some("backup_id"),
+                _ => None,
+            } {
+                properties.insert(target.into(), Id::schema());
+                required.push(target);
+            }
             if !planning {
                 properties.insert("review".into(), Digest::schema());
                 required.push("review");
@@ -2612,10 +2637,12 @@ fn database_tool_definitions() -> Vec<Value> {
         }
         json!({"type":"object","additionalProperties":false,"properties":properties,"required":required})
     };
-    ["database.plan","database.bind","database.restore"].into_iter().map(|name|{
-        let planning=name=="database.plan";let schema=if planning{json!({"type":"object","oneOf":[build("choices",true),build("bind",true),build("restore",true)]})}else{build(name.strip_prefix("database.").expect("fixed prefix"),false)};
-        json!({"name":name,"description":if planning{"Scoped owned DB choices or native-review plan. Default action choices lists only this project's current/retained instance IDs and own backup IDs. Bind/restore plans require PM+Sensitive and stopped project. Private paths, credentials, database names, checksums and identities remain at the manager/native-plan boundary."}else if name=="database.bind"{"Apply only the exact native-approved owned instance binding with PM+Sensitive and stopped project. It may start a managed DB daemon or provision a project-owned staged binding; failure/cancellation need not undo completed prerequisites. No admin credentials or SQL tool is exposed. Keep original key after uncertainty and lookup its receipt."}else{"Restore only an owned backup by ID through the existing staged restore/activation transaction. PM+Sensitive, stopped project and exact native approval are mandatory. Private checksum/identity/engine checks are server-owned. Staging or completed prerequisites may remain after failure; late cancellation does not undo successful activation. Preserve original key and reconcile; no path, SQL import, clone or export tool."},"inputSchema":schema,"annotations":{"readOnlyHint":planning,"destructiveHint":!planning,"idempotentHint":true,"openWorldHint":!planning}})
-    }).collect()
+    let mut definitions: Vec<Value> = ["database.plan","database.bind","database.backup","database.restore"].into_iter().map(|name|{
+        let planning=name=="database.plan";let schema=if planning{json!({"type":"object","oneOf":[build("choices",true),build("bind",true),build("backup",true),build("restore",true)]})}else{build(name.strip_prefix("database.").expect("fixed prefix"),false)};
+        json!({"name":name,"description":if planning{"Scoped owned DB choices or native-review plan. Default action choices lists only this project's current/retained instance IDs and own backup IDs. Bind/backup/restore plans require PM+Sensitive and stopped project. Private paths, credentials, database names, checksums and identities remain at the manager/native-plan boundary."}else if name=="database.bind"{"Apply only the exact native-approved owned instance binding with PM+Sensitive and stopped project. It may start a managed DB daemon or provision a project-owned staged binding; failure/cancellation need not undo completed prerequisites. No admin credentials or SQL tool is exposed. Keep original key after uncertainty and lookup its receipt."}else if name=="database.backup"{"Create a local owned backup only for the bound stopped project with PM+Sensitive and exact native approval. Output exposes bounded metadata, never a client path, raw dump, credentials or automatic sharing. Preserve the original idempotency key and reconcile the operation receipt after uncertainty."}else{"Restore only an owned backup by ID through the existing staged restore/activation transaction. PM+Sensitive, stopped project and exact native approval are mandatory. Private checksum/identity/engine checks are server-owned. Staging or completed prerequisites may remain after failure; late cancellation does not undo successful activation. Preserve original key and reconcile; no path, SQL import, clone or export tool."},"inputSchema":schema,"annotations":{"readOnlyHint":planning,"destructiveHint":!planning&&name!="database.backup","idempotentHint":true,"openWorldHint":!planning}})
+    }).collect();
+    definitions.push(json!({"name":"database.backup_result","description":"Read bounded metadata for a completed owned backup operation. Requires the original client and grant, project binding, and ProjectManage plus SensitiveOperation rights; no path, database dump or credentials are returned. Results are bounded and held in memory: expiry, eviction or manager restart may return ResultUnavailable. The backup can remain visible through database.plan choices, but operation-to-backup correlation is not durable.","inputSchema":{"type":"object","additionalProperties":false,"properties":{"operation_id":Id::schema()},"required":["operation_id"]},"annotations":{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true,"openWorldHint":false}}));
+    definitions
 }
 
 fn domain_tool_definitions() -> Vec<Value> {

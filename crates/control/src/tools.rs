@@ -102,6 +102,12 @@ contract!(ServiceInput{page:Option<PageRequest>,service_id:Option<Id>});
 contract!(EnvironmentInput{page:Option<PageRequest>,name:Option<Id>});
 contract!(DomainInput{page:Option<PageRequest>});
 contract!(DatabaseInput{page:Option<PageRequest>});
+contract!(DatabaseBackupResult {
+    project_id: Id,
+    operation_id: Id,
+    backup_id: Id,
+    created: bool
+});
 contract!(LogInput{page:Option<PageRequest>,query:Option<Text<256>>,level:Option<Text<32>>,#[serde(default,skip_serializing_if="Option::is_none")] since:Option<SafeInt>,#[serde(default,skip_serializing_if="Option::is_none")] content:Option<bool>});
 contract!(InspectorInput{page:Option<PageRequest>,context_id:Option<Id>,#[serde(default,skip_serializing_if="Option::is_none")] detail:Option<bool>});
 
@@ -663,6 +669,7 @@ pub fn declarations() -> Vec<String> {
         WorkspaceMergePreview,
         WorkspaceCreatePreview,
         WorkspacePrepareOutput,
+        DatabaseBackupResult,
         OperationInput,
         ArtifactInput,
         HealthItem,

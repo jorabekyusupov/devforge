@@ -49,6 +49,60 @@ fn hash(path: &Path) -> Result<String> {
     }
     Ok(h.finalize().iter().map(|b| format!("{b:02x}")).collect())
 }
+// Check cancellation on every chunk and revalidate authority periodically;
+// callers perform a final check immediately before publishing the archive.
+fn copy_checked(
+    input: &mut impl Read,
+    output: &mut impl Write,
+    cancel: &Cancellation,
+    check: &dyn Fn() -> Result<()>,
+) -> Result<()> {
+    let mut buffer = [0u8; 65536];
+    let mut last_check = Instant::now();
+    check()?;
+    loop {
+        if cancel.is_cancelled() {
+            return Err(E::ExecutionFailed);
+        }
+        if last_check.elapsed() >= Duration::from_millis(200) {
+            check()?;
+            last_check = Instant::now();
+        }
+        let n = input.read(&mut buffer)?;
+        if n == 0 {
+            break;
+        }
+        output.write_all(&buffer[..n])?;
+    }
+    if cancel.is_cancelled() {
+        return Err(E::ExecutionFailed);
+    }
+    check()
+}
+fn hash_checked(
+    path: &Path,
+    cancel: &Cancellation,
+    check: &dyn Fn() -> Result<()>,
+) -> Result<String> {
+    struct HashWriter(Sha256);
+    impl Write for HashWriter {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            self.0.update(buf);
+            Ok(buf.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+    let mut writer = HashWriter(Sha256::new());
+    copy_checked(&mut File::open(path)?, &mut writer, cancel, check)?;
+    Ok(writer
+        .0
+        .finalize()
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect())
+}
 fn valid_id(id: &str) -> bool {
     id.len() == 32 && id.bytes().all(|b| b.is_ascii_hexdigit())
 }
@@ -79,25 +133,6 @@ fn options(c: &Credentials, dir: &Path) -> Result<tempfile::NamedTempFile> {
     file.write_all(text.as_bytes())?;
     file.as_file().sync_all()?;
     Ok(file)
-}
-#[allow(
-    clippy::too_many_arguments,
-    reason = "One process boundary carries credentials, verified packages and cancellation explicitly"
-)]
-fn run(
-    c: &Credentials,
-    package: &str,
-    tool: &str,
-    args: Vec<std::ffi::OsString>,
-    input: Option<PathBuf>,
-    catalog: &Catalog,
-    packages: &PackageStore,
-    dir: &Path,
-    cancel: &Cancellation,
-) -> Result<()> {
-    run_connection(
-        c, package, tool, args, input, catalog, packages, dir, cancel, None,
-    )
 }
 #[allow(
     clippy::too_many_arguments,
@@ -346,9 +381,56 @@ impl ProjectStore {
         secrets: &dyn SecretStore,
         cancel: &Cancellation,
     ) -> Result<Manifest> {
-        let c = self.credentials(project, secrets)?;
-        let instance = self.instance(&c.binding.instance_id)?;
+        self.create_backup_checked(
+            project,
+            catalog,
+            packages,
+            secrets,
+            cancel,
+            &|| Ok(()),
+            &|_, _| Ok(()),
+        )
+    }
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "Owned backup and authorization checkpoints"
+    )]
+    pub fn create_backup_checked(
+        &self,
+        project: &str,
+        catalog: &Catalog,
+        packages: &PackageStore,
+        secrets: &dyn SecretStore,
+        cancel: &Cancellation,
+        check: &dyn Fn() -> Result<()>,
+        state_check: &dyn Fn(&Binding, &crate::database::Instance) -> Result<()>,
+    ) -> Result<Manifest> {
+        let guarded = || {
+            if cancel.is_cancelled() {
+                return Err(E::ExecutionFailed);
+            }
+            check()
+        };
+        guarded()?;
+        // Inspect the current binding before resolving any secret. A stale plan
+        // must not read a newly selected binding's credential.
+        let binding = self
+            .binding(project)?
+            .filter(|b| b.ready)
+            .ok_or(E::DatabaseUnavailable)?;
+        let instance = self.instance(&binding.instance_id)?;
+        state_check(&binding, &instance)?;
+        guarded()?;
+        let c = self.credentials_for(binding, secrets)?;
+        guarded()?;
+        let current_binding = self
+            .binding(project)?
+            .filter(|b| b.ready)
+            .ok_or(E::DatabaseUnavailable)?;
+        let current_instance = self.instance(&current_binding.instance_id)?;
+        state_check(&current_binding, &current_instance)?;
         let package = catalog.get(&instance.package)?;
+        guarded()?;
         let root = self.backup_root(project)?;
         let temp = tempfile::tempdir_in(&root)?;
         let payload = temp.path().join("payload");
@@ -361,11 +443,13 @@ impl ProjectStore {
                 c.port,
                 &c.root,
             )?;
+            guarded()?;
             let count:Option<u64>=conn.exec_first("SELECT (SELECT COUNT(*) FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=?)+(SELECT COUNT(*) FROM information_schema.ROUTINES WHERE ROUTINE_SCHEMA=?)+(SELECT COUNT(*) FROM information_schema.EVENTS WHERE EVENT_SCHEMA=?)+(SELECT COUNT(*) FROM information_schema.VIEWS WHERE TABLE_SCHEMA=?)+(SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=? AND TABLE_TYPE='BASE TABLE' AND ENGINE<>'InnoDB')",(&c.binding.database,&c.binding.database,&c.binding.database,&c.binding.database,&c.binding.database)).map_err(|_|E::DatabaseUnavailable)?;
+            guarded()?;
             if count != Some(0) {
                 return Err(E::BackupUnsupported);
             }
-            run(
+            run_connection_checked(
                 &c,
                 &instance.package,
                 "mysqldump",
@@ -382,9 +466,11 @@ impl ProjectStore {
                 packages,
                 temp.path(),
                 cancel,
+                None,
+                &guarded,
             )?;
         } else {
-            run(
+            run_connection_checked(
                 &c,
                 &instance.package,
                 "pg_dump",
@@ -400,10 +486,28 @@ impl ProjectStore {
                 packages,
                 temp.path(),
                 cancel,
+                None,
+                &guarded,
             )?;
         }
-        self.publish_payload(project, &payload, c.engine, &package.version)
+        guarded()?;
+        let final_state = || {
+            let binding = self.binding(project)?.ok_or(E::DatabaseUnavailable)?;
+            let current = self.instance(&binding.instance_id)?;
+            state_check(&binding, &current)
+        };
+        final_state()?;
+        self.publish_payload_checked(
+            project,
+            &payload,
+            c.engine,
+            &package.version,
+            cancel,
+            check,
+            &final_state,
+        )
     }
+    // Existing remote backup path retains its original publication contract.
     fn publish_payload(
         &self,
         project: &str,
@@ -411,6 +515,37 @@ impl ProjectStore {
         engine: Engine,
         version: &str,
     ) -> Result<Manifest> {
+        self.publish_payload_checked(
+            project,
+            payload,
+            engine,
+            version,
+            &Cancellation::default(),
+            &|| Ok(()),
+            &|| Ok(()),
+        )
+    }
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "Bounded archive publication and trusted checkpoints"
+    )]
+    fn publish_payload_checked(
+        &self,
+        project: &str,
+        payload: &Path,
+        engine: Engine,
+        version: &str,
+        cancel: &Cancellation,
+        check: &dyn Fn() -> Result<()>,
+        state_check: &dyn Fn() -> Result<()>,
+    ) -> Result<Manifest> {
+        let guarded = || {
+            if cancel.is_cancelled() {
+                return Err(E::ExecutionFailed);
+            }
+            check()
+        };
+        guarded()?;
         let bytes = fs::metadata(payload)?.len();
         if bytes > LIMIT {
             return Err(E::InvalidBackup);
@@ -425,9 +560,10 @@ impl ProjectStore {
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap_or_default()
                 .as_secs(),
-            sha256: hash(payload)?,
+            sha256: hash_checked(payload, cancel, check)?,
             bytes,
         };
+        guarded()?;
         let mut archive = tempfile::NamedTempFile::new_in(self.backup_root(project)?)?;
         {
             let mut zip = zip::ZipWriter::new(archive.as_file_mut());
@@ -439,10 +575,13 @@ impl ProjectStore {
             zip.write_all(&serde_json::to_vec(&manifest).map_err(|_| E::InvalidBackup)?)?;
             zip.start_file("payload", options)
                 .map_err(|_| E::InvalidBackup)?;
-            std::io::copy(&mut File::open(payload)?, &mut zip)?;
+            copy_checked(&mut File::open(payload)?, &mut zip, cancel, check)?;
             zip.finish().map_err(|_| E::InvalidBackup)?;
         }
         archive.as_file().sync_all()?;
+        guarded()?;
+        state_check()?;
+        guarded()?;
         archive
             .persist_noclobber(self.backup_path(project, &manifest.id)?)
             .map_err(|_| E::StorageUnavailable)?;
@@ -760,6 +899,172 @@ mod tests {
         z.start_file(extra, o).unwrap();
         z.write_all(b"SQL").unwrap();
         z.finish().unwrap();
+    }
+    #[test]
+    fn checked_publication_keeps_only_completed_authorized_archive() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        let temp = tempfile::tempdir().unwrap();
+        let project_dir = temp.path().join("project");
+        fs::create_dir_all(project_dir.join("public")).unwrap();
+        fs::write(project_dir.join("public/index.php"), "<?php").unwrap();
+        fs::write(
+            project_dir.join("composer.json"),
+            r#"{"require":{"php":"*","laravel/framework":"^13"}}"#,
+        )
+        .unwrap();
+        let catalog = Catalog::bundled();
+        let target = devforge_runtime::package::Target::current().unwrap();
+        let select = |kind: &str| {
+            catalog
+                .packages
+                .iter()
+                .find(|(_, p)| p.kind == kind && p.target == target)
+                .unwrap()
+                .0
+                .clone()
+        };
+        let store = ProjectStore::open(temp.path().join("store")).unwrap();
+        let project = store
+            .import(
+                &project_dir,
+                "Fixture",
+                &select("php"),
+                &select("node"),
+                &catalog,
+            )
+            .unwrap();
+        let payload = temp.path().join("synthetic.dump");
+        fs::write(&payload, vec![42u8; 131_072]).unwrap();
+        let cancel = Cancellation::default();
+        // Refusal immediately before publishing removes the temporary archive.
+        let checks = AtomicUsize::new(0);
+        let guard = || {
+            checks.fetch_add(1, Ordering::Relaxed);
+            Ok(())
+        };
+        let denied = store.publish_payload_checked(
+            &project.id,
+            &payload,
+            Engine::Postgresql,
+            "fixture",
+            &cancel,
+            &guard,
+            &|| Err(E::ExecutionFailed),
+        );
+        assert!(matches!(denied, Err(E::ExecutionFailed)));
+        assert!(checks.load(Ordering::Relaxed) >= 3);
+        let root = store.backup_root(&project.id).unwrap();
+        assert!(fs::read_dir(&root).unwrap().next().is_none());
+        let manifest = store
+            .publish_payload_checked(
+                &project.id,
+                &payload,
+                Engine::Postgresql,
+                "fixture",
+                &cancel,
+                &guard,
+                &|| Ok(()),
+            )
+            .unwrap();
+        let archive = store.backup_path(&project.id, &manifest.id).unwrap();
+        assert_eq!(inspect(&archive).unwrap().0.sha256, manifest.sha256);
+        let original = fs::read(&archive).unwrap();
+        // A revoke observed immediately after state validation must also prevent
+        // publication, while leaving any prior backup byte-for-byte unchanged.
+        let revoked = std::sync::atomic::AtomicBool::new(false);
+        let last_guard = || {
+            if revoked.load(Ordering::Acquire) {
+                Err(E::ExecutionFailed)
+            } else {
+                Ok(())
+            }
+        };
+        let revoke_after_state = || {
+            revoked.store(true, Ordering::Release);
+            Ok(())
+        };
+        assert!(matches!(
+            store.publish_payload_checked(
+                &project.id,
+                &payload,
+                Engine::Postgresql,
+                "fixture",
+                &cancel,
+                &last_guard,
+                &revoke_after_state
+            ),
+            Err(E::ExecutionFailed)
+        ));
+        assert_eq!(fs::read_dir(&root).unwrap().count(), 1);
+        assert_eq!(fs::read(&archive).unwrap(), original);
+        cancel.cancel();
+        assert!(matches!(
+            store.publish_payload_checked(
+                &project.id,
+                &payload,
+                Engine::Postgresql,
+                "fixture",
+                &cancel,
+                &guard,
+                &|| Ok(())
+            ),
+            Err(E::ExecutionFailed)
+        ));
+        assert_eq!(fs::read_dir(&root).unwrap().count(), 1);
+        assert_eq!(fs::read(&archive).unwrap(), original);
+
+        // A stale reviewed binding is rejected before SecretStore lookup.
+        struct SecretSpy(AtomicUsize);
+        impl SecretStore for SecretSpy {
+            fn get(
+                &self,
+                _: &str,
+            ) -> std::result::Result<Option<String>, devforge_core::ErrorCode> {
+                self.0.fetch_add(1, Ordering::Relaxed);
+                Ok(Some("synthetic-secret".into()))
+            }
+            fn set(&self, _: &str, _: &str) -> std::result::Result<(), devforge_core::ErrorCode> {
+                Ok(())
+            }
+            fn delete(&self, _: &str) -> std::result::Result<(), devforge_core::ErrorCode> {
+                Ok(())
+            }
+        }
+        let instance = crate::database::Instance {
+            engine: Engine::Postgresql,
+            id: "c".repeat(32),
+            package: "fixture".into(),
+            port: 5432,
+            admin: "fixture".into(),
+            secret_ref: "fixture-admin".into(),
+            ready: true,
+        };
+        store.save_instance(&instance).unwrap();
+        let binding = Binding {
+            project_id: project.id.clone(),
+            instance_id: instance.id,
+            database: "fixture".into(),
+            role: "fixture".into(),
+            secret_ref: "unapproved-secret".into(),
+            ready: true,
+        };
+        store.activate_binding(&project.id, Some(&binding)).unwrap();
+        let packages =
+            PackageStore::open(temp.path().join("packages"), Default::default()).unwrap();
+        let spy = SecretSpy(AtomicUsize::new(0));
+        let fresh_cancel = Cancellation::default();
+        let result = store.create_backup_checked(
+            &project.id,
+            &catalog,
+            &packages,
+            &spy,
+            &fresh_cancel,
+            &|| Ok(()),
+            &|_, _| Err(E::ExecutionFailed),
+        );
+        assert!(matches!(result, Err(E::ExecutionFailed)));
+        assert_eq!(spy.0.load(Ordering::Relaxed), 0);
+        assert_eq!(fs::read(&archive).unwrap(), original);
     }
     #[test]
     fn checksum_and_path_boundaries_are_enforced() {

@@ -304,6 +304,9 @@ fn database_dispatch(
 ) -> Result<Value, ErrorCode> {
     match &call.input {
         DatabaseInput::Choices => client.choices(call.request_id.clone()).and_then(value),
+        DatabaseInput::BackupResult { operation_id } => client
+            .backup_result(call.request_id.clone(), operation_id)
+            .and_then(value),
         DatabaseInput::Plan(request) => client.plan(request).and_then(value),
         DatabaseInput::Apply { request, review } => {
             client.apply(request, review).and_then(admitted_value)

@@ -151,6 +151,11 @@ pub enum ReviewTarget {
     DatabaseRestore {
         backup_id: Id,
     },
+    DatabaseBackup {
+        instance_id: Id,
+        engine: String,
+        version: String,
+    },
     Domain {
         action: DomainPlanKind,
         summary: devforge_workspace::domain_control::NativeDomainReviewSummary,
@@ -1197,7 +1202,8 @@ impl ServiceJob {
                 workspace.execute_environment_action(command, &self.cancellation, &check)
             }
             devforge_workspace::Command::SwitchDatabase { .. }
-            | devforge_workspace::Command::RestoreBackup { .. } => {
+            | devforge_workspace::Command::RestoreBackup { .. }
+            | devforge_workspace::Command::CreateBackup { .. } => {
                 let expected = self
                     .intent
                     .database
@@ -1207,14 +1213,19 @@ impl ServiceJob {
                 if live.fingerprint()? != expected.state.fingerprint()? {
                     return Err(ws_error(ErrorCode::ReviewMismatch));
                 }
-                workspace.database_action_preflight(&command)?;
-                let _private = workspace.execute_database_action(
+                let is_backup =
+                    matches!(*command, devforge_workspace::Command::CreateBackup { .. });
+                let output = workspace.execute_database_action(
                     *command,
                     &expected.state,
                     &self.cancellation,
                     &check,
                 )?;
-                Ok(json!({"applied":true}))
+                if is_backup {
+                    Ok(output)
+                } else {
+                    Ok(json!({"applied":true}))
+                }
             }
             _ => Err(ws_error(ErrorCode::UnsupportedCapability)),
         }
@@ -2168,6 +2179,78 @@ impl Services {
             }
         }
     }
+    fn database_backup_result(
+        &self,
+        peer: &PeerIdentity,
+        credential: &ExternalCredential,
+        project: &Id,
+        operation: &Id,
+        actor: &ActorHandle,
+    ) -> Result<devforge_control::tools::DatabaseBackupResult, ErrorCode> {
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct PrivateResult {
+            kind: String,
+            backup_id: Id,
+            created: bool,
+        }
+        self.workspace_prebind(peer, credential, project)?;
+        let view = actor.external_snapshot().map_err(actor_error)?;
+        let binding = project_binding(&view.snapshot, project)?;
+        let mut lock = self
+            .grants
+            .registry
+            .lock()
+            .map_err(|_| ErrorCode::StorageUnavailable)?;
+        let registry = lock.as_mut().ok_or(ErrorCode::Interrupted)?;
+        let proof = registry
+            .authorize(
+                peer,
+                credential,
+                &binding,
+                &[Scope::ProjectManage, Scope::SensitiveOperation],
+                &[],
+                None,
+            )
+            .map_err(grant_error)?;
+        let result = actor
+            .external_result(proof.client_id(), project, operation)
+            .map_err(|error| match error {
+                crate::actor::ActorError::NotReady => ErrorCode::Busy,
+                crate::actor::ActorError::ResultUnavailable => ErrorCode::ResultUnavailable,
+                crate::actor::ActorError::OperationNotFound => ErrorCode::Unauthorized,
+                _ => actor_error(error),
+            })?;
+        let result: PrivateResult =
+            serde_json::from_value(result).map_err(|_| ErrorCode::UnsupportedCapability)?;
+        if result.kind != "database_backup"
+            || !result.created
+            || result.backup_id.as_str().len() != 32
+            || !result
+                .backup_id
+                .as_str()
+                .bytes()
+                .all(|c| c.is_ascii_hexdigit())
+        {
+            return Err(ErrorCode::UnsupportedCapability);
+        }
+        registry
+            .authorize(
+                peer,
+                credential,
+                &binding,
+                &[Scope::ProjectManage, Scope::SensitiveOperation],
+                &[],
+                Some(binding.revision()),
+            )
+            .map_err(grant_error)?;
+        Ok(devforge_control::tools::DatabaseBackupResult {
+            project_id: project.clone(),
+            operation_id: operation.clone(),
+            backup_id: result.backup_id,
+            created: result.created,
+        })
+    }
     fn database_plan(
         self: &Arc<Self>,
         peer: PeerIdentity,
@@ -2175,6 +2258,9 @@ impl Services {
         request: Request<MutationInput>,
         actor: &ActorHandle,
     ) -> Result<PlanReceipt, ErrorCode> {
+        if matches!(request.input, MutationInput::DatabaseBackup(_)) {
+            self.workspace_prebind(&peer, &credential, &request.project_id)?;
+        }
         let data = self.read_database(actor, &peer, &credential, &request)?;
         let view = actor.external_snapshot().map_err(actor_error)?;
         let binding = project_binding(&view.snapshot, &request.project_id)?;
@@ -2591,6 +2677,7 @@ impl Services {
                 | "db_plan"
                 | "db_apply"
                 | "db_lookup"
+                | "db_backup_result"
                 | "domain_read"
                 | "domain_prepare"
                 | "domain_plan"
@@ -2963,12 +3050,26 @@ impl Services {
                 review,
             } => {
                 let result = database_only(&request.input).and_then(|_| {
-                    credential
-                        .parse()
-                        .and_then(|c| self.apply(peer, c, *request, review, actor))
+                    credential.parse().and_then(|c| {
+                        if matches!(request.input, MutationInput::DatabaseBackup(_)) {
+                            self.workspace_prebind(&peer, &c, &request.project_id)?;
+                        }
+                        self.apply(peer, c, *request, review, actor)
+                    })
                 });
                 let op = result.as_ref().ok().map(|r| r.operation_id.clone());
                 respond(id, result, op)
+            }
+            Wire::DatabaseBackupResult {
+                credential,
+                request_id,
+                project_id,
+                operation_id,
+            } => {
+                let result = credential.parse().and_then(|c| {
+                    self.database_backup_result(&peer, &c, &project_id, &operation_id, actor)
+                });
+                respond(request_id, result, Some(operation_id))
             }
             Wire::DatabaseLookup {
                 credential,
@@ -2976,9 +3077,10 @@ impl Services {
                 project_id,
                 idempotency_key,
             } => {
-                let result = credential
-                    .parse()
-                    .and_then(|c| self.lookup(&peer, &c, &project_id, &idempotency_key, actor));
+                let result = credential.parse().and_then(|c| {
+                    self.workspace_prebind(&peer, &c, &project_id)?;
+                    self.lookup(&peer, &c, &project_id, &idempotency_key, actor)
+                });
                 let op = result
                     .as_ref()
                     .ok()
@@ -3472,6 +3574,20 @@ impl Services {
                 MutationInput::DatabaseRestore(input) => ReviewTarget::DatabaseRestore {
                     backup_id: input.backup_id.clone(),
                 },
+                MutationInput::DatabaseBackup(_) => {
+                    let (instance_id, engine, version) = intent
+                        .database
+                        .as_ref()
+                        .ok_or(ErrorCode::PreconditionFailed)?
+                        .state
+                        .backup_native_summary()
+                        .map_err(environment_error)?;
+                    ReviewTarget::DatabaseBackup {
+                        instance_id: Id::new(instance_id)?,
+                        engine: engine.into(),
+                        version,
+                    }
+                }
                 MutationInput::DomainApply(_) | MutationInput::DomainCleanup(_) => {
                     ReviewTarget::Domain {
                         action: intent.domain.as_ref().ok_or(ErrorCode::InvalidInput)?.kind,
@@ -4511,7 +4627,9 @@ fn required(input: &MutationInput) -> Result<Vec<Scope>, ErrorCode> {
         ]),
         MutationInput::YamlSave(_) => Ok(vec![Scope::ProjectManage, Scope::SensitiveOperation]),
         MutationInput::SupportExport(_) => Ok(vec![Scope::Observer, Scope::SensitiveOperation]),
-        MutationInput::DatabaseBind(_) | MutationInput::DatabaseRestore(_) => {
+        MutationInput::DatabaseBind(_)
+        | MutationInput::DatabaseRestore(_)
+        | MutationInput::DatabaseBackup(_) => {
             Ok(vec![Scope::ProjectManage, Scope::SensitiveOperation])
         }
         MutationInput::DomainApply(_) | MutationInput::DomainCleanup(_) => {
@@ -4569,7 +4687,9 @@ fn cached_preflight(
     check_yaml_size(&request.input)?;
     if matches!(
         request.input,
-        MutationInput::DatabaseBind(_) | MutationInput::DatabaseRestore(_)
+        MutationInput::DatabaseBind(_)
+            | MutationInput::DatabaseRestore(_)
+            | MutationInput::DatabaseBackup(_)
     ) {
         if snapshot
             .projects
@@ -4760,7 +4880,9 @@ pub(crate) fn actor_error(error: crate::actor::ActorError) -> ErrorCode {
 fn database_only(input: &MutationInput) -> Result<(), ErrorCode> {
     if matches!(
         input,
-        MutationInput::DatabaseBind(_) | MutationInput::DatabaseRestore(_)
+        MutationInput::DatabaseBind(_)
+            | MutationInput::DatabaseRestore(_)
+            | MutationInput::DatabaseBackup(_)
     ) {
         Ok(())
     } else {
@@ -4868,6 +4990,9 @@ fn database_command(
             id: request.project_id.as_str().into(),
             backup: input.backup_id.as_str().into(),
             consent: true,
+        }),
+        MutationInput::DatabaseBackup(_) => Ok(devforge_workspace::Command::CreateBackup {
+            id: request.project_id.as_str().into(),
         }),
         _ => Err(ErrorCode::UnsupportedCapability),
     }
@@ -5217,6 +5342,13 @@ enum Wire {
         credential: Token,
         request: Box<Request<MutationInput>>,
         review: Digest,
+    },
+    #[serde(rename = "db_backup_result")]
+    DatabaseBackupResult {
+        credential: Token,
+        request_id: Id,
+        project_id: Id,
+        operation_id: Id,
     },
     #[serde(rename = "db_lookup")]
     DatabaseLookup {
