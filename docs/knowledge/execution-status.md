@@ -1681,3 +1681,59 @@ still expected a breakpoint write while an active debugger exists, which the fac
 now safely rejects. The fixture now changes project revision through an allowed
 mode action and preserves the stale/revoked value-masking assertions. That focused
 test passed locally; the next CI run records final platform status.
+
+## A10 — scoped workspace lifecycle (2026-11-17)
+
+The workspace facade exposes source-scoped list/prepare and native-reviewed
+create/archive/restore/purge/merge. Merge direction was explicitly selected by the
+user: source committed HEAD into the owned worktree. Shared and isolated (without
+submodules) fast-forward, already-included and clean nonconflicting divergent
+merges are supported; conflicts, submodules, unsafe Git configuration and
+dirty/running targets are refused, not silently merged. Partial
+Git failure may leave target changes and is reported as `worktree_merge_incomplete`.
+Explicit WorkspaceContentScan and WorkspaceSecretCopy information rights do not
+extend existing grants; DB clone and secret copy require sensitive authority.
+Review, recovery, source preservation and same-user concurrency limitations are
+recorded in [the facade contract](../architecture/reviewed-service-actions.md).
+
+Focused disposable fixtures cover owned archive → restore → purge, fast-forward
+source preservation, ignored-file collision, foreign project, grant/revoke,
+review/stale/cancellation and source ownership. A disposable macOS manager fixture passed native-reviewed Create and SQLite Clone
+using a copied verified runtime cache: child DB data was read back and source `.env`,
+two SQLite canaries, HEAD and dirty status were preserved; an isolated Create with
+a real submodule copied committed nested data and left source nested dirty changes
+untouched. macOS/Windows CI results
+belong to the exact PR head; actual Windows Create/Clone and native UI visual
+inspection remain unverified unless separately observed. No adversarial same-user filesystem sandbox is claimed.
+
+Initial A10 CI run 44000646512 failed desktop Clippy on both macOS and Windows:
+the new Workspace review enum variant exceeded the size-difference lint. The
+internal projection was boxed without changing its JSON contract; desktop Clippy
+and the focused projection test passed locally. Final CI records platform results.
+
+Windows CI run 44001522217 encountered timeouts while several A10 Git-heavy
+fixtures ran concurrently; macOS passed. A10 fixtures now serialize only against
+each other, and workspace prepare/plan and owner-only workspace approval use a
+separate bounded 30-second transport budget. Generic approvals retain 5 seconds.
+The owner approval validates outside the global Quit gate and reauthenticates
+before approval; orderly disconnect and Quit were exercised with a blocked actor.
+Final cross-platform evidence belongs to the subsequent PR run.
+
+Run 44005846821 reached the manager tests on both platforms. Its delayed-preview
+fixture raced a brief `controller_busy` admission while attempting to revoke. The
+fixture now retries only that transient response for at most three seconds, keeping
+the actor blocked until revoke succeeds and preserving the no-ticket/no-mutation
+checks. The affected test passed locally; final evidence belongs to the next run.
+
+Windows CI run 44008149441 exposed a junction in the worktree receipt directory
+invalidating the entire cached workspace snapshot. The snapshot-only projection now
+omits linked/reparse entries without following them and marks the list incomplete;
+strict ownership and mutation lookups remain fail-closed. Recovery association
+also refuses to infer ownership from an incomplete snapshot. Focused macOS tests
+passed; the subsequent Windows CI run verifies the actual junction fixture.
+
+Run 44011520940 passed the Windows junction case but failed the isolated Git
+fixture because Git for Windows interpreted a verbatim canonical path as a remote
+hostname. Canonical paths remain authoritative for ownership checks; only paths
+passed to Git clone/fetch and object alternates are simplified. The affected
+isolated merge test passed on macOS; final Windows evidence is in the next CI run.

@@ -256,6 +256,7 @@ enum Message {
     Environment(Box<crate::environment_control::EnvironmentRead>),
     Database(Box<crate::database_control::DatabaseRead>),
     Domain(Box<crate::domain_control::DomainRead>),
+    WorkspaceRead(Box<crate::workspace_control::WorkspaceRead>),
     Metadata(Box<crate::diagnostics::MetadataRead>),
     #[cfg(feature = "test-support")]
     TestPaused {
@@ -445,6 +446,12 @@ impl ActorHandle {
     ) -> Result<()> {
         self.queue_private(Message::Database(Box::new(query)))
     }
+    pub(crate) fn queue_workspace(
+        &self,
+        query: crate::workspace_control::WorkspaceRead,
+    ) -> Result<()> {
+        self.queue_private(Message::WorkspaceRead(Box::new(query)))
+    }
     pub(crate) fn queue_domain(&self, query: crate::domain_control::DomainRead) -> Result<()> {
         self.queue_private(Message::Domain(Box::new(query)))
     }
@@ -630,6 +637,11 @@ impl ActorHandle {
             MutationInput::DomainApply(_) => MutationOutput::DomainApply(output),
             MutationInput::DomainCleanup(_) => MutationOutput::DomainCleanup(output),
             MutationInput::SupportExport(_) => MutationOutput::SupportExport(output),
+            MutationInput::WorkspaceCreate(_) => MutationOutput::WorkspaceCreate(output),
+            MutationInput::WorkspaceMerge(_) => MutationOutput::WorkspaceMerge(output),
+            MutationInput::WorkspaceArchive(_) => MutationOutput::WorkspaceArchive(output),
+            MutationInput::WorkspaceRestore(_) => MutationOutput::WorkspaceRestore(output),
+            MutationInput::WorkspacePurge(_) => MutationOutput::WorkspacePurge(output),
             MutationInput::DebuggerControl(_) => MutationOutput::DebuggerControl(output),
             MutationInput::DebuggerBreakpoints(_) => MutationOutput::DebuggerBreakpoints(output),
             MutationInput::DebuggerInstall(_) => MutationOutput::DebuggerInstall(output),
@@ -1487,6 +1499,15 @@ fn worker_loop(
                             project_id: None,
                         }));
                     }
+                    Message::WorkspaceRead(query) => {
+                        shared.environment_queued.fetch_sub(1, Ordering::AcqRel);
+                        shared.environment_reads.fetch_sub(1, Ordering::AcqRel);
+                        let _ = query.reply.send(Err(devforge_workspace::Error {
+                            scope: "workspace",
+                            code: "interrupted".into(),
+                            project_id: None,
+                        }));
+                    }
                     Message::Domain(query) => {
                         shared.environment_queued.fetch_sub(1, Ordering::AcqRel);
                         shared.environment_reads.fetch_sub(1, Ordering::AcqRel);
@@ -1571,6 +1592,13 @@ fn worker_loop(
                 shared.environment_reads.fetch_sub(1, Ordering::AcqRel);
             }
             Message::Database(query) => {
+                shared.environment_queued.fetch_sub(1, Ordering::AcqRel);
+                shared.active.store(true, Ordering::Release);
+                query.execute(&workspace);
+                shared.active.store(false, Ordering::Release);
+                shared.environment_reads.fetch_sub(1, Ordering::AcqRel);
+            }
+            Message::WorkspaceRead(query) => {
                 shared.environment_queued.fetch_sub(1, Ordering::AcqRel);
                 shared.active.store(true, Ordering::Release);
                 query.execute(&workspace);
@@ -2199,6 +2227,7 @@ fn receipt(
                 | "runtime_failed"
                 | "serving_failed"
                 | "workspace_failed"
+                | "worktree_merge_incomplete"
                 | "debugger_failed"
                 | "result_output_limit"
                 | "owner_interrupted"
@@ -2266,6 +2295,9 @@ fn now() -> u64 {
         .as_millis() as u64
 }
 fn stable_code(scope: &str, code: &str) -> &'static str {
+    if scope == "workspace" && code == "worktree_merge_incomplete" {
+        return "worktree_merge_incomplete";
+    }
     if matches!(code, "cancelled" | "setup_cancelled") {
         return "cancelled";
     }

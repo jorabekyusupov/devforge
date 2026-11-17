@@ -19,7 +19,12 @@ const scopes: AgentScope[] = [
   "execution_test",
   "sensitive_operation",
 ];
-const informationScopes = ["source_artifacts", "debugger_values"] as const;
+const informationScopes = [
+  "source_artifacts",
+  "debugger_values",
+  "workspace_content_scan",
+  "workspace_secret_copy",
+] as const;
 type AgentInformation = (typeof informationScopes)[number];
 type Dialog =
   | { kind: "revoke"; grant: AgentGrant }
@@ -185,6 +190,71 @@ export function AgentConnections({ api }: { api?: AgentApi }) {
         target.byte_count >= 0
       );
     }
+    if (plan.target.kind === "workspace") {
+      const target = plan.target;
+      const validText = (value: unknown) =>
+        typeof value === "string" &&
+        value.length > 0 &&
+        value.length <= 512 &&
+        !/[\u0000-\u001f\u007f-\u009f]/.test(value);
+      const isCommit = (value: unknown) =>
+        typeof value === "string" &&
+        /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(value);
+      if (target.action === "create") {
+        return (
+          isCommit(target.create_source_commit) &&
+          (target.create_source_dirty == null ||
+            typeof target.create_source_dirty === "boolean") &&
+          typeof target.create_isolated === "boolean" &&
+          target.workspace_id == null &&
+          validText(target.name) &&
+          validText(target.branch) &&
+          validText(target.base) &&
+          typeof target.new_branch === "boolean" &&
+          ["empty", "clone"].includes(target.database ?? "") &&
+          typeof target.dependencies === "boolean" &&
+          typeof target.copy_environment === "boolean"
+        );
+      }
+      if (target.action === "merge") {
+        return (
+          typeof target.workspace_id === "string" &&
+          /^[A-Za-z0-9_.:-]{1,128}$/.test(target.workspace_id) &&
+          isCommit(target.source_commit) &&
+          isCommit(target.target_commit) &&
+          validText(target.target_branch) &&
+          Number.isSafeInteger(target.target_project_revision) &&
+          (target.target_project_revision ?? -1) >= 0 &&
+          typeof target.source_dirty === "boolean" &&
+          typeof target.isolated === "boolean" &&
+          (target.merge_effect === "merge_commit"
+            ? isCommit(target.result_tree)
+            : target.result_tree == null || isCommit(target.result_tree)) &&
+          ["fast_forward", "already_included", "merge_commit"].includes(
+            target.merge_effect ?? "",
+          ) &&
+          target.name == null &&
+          target.branch == null &&
+          target.base == null &&
+          target.new_branch == null &&
+          target.database == null &&
+          target.dependencies == null &&
+          target.copy_environment == null
+        );
+      }
+      return (
+        ["archive", "restore", "purge"].includes(target.action) &&
+        typeof target.workspace_id === "string" &&
+        /^[A-Za-z0-9_.:-]{1,128}$/.test(target.workspace_id) &&
+        target.name == null &&
+        target.branch == null &&
+        target.base == null &&
+        target.new_branch == null &&
+        target.database == null &&
+        target.dependencies == null &&
+        target.copy_environment == null
+      );
+    }
     if (plan.target.kind === "debugger_install") {
       return (
         typeof plan.target.php_runtime === "string" &&
@@ -272,9 +342,11 @@ export function AgentConnections({ api }: { api?: AgentApi }) {
           setConfiguration((previous) =>
             previous?.grant_id === selected.grant.grant_id ? null : previous,
           );
-      } else if (selected.kind === "approve")
-        await api.approve(selected.plan.digest);
-      else await api.confirmMachine(selected.plan.digest);
+      } else if (selected.kind === "approve") {
+        if (selected.plan.target.kind === "workspace")
+          await api.approveWorkspace(selected.plan.digest);
+        else await api.approve(selected.plan.digest);
+      } else await api.confirmMachine(selected.plan.digest);
       if (generation.current === current) {
         focusAfterAction.current = true;
         setDialog(null);
@@ -462,6 +534,13 @@ export function AgentConnections({ api }: { api?: AgentApi }) {
                           <input
                             type="checkbox"
                             name={`agent-information-${information}`}
+                            aria-describedby={
+                              information === "workspace_content_scan"
+                                ? `${heading}-workspace-scan-hint`
+                                : information === "workspace_secret_copy"
+                                  ? `${heading}-workspace-secret-hint`
+                                  : undefined
+                            }
                             checked={selectedInformation.includes(information)}
                             onChange={(event) =>
                               setSelectedInformation((current) =>
@@ -479,6 +558,15 @@ export function AgentConnections({ api }: { api?: AgentApi }) {
                         </label>
                       ))}
                     </div>
+                    <p id={`${heading}-workspace-scan-hint`} className="muted">
+                      {t("agentConnections.workspaceScanHint")}
+                    </p>
+                    <p
+                      id={`${heading}-workspace-secret-hint`}
+                      className="muted"
+                    >
+                      {t("agentConnections.workspaceSecretHint")}
+                    </p>
                   </fieldset>
                   {scopeDependencyError && (
                     <p id={`${heading}-scope-dependency`} role="alert">
@@ -986,6 +1074,175 @@ function PlanReview({ plan, machine }: { plan: AgentPlan; machine: boolean }) {
                   ))}
               </ul>
             </dd>
+          </>
+        )}
+        {target.kind === "workspace" && (
+          <>
+            <dt>{t("agentConnections.workspaceAction")}</dt>
+            <dd>{t(`agentConnections.workspaceActions.${target.action}`)}</dd>
+            {target.action === "create" ? (
+              <>
+                <dt>{t("agentConnections.workspaceName")}</dt>
+                <dd>
+                  <code translate="no">{target.name}</code>
+                </dd>
+                <dt>{t("agentConnections.workspaceBranch")}</dt>
+                <dd>
+                  <code translate="no">{target.branch}</code>
+                </dd>
+                <dt>{t("agentConnections.workspaceBase")}</dt>
+                <dd>
+                  <code translate="no">{target.base}</code>
+                </dd>
+                <dt>{t("agentConnections.workspaceCreateSourceCommit")}</dt>
+                <dd>
+                  <code translate="no">{target.create_source_commit}</code>
+                </dd>
+                <dt>{t("agentConnections.workspaceMergeSourceDirty")}</dt>
+                <dd>
+                  {t(
+                    target.create_source_dirty == null
+                      ? "agentConnections.unknown"
+                      : target.create_source_dirty
+                        ? "agentConnections.yes"
+                        : "agentConnections.no",
+                  )}
+                </dd>
+                <dt>{t("agentConnections.workspaceRepositoryKind")}</dt>
+                <dd>
+                  {t(
+                    target.create_isolated
+                      ? "agentConnections.workspaceIsolatedRepository"
+                      : "agentConnections.workspaceSharedRepository",
+                  )}
+                </dd>
+                <dt>{t("agentConnections.workspaceCreateUncommitted")}</dt>
+                <dd>
+                  {t("agentConnections.workspaceCreateUncommittedExplanation")}
+                </dd>
+                <dt>{t("agentConnections.workspaceNewBranch")}</dt>
+                <dd>
+                  {t(
+                    target.new_branch
+                      ? "agentConnections.yes"
+                      : "agentConnections.no",
+                  )}
+                  {target.new_branch && (
+                    <p className="muted">
+                      {t(
+                        target.create_isolated
+                          ? "agentConnections.workspaceBranchIsolatedWarning"
+                          : "agentConnections.workspaceBranchWarning",
+                      )}
+                    </p>
+                  )}
+                </dd>
+                <dt>{t("agentConnections.workspaceDatabase")}</dt>
+                <dd>
+                  {t(
+                    `agentConnections.workspaceDatabaseModes.${target.database}`,
+                  )}
+                </dd>
+                <dt>{t("agentConnections.workspaceDependencies")}</dt>
+                <dd>
+                  {t(
+                    target.dependencies
+                      ? "agentConnections.yes"
+                      : "agentConnections.no",
+                  )}
+                </dd>
+                <dt>{t("agentConnections.workspaceCopyEnvironment")}</dt>
+                <dd>
+                  {t(
+                    target.copy_environment
+                      ? "agentConnections.yes"
+                      : "agentConnections.no",
+                  )}
+                </dd>
+              </>
+            ) : target.action === "merge" ? (
+              <>
+                <dt>{t("agentConnections.workspaceId")}</dt>
+                <dd>
+                  <code translate="no">{target.workspace_id}</code>
+                </dd>
+                <dt>{t("agentConnections.workspaceMergeSourceCommit")}</dt>
+                <dd>
+                  <code translate="no">{target.source_commit}</code>
+                </dd>
+                <dt>{t("agentConnections.workspaceMergeTargetCommit")}</dt>
+                <dd>
+                  <code translate="no">{target.target_commit}</code>
+                </dd>
+                <dt>{t("agentConnections.workspaceMergeTargetBranch")}</dt>
+                <dd>
+                  <code translate="no">{target.target_branch}</code>
+                </dd>
+                <dt>{t("agentConnections.workspaceMergeTargetRevision")}</dt>
+                <dd>{target.target_project_revision}</dd>
+                <dt>{t("agentConnections.workspaceMergeSourceDirty")}</dt>
+                <dd>
+                  {t(
+                    target.source_dirty
+                      ? "agentConnections.yes"
+                      : "agentConnections.no",
+                  )}
+                </dd>
+                <dt>{t("agentConnections.workspaceRepositoryKind")}</dt>
+                <dd>
+                  {t(
+                    target.isolated
+                      ? "agentConnections.workspaceIsolatedRepository"
+                      : "agentConnections.workspaceSharedRepository",
+                  )}
+                </dd>
+                {target.result_tree && (
+                  <>
+                    <dt>{t("agentConnections.workspaceResultTree")}</dt>
+                    <dd>
+                      <code translate="no">{target.result_tree}</code>
+                    </dd>
+                  </>
+                )}
+                <dt>{t("agentConnections.workspaceMergeEffects")}</dt>
+                <dd>
+                  {t(
+                    `agentConnections.workspaceMergeOutcomes.${target.merge_effect}`,
+                  )}
+                  {target.merge_effect === "merge_commit" && (
+                    <p className="muted">
+                      {t(
+                        target.isolated
+                          ? "agentConnections.workspaceMergeCommitIsolatedWarning"
+                          : "agentConnections.workspaceMergeCommitWarning",
+                      )}
+                    </p>
+                  )}
+                  <p className="muted">
+                    {t("agentConnections.workspaceMergeExplanation")}
+                  </p>
+                  <p className="muted">
+                    {t("agentConnections.workspaceMergeGitCodeWarning")}
+                  </p>
+                  <p className="muted">
+                    {t("agentConnections.workspaceMergeFailureWarning")}
+                  </p>
+                </dd>
+              </>
+            ) : (
+              <>
+                <dt>{t("agentConnections.workspaceId")}</dt>
+                <dd>
+                  <code translate="no">{target.workspace_id}</code>
+                </dd>
+                <dt>{t("agentConnections.workspaceActionEffect")}</dt>
+                <dd>
+                  {t(
+                    `agentConnections.workspaceActionEffects.${target.action}`,
+                  )}
+                </dd>
+              </>
+            )}
           </>
         )}
         {target.kind === "service" && (

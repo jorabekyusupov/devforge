@@ -17,6 +17,7 @@ export type AgentReviewTarget =
   | { kind: "debugger_install"; php_runtime: string }
   | { kind: "debugger_assign"; name: string; value_type: string; value: string; session_id: string; session_revision: number }
   | { kind: "debugger_export"; destination: string; content_sha256: string; byte_count: number }
+  | { kind: "workspace"; action: "create" | "archive" | "restore" | "purge" | "merge"; workspace_id: string | null; name: string | null; branch: string | null; base: string | null; new_branch: boolean | null; database: "empty" | "clone" | null; dependencies: boolean | null; copy_environment: boolean | null; source_commit?: string | null; target_commit?: string | null; target_branch?: string | null; target_project_revision?: number | null; source_dirty?: boolean | null; merge_effect?: "fast_forward" | "already_included" | "merge_commit" | null; result_tree?: string | null; isolated?: boolean | null; create_source_commit?: string | null; create_source_dirty?: boolean | null; create_isolated?: boolean | null }
   | { kind: "support_export"; destination: string; content_sha256: string; byte_count: number }
   | { kind: "database_bind"; instance_id: string }
   | { kind: "database_restore"; backup_id: string }
@@ -46,6 +47,7 @@ export interface AgentApi {
   revoke(grant_id: string): Promise<AgentSnapshot>;
   config(grant_id: string): Promise<AgentConfig>;
   approve(digest: string): Promise<AgentSnapshot>;
+  approveWorkspace(digest: string): Promise<AgentSnapshot>;
   confirmMachine(digest: string): Promise<AgentSnapshot>;
   status(input: AgentOperationRef): Promise<AgentOperation>;
   cancel(input: AgentOperationRef): Promise<AgentOperation>;
@@ -59,6 +61,7 @@ export const agentApi: AgentApi = {
   revoke: grant_id => request({ action: "revoke", grant_id }),
   config: grant_id => request({ action: "config", grant_id }),
   approve: digest => request({ action: "approve", digest }),
+  approveWorkspace: digest => request({ action: "approve_workspace_plan", digest }),
   confirmMachine: digest => request({ action: "confirm_machine", digest }),
   status: input => request({ action: "status", ...input }),
   cancel: input => request({ action: "cancel", ...input }),

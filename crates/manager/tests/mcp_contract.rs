@@ -434,3 +434,86 @@ fn debugger_surface_is_opt_in_and_only_accepts_finite_actions() {
         );
     }
 }
+
+#[test]
+fn workspace_surface_is_opt_in_scoped_and_requires_review_shape() {
+    use devforge_manager::mcp_contract::ExecutionInput;
+    let mut disabled = Protocol::new(id("project-a"));
+    let list = json!({"name":"workspaces.list","arguments":{}});
+    assert_eq!(
+        reply(disabled.receive(modern(json!(1), "tools/call", list.clone())))["error"]["code"],
+        -32602
+    );
+    let mut enabled = Protocol::new(id("project-a")).with_workspace_actions(true);
+    let definitions = reply(enabled.receive(modern(json!(10), "tools/list", json!({}))));
+    let tools = definitions["result"]["tools"].as_array().unwrap();
+    for name in ["workspaces.restore", "workspaces.purge"] {
+        let tool = tools.iter().find(|tool| tool["name"] == name).unwrap();
+        assert!(
+            tool["description"]
+                .as_str()
+                .unwrap()
+                .contains("Same-user concurrent replacement is not sandboxed")
+        );
+    }
+    assert!(
+        matches!(enabled.receive(modern(json!(2),"tools/call",list)),Action::Execution(call) if matches!(call.input,ExecutionInput::WorkspaceList(_)))
+    );
+    let prepare = json!({"name":"workspaces.prepare","arguments":{"action":"create","name":"demo","branch":"feature/demo","base":"main","new_branch":true,"database":"empty","dependencies":false,"copy_environment":false}});
+    assert!(
+        matches!(enabled.receive(modern(json!(3),"tools/call",prepare)),Action::Execution(call) if matches!(call.input,ExecutionInput::WorkspacePrepare(_)))
+    );
+    let merge_tool = tools
+        .iter()
+        .find(|tool| tool["name"] == "workspaces.merge")
+        .unwrap();
+    assert!(
+        merge_tool["description"]
+            .as_str()
+            .unwrap()
+            .contains("source project current HEAD")
+    );
+    assert!(
+        merge_tool["description"]
+            .as_str()
+            .unwrap()
+            .contains("clean non-conflicting merge commits")
+    );
+    assert!(
+        merge_tool["description"]
+            .as_str()
+            .unwrap()
+            .contains("assume rollback")
+    );
+    assert!(
+        merge_tool["description"]
+            .as_str()
+            .unwrap()
+            .contains("Git filters or project code")
+    );
+    let merge_prepare =
+        json!({"name":"workspaces.prepare","arguments":{"action":"merge","workspace_id":"own"}});
+    assert!(
+        matches!(enabled.receive(modern(json!(11),"tools/call",merge_prepare)),Action::Execution(call) if matches!(call.input,ExecutionInput::WorkspacePrepare(_)))
+    );
+    let merge_plan = json!({"name":"workspaces.merge","arguments":{"action":"plan","expected_revision":1,"idempotency_key":"merge","input":{"workspace_id":"own","plan":"a".repeat(64)}}});
+    assert!(
+        matches!(enabled.receive(modern(json!(12),"tools/call",merge_plan)),Action::Execution(call) if matches!(call.input,ExecutionInput::WorkspacePlan(_)))
+    );
+    let plan = json!({"name":"workspaces.create","arguments":{"action":"plan","expected_revision":1,"idempotency_key":"fixture","input":{"plan":"a".repeat(64)}}});
+    assert!(
+        matches!(enabled.receive(modern(json!(4),"tools/call",plan)),Action::Execution(call) if matches!(call.input,ExecutionInput::WorkspacePlan(_)))
+    );
+    for bad in [
+        json!({"name":"workspaces.prepare","arguments":{"action":"create","path":"/tmp/foreign"}}),
+        json!({"name":"workspaces.list","arguments":{"project_id":"other"}}),
+        json!({"name":"workspaces.prepare","arguments":{"action":"merge","workspace_id":"own","source_ref":"elsewhere"}}),
+        json!({"name":"workspaces.merge","arguments":{"action":"apply","expected_revision":1,"idempotency_key":"k","input":{"workspace_id":"own","plan":"a".repeat(64)}}}),
+        json!({"name":"workspaces.purge","arguments":{"action":"apply","expected_revision":1,"idempotency_key":"k","input":{"workspace_id":"own","plan":"a".repeat(64)}}}),
+    ] {
+        assert_eq!(
+            reply(enabled.receive(modern(json!(5), "tools/call", bad)))["error"]["code"],
+            -32602
+        );
+    }
+}

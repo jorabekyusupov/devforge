@@ -292,7 +292,8 @@ contract!(ConfigureInput{name:ProjectName,php:Id,node:Id,domain:DomainName,https
 contract!(EnvironmentPlanInput{write_env:bool,limits:Option<MutationLimits>});
 contract!(EnvironmentApplyInput{write_env:bool,limits:Option<MutationLimits>});
 contract!(YamlSaveInput{expected:Option<Digest>,text:YamlText,limits:Option<MutationLimits>});
-contract!(WorkspaceLifecycleInput{workspace_id:Id,limits:Option<MutationLimits>});
+contract!(WorkspaceLifecycleInput{workspace_id:Id,plan:Digest,limits:Option<MutationLimits>});
+contract!(WorkspaceCreateInput{plan:Digest,limits:Option<MutationLimits>});
 contract!(DatabaseBindInput{instance_id:Id,limits:Option<MutationLimits>});
 contract!(DatabaseRestoreInput{backup_id:Id,limits:Option<MutationLimits>});
 contract!(DomainApplyInput{plan:Digest,limits:Option<MutationLimits>});
@@ -363,6 +364,8 @@ mutation_set! {
     DebuggerStart("debugger.start",DebuggerStartInput,MutationReceipt,"debugger_start"),
     DebuggerAssign("debugger.primitive_assignment",DebuggerAssignInput,MutationReceipt,"debugger_assign"),
     DebuggerExport("debugger.export",DebuggerExportInput,MutationReceipt,"debugger_export"),
+    WorkspaceCreate("workspaces.create",WorkspaceCreateInput,MutationReceipt,"worktree_create"),
+    WorkspaceMerge("workspaces.merge",WorkspaceLifecycleInput,MutationReceipt,"worktree_merge"),
     WorkspaceArchive("workspaces.archive",WorkspaceLifecycleInput,MutationReceipt,"worktree_cleanup"),
     WorkspaceRestore("workspaces.restore",WorkspaceLifecycleInput,MutationReceipt,"worktree_archive.restore"),
     WorkspacePurge("workspaces.purge",WorkspaceLifecycleInput,MutationReceipt,"worktree_archive.purge"),
@@ -627,6 +630,7 @@ pub fn declarations() -> Vec<String> {
         EnvironmentApplyInput,
         YamlSaveInput,
         WorkspaceLifecycleInput,
+        WorkspaceCreateInput,
         DatabaseBindInput,
         DatabaseRestoreInput,
         DomainApplyInput,

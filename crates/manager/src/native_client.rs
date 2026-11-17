@@ -983,6 +983,14 @@ impl NativeClient {
     ) -> Result<devforge_control::mutations::PlanReceipt> {
         decode(self.authenticated("approve_service_plan", json!({"digest":digest}))?)
     }
+    /// Owner-only approval for an exact prepared workspace plan. Workspace
+    /// preflight may require bounded Git reads and has its own transport budget.
+    pub fn approve_workspace_plan(
+        &mut self,
+        digest: &devforge_control::Digest,
+    ) -> Result<devforge_control::mutations::PlanReceipt> {
+        decode(self.authenticated("approve_workspace_plan", json!({"digest":digest}))?)
+    }
     pub fn pending_reviews(&mut self) -> Result<Vec<crate::service_control::PendingReview>> {
         decode(self.authenticated("pending_reviews", json!({}))?)
     }

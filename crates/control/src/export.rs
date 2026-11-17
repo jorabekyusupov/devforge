@@ -22,6 +22,8 @@ impl Wire for InformationScope {
             SourceArtifacts,
             DatabaseQuery,
             DebuggerValues,
+            WorkspaceContentScan,
+            WorkspaceSecretCopy,
         ])
     }
     fn ts() -> String {
@@ -33,6 +35,8 @@ impl Wire for InformationScope {
             SourceArtifacts,
             DatabaseQuery,
             DebuggerValues,
+            WorkspaceContentScan,
+            WorkspaceSecretCopy,
         ])
     }
 }
@@ -261,7 +265,7 @@ pub fn mutation_request_schema() -> Value {
     json!({"$schema":"https://json-schema.org/draft/2020-12/schema","oneOf":variants})
 }
 pub fn json_document() -> Result<String> {
-    serde_json::to_string_pretty(&json!({"api_version":API_VERSION,"live_available":false,"information_scope_schema":InformationScope::schema(),"timestamp_unit":"unix_milliseconds","timeout_unit":"monotonic_milliseconds","request_schema":request_schema(),"mutation_request_schema":mutation_request_schema(),"activity_mark_input_schema":tools::ActivityMarkInput::schema(),"activity_mark_output_schema":tools::ActivityMarkOutput::schema(),"activity_wait_input_schema":tools::ActivityWaitInput::schema(),"activity_wait_output_schema":tools::ActivityWaitOutput::schema(),"debugger_inspect_input_schema":tools::DebuggerInspectInput::schema(),"debugger_inspect_output_schema":tools::DebuggerInspectOutput::schema(),"debugger_profile_input_schema":tools::DebuggerProfileInput::schema(),"debugger_profile_output_schema":tools::DebuggerProfileOutput::schema(),"site_probe_input_schema":tools::SiteProbeInput::schema(),"site_probe_output_schema":tools::SiteProbeOutput::schema(),"support_preview_input_schema":tools::SupportPreviewInput::schema(),"support_read_input_schema":tools::SupportReadInput::schema(),"support_preview_output_schema":tools::SupportPreviewOutput::schema(),"error_codes":ERRORS,"tools":tools::contracts()?}))
+    serde_json::to_string_pretty(&json!({"api_version":API_VERSION,"live_available":false,"information_scope_schema":InformationScope::schema(),"timestamp_unit":"unix_milliseconds","timeout_unit":"monotonic_milliseconds","request_schema":request_schema(),"mutation_request_schema":mutation_request_schema(),"activity_mark_input_schema":tools::ActivityMarkInput::schema(),"activity_mark_output_schema":tools::ActivityMarkOutput::schema(),"activity_wait_input_schema":tools::ActivityWaitInput::schema(),"activity_wait_output_schema":tools::ActivityWaitOutput::schema(),"debugger_inspect_input_schema":tools::DebuggerInspectInput::schema(),"debugger_inspect_output_schema":tools::DebuggerInspectOutput::schema(),"debugger_profile_input_schema":tools::DebuggerProfileInput::schema(),"debugger_profile_output_schema":tools::DebuggerProfileOutput::schema(),"workspace_list_input_schema":tools::WorkspaceListInput::schema(),"workspace_list_output_schema":tools::WorkspaceListOutput::schema(),"workspace_prepare_input_schema":tools::WorkspacePrepareInput::schema(),"workspace_prepare_output_schema":tools::WorkspacePrepareOutput::schema(),"site_probe_input_schema":tools::SiteProbeInput::schema(),"site_probe_output_schema":tools::SiteProbeOutput::schema(),"support_preview_input_schema":tools::SupportPreviewInput::schema(),"support_read_input_schema":tools::SupportReadInput::schema(),"support_preview_output_schema":tools::SupportPreviewOutput::schema(),"error_codes":ERRORS,"tools":tools::contracts()?}))
         .map(|s|s+"\n").map_err(|_|ErrorCode::InvalidInput)
 }
 pub fn typescript() -> String {

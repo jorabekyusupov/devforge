@@ -14,6 +14,18 @@ use std::{
 };
 use tokio::{sync::Semaphore, task::JoinSet};
 
+/// Workspace previews run several bounded Git checks. Keep the normal IPC
+/// budget for all other methods and retain the same accept-time deadline.
+const WORKSPACE_PREVIEW_TIMEOUT: Duration = Duration::from_secs(30);
+fn request_timeout(value: &Value) -> Duration {
+    match value.get("method").and_then(Value::as_str) {
+        Some("workspace_prepare" | "workspace_plan" | "approve_workspace_plan") => {
+            WORKSPACE_PREVIEW_TIMEOUT
+        }
+        _ => IO_TIMEOUT,
+    }
+}
+
 #[cfg(unix)]
 #[path = "unix.rs"]
 pub(crate) mod os;
@@ -102,8 +114,10 @@ impl Server {
         Fut: Future<Output = Result<Value>> + Send + 'static,
         F: FnOnce(ListenerReady) -> Result<()>,
     {
-        self.run_async_ready_with_deadline(stop, ready, move |peer, value, _| handler(peer, value))
-            .await
+        self.run_async_ready_with_deadline(stop, ready, move |peer, value, _, _| {
+            handler(peer, value)
+        })
+        .await
     }
     pub(crate) async fn run_async_ready_with_deadline<H, Fut, F>(
         self,
@@ -112,7 +126,10 @@ impl Server {
         handler: H,
     ) -> Result<()>
     where
-        H: Fn(PeerIdentity, Value, std::time::Instant) -> Fut + Send + Sync + 'static,
+        H: Fn(PeerIdentity, Value, std::time::Instant, Arc<AtomicBool>) -> Fut
+            + Send
+            + Sync
+            + 'static,
         Fut: Future<Output = Result<Value>> + Send + 'static,
         F: FnOnce(ListenerReady) -> Result<()>,
     {
@@ -139,17 +156,45 @@ impl Server {
                     let handler = handler.clone();
                     // Capture the deadline at listener acceptance, not when a
                     // potentially queued blocking handler eventually starts.
-                    let deadline = std::time::Instant::now() + IO_TIMEOUT;
+                    let accepted = std::time::Instant::now();
                     connections.spawn(async move {
                         let _permit = permit;
-                        // Rejection never reaches the supplied handler.
+                        // Idle/partial requests retain the ordinary short budget.
                         let peer = os::peer(&stream, false)?;
-                        let exchange = async {
-                            let input = framing::read(&mut stream, MAX_REQUEST_BYTES).await?;
-                            let response = handler(peer, input, deadline).await?;
-                            framing::write(&mut stream, &response, MAX_RESPONSE_BYTES).await
-                        };
-                        tokio::time::timeout_at(tokio::time::Instant::from_std(deadline), exchange).await.map_err(|_| Error::TimedOut)?
+                        let input = tokio::time::timeout_at(tokio::time::Instant::from_std(accepted + IO_TIMEOUT), framing::read(&mut stream, MAX_REQUEST_BYTES)).await.map_err(|_| Error::TimedOut)??;
+                        let approval = input.get("method").and_then(Value::as_str) == Some("approve_workspace_plan");
+                        let deadline = accepted + request_timeout(&input);
+                        let cancelled = Arc::new(AtomicBool::new(false));
+                        let handler_cancel = cancelled.clone();
+                        if approval {
+                            // A native owner dropping its connection cancels the
+                            // expensive preflight. One connection carries one request.
+                            use tokio::io::AsyncReadExt;
+                            let (mut reader, mut writer) = tokio::io::split(stream);
+                            let mut extra = [0u8; 1];
+                            let exchange = async {
+                                tokio::select! {
+                                    response = handler(peer, input, deadline, handler_cancel) => {
+                                        let response = response?;
+                                        framing::write(&mut writer, &response, MAX_RESPONSE_BYTES).await
+                                    },
+                                    _ = reader.read(&mut extra) => { cancelled.store(true, Ordering::Release); Err(Error::HandlerFailed) },
+                                }
+                            };
+                            match tokio::time::timeout_at(tokio::time::Instant::from_std(deadline), exchange).await {
+                                Ok(result) => result,
+                                Err(_) => { cancelled.store(true, Ordering::Release); Err(Error::TimedOut) },
+                            }
+                        } else {
+                            let exchange = async {
+                                let response = handler(peer, input, deadline, handler_cancel).await?;
+                                framing::write(&mut stream, &response, MAX_RESPONSE_BYTES).await
+                            };
+                            match tokio::time::timeout_at(tokio::time::Instant::from_std(deadline), exchange).await {
+                                Ok(result) => result,
+                                Err(_) => { cancelled.store(true, Ordering::Release); Err(Error::TimedOut) },
+                            }
+                        }
                     });
                 }
                 _ = tokio::time::sleep(Duration::from_millis(20)) => {},
@@ -202,7 +247,7 @@ impl Client {
             .enable_all()
             .build()?;
         runtime.block_on(async {
-            tokio::time::timeout(IO_TIMEOUT, async {
+            tokio::time::timeout(request_timeout(value), async {
                 let mut stream = os::connect(&self.endpoint).await?;
                 let peer = os::peer(&stream, true)?;
                 if expected.is_some_and(|expected| expected != &peer) {
@@ -215,5 +260,36 @@ impl Client {
             .await
             .map_err(|_| Error::TimedOut)?
         })
+    }
+}
+
+#[cfg(test)]
+mod workspace_budget_tests {
+    use super::*;
+    #[test]
+    fn only_workspace_preview_and_owner_approval_get_extended_budget() {
+        for method in [
+            "workspace_prepare",
+            "workspace_plan",
+            "approve_workspace_plan",
+        ] {
+            assert_eq!(
+                request_timeout(&serde_json::json!({"method":method})),
+                Duration::from_secs(30)
+            );
+        }
+        for method in [
+            "approve_service_plan",
+            "workspace_apply",
+            "site_probe",
+            "health",
+            "unknown",
+        ] {
+            assert_eq!(
+                request_timeout(&serde_json::json!({"method":method})),
+                IO_TIMEOUT
+            );
+        }
+        assert_eq!(request_timeout(&serde_json::json!({})), IO_TIMEOUT);
     }
 }

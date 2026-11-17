@@ -5,7 +5,11 @@ use sha2::{Digest, Sha256};
 use std::{ffi::OsString, io::Write};
 mod erase;
 mod git;
+pub use git::{external_read_guard, read_cancellation_guard};
 mod lifecycle;
+pub use lifecycle::ArchiveReviewSnapshot;
+mod merge;
+pub use merge::MergePlan;
 mod remote;
 fn digest(value: &impl Serialize) -> String {
     Sha256::digest(serde_json::to_vec(value).unwrap())
@@ -26,6 +30,23 @@ fn atomic(path: &Path, value: &impl Serialize) -> Result<()> {
 }
 fn ordinary(path: &Path) -> bool {
     fs::symlink_metadata(path).is_ok_and(|m| m.is_dir() && !m.file_type().is_symlink())
+}
+/// Fail closed if the owned directory has become a link, reparse point or
+/// a different physical directory. Path-only identity is insufficient here.
+fn owned_directory_identity(path: &Path) -> Result<String> {
+    let meta = fs::symlink_metadata(path).map_err(|_| error("worktree_ownership"))?;
+    if !meta.is_dir()
+        || devforge_projects::discovery::is_link(&meta)
+        || fs::canonicalize(path).map_err(|_| error("worktree_ownership"))? != path
+    {
+        return Err(error("worktree_ownership"));
+    }
+    let identity =
+        devforge_projects::discovery::identity(path).map_err(|_| error("worktree_ownership"))?;
+    if !identity.starts_with("file:") {
+        return Err(error("worktree_ownership"));
+    }
+    Ok(identity)
 }
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -71,6 +92,9 @@ pub struct View {
     pub path: PathBuf,
     pub retained_path: PathBuf,
 }
+fn is_false(value: &bool) -> bool {
+    !*value
+}
 #[derive(Serialize)]
 pub struct Plan {
     pub isolated: bool,
@@ -79,6 +103,8 @@ pub struct Plan {
     pub commit: String,
     pub domain: String,
     pub source_dirty: bool,
+    #[serde(skip_serializing_if = "is_false")]
+    pub source_dirty_unknown: bool,
     pub configuration: Manifest,
     pub packages: BTreeMap<String, String>,
     pub source_database: Option<Binding>,
@@ -202,12 +228,64 @@ impl Workspace {
     fn save_worktree(&self, record: &Record) -> Result<()> {
         atomic(&self.worktree_dir(&record.id)?.join("receipt.json"), record)
     }
+    /// Read one source-bound worktree receipt without creating directories.
+    /// Caller checks the source project grant before and after this read.
+    pub fn external_worktree_record(&self, source: &str, id: &str) -> Result<Record> {
+        let project = self.projects.get(source)?;
+        if !valid_id(id) {
+            return Err(error("worktree_ownership"));
+        }
+        let root = self.root.join("worktrees");
+        let dir = root.join(id);
+        for path in [&root, &dir] {
+            let meta = fs::symlink_metadata(path).map_err(|_| error("worktree_ownership"))?;
+            if !meta.is_dir()
+                || devforge_projects::discovery::is_link(&meta)
+                || fs::canonicalize(path).ok().as_deref() != Some(path.as_path())
+            {
+                return Err(error("worktree_ownership"));
+            }
+        }
+        let bytes = devforge_projects::manifest::read_file(&dir.join("receipt.json"), 262144)
+            .map_err(|_| error("worktree_ownership"))?;
+        let record: Record =
+            serde_json::from_slice(&bytes).map_err(|_| error("worktree_ownership"))?;
+        if ![1, 2].contains(&record.schema)
+            || record.id != id
+            || record.input.source_id != source
+            || record.source_path != project.path
+            || !git::branch(&record.input.branch)
+        {
+            return Err(error("worktree_ownership"));
+        }
+        Ok(record)
+    }
     pub fn worktrees(&self) -> Result<Vec<View>> {
+        self.collect_worktrees(false).map(|(views, _)| views)
+    }
+    /// A single untrusted link must not make the manager's entire cached
+    /// snapshot unavailable. This leniency is only for presentation: callers
+    /// that make ownership decisions must continue using `worktrees()` or the
+    /// exact source-bound receipt lookup.
+    pub(crate) fn worktrees_for_snapshot(&self) -> Result<(Vec<View>, bool)> {
+        self.collect_worktrees(true)
+    }
+    fn collect_worktrees(&self, skip_links: bool) -> Result<(Vec<View>, bool)> {
         let mut out = Vec::new();
+        let mut incomplete = false;
         for item in fs::read_dir(self.worktree_root()?)? {
             let item = item?;
             let id = item.file_name().to_string_lossy().to_string();
             if !valid_id(&id) {
+                continue;
+            }
+            // Inspect the directory entry itself without following it. Windows
+            // junctions are reparse points, not necessarily symlinks according
+            // to `FileType::is_symlink`.
+            if skip_links
+                && devforge_projects::discovery::is_link(&fs::symlink_metadata(item.path())?)
+            {
+                incomplete = true;
                 continue;
             }
             let record = self.worktree_record(&id)?;
@@ -223,7 +301,7 @@ impl Workspace {
             }
         }
         out.sort_by(|a, b| a.record.input.name.cmp(&b.record.input.name));
-        Ok(out)
+        Ok((out, incomplete))
     }
     pub(crate) fn managed_worktree(&self, project: &str) -> Result<bool> {
         Ok(self.worktrees()?.iter().any(|v| {
@@ -372,13 +450,15 @@ impl Workspace {
             .filter(|n| *n != "APP_KEY" && !n.starts_with("MAIL_") && !n.starts_with("REDIS_"))
             .cloned()
             .collect();
+        let (source_status, source_dirty_unknown) = git::source_status(&self.root, &source.path)?;
         let mut plan = Plan {
             isolated,
             submodule_sources,
             input: input.clone(),
             commit,
             domain,
-            source_dirty: !git::status(&self.root, &source.path)?.is_empty(),
+            source_dirty: !source_status.is_empty(),
+            source_dirty_unknown,
             configuration,
             packages,
             source_database,
@@ -445,7 +525,36 @@ impl Workspace {
         trusted: bool,
         cancel: &Cancellation,
     ) -> Result<Record> {
+        self.worktree_create_inner(input, review, trusted, cancel, &|| Ok(()), false)
+    }
+    /// Recheck the admitted client grant immediately before each new effect.
+    /// The callback runs on the owner actor and must not queue actor work.
+    pub fn worktree_create_guarded(
+        &mut self,
+        input: Input,
+        review: &str,
+        trusted: bool,
+        cancel: &Cancellation,
+        check: &dyn Fn() -> Result<()>,
+    ) -> Result<Record> {
+        self.worktree_create_inner(input, review, trusted, cancel, check, true)
+    }
+    fn worktree_create_inner(
+        &mut self,
+        input: Input,
+        review: &str,
+        trusted: bool,
+        cancel: &Cancellation,
+        check: &dyn Fn() -> Result<()>,
+        strict_identity: bool,
+    ) -> Result<Record> {
+        check()?;
+        let _read_cancel = git::read_cancellation_guard(cancel);
         let _lock = self.worktree_lock()?;
+        let owner_root = self.root.join("worktrees");
+        let owner_identity = strict_identity
+            .then(|| owned_directory_identity(&owner_root))
+            .transpose()?;
         if !trusted {
             return Err(error("setup_trust_required"));
         }
@@ -466,9 +575,32 @@ impl Workspace {
             None
         };
         let common_dir = git::common(&self.root, &source.path)?;
+        check()?;
+        if let Some(expected) = &owner_identity
+            && &owned_directory_identity(&owner_root)? != expected
+        {
+            return Err(error("worktree_ownership"));
+        }
         let id = devforge_serving::id();
-        let dir = self.worktree_root()?.join(&id);
+        let dir = owner_root.join(&id);
         fs::create_dir(&dir)?;
+        let child_identity = strict_identity
+            .then(|| owned_directory_identity(&dir))
+            .transpose()?;
+        let verify_owned = || -> Result<()> {
+            if let (Some(owner), Some(child)) = (&owner_identity, &child_identity)
+                && (&owned_directory_identity(&owner_root)? != owner
+                    || &owned_directory_identity(&dir)? != child)
+            {
+                return Err(error("worktree_ownership"));
+            }
+            Ok(())
+        };
+        let scoped_check = || -> Result<()> {
+            check()?;
+            verify_owned()
+        };
+        scoped_check()?;
         let mut configuration = plan.configuration;
         configuration.project.name = input.name.clone();
         configuration.project.domain = plan.domain.clone();
@@ -499,11 +631,14 @@ impl Workspace {
             &mut record,
             &source,
             &plan.packages,
-            &plan.source_database,
-            plan.sqlite,
+            (&plan.source_database, plan.sqlite),
             cancel,
+            &scoped_check,
         );
         if let Err(mut e) = result {
+            // Never write a recovery receipt into a substituted directory, even
+            // when a prior grant check failed or a filesystem race occurred.
+            verify_owned()?;
             record.stage = "failed".into();
             record.last_error = Some(e.code.clone());
             self.save_worktree(&record)?;
@@ -528,12 +663,14 @@ impl Workspace {
         record: &mut Record,
         source: &Project,
         packages: &BTreeMap<String, String>,
-        source_database: &Option<Binding>,
-        sqlite: bool,
+        database: (&Option<Binding>, bool),
         cancel: &Cancellation,
+        check: &dyn Fn() -> Result<()>,
     ) -> Result<()> {
+        let (source_database, sqlite) = database;
         let result = (|| {
             for id in packages.values() {
+                check()?;
                 self.packages
                     .download(self.catalog.get(id)?, cancel, |_| {})?;
             }
@@ -555,6 +692,7 @@ impl Workspace {
                 }
                 .into(),
             ]);
+            check()?;
             self.worktree_stage(record, "checkout")?;
             if record.isolated {
                 git::run(
@@ -571,6 +709,7 @@ impl Workspace {
                     true,
                     cancel,
                 )?;
+                check()?;
                 git::run(
                     &self.root,
                     &path,
@@ -584,6 +723,7 @@ impl Workspace {
                     true,
                     cancel,
                 )?;
+                check()?;
                 git::run(
                     &self.root,
                     &path,
@@ -631,12 +771,15 @@ impl Workspace {
             if path.join(".env").exists() {
                 return Err(error("worktree_committed_env"));
             }
+            check()?;
             let child = self.import_worktree_project(&path, &record.input.name, source)?;
             record.project_id = Some(child.id.clone());
             self.save_worktree(record)?;
+            check()?;
             self.projects
                 .claim_worktree(&child.id, child.revision, &record.id)?;
             let id = &child.id;
+            check()?;
             self.sites.configure(
                 &self.projects,
                 Site {
@@ -646,6 +789,7 @@ impl Workspace {
                     vite: record.configuration.project.vite,
                 },
             )?;
+            check()?;
             devforge_projects::php_settings::save(
                 &self.projects,
                 id,
@@ -659,6 +803,7 @@ impl Workspace {
                 },
             );
             self.save()?;
+            check()?;
             if let Some(env) = EnvPlan::application(&self.projects, id, true, true)? {
                 env.apply(&self.projects)?;
             }
@@ -668,6 +813,7 @@ impl Workspace {
                     {
                         continue;
                     }
+                    check()?;
                     let key = source
                         .environment_references
                         .get(name)
@@ -679,6 +825,7 @@ impl Workspace {
                             .map_err(|_| error("manifest_secret_unavailable"))?
                             .ok_or_else(|| error("manifest_secret_missing"))?,
                     );
+                    check()?;
                     let p = self.projects.get(id)?;
                     devforge_projects::environment::set(
                         &self.projects,
@@ -690,18 +837,22 @@ impl Workspace {
                     )?;
                 }
             }
+            check()?;
             self.worktree_stage(record, "database")?;
             if digest(&self.projects.binding(&source.id)?) != digest(source_database) {
                 return Err(error("worktree_review_changed"));
             }
             if let Some(binding) = source_database {
+                check()?;
                 self.ensure_database(&binding.instance_id)?;
+                check()?;
                 self.databases
                     .get_mut(&binding.instance_id)
                     .unwrap()
                     .provision(&self.projects, &child, self.secrets.as_ref())?;
                 if record.input.database == DatabaseMode::Clone {
                     self.require_stopped(&source.id)?;
+                    check()?;
                     let backup = self.create_backup(&source.id, cancel)?;
                     if digest(&self.projects.binding(&source.id)?) != digest(source_database) {
                         return Err(error("worktree_review_changed"));
@@ -715,12 +866,15 @@ impl Workspace {
                             .ok_or_else(|| error("worktree_database_failed"))?,
                         &archive,
                     )?;
+                    check()?;
                     let imported = self.projects.import_backup(id, &archive)?;
+                    check()?;
                     self.restore_backup(id, &imported.id, true, cancel)?;
                 }
             } else if sqlite {
                 let database = devforge_projects::workspace_sqlite::location(&path)
                     .map_err(|_| error("worktree_sqlite_scope"))?;
+                check()?;
                 if record.input.database == DatabaseMode::Clone {
                     devforge_projects::workspace_sqlite::snapshot(
                         &devforge_projects::workspace_sqlite::location(&source.path)?,
@@ -733,6 +887,7 @@ impl Workspace {
                         .open(&database)?;
                 }
                 // Reserved DB_* overrides live in .env, not the generic secret namespace.
+                check()?;
                 EnvPlan::overrides(
                     &self.projects,
                     id,
@@ -754,6 +909,7 @@ impl Workspace {
                     &serde_json::json!({"sqlite_started":true,"sqlite_complete":false}),
                 )?;
             }
+            check()?;
             self.worktree_stage(record, "prepare")?;
             if path.join("composer.json").is_file() {
                 let contents = devforge_projects::manifest::read_file(
@@ -763,10 +919,12 @@ impl Workspace {
                 let json: serde_json::Value =
                     serde_json::from_slice(&contents).map_err(|_| error("worktree_git_failed"))?;
                 if json["require-dev"]["devforge/laravel-inspector"].is_string() {
+                    check()?;
                     devforge_inspector::materialize(&path)
                         .map_err(|_| error("inspection_package_conflict"))?;
                 }
             }
+            check()?;
             self.prepare_project(
                 id,
                 &setup::PrepareOptions {
@@ -780,6 +938,7 @@ impl Workspace {
                 },
                 cancel,
             )?;
+            check()?;
             if let Some(redis) = packages.get("redis") {
                 let cache = self.projects.initialize_cache(
                     id,
@@ -811,9 +970,11 @@ impl Workspace {
                     },
                 )?;
             }
+            check()?;
             if record.configuration.mail == Some(true) {
                 self.configure_mail(id, true)?;
             }
+            check()?;
             EnvPlan::profile(
                 &self.projects,
                 id,
@@ -824,6 +985,7 @@ impl Workspace {
             if cancel.is_cancelled() {
                 return Err(error("setup_cancelled"));
             }
+            check()?;
             atomic(
                 &self.worktree_dir(&record.id)?.join("configuration.json"),
                 &record.configuration,
@@ -961,7 +1123,70 @@ impl Workspace {
         consent: bool,
         cancel: &Cancellation,
     ) -> Result<Record> {
+        self.worktree_cleanup_inner(id, review, consent, cancel, &|| Ok(()), false)
+    }
+    /// Recheck external authorization and directory identities before effects.
+    pub fn worktree_cleanup_guarded(
+        &mut self,
+        id: &str,
+        review: &str,
+        consent: bool,
+        cancel: &Cancellation,
+        check: &dyn Fn() -> Result<()>,
+    ) -> Result<Record> {
+        self.worktree_cleanup_inner(id, review, consent, cancel, check, true)
+    }
+    fn worktree_cleanup_inner(
+        &mut self,
+        id: &str,
+        review: &str,
+        consent: bool,
+        cancel: &Cancellation,
+        check: &dyn Fn() -> Result<()>,
+        strict_identity: bool,
+    ) -> Result<Record> {
+        check()?;
+        let _read_cancel = git::read_cancellation_guard(cancel);
         let _lock = self.worktree_lock()?;
+        if !valid_id(id) {
+            return Err(error("worktree_ownership"));
+        }
+        let owner_root = self.root.join("worktrees");
+        let container = owner_root.join(id);
+        let owner_identity = strict_identity
+            .then(|| owned_directory_identity(&owner_root))
+            .transpose()?;
+        let container_identity = strict_identity
+            .then(|| owned_directory_identity(&container))
+            .transpose()?;
+        let tree = container.join("tree");
+        let retained_tree = container.join("retained");
+        let moved = std::cell::Cell::new(!tree.exists() && retained_tree.exists());
+        let payload = if moved.get() { &retained_tree } else { &tree };
+        let payload_identity = if strict_identity && payload.exists() {
+            Some(owned_directory_identity(payload)?)
+        } else {
+            None
+        };
+        let verify_owned = || -> Result<()> {
+            if let (Some(owner), Some(child)) = (&owner_identity, &container_identity)
+                && (&owned_directory_identity(&owner_root)? != owner
+                    || &owned_directory_identity(&container)? != child)
+            {
+                return Err(error("worktree_ownership"));
+            }
+            if let Some(expected) = &payload_identity {
+                let current = if moved.get() { &retained_tree } else { &tree };
+                if &owned_directory_identity(current)? != expected {
+                    return Err(error("worktree_ownership"));
+                }
+            }
+            Ok(())
+        };
+        let scoped_check = || -> Result<()> {
+            check()?;
+            verify_owned()
+        };
         if !consent {
             return Err(error("service_consent_required"));
         }
@@ -976,6 +1201,7 @@ impl Workspace {
             return Err(error("setup_cancelled"));
         }
         let mut record = plan.workspace.record;
+        scoped_check()?;
         if let Some(project) = &record.project_id {
             self.stop(project)?;
         }
@@ -984,6 +1210,7 @@ impl Workspace {
             .as_deref()
             .map(|id| self.sites.project_mutation_guard(id))
             .transpose()?;
+        scoped_check()?;
         if let Some(project) = &record.project_id {
             self.mail.remove(project);
             let caches = self
@@ -994,11 +1221,13 @@ impl Workspace {
                 .map(|c| c.id)
                 .collect::<Vec<_>>();
             for cache in caches {
+                scoped_check()?;
                 self.stop_cache(&cache)?;
             }
         }
         let path = plan.workspace.path;
         let retained = plan.workspace.retained_path;
+        scoped_check()?;
         self.worktree_stage(&mut record, "archiving")?;
         let result: Result<Record> = (|| {
             if path.exists() {
@@ -1018,8 +1247,11 @@ impl Workspace {
                 if retained.exists() {
                     return Err(error("worktree_ownership"));
                 }
+                scoped_check()?;
                 fs::rename(&path, &retained)?;
+                moved.set(true);
             } else if record.git_dir.is_none() && !retained.exists() {
+                scoped_check()?;
                 fs::create_dir(&retained)?;
             }
             if !record.isolated
@@ -1037,6 +1269,7 @@ impl Workspace {
                     if fs::symlink_metadata(&path).is_ok() {
                         return Err(error("worktree_ownership"));
                     }
+                    scoped_check()?;
                     self.worktree_git(
                         &record.common_dir,
                         vec![
@@ -1049,6 +1282,7 @@ impl Workspace {
                     )?;
                 }
             }
+            scoped_check()?;
             if let Some(project) = &record.project_id {
                 if let Ok(p) = self.projects.get(project) {
                     if p.worktree.as_deref() == Some(record.id.as_str()) {
@@ -1060,6 +1294,7 @@ impl Workspace {
                         return Err(error("worktree_ownership"));
                     }
                 }
+                scoped_check()?;
                 self.sites.remove(project)?;
                 self.preferences.development.remove(project);
                 self.preferences.navigation.remove(project);
@@ -1070,12 +1305,14 @@ impl Workspace {
                 record.commit = plan.head.clone();
                 record.input.branch = plan.branch.clone();
             }
+            scoped_check()?;
             record.stage = "removed".into();
             record.last_error = None;
             self.save_worktree(&record)?;
             Ok(record.clone())
         })();
         if let Err(e) = &result {
+            verify_owned()?;
             record.stage = "failed".into();
             record.last_error = Some(e.code.clone());
             self.save_worktree(&record)?;

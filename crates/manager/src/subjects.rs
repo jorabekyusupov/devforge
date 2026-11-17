@@ -320,7 +320,8 @@ impl WorktreeAttempt {
         review: &str,
         before: &Snapshot,
     ) -> Option<Self> {
-        if before.projects.len() > PROJECT_LIMIT
+        if before.worktrees_incomplete
+            || before.projects.len() > PROJECT_LIMIT
             || before.worktrees.len() > WORKTREE_LIMIT
             || input.source_id.len() > 128
             || input.name.len() > 200
@@ -399,6 +400,7 @@ impl WorktreeAttempt {
         actual_identity: impl Fn(&Path) -> Option<String>,
     ) -> Option<Id> {
         if operation != &self.operation
+            || after.worktrees_incomplete
             || fs::canonicalize(root).ok()? != self.root
             || after.projects.len() > PROJECT_LIMIT
             || after.worktrees.len() > WORKTREE_LIMIT
@@ -989,6 +991,33 @@ mod tests {
         .unwrap();
         let after = workspace.snapshot().unwrap();
         (root, workspace, attempt, after, child_id)
+    }
+
+    #[test]
+    fn incomplete_worktree_snapshot_never_supports_recovery_claims() {
+        let (root, _workspace, attempt, after, child) = partial_worktree();
+        let data = root.path().join("data");
+        let operation = id("worktree-create-operation");
+        let input: devforge_workspace::worktrees::Input =
+            serde_json::from_slice(&attempt.input).unwrap();
+        let mut incomplete = after;
+        incomplete.worktrees_incomplete = true;
+        assert!(
+            WorktreeAttempt::capture(&data, &operation, &input, &attempt.review, &incomplete)
+                .is_none()
+        );
+        assert!(
+            attempt
+                .recover_project(
+                    &data,
+                    &operation,
+                    &incomplete,
+                    &child,
+                    "setup_composer_failed",
+                    |path| devforge_projects::discovery::identity(path).ok()
+                )
+                .is_none()
+        );
     }
 
     #[test]
