@@ -47,6 +47,7 @@ export interface AgentApi {
   revoke(grant_id: string): Promise<AgentSnapshot>;
   config(grant_id: string): Promise<AgentConfig>;
   approve(digest: string): Promise<AgentSnapshot>;
+  approveWorkspace(digest: string): Promise<AgentSnapshot>;
   confirmMachine(digest: string): Promise<AgentSnapshot>;
   status(input: AgentOperationRef): Promise<AgentOperation>;
   cancel(input: AgentOperationRef): Promise<AgentOperation>;
@@ -60,6 +61,7 @@ export const agentApi: AgentApi = {
   revoke: grant_id => request({ action: "revoke", grant_id }),
   config: grant_id => request({ action: "config", grant_id }),
   approve: digest => request({ action: "approve", digest }),
+  approveWorkspace: digest => request({ action: "approve_workspace_plan", digest }),
   confirmMachine: digest => request({ action: "confirm_machine", digest }),
   status: input => request({ action: "status", ...input }),
   cancel: input => request({ action: "cancel", ...input }),

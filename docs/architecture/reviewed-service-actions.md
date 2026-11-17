@@ -287,7 +287,13 @@ cancellation checks around significant effects. WorkspaceContentScan grants
 internal inspection and hashing for these plans, not bulk content output.
 Copying managed environment secrets additionally requires WorkspaceSecretCopy and
 SensitiveOperation; DB clone also requires SensitiveOperation. Existing grants
-inherit neither new information right.
+inherit neither new information right. Workspace prepare/plan and the separate
+owner-only workspace approval have a bounded 30-second transport budget; other
+approvals retain their existing limit. The manager reauthenticates the native owner
+and checks deadline, shutdown and observed disconnect before final approval. A
+concurrent disconnect immediately after the last check is not an atomic guarantee.
+The desktop bridge currently shares its native client mutex, so another desktop
+owner action can return Busy during a long workspace approval.
 
 Merge uses the source project's committed HEAD and an owned child worktree as
 target; source HEAD, index and working files remain unchanged. The preview binds

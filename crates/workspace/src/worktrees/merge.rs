@@ -230,6 +230,7 @@ fn graph_is_unmodified(
     cwd: &Path,
     common: &Path,
     admin: &Path,
+    check_refs: bool,
     cancel: &Cancellation,
 ) -> Result<bool> {
     for base in [common, admin] {
@@ -240,6 +241,10 @@ fn graph_is_unmodified(
                 Err(_) => return Err(error("worktree_ownership")),
             }
         }
+    }
+    if !check_refs {
+        // Linked worktrees share refs with their verified common Git directory.
+        return Ok(true);
     }
     let refs = run_git(
         root,
@@ -587,28 +592,51 @@ impl Workspace {
             return Err(error("worktree_ownership"));
         }
         let cancel = git::current_read_cancellation();
-        let target_common = git::common(&self.root, &target_path)?;
-        let source_admin = fs::canonicalize(git::text(
-            &self.root,
-            &source.path,
-            &["rev-parse", "--absolute-git-dir"],
-        )?)?;
-        let target_admin = fs::canonicalize(git::text(
-            &self.root,
-            &target_path,
-            &["rev-parse", "--absolute-git-dir"],
-        )?)?;
+        // `worktree_identity` above already verified the target common dir and
+        // (when recorded) Git admin directory against these exact paths. Avoid
+        // repeating two Git subprocesses on slow Windows hosts.
+        let target_common = if record.isolated {
+            target_path.join(".git")
+        } else {
+            record.common_dir.clone()
+        };
+        let source_dotgit = source.path.join(".git");
+        let source_admin =
+            if ordinary(&source_dotgit) && fs::canonicalize(&source_dotgit)? == record.common_dir {
+                // Normal main checkout: the verified common dir is its admin dir.
+                record.common_dir.clone()
+            } else {
+                // Linked source checkouts still need Git's exact per-worktree admin.
+                fs::canonicalize(git::text(
+                    &self.root,
+                    &source.path,
+                    &["rev-parse", "--absolute-git-dir"],
+                )?)?
+            };
+        let target_admin = if record.isolated {
+            target_common.clone()
+        } else if let Some(admin) = &record.git_dir {
+            admin.clone()
+        } else {
+            fs::canonicalize(git::text(
+                &self.root,
+                &target_path,
+                &["rev-parse", "--absolute-git-dir"],
+            )?)?
+        };
         if !graph_is_unmodified(
             &self.root,
             &source.path,
             &record.common_dir,
             &source_admin,
+            true,
             &cancel,
         )? || !graph_is_unmodified(
             &self.root,
             &target_path,
             &target_common,
             &target_admin,
+            target_common != record.common_dir,
             &cancel,
         )? {
             return Err(error("worktree_merge_graph_unsupported"));

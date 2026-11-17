@@ -342,9 +342,11 @@ export function AgentConnections({ api }: { api?: AgentApi }) {
           setConfiguration((previous) =>
             previous?.grant_id === selected.grant.grant_id ? null : previous,
           );
-      } else if (selected.kind === "approve")
-        await api.approve(selected.plan.digest);
-      else await api.confirmMachine(selected.plan.digest);
+      } else if (selected.kind === "approve") {
+        if (selected.plan.target.kind === "workspace")
+          await api.approveWorkspace(selected.plan.digest);
+        else await api.approve(selected.plan.digest);
+      } else await api.confirmMachine(selected.plan.digest);
       if (generation.current === current) {
         focusAfterAction.current = true;
         setDialog(null);

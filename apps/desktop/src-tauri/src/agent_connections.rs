@@ -249,6 +249,9 @@ pub enum Request {
     Approve {
         digest: Digest,
     },
+    ApproveWorkspacePlan {
+        digest: Digest,
+    },
     ConfirmMachine {
         digest: Digest,
     },
@@ -471,6 +474,12 @@ impl State {
             Request::Approve { digest } => {
                 bridge
                     .agent_owner_action(|client| client.approve_service_plan(&digest))
+                    .map_err(bridge_error)?;
+                encoded(self.snapshot(workspace)?)
+            }
+            Request::ApproveWorkspacePlan { digest } => {
+                bridge
+                    .agent_owner_action(|client| client.approve_workspace_plan(&digest))
                     .map_err(bridge_error)?;
                 encoded(self.snapshot(workspace)?)
             }
@@ -985,6 +994,15 @@ mod tests {
         ] {
             assert!(serde_json::from_value::<Request>(request).is_err());
         }
+        let workspace_approval: Request = serde_json::from_value(
+            json!({"action":"approve_workspace_plan","digest":"a".repeat(64)}),
+        )
+        .unwrap();
+        assert!(matches!(
+            workspace_approval,
+            Request::ApproveWorkspacePlan { .. }
+        ));
+        assert!(serde_json::from_value::<Request>(json!({"action":"approve_workspace_plan","digest":"a".repeat(64),"project":"untrusted"})).is_err());
         let issue: Request = serde_json::from_value(json!({"action":"issue","project_id":"p","scopes":["observer"],"ttl_seconds":60,"information":["mail_content"]})).unwrap();
         assert!(
             matches!(issue, Request::Issue {information, ..} if information == [devforge_control::InformationScope::MailContent])

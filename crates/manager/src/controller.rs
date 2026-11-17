@@ -290,13 +290,13 @@ impl Controller {
                     }
                     Ok(())
                 },
-                move |peer, input, deadline| {
+                move |peer, input, deadline, cancelled| {
                     let context = context.clone();
                     async move {
                         // Native credential I/O and any ledger waits are never performed
                         // on the listener event loop. Health never needs the auth mutex.
                         tokio::task::spawn_blocking(move || {
-                            context.request_with_deadline(peer, input, deadline)
+                            context.request_with_deadline(peer, input, deadline, cancelled)
                         })
                         .await
                         .map_err(|_| crate::Error::HandlerFailed)
@@ -457,6 +457,10 @@ enum Request {
         session: WireToken,
         digest: devforge_control::Digest,
     },
+    ApproveWorkspacePlan {
+        session: WireToken,
+        digest: devforge_control::Digest,
+    },
     PendingReviews {
         session: WireToken,
     },
@@ -533,9 +537,20 @@ impl Context {
     }
     #[cfg(test)]
     fn request(&self, peer: PeerIdentity, input: Value) -> Value {
-        self.request_with_deadline(peer, input, Instant::now() + crate::IO_TIMEOUT)
+        self.request_with_deadline(
+            peer,
+            input,
+            Instant::now() + crate::IO_TIMEOUT,
+            Arc::new(AtomicBool::new(false)),
+        )
     }
-    fn request_with_deadline(&self, peer: PeerIdentity, input: Value, deadline: Instant) -> Value {
+    fn request_with_deadline(
+        &self,
+        peer: PeerIdentity,
+        input: Value,
+        deadline: Instant,
+        cancelled: Arc<AtomicBool>,
+    ) -> Value {
         if input
             .get("method")
             .and_then(Value::as_str)
@@ -555,7 +570,7 @@ impl Context {
             };
             let wait = matches!(
                 input.get("method").and_then(Value::as_str),
-                Some("activity_wait" | "site_probe")
+                Some("activity_wait" | "site_probe" | "workspace_prepare" | "workspace_plan")
             );
             let rejected = self
                 .quitting
@@ -684,7 +699,7 @@ impl Context {
                     Err(error) => fault(&error.to_string()),
                 }
             }
-            request => self.privileged(peer, request),
+            request => self.privileged(peer, request, deadline, cancelled),
         }
     }
     fn payload_request(&self, peer: PeerIdentity, request: crate::payload::Request) -> Value {
@@ -716,7 +731,13 @@ impl Context {
             Err(error) => fault(error.code()),
         }
     }
-    fn privileged(&self, peer: PeerIdentity, request: Request) -> Value {
+    fn privileged(
+        &self,
+        peer: PeerIdentity,
+        request: Request,
+        deadline: Instant,
+        cancelled: Arc<AtomicBool>,
+    ) -> Value {
         // One gate serializes admission against durable Quit. No caller can
         // enqueue after inhibition is persisted but before quitting is visible.
         let _gate = match self.quit_gate.try_lock() {
@@ -743,6 +764,7 @@ impl Context {
             | Request::ExternalGrantList { session }
             | Request::ExternalGrantRevoke { session, .. }
             | Request::ApproveServicePlan { session, .. }
+            | Request::ApproveWorkspacePlan { session, .. }
             | Request::PendingReviews { session }
             | Request::ExternalOperationStatus { session, .. }
             | Request::ExternalOperationCancel { session, .. }
@@ -763,7 +785,50 @@ impl Context {
             Ok(value) => value,
             Err(error) => return fault(&error.to_string()),
         };
+        if let Request::ApproveWorkspacePlan { digest, .. } = &request {
+            // Expensive workspace preflight must not hold the owner quit/auth
+            // gates. The initial owner session is authenticated above; both
+            // gates and the same owner session are checked again at commit.
+            let digest = digest.clone();
+            drop(auth);
+            drop(_gate);
+            let approval = match self.services.prepare_workspace_approval(
+                &digest,
+                &self.actor,
+                deadline,
+                cancelled.clone(),
+            ) {
+                Ok(value) => value,
+                Err(error) => return fault(control_code(error)),
+            };
+            let _gate = match self.quit_gate.try_lock() {
+                Ok(value) => value,
+                Err(_) => return fault("controller_busy"),
+            };
+            if self.quitting.load(Ordering::Acquire) {
+                return fault("controller_quitting");
+            }
+            let mut auth = match self.auth.try_lock() {
+                Ok(value) => value,
+                Err(_) => return fault("controller_busy"),
+            };
+            let authority = match auth.authorize(&peer, &credential, Instant::now()) {
+                Ok(value) => value,
+                Err(error) => return fault(&error.to_string()),
+            };
+            return match self.services.finish_workspace_approval(
+                &authority,
+                approval,
+                &self.actor,
+                deadline,
+                &cancelled,
+            ) {
+                Ok(receipt) => bounded_reply(&receipt),
+                Err(error) => fault(control_code(error)),
+            };
+        }
         match request {
+            Request::ApproveWorkspacePlan { .. } => fault("controller_invalid_request"),
             Request::PendingReviews { .. } => {
                 match self.services.pending_reviews(&authority, &self.actor) {
                     Ok(reviews) => bounded_reply(&reviews),

@@ -55,6 +55,10 @@ function fixture() {
       view.plans.find((p) => p.digest === digest)!.state = "approved";
       return structuredClone(view);
     }),
+    approveWorkspace: vi.fn(async (digest) => {
+      view.plans.find((p) => p.digest === digest)!.state = "approved";
+      return structuredClone(view);
+    }),
     confirmMachine: vi.fn(async () => structuredClone(view)),
     status: vi.fn(async (ref) =>
       view.operations.find(
@@ -597,8 +601,9 @@ describe("minimal agent settings", () => {
       within(dialog).getByRole("button", { name: "Approve reviewed plan" }),
     );
     await waitFor(() =>
-      expect(api.approve).toHaveBeenCalledWith(pending.digest),
+      expect(api.approveWorkspace).toHaveBeenCalledWith(pending.digest),
     );
+    expect(api.approve).not.toHaveBeenCalled();
   });
   it("shows the exact source and owned workspace commits before a merge", async () => {
     const { api, view } = fixture();
@@ -653,8 +658,9 @@ describe("minimal agent settings", () => {
       within(dialog).getByRole("button", { name: "Approve reviewed plan" }),
     );
     await waitFor(() =>
-      expect(api.approve).toHaveBeenCalledWith(pending.digest),
+      expect(api.approveWorkspace).toHaveBeenCalledWith(pending.digest),
     );
+    expect(api.approve).not.toHaveBeenCalled();
   });
   it("makes a merge-commit and shared Git reference effect explicit", async () => {
     const { api, view } = fixture();
@@ -811,7 +817,7 @@ describe("minimal agent settings", () => {
     expect(
       within(dialog).getByRole("button", { name: "Approve reviewed plan" }),
     ).toBeDisabled();
-    expect(api.approve).not.toHaveBeenCalled();
+    expect(api.approveWorkspace).not.toHaveBeenCalled();
   });
   it("rejects incomplete workspace review and shows the purge target", async () => {
     const { api, view } = fixture();
@@ -874,7 +880,7 @@ describe("minimal agent settings", () => {
     expect(
       within(dialog).getByRole("button", { name: "Approve reviewed plan" }),
     ).toBeDisabled();
-    expect(api.approve).not.toHaveBeenCalled();
+    expect(api.approveWorkspace).not.toHaveBeenCalled();
   });
   it("shows the exact debugger assignment value and revision before owner approval", async () => {
     const { api, view } = fixture();
@@ -909,6 +915,7 @@ describe("minimal agent settings", () => {
     await waitFor(() =>
       expect(api.approve).toHaveBeenCalledWith(pending.digest),
     );
+    expect(api.approveWorkspace).not.toHaveBeenCalled();
   });
   it("refuses approval when debugger assignment review data is incomplete", async () => {
     const { api, view } = fixture();

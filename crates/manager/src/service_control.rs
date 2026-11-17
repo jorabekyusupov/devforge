@@ -200,7 +200,13 @@ pub(crate) struct Services {
     environment_versions: Mutex<crate::environment_control::Versions>,
     domain_preparations: Mutex<VecDeque<DomainPreparation>>,
     workspace_preparations: Mutex<VecDeque<WorkspacePreparation>>,
+    workspace_stopping: AtomicBool,
     diagnostics: Arc<crate::diagnostics::Diagnostics>,
+}
+pub(crate) struct WorkspaceApproval {
+    intent: Arc<Intent>,
+    binding: ProjectBinding,
+    backend: Digest,
 }
 struct WorkspacePreparation {
     ticket: Digest,
@@ -1275,9 +1281,17 @@ impl Services {
         credential: &ExternalCredential,
         project: &Id,
         action: crate::workspace_control::Action,
-        timing: (Option<u64>, Instant),
+        timing: (Option<u64>, Instant, Option<Arc<AtomicBool>>),
     ) -> Result<crate::workspace_control::Captured, ErrorCode> {
-        let (revision, deadline) = timing;
+        let (revision, deadline, external_cancel) = timing;
+        if external_cancel
+            .as_ref()
+            .is_some_and(|c| c.load(Ordering::Acquire))
+        {
+            return Err(ErrorCode::Interrupted);
+        }
+        let check_cancel = external_cancel.clone();
+        let watch_external_cancel = external_cancel.clone();
         self.workspace_prebind(peer, credential, project)?;
         let sensitive = action.sensitive();
         let copy_secrets = action.copies_secrets();
@@ -1309,6 +1323,13 @@ impl Services {
             ExternalCredential::from_wire(credential.expose_secret()).map_err(grant_error)?;
         let subject = project.clone();
         let check = Box::new(move |workspace: &Workspace| {
+            if check_cancel
+                .as_ref()
+                .is_some_and(|c| c.load(Ordering::Acquire))
+                || policy.workspace_stopping.load(Ordering::Acquire)
+            {
+                return Err(ws_error(ErrorCode::Interrupted));
+            }
             if Instant::now() >= deadline {
                 return Err(ws_error(ErrorCode::TimedOut));
             }
@@ -1347,6 +1368,14 @@ impl Services {
         let watch_cancel = cancel.clone();
         let watcher = std::thread::spawn(move || {
             while !watch_finished.load(Ordering::Acquire) {
+                if watch_external_cancel
+                    .as_ref()
+                    .is_some_and(|c| c.load(Ordering::Acquire))
+                    || watch_policy.workspace_stopping.load(Ordering::Acquire)
+                {
+                    watch_cancel.cancel();
+                    break;
+                }
                 if Instant::now() >= deadline {
                     watch_cancel.cancel();
                     break;
@@ -1401,13 +1430,19 @@ impl Services {
         credential: &ExternalCredential,
         project: &Id,
         action: crate::workspace_control::Action,
-        timing: (Option<u64>, Option<Instant>),
+        timing: (Option<u64>, Option<Instant>, Option<Arc<AtomicBool>>),
     ) -> Result<crate::workspace_control::Prepared, ErrorCode> {
-        let (revision, transport_deadline) = timing;
+        let (revision, transport_deadline, external_cancel) = timing;
+        if external_cancel
+            .as_ref()
+            .is_some_and(|c| c.load(Ordering::Acquire))
+        {
+            return Err(ErrorCode::Interrupted);
+        }
         let deadline = transport_deadline
             .and_then(|d| d.checked_sub(Duration::from_secs(1)))
-            .unwrap_or_else(|| Instant::now() + Duration::from_secs(4))
-            .min(Instant::now() + Duration::from_secs(4));
+            .unwrap_or_else(|| Instant::now() + Duration::from_secs(29))
+            .min(Instant::now() + Duration::from_secs(29));
         if Instant::now() >= deadline {
             return Err(ErrorCode::TimedOut);
         }
@@ -1417,7 +1452,7 @@ impl Services {
             credential,
             project,
             action.clone(),
-            (revision, deadline),
+            (revision, deadline, external_cancel.clone()),
         )?;
         match captured {
             crate::workspace_control::Captured::Ready(value) => Ok(*value),
@@ -1431,6 +1466,13 @@ impl Services {
                 let binding = project_binding(&view.snapshot, project)?;
                 request_revision_check(revision, &binding)?;
                 let check = || -> devforge_workspace::Result<()> {
+                    if external_cancel
+                        .as_ref()
+                        .is_some_and(|c| c.load(Ordering::Acquire))
+                        || self.workspace_stopping.load(Ordering::Acquire)
+                    {
+                        return Err(ws_error(ErrorCode::Interrupted));
+                    }
                     if Instant::now() >= deadline {
                         return Err(ws_error(ErrorCode::TimedOut));
                     }
@@ -1470,7 +1512,7 @@ impl Services {
                     credential,
                     project,
                     action.clone(),
-                    (Some(binding.revision()), deadline),
+                    (Some(binding.revision()), deadline, external_cancel.clone()),
                 )?;
                 let crate::workspace_control::Captured::Archive {
                     snapshot: current, ..
@@ -1514,7 +1556,7 @@ impl Services {
             credential,
             &request.project_id,
             action,
-            (request.expected_revision, Some(deadline)),
+            (request.expected_revision, Some(deadline), None),
         )?;
         let prepared = value;
         let view = actor.external_snapshot().map_err(actor_error)?;
@@ -2526,6 +2568,7 @@ impl Services {
             environment_versions: Mutex::new(Default::default()),
             domain_preparations: Mutex::new(VecDeque::new()),
             workspace_preparations: Mutex::new(VecDeque::new()),
+            workspace_stopping: AtomicBool::new(false),
             diagnostics,
         }
     }
@@ -3097,6 +3140,7 @@ impl Services {
         }
     }
     pub(crate) fn interrupt_activity_waits(&self) {
+        self.workspace_stopping.store(true, Ordering::Release);
         self.diagnostics.interrupt_waits();
     }
     pub(crate) fn expire_diagnostics(&self) {
@@ -3547,6 +3591,139 @@ impl Services {
         self.check_owner(authority, actor)?;
         Ok(receipt)
     }
+    /// Perform expensive workspace validation without holding the native auth or
+    /// quit gate. The controller has already authenticated the owner and will
+    /// reauthenticate it under the gate before committing this proof.
+    pub(crate) fn prepare_workspace_approval(
+        self: &Arc<Self>,
+        digest: &Digest,
+        actor: &ActorHandle,
+        deadline: Instant,
+        cancelled: Arc<AtomicBool>,
+    ) -> Result<WorkspaceApproval, ErrorCode> {
+        workspace_approval_live(deadline, &cancelled, &self.workspace_stopping)?;
+        let intent = self.intent(digest)?;
+        let prepared = intent
+            .workspace
+            .as_ref()
+            .ok_or(ErrorCode::UnsupportedCapability)?;
+        if Instant::now() >= intent.expires {
+            return Err(ErrorCode::ReviewExpired);
+        }
+        let view = actor.external_snapshot().map_err(actor_error)?;
+        let binding = project_binding(&view.snapshot, &intent.request.project_id)?;
+        if binding.root() != intent.binding.root()
+            || binding.revision() != intent.binding.revision()
+        {
+            return Err(ErrorCode::RevisionConflict);
+        }
+        let proof = self.authorize(
+            &intent.peer,
+            &intent.credential,
+            &binding,
+            &intent.request.input,
+            intent.request.expected_revision,
+        )?;
+        if prepared.action.sensitive() {
+            self.authorize_workspace_effects(
+                &intent.peer,
+                &intent.credential,
+                &binding,
+                &prepared.action,
+                intent.request.expected_revision,
+            )?;
+        }
+        let fresh = self.read_workspace(
+            actor,
+            &intent.peer,
+            &intent.credential,
+            &intent.request.project_id,
+            prepared.action.clone(),
+            (
+                intent.request.expected_revision,
+                Some(deadline),
+                Some(cancelled.clone()),
+            ),
+        )?;
+        if !fresh.blockers.is_empty() || fresh.core_digest != prepared.core_digest {
+            return Err(ErrorCode::ReviewMismatch);
+        }
+        let backend = workspace_backend(&view.snapshot, &binding, &intent.request, &proof, &fresh)?;
+        if backend != intent.backend {
+            return Err(ErrorCode::ReviewMismatch);
+        }
+        if cancelled.load(Ordering::Acquire) {
+            return Err(ErrorCode::Interrupted);
+        }
+        Ok(WorkspaceApproval {
+            intent,
+            binding,
+            backend,
+        })
+    }
+    pub(crate) fn finish_workspace_approval(
+        &self,
+        authority: &DesktopAuthority<'_>,
+        approval: WorkspaceApproval,
+        actor: &ActorHandle,
+        deadline: Instant,
+        cancelled: &AtomicBool,
+    ) -> Result<PlanReceipt, ErrorCode> {
+        workspace_approval_live(deadline, cancelled, &self.workspace_stopping)?;
+        authority
+            .check_current(Instant::now())
+            .map_err(|_| ErrorCode::Unauthorized)?;
+        if authority.root() != actor.bootstrap_ready_root().map_err(actor_error)? {
+            return Err(ErrorCode::Unauthorized);
+        }
+        if Instant::now() >= approval.intent.expires {
+            return Err(ErrorCode::ReviewExpired);
+        }
+        let view = actor.external_snapshot().map_err(actor_error)?;
+        let current = project_binding(&view.snapshot, &approval.intent.request.project_id)?;
+        if current.root() != approval.binding.root()
+            || current.revision() != approval.binding.revision()
+        {
+            return Err(ErrorCode::RevisionConflict);
+        }
+        let proof = self.authorize(
+            &approval.intent.peer,
+            &approval.intent.credential,
+            &current,
+            &approval.intent.request.input,
+            approval.intent.request.expected_revision,
+        )?;
+        let prepared = approval
+            .intent
+            .workspace
+            .as_ref()
+            .ok_or(ErrorCode::UnsupportedCapability)?;
+        if prepared.action.sensitive() {
+            self.authorize_workspace_effects(
+                &approval.intent.peer,
+                &approval.intent.credential,
+                &current,
+                &prepared.action,
+                approval.intent.request.expected_revision,
+            )?;
+        }
+        if workspace_backend(
+            &view.snapshot,
+            &current,
+            &approval.intent.request,
+            &proof,
+            prepared,
+        )? != approval.backend
+        {
+            return Err(ErrorCode::ReviewMismatch);
+        }
+        authority
+            .check_current(Instant::now())
+            .map_err(|_| ErrorCode::Unauthorized)?;
+        workspace_approval_live(deadline, cancelled, &self.workspace_stopping)?;
+        approval.intent.approved.store(true, Ordering::Release);
+        Ok(plan_receipt(&approval.intent))
+    }
     pub(crate) fn approve(
         self: &Arc<Self>,
         authority: &DesktopAuthority<'_>,
@@ -3557,6 +3734,9 @@ impl Services {
             .check_current(Instant::now())
             .map_err(|_| ErrorCode::Unauthorized)?;
         let intent = self.intent(digest)?;
+        if intent.workspace.is_some() {
+            return Err(ErrorCode::UnsupportedCapability);
+        }
         if authority.root()
             != actor
                 .bootstrap_ready_root()
@@ -3651,7 +3831,7 @@ impl Services {
                 &intent.credential,
                 &intent.request.project_id,
                 prepared.action.clone(),
-                (intent.request.expected_revision, None),
+                (intent.request.expected_revision, None, None),
             )?;
             let fresh = value;
             if !fresh.blockers.is_empty() || fresh.core_digest != prepared.core_digest {
@@ -3833,7 +4013,7 @@ impl Services {
                     &credential,
                     &request.project_id,
                     cached.action.clone(),
-                    (request.expected_revision, transport_deadline),
+                    (request.expected_revision, transport_deadline, None),
                 )?;
                 let fresh = value;
                 if !fresh.blockers.is_empty() || fresh.core_digest != cached.core_digest {
@@ -4179,6 +4359,19 @@ fn request_fingerprint(
 ) -> Result<Digest, ErrorCode> {
     let material = Zeroizing::new(fingerprint_material(request, binding)?);
     sha256(&material)
+}
+fn workspace_approval_live(
+    deadline: Instant,
+    cancelled: &AtomicBool,
+    stopping: &AtomicBool,
+) -> Result<(), ErrorCode> {
+    if cancelled.load(Ordering::Acquire) || stopping.load(Ordering::Acquire) {
+        return Err(ErrorCode::Interrupted);
+    }
+    if Instant::now() >= deadline {
+        return Err(ErrorCode::TimedOut);
+    }
+    Ok(())
 }
 fn request_revision_check(
     revision: Option<u64>,
@@ -5111,6 +5304,39 @@ fn respond<T: Serialize>(id: Id, result: Result<T, ErrorCode>, operation: Option
 #[cfg(test)]
 mod domain_scoped_tests {
     use super::*;
+    #[test]
+    fn workspace_approval_deadline_and_disconnect_fail_closed() {
+        let cancelled = AtomicBool::new(false);
+        let stopping = AtomicBool::new(false);
+        assert_eq!(
+            workspace_approval_live(
+                Instant::now() - Duration::from_millis(1),
+                &cancelled,
+                &stopping
+            ),
+            Err(ErrorCode::TimedOut)
+        );
+        cancelled.store(true, Ordering::Release);
+        assert_eq!(
+            workspace_approval_live(
+                Instant::now() + Duration::from_secs(1),
+                &cancelled,
+                &stopping
+            ),
+            Err(ErrorCode::Interrupted)
+        );
+        cancelled.store(false, Ordering::Release);
+        stopping.store(true, Ordering::Release);
+        assert_eq!(
+            workspace_approval_live(
+                Instant::now() + Duration::from_secs(1),
+                &cancelled,
+                &stopping
+            ),
+            Err(ErrorCode::Interrupted)
+        );
+    }
+
     struct NoSecrets;
     impl devforge_core::SecretStore for NoSecrets {
         fn get(&self, _: &str) -> std::result::Result<Option<String>, devforge_core::ErrorCode> {

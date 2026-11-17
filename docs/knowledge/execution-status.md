@@ -1710,3 +1710,11 @@ Initial A10 CI run 44000646512 failed desktop Clippy on both macOS and Windows:
 the new Workspace review enum variant exceeded the size-difference lint. The
 internal projection was boxed without changing its JSON contract; desktop Clippy
 and the focused projection test passed locally. Final CI records platform results.
+
+Windows CI run 44001522217 encountered timeouts while several A10 Git-heavy
+fixtures ran concurrently; macOS passed. A10 fixtures now serialize only against
+each other, and workspace prepare/plan and owner-only workspace approval use a
+separate bounded 30-second transport budget. Generic approvals retain 5 seconds.
+The owner approval validates outside the global Quit gate and reauthenticates
+before approval; orderly disconnect and Quit were exercised with a blocked actor.
+Final cross-platform evidence belongs to the subsequent PR run.

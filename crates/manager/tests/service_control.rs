@@ -71,6 +71,7 @@ impl Drop for Release {
 struct Rig {
     root: tempfile::TempDir,
     native: NativeClient,
+    native_credential: devforge_manager::auth::DesktopCredential,
     endpoint: devforge_manager::Endpoint,
     worker: Option<thread::JoinHandle<devforge_manager::controller::Result<()>>>,
     projects: Vec<devforge_projects::project::Project>,
@@ -90,6 +91,18 @@ impl Rig {
         Self::runtime_setup_with(cache, legacy, alternative, |_, _| {})
     }
     fn runtime_setup_with<F>(cache: Option<&Path>, legacy: bool, alternative: bool, seed: F) -> Self
+    where
+        F: FnOnce(&Path, &mut Vec<devforge_projects::project::Project>),
+    {
+        Self::runtime_setup_with_policy(cache, legacy, alternative, Policy::default(), seed)
+    }
+    fn runtime_setup_with_policy<F>(
+        cache: Option<&Path>,
+        legacy: bool,
+        alternative: bool,
+        policy: Policy,
+        seed: F,
+    ) -> Self
     where
         F: FnOnce(&Path, &mut Vec<devforge_projects::project::Project>),
     {
@@ -204,12 +217,16 @@ impl Rig {
                 db.execute("INSERT INTO operations VALUES(?1,'old-client',?2,?3,'old-fingerprint',?4,NULL,1,1)",rusqlite::params![op,projects[0].id,key,state]).unwrap();
             }
         }
-        let controller = Controller::start(
+        let controller = Controller::with_options(
             root.path(),
             StartIntent::AutoStart,
             Stores {
                 workspace: secrets.clone(),
                 desktop: control,
+            },
+            devforge_manager::controller::Options {
+                auth: policy,
+                ..Default::default()
             },
         )
         .unwrap();
@@ -226,6 +243,7 @@ impl Rig {
         Self {
             root,
             native,
+            native_credential: credential,
             endpoint,
             worker: Some(worker),
             projects,
@@ -5618,8 +5636,18 @@ fn a09_breakpoints_reject_active_session_without_changing_project() {
     );
 }
 
+// A10 cases each start an independent manager and several Git processes.
+// Serialize just these expensive fixtures to avoid runner resource starvation;
+// no test assertions, product deadline, or non-A10 test concurrency changes.
+fn a10_fixture_guard() -> std::sync::MutexGuard<'static, ()> {
+    static LOCK: Mutex<()> = Mutex::new(());
+    LOCK.lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+}
+
 #[test]
 fn a10_workspace_list_and_preparation_are_project_bound_and_noncreating() {
+    let _fixture_guard = a10_fixture_guard();
     use devforge_control::tools::{
         WorkspaceListInput, WorkspacePrepareAction, WorkspacePrepareInput,
     };
@@ -5694,6 +5722,7 @@ fn a10_workspace_list_and_preparation_are_project_bound_and_noncreating() {
 
 #[test]
 fn a10_workspace_create_preview_ticket_is_bound_and_requires_exact_review() {
+    let _fixture_guard = a10_fixture_guard();
     use devforge_control::{
         limits::Text,
         mutations::WorkspaceCreateInput,
@@ -5894,7 +5923,7 @@ fn a10_workspace_create_preview_ticket_is_bound_and_requires_exact_review() {
         matches!(&review.target,ReviewTarget::Workspace{action,copy_environment:Some(true),..} if action=="create")
     );
     assert_eq!(review.state, ReviewState::Pending);
-    rig.native.approve_service_plan(&exact.digest).unwrap();
+    rig.native.approve_workspace_plan(&exact.digest).unwrap();
     let mut clone_req = req.clone();
     clone_req.input.database = Some(WorkspaceDatabase::Clone);
     let clone_preview = sensitive_client.workspace_prepare(&clone_req).unwrap();
@@ -5948,10 +5977,23 @@ fn a10_workspace_create_preview_ticket_is_bound_and_requires_exact_review() {
     let review = pending.iter().find(|v| v.digest == plan.digest).unwrap();
     assert_eq!(review.state, ReviewState::Pending);
     assert!(matches!(&review.target,ReviewTarget::Workspace{action,..} if action=="create"));
+    assert!(
+        rig.native.approve_service_plan(&plan.digest).is_err(),
+        "generic service approval must not approve workspace plans"
+    );
+    let still_pending = rig.native.pending_reviews().unwrap();
+    assert_eq!(
+        still_pending
+            .iter()
+            .find(|r| r.digest == plan.digest)
+            .unwrap()
+            .state,
+        ReviewState::Pending
+    );
     let denied = client.workspace_apply(&mutation, &plan.digest).unwrap();
     assert!(denied.data().is_none());
     assert_eq!(git(&["rev-parse", "HEAD"]), head);
-    rig.native.approve_service_plan(&plan.digest).unwrap();
+    rig.native.approve_workspace_plan(&plan.digest).unwrap();
     let worktree_root = rig.root.path().join("worktrees");
     let count_receipts = || {
         std::fs::read_dir(&worktree_root)
@@ -5988,6 +6030,7 @@ fn a10_workspace_create_preview_ticket_is_bound_and_requires_exact_review() {
 
 #[test]
 fn a10_workspace_mutation_rejects_foreign_ids_before_project_lookup() {
+    let _fixture_guard = a10_fixture_guard();
     use devforge_control::{Digest, mutations::WorkspaceCreateInput};
     let mut rig = Rig::new(None);
     let own = rig.projects[0].clone();
@@ -6024,6 +6067,7 @@ fn a10_workspace_mutation_rejects_foreign_ids_before_project_lookup() {
 
 #[test]
 fn a10_lifecycle_rejects_symlinked_workspace_outside_owned_root() {
+    let _fixture_guard = a10_fixture_guard();
     use devforge_control::{
         InformationScope,
         tools::{WorkspacePrepareAction, WorkspacePrepareInput},
@@ -6152,6 +6196,7 @@ fn a10_lifecycle_rejects_symlinked_workspace_outside_owned_root() {
 
 #[test]
 fn a10_delayed_workspace_preview_returns_no_ticket_and_does_not_mutate() {
+    let _fixture_guard = a10_fixture_guard();
     use devforge_control::{
         InformationScope,
         limits::Text,
@@ -6189,30 +6234,49 @@ fn a10_delayed_workspace_preview_returns_no_ticket_and_does_not_mutate() {
             copy_environment: Some(false),
         },
     };
+    let barrier_grant = rig
+        .native
+        .issue_external_grant(
+            &id(&project.id),
+            &[Scope::Observer],
+            Duration::from_secs(600),
+        )
+        .unwrap();
     let root = rig.root.path().join("worktrees");
     let existed = root.exists();
     let release = rig.block();
     let endpoint = rig.endpoint.clone();
     let token = grant.credential.expose_secret().to_owned();
+    let (ready_tx, ready_rx) = std::sync::mpsc::sync_channel(1);
     let caller = thread::spawn(move || {
         let credential = ExternalCredential::from_wire(&token).unwrap();
         let mut client = DiagnosticsClient::connect(endpoint, credential).unwrap();
+        ready_tx.send(()).unwrap();
         client.workspace_prepare(&request)
     });
+    ready_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+    // Revoke before releasing the blocked actor; a delayed request must not
+    // obtain a ticket or resume with the previously valid authority.
+    rig.native
+        .revoke_external_grant(&grant.record.grant_id)
+        .unwrap();
+    drop(release);
     let result = caller.join().unwrap();
     match result {
         Ok(reply) => assert!(
             reply.data().is_none(),
-            "timed-out request must not issue a ticket"
+            "revoked delayed request must not issue a ticket"
         ),
         Err(error) => assert!(matches!(
             error,
-            ErrorCode::TimedOut | ErrorCode::Busy | ErrorCode::Interrupted
+            ErrorCode::GrantRevoked
+                | ErrorCode::Unauthorized
+                | ErrorCode::Busy
+                | ErrorCode::Interrupted
         )),
     }
-    drop(release);
     // A subsequent actor request is a barrier after the delayed item.
-    let mut client = rig.diagnostics(&grant);
+    let mut client = rig.diagnostics(&barrier_grant);
     let list = Request {
         api_version: Default::default(),
         request_id: id("a10-preview-barrier"),
@@ -6231,7 +6295,7 @@ fn a10_delayed_workspace_preview_returns_no_ticket_and_does_not_mutate() {
     assert_eq!(
         root.exists(),
         existed,
-        "timed-out preview must not create a worktree"
+        "revoked delayed preview must not create a worktree"
     );
 }
 
@@ -6450,7 +6514,7 @@ fn a10_lifecycle_action(
         no_approval.data().is_none(),
         "{key} must require native review"
     );
-    rig.native.approve_service_plan(&plan.digest).unwrap();
+    rig.native.approve_workspace_plan(&plan.digest).unwrap();
     let applied = client.workspace_apply(&request, &plan.digest).unwrap();
     assert!(
         applied.error().is_none(),
@@ -6462,6 +6526,7 @@ fn a10_lifecycle_action(
 
 #[test]
 fn a10_owned_archive_restore_purge_preserves_source_and_ignored_data() {
+    let _fixture_guard = a10_fixture_guard();
     use devforge_control::{InformationScope, tools::WorkspacePrepareAction as A};
     let mut rig = Rig::runtime_setup_with(None, false, false, seed_a10_owned_worktree);
     let source = rig.projects[0].clone();
@@ -6543,6 +6608,7 @@ fn a10_owned_archive_restore_purge_preserves_source_and_ignored_data() {
 
 #[test]
 fn a10_merge_fast_forwards_owned_worktree_and_preserves_source() {
+    let _fixture_guard = a10_fixture_guard();
     use devforge_control::{
         InformationScope,
         mutations::WorkspaceLifecycleInput,
@@ -6625,7 +6691,12 @@ fn a10_merge_fast_forwards_owned_worktree_and_preserves_source() {
     let dirty = target.join("untracked-guard");
     std::fs::write(&dirty, b"dirty").unwrap();
     let blocked = client.workspace_prepare(&prepare).unwrap();
-    let blocked = blocked.data().expect("dirty preview");
+    assert!(
+        blocked.data().is_some(),
+        "dirty preview: {:?}",
+        blocked.error()
+    );
+    let blocked = blocked.data().unwrap();
     assert!(
         blocked
             .blockers
@@ -6666,7 +6737,7 @@ fn a10_merge_fast_forwards_owned_worktree_and_preserves_source() {
             .is_none(),
         "native review mandatory"
     );
-    rig.native.approve_service_plan(&plan.digest).unwrap();
+    rig.native.approve_workspace_plan(&plan.digest).unwrap();
     let reply = client.workspace_apply(&request, &plan.digest).unwrap();
     assert!(reply.error().is_none(), "{:?}", reply.error());
     assert_eq!(
@@ -6686,6 +6757,7 @@ fn a10_merge_fast_forwards_owned_worktree_and_preserves_source() {
 
 #[test]
 fn a10_merge_refuses_overwriting_ignored_file_and_reports_incomplete() {
+    let _fixture_guard = a10_fixture_guard();
     use devforge_control::{
         InformationScope,
         mutations::WorkspaceLifecycleInput,
@@ -6772,7 +6844,7 @@ fn a10_merge_refuses_overwriting_ignored_file_and_reports_incomplete() {
         .data()
         .unwrap()
         .clone();
-    rig.native.approve_service_plan(&plan.digest).unwrap();
+    rig.native.approve_workspace_plan(&plan.digest).unwrap();
     let applied = client.workspace_apply(&request, &plan.digest).unwrap();
     assert!(applied.error().is_none(), "{:?}", applied.error());
     let receipt = applied.data().unwrap().clone();
@@ -6792,6 +6864,7 @@ fn a10_merge_refuses_overwriting_ignored_file_and_reports_incomplete() {
 
 #[test]
 fn a10_merge_cancel_and_revoke_before_worker_preserve_both_checkouts() {
+    let _fixture_guard = a10_fixture_guard();
     use devforge_control::{
         InformationScope,
         mutations::WorkspaceLifecycleInput,
@@ -6871,7 +6944,7 @@ fn a10_merge_cancel_and_revoke_before_worker_preserve_both_checkouts() {
         .data()
         .unwrap()
         .clone();
-    rig.native.approve_service_plan(&plan.digest).unwrap();
+    rig.native.approve_workspace_plan(&plan.digest).unwrap();
     let release = rig.block();
     let reply = client.workspace_apply(&request, &plan.digest).unwrap();
     assert!(reply.error().is_none(), "{:?}", reply.error());
@@ -6915,7 +6988,7 @@ fn a10_merge_cancel_and_revoke_before_worker_preserve_both_checkouts() {
         .data()
         .unwrap()
         .clone();
-    rig.native.approve_service_plan(&plan.digest).unwrap();
+    rig.native.approve_workspace_plan(&plan.digest).unwrap();
     let release = rig.block();
     let reply = client.workspace_apply(&request, &plan.digest).unwrap();
     assert!(reply.error().is_none(), "{:?}", reply.error());
@@ -6950,6 +7023,7 @@ fn a10_merge_cancel_and_revoke_before_worker_preserve_both_checkouts() {
 #[test]
 #[ignore = "requires explicit DEVFORGE_SERVICE_CACHE immutable macOS runtime cache"]
 fn a10_native_reviewed_create_and_sqlite_clone_preserve_source_canaries() {
+    let _fixture_guard = a10_fixture_guard();
     use devforge_control::{
         InformationScope,
         limits::Text,
@@ -7052,7 +7126,7 @@ fn a10_native_reviewed_create_and_sqlite_clone_preserve_source_canaries() {
     let result = client.workspace_plan(&request).unwrap();
     assert!(result.error().is_none(), "{:?}", result.error());
     let plan = result.data().unwrap().clone();
-    rig.native.approve_service_plan(&plan.digest).unwrap();
+    rig.native.approve_workspace_plan(&plan.digest).unwrap();
     let result = client.workspace_apply(&request, &plan.digest).unwrap();
     assert!(result.error().is_none(), "{:?}", result.error());
     let receipt = result.data().unwrap().clone();
@@ -7168,7 +7242,7 @@ fn a10_native_reviewed_create_and_sqlite_clone_preserve_source_canaries() {
         response.error()
     );
     let plan = response.data().unwrap().clone();
-    rig.native.approve_service_plan(&plan.digest).unwrap();
+    rig.native.approve_workspace_plan(&plan.digest).unwrap();
     let response = clone_client
         .workspace_apply(&request, &plan.digest)
         .unwrap();
@@ -7353,7 +7427,7 @@ fn a10_native_reviewed_create_and_sqlite_clone_preserve_source_canaries() {
             ..
         }
     ));
-    rig.native.approve_service_plan(&plan.digest).unwrap();
+    rig.native.approve_workspace_plan(&plan.digest).unwrap();
     let response = client.workspace_apply(&request, &plan.digest).unwrap();
     assert!(
         response.error().is_none(),
@@ -7410,6 +7484,7 @@ fn a10_native_reviewed_create_and_sqlite_clone_preserve_source_canaries() {
 
 #[test]
 fn a10_merge_stale_source_is_refused_and_clean_divergence_is_reviewed() {
+    let _fixture_guard = a10_fixture_guard();
     use devforge_control::{
         InformationScope,
         mutations::WorkspaceLifecycleInput,
@@ -7487,7 +7562,7 @@ fn a10_merge_stale_source_is_refused_and_clean_divergence_is_reviewed() {
         .data()
         .unwrap()
         .clone();
-    rig.native.approve_service_plan(&plan.digest).unwrap();
+    rig.native.approve_workspace_plan(&plan.digest).unwrap();
     std::fs::write(source.path.join("more.txt"), "source later commit").unwrap();
     git(&source.path, &["add", "more.txt"]);
     git(&source.path, &["commit", "-qm", "later source"]);
@@ -7547,6 +7622,7 @@ fn a10_merge_stale_source_is_refused_and_clean_divergence_is_reviewed() {
 
 #[test]
 fn a10_external_create_and_archive_previews_never_execute_git_filters_or_fsmonitor() {
+    let _fixture_guard = a10_fixture_guard();
     use devforge_control::{
         InformationScope,
         limits::Text,
@@ -7784,6 +7860,7 @@ fn a10_external_create_and_archive_previews_never_execute_git_filters_or_fsmonit
 
 #[test]
 fn a10_isolated_create_preview_reports_nested_source_dirty_unknown_without_running_filters() {
+    let _fixture_guard = a10_fixture_guard();
     use devforge_control::{
         InformationScope,
         limits::Text,
@@ -7895,4 +7972,194 @@ fn a10_isolated_create_preview_reports_nested_source_dirty_unknown_without_runni
     assert!(preview.plan.is_some());
     assert!(!nested.join("a10-nested-marker").exists());
     assert!(!nested.join("a10-nested-monitor").exists());
+}
+
+#[test]
+fn a10_workspace_approval_disconnect_and_quit_do_not_approve_late() {
+    let _fixture_guard = a10_fixture_guard();
+    use devforge_control::{
+        InformationScope,
+        mutations::WorkspaceLifecycleInput,
+        tools::{WorkspacePrepareAction as A, WorkspacePrepareInput},
+    };
+    use devforge_manager::service_control::ReviewState;
+    use std::io::Write;
+    let policy = Policy {
+        store_interval: Duration::from_secs(1),
+        ..Policy::default()
+    };
+    let mut rig =
+        Rig::runtime_setup_with_policy(None, false, false, policy, seed_a10_owned_worktree);
+    let source = rig.projects[0].clone();
+    let child = rig.projects[2].clone();
+    let wid = child.worktree.as_ref().unwrap().clone();
+    let grant = rig
+        .native
+        .issue_external_grant_with_information(
+            &id(&source.id),
+            &[
+                Scope::Observer,
+                Scope::ProjectManage,
+                Scope::ExecutionTest,
+                Scope::SensitiveOperation,
+            ],
+            &[InformationScope::WorkspaceContentScan],
+            Duration::from_secs(600),
+        )
+        .unwrap();
+    let mut client = rig.diagnostics(&grant);
+    let prepare = Request {
+        api_version: Default::default(),
+        request_id: id("a10-disconnect-preview"),
+        project_id: id(&source.id),
+        expected_revision: Some(source.revision),
+        idempotency_key: None,
+        input: WorkspacePrepareInput {
+            action: A::Merge,
+            workspace_id: Some(id(&wid)),
+            name: None,
+            branch: None,
+            base: None,
+            new_branch: None,
+            database: None,
+            dependencies: None,
+            copy_environment: None,
+        },
+    };
+    let preview = client.workspace_prepare(&prepare).unwrap();
+    assert!(preview.error().is_none(), "{:?}", preview.error());
+    let preview = preview.data().unwrap();
+    assert!(preview.blockers.is_empty(), "{:?}", preview.blockers);
+    let req = env_request(
+        &source.id,
+        source.revision,
+        "a10-disconnect-approval",
+        MutationInput::WorkspaceMerge(WorkspaceLifecycleInput {
+            workspace_id: id(&wid),
+            plan: preview.plan.clone().unwrap(),
+            limits: None,
+        }),
+    );
+    let plan = client.workspace_plan(&req).unwrap().data().unwrap().clone();
+    assert!(
+        rig.native.approve_service_plan(&plan.digest).is_err(),
+        "generic approval must reject workspace plans"
+    );
+    assert_eq!(
+        rig.native
+            .pending_reviews()
+            .unwrap()
+            .iter()
+            .find(|v| v.digest == plan.digest)
+            .unwrap()
+            .state,
+        ReviewState::Pending
+    );
+    // A dedicated owner session writes a correctly framed approval and then
+    // disconnects while validation waits on the busy actor. No credentials are
+    // printed or persisted by the fixture.
+    thread::sleep(Duration::from_millis(1100));
+    let auth = Client::new(rig.endpoint.clone())
+        .request(
+            &json!({"method":"authenticate","credential":rig.native_credential.expose_secret()}),
+        )
+        .unwrap();
+    assert_eq!(
+        auth["ok"], true,
+        "fixture owner auth error: {}",
+        auth["error"]
+    );
+    let session = auth["data"]["session"]
+        .as_str()
+        .expect("owner session")
+        .to_owned();
+    let release = rig.block();
+    #[cfg(unix)]
+    let mut connection = std::os::unix::net::UnixStream::connect(rig.endpoint.address()).unwrap();
+    #[cfg(windows)]
+    let mut connection = {
+        let until = Instant::now() + Duration::from_secs(5);
+        loop {
+            match std::fs::OpenOptions::new()
+                .read(true)
+                .write(true)
+                .open(rig.endpoint.address())
+            {
+                Ok(file) => break file,
+                Err(error)
+                    if error.raw_os_error()
+                        == Some(windows_sys::Win32::Foundation::ERROR_PIPE_BUSY as i32)
+                        && Instant::now() < until =>
+                {
+                    thread::sleep(Duration::from_millis(10))
+                }
+                Err(error) => panic!("isolated pipe connection failed: {error}"),
+            }
+        }
+    };
+    let payload = serde_json::to_vec(
+        &json!({"method":"approve_workspace_plan","session":session.clone(),"digest":plan.digest}),
+    )
+    .unwrap();
+    connection
+        .write_all(&(payload.len() as u32).to_be_bytes())
+        .unwrap();
+    connection.write_all(&payload).unwrap();
+    connection.flush().unwrap();
+    thread::sleep(Duration::from_millis(200));
+    drop(connection);
+    thread::sleep(Duration::from_millis(200));
+    drop(release);
+    // This preview is a barrier after the delayed approval's actor read.
+    let barrier = client.workspace_prepare(&prepare).unwrap();
+    assert!(barrier.data().is_some(), "{:?}", barrier.error());
+    assert_eq!(
+        rig.native
+            .pending_reviews()
+            .unwrap()
+            .iter()
+            .find(|v| v.digest == plan.digest)
+            .unwrap()
+            .state,
+        ReviewState::Pending,
+        "disconnect must not approve later"
+    );
+    assert!(
+        client
+            .workspace_apply(&req, &plan.digest)
+            .unwrap()
+            .data()
+            .is_none()
+    );
+
+    // A second owner begins a real workspace approval while actor work is held;
+    // the first owner must still be able to quit without waiting for that work.
+    let endpoint = rig.endpoint.clone();
+    let digest = plan.digest.clone();
+    let release = rig.block();
+    let (ready_tx, ready_rx) = std::sync::mpsc::sync_channel(1);
+    let waiting = thread::spawn(move || {
+        ready_tx.send(()).unwrap();
+        Client::new(endpoint)
+            .request(&json!({"method":"approve_workspace_plan","session":session,"digest":digest}))
+    });
+    ready_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+    thread::sleep(Duration::from_millis(100));
+    let started = Instant::now();
+    let quit = rig.native.quit();
+    let elapsed = started.elapsed();
+    drop(release);
+    let approval = waiting.join().unwrap();
+    assert!(
+        quit.is_ok(),
+        "owner Quit must remain available during workspace validation: {quit:?}"
+    );
+    assert!(
+        elapsed < Duration::from_secs(5),
+        "Quit blocked behind workspace approval"
+    );
+    assert!(
+        !matches!(approval, Ok(ref reply) if reply["ok"] == true),
+        "Quit must prevent late workspace approval"
+    );
 }
