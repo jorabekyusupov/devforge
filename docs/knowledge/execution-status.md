@@ -1718,3 +1718,9 @@ separate bounded 30-second transport budget. Generic approvals retain 5 seconds.
 The owner approval validates outside the global Quit gate and reauthenticates
 before approval; orderly disconnect and Quit were exercised with a blocked actor.
 Final cross-platform evidence belongs to the subsequent PR run.
+
+Run 44005846821 reached the manager tests on both platforms. Its delayed-preview
+fixture raced a brief `controller_busy` admission while attempting to revoke. The
+fixture now retries only that transient response for at most three seconds, keeping
+the actor blocked until revoke succeeds and preserving the no-ticket/no-mutation
+checks. The affected test passed locally; final evidence belongs to the next run.

@@ -6257,9 +6257,18 @@ fn a10_delayed_workspace_preview_returns_no_ticket_and_does_not_mutate() {
     ready_rx.recv_timeout(Duration::from_secs(5)).unwrap();
     // Revoke before releasing the blocked actor; a delayed request must not
     // obtain a ticket or resume with the previously valid authority.
-    rig.native
-        .revoke_external_grant(&grant.record.grant_id)
-        .unwrap();
+    let revoke_until = Instant::now() + Duration::from_secs(3);
+    loop {
+        match rig.native.revoke_external_grant(&grant.record.grant_id) {
+            Ok(()) => break,
+            Err(devforge_manager::native_client::Error::Remote(code))
+                if code.as_str() == "controller_busy" && Instant::now() < revoke_until =>
+            {
+                thread::sleep(Duration::from_millis(10));
+            }
+            Err(error) => panic!("fixture grant revoke failed before actor release: {error:?}"),
+        }
+    }
     drop(release);
     let result = caller.join().unwrap();
     match result {
