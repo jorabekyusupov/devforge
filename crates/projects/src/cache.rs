@@ -400,6 +400,13 @@ impl RunningCache {
             .truncate(false)
             .open(root.join("instance.lock"))?;
         lock.try_lock().map_err(|_| E::InstanceBusy)?;
+        // A stopped patch update may have committed while this start waited for the lock.
+        if {
+            let fresh = store.cache_instance(id)?;
+            fresh.package != instance.package || fresh.runtime != instance.runtime
+        } {
+            return Err(E::InstanceBusy);
+        }
         let bind = TcpListener::bind(("127.0.0.1", instance.port)).map_err(|_| E::InstanceBusy)?;
         drop(bind);
         let server = packages.executable(catalog.get(&instance.package)?, "garnet")?;

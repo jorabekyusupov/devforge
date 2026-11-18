@@ -161,6 +161,75 @@ describe("daily workspace", () => {
       }),
     );
   });
+  it("prefills a detected import and keeps re-detection read only", async () => {
+    const b = backend();
+    const php85 = { ...b.get().runtimes[0], id: "php85", version: "8.5.12" };
+    b.get().runtimes.push(php85);
+    b.api.detectProject = vi.fn<NonNullable<WorkspaceBackend["detectProject"]>>(async (target) => ({
+      php: "id" in target ? b.get().runtimes[0] : php85,
+      node: b.get().runtimes[1],
+      php_constraint: ">=8.4",
+      node_constraint: "^22",
+      extensions: ["intl"],
+      missing_extensions: ["intl"],
+      database: { engine: "postgresql", source: ".env.example" },
+    }));
+    const user = await mount(b.api);
+    await screen.findByText("Your workspace starts here");
+    await user.click(screen.getAllByRole("button", { name: "Add project" })[0]);
+    const dialog = within(screen.getByRole("dialog"));
+    await user.click(dialog.getByRole("button", { name: /Browse/ }));
+    await dialog.findByText("PostgreSQL", { exact: false });
+    expect(dialog.getByRole("combobox", { name: "PHP" })).toHaveValue("php85");
+    expect(dialog.getByText(/Missing from the suggested PHP runtime:/)).toBeInTheDocument();
+    await user.type(dialog.getByRole("textbox", { name: "Project name" }), "Atlas");
+    await user.click(dialog.getByRole("button", { name: "Add project" }));
+    await user.click(await screen.findByRole("button", { name: "Detect again" }));
+    expect(await screen.findByRole("button", { name: "Use suggestions" })).toBeEnabled();
+    expect(screen.getByRole("combobox", { name: "PHP" })).toHaveValue("php85");
+    await user.click(screen.getByRole("button", { name: "Use suggestions" }));
+    expect(screen.getByRole("combobox", { name: "PHP" })).toHaveValue("php84");
+    expect(b.api.execute).toHaveBeenCalledTimes(1);
+    expect(b.api.detectProject).toHaveBeenLastCalledWith({ id: "a" });
+  });
+  it("offers runtime installation directly in the watched folder list", async () => {
+    const b = backend();
+    const php = { id: "php85", version: "8.5.12", installed: false };
+    b.get().discovery = {
+      root: "/fixture/Devforge",
+      state: "ready",
+      problem: null,
+      skipped: 0,
+      last_scan: 1,
+      entries: [{
+        identity: "fixture",
+        root: "/fixture/Devforge",
+        path: "/fixture/Devforge/Atlas",
+        name: "Atlas",
+        project_id: null,
+        state: "needs_runtime",
+        problem: null,
+        ignored: false,
+        detection: {
+          php,
+          node: b.get().runtimes[1],
+          php_constraint: "~8.5.0",
+          node_constraint: "^22",
+          extensions: ["intl"],
+          missing_extensions: null,
+          database: { engine: "postgresql", source: ".env" },
+        },
+      }],
+    };
+    const user = await mount(b.api);
+    const install = await screen.findByRole("button", { name: "Install PHP" });
+    expect(screen.getByText("8.5.12")).toBeInTheDocument();
+    expect(screen.getByText(/PostgreSQL/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Install Node.js" })).not.toBeInTheDocument();
+    await user.click(install);
+    expect(b.api.execute).toHaveBeenCalledWith({ action: "install", package: "php85" });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
   it("restores focus and permits Escape without importing", async () => {
     const b = backend();
     const user = await mount(b.api);

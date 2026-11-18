@@ -57,6 +57,7 @@ impl Workspace {
                     state: "detected".into(),
                     problem: None,
                     ignored: false,
+                    detection: None,
                 });
             entry.root = scan.root.clone();
             entry.path = candidate.path.clone();
@@ -67,6 +68,9 @@ impl Workspace {
                 self.projects.save_discovery(&entry)?;
                 continue;
             }
+            entry.detection = candidate
+                .metadata
+                .map(|metadata| self.settings_from_metadata(metadata));
             if projects.iter().any(|p| {
                 p.path == candidate.path
                     && p.filesystem_identity
@@ -148,12 +152,14 @@ impl Workspace {
             } else if entry.problem.is_some() {
                 entry.state = "invalid".into();
                 entry.project_id = None;
-            } else if let Some((php, node)) = self.discovery_runtimes(&candidate.path) {
+            } else if let Some((php, node)) =
+                entry.detection.as_ref().and_then(|d| d.installed_pair())
+            {
                 match self.projects.import(
                     &candidate.path,
                     &candidate.name,
-                    &php,
-                    &node,
+                    php,
+                    node,
                     &self.catalog,
                 ) {
                     Ok(p) => {
@@ -185,42 +191,6 @@ impl Workspace {
             self.projects.save_discovery(&entry)?;
         }
         Ok(())
-    }
-    fn discovery_runtimes(&self, path: &Path) -> Option<(String, String)> {
-        let checked = inspect(path).ok()?;
-        let mut packages = self
-            .runtime_cache
-            .iter()
-            .filter(|r| r.installed)
-            .collect::<Vec<_>>();
-        // Reviewed catalog defaults sort first; stable IDs break ties.
-        packages.sort_by_key(|r| {
-            (
-                !self.catalog.defaults.values().any(|v| v == &r.id),
-                r.id.clone(),
-            )
-        });
-        for php in packages.iter().filter(|r| r.kind == "php") {
-            let p = self.catalog.get(&php.id).ok()?;
-            if !p.executables.contains_key("php") {
-                continue;
-            }
-            let Some(server) = self.catalog.php_server(p).ok() else {
-                continue;
-            };
-            if !packages
-                .iter()
-                .any(|r| self.catalog.get(&r.id).is_ok_and(|p| p == server))
-            {
-                continue;
-            }
-            for node in packages.iter().filter(|r| r.kind == "node") {
-                if compatible(&checked, p, self.catalog.get(&node.id).ok()?).is_ok() {
-                    return Some((php.id.clone(), node.id.clone()));
-                }
-            }
-        }
-        None
     }
     pub(crate) fn configure_discovered_site(&self, p: &Project, name: &str) -> Result<()> {
         let mut slug = name
@@ -267,9 +237,15 @@ fn relevant_windows_path(root: &Path, path: &Path) -> bool {
         .collect::<Vec<_>>();
     match components.as_slice() {
         [] | [_] => true,
-        [_, marker] => {
-            ["composer.json", "package.json", "artisan", "public"].contains(&marker.as_str())
-        }
+        [_, marker] => [
+            "composer.json",
+            "package.json",
+            "artisan",
+            "public",
+            ".env",
+            ".env.example",
+        ]
+        .contains(&marker.as_str()),
         [_, directory, file] => directory == "public" && file == "index.php",
         _ => false,
     }
@@ -603,6 +579,55 @@ mod tests {
         fs::create_dir(&other).unwrap();
         scan_into(&mut w, &other);
         assert_eq!(w.snapshot().unwrap().discovery.entries[0].state, "detached");
+    }
+    #[test]
+    fn watched_settings_surface_missing_runtime_then_register_without_touching_project_files() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join("root");
+        let app = root.join("drop-test");
+        fixture(&app);
+        let composer = br#"{"require":{"laravel/framework":"^13","php":"~8.5.0","ext-intl":"*"},"scripts":{"post-install-cmd":"exit 1"}}"#;
+        let env = b"DB_CONNECTION=pgsql\nDB_PASSWORD=private-canary\n";
+        fs::write(app.join("composer.json"), composer).unwrap();
+        fs::write(app.join("package.json"), br#"{"engines":{"node":"^22"}}"#).unwrap();
+        fs::write(app.join(".env"), env).unwrap();
+        let mut w = Workspace::open(temp.path().join("data"), Arc::new(NoSecrets)).unwrap();
+        scan_into(&mut w, &root);
+        let snapshot = w.snapshot().unwrap();
+        let entry = &snapshot.discovery.entries[0];
+        assert_eq!(entry.state, "needs_runtime");
+        let detection = entry.detection.as_ref().unwrap();
+        let php = detection.php.as_ref().unwrap();
+        let node = detection.node.as_ref().unwrap();
+        assert!(php.version.starts_with("8.5.") && !php.installed);
+        assert!(node.version.trim_start_matches('v').starts_with("22.") && !node.installed);
+        assert!(detection.extensions.contains("intl"));
+        assert_eq!(detection.database.as_ref().unwrap().engine, "postgresql");
+        assert!(
+            !serde_json::to_string(&snapshot)
+                .unwrap()
+                .contains("private-canary")
+        );
+
+        // Model successful package receipts without downloading or running PHP.
+        for runtime in &mut w.runtime_cache {
+            runtime.installed = true;
+        }
+        scan_into(&mut w, &root);
+        scan_into(&mut w, &root);
+        let snapshot = w.snapshot().unwrap();
+        assert_eq!(snapshot.discovery.entries[0].state, "ready");
+        assert_eq!(snapshot.projects.len(), 1);
+        let project = &snapshot.projects[0];
+        assert_eq!(project.project.php, php.id);
+        assert_eq!(project.project.node, node.id);
+        assert_eq!(
+            project.site.as_ref().unwrap().domain,
+            "drop-test.devforge.test"
+        );
+        assert!(project.database.is_none());
+        assert_eq!(fs::read(app.join(".env")).unwrap(), env);
+        assert_eq!(fs::read(app.join("composer.json")).unwrap(), composer);
     }
     #[test]
     fn registration_rename_forget_restart_and_replacement_are_conservative() {

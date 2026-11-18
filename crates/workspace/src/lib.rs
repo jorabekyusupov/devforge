@@ -12,8 +12,10 @@ pub mod environment_report;
 pub mod execution_control;
 pub mod http_probe;
 mod mail;
+mod project_detection;
 pub mod repro;
 pub mod runtime_control;
+mod runtime_updates;
 pub mod worktrees;
 pub use devforge_inspector::logs::Filter as LogFilter;
 pub mod service_control;
@@ -106,6 +108,8 @@ pub struct Development {
 }
 #[derive(Serialize, Deserialize, Default)]
 struct Preferences {
+    #[serde(default)]
+    runtime_defaults: BTreeMap<String, String>,
     schema: u32,
     development: BTreeMap<String, Development>,
     #[serde(default)]
@@ -113,6 +117,9 @@ struct Preferences {
 }
 #[derive(Clone, Serialize)]
 pub struct Runtime {
+    pub branch: Option<String>,
+    pub latest_package: Option<String>,
+    pub update_available: bool,
     pub replacement: Option<String>,
     pub problem: Option<String>,
     pub id: String,
@@ -168,6 +175,12 @@ pub struct Snapshot {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "action", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Command {
+    DetectProject {
+        path: PathBuf,
+    },
+    RedetectProject {
+        id: String,
+    },
     ConfigurationSave {
         id: String,
         expected: Option<String>,
@@ -362,6 +375,9 @@ pub enum Command {
     RemoveRuntime {
         package: String,
     },
+    UpdateRuntime {
+        package: String,
+    },
     CreateDatabase {
         package: String,
     },
@@ -514,6 +530,17 @@ impl Workspace {
             php_capabilities: BTreeMap::new(),
             debugging: BTreeMap::new(),
         };
+        for (kind, id) in &w.preferences.runtime_defaults {
+            if matches!(kind.as_str(), "caddy" | "composer")
+                && let Ok(package) = w.catalog.get(id)
+                && package.kind == *kind
+                && Some(package.target) == Target::current().ok()
+            {
+                w.catalog
+                    .defaults
+                    .insert(kind.clone(), package.version.clone());
+            }
+        }
         w.refresh_runtimes()?;
         Ok(w)
     }
@@ -546,7 +573,10 @@ impl Workspace {
                     .err()
                     .filter(|e| *e != devforge_runtime::RuntimeError::NotInstalled)
                     .map(|e| e.to_string());
-                Runtime {
+                Ok(Runtime {
+                    branch: devforge_projects::runtime_branch::branch(p),
+                    latest_package: self.catalog.branch_latest(p).map(|(id, _)| id.to_owned()),
+                    update_available: self.runtime_branch_update_available(p)?,
                     replacement: self.catalog.superseded.get(id).cloned(),
                     id: id.clone(),
                     kind: p.kind.clone(),
@@ -554,9 +584,9 @@ impl Workspace {
                     variant: p.variant.clone(),
                     installed,
                     problem,
-                }
+                })
             })
-            .collect();
+            .collect::<Result<Vec<_>>>()?;
         Ok(())
     }
     /// Trusted native composition only; not a Command or deserialized setting.
@@ -591,6 +621,8 @@ impl Workspace {
         cancel: &Cancellation,
     ) -> Result<serde_json::Value> {
         match command {
+            Command::DetectProject { path } => self.detect_project(&path),
+            Command::RedetectProject { id } => self.detect_project(&self.projects.get(&id)?.path),
             Command::ConfigurationSave {
                 id,
                 expected,
@@ -1020,14 +1052,12 @@ impl Workspace {
                 Ok(serde_json::json!({"restarted":true}))
             }
             Command::Install { package } => {
-                let p = self.catalog.get(&package)?.clone();
-                if self.catalog.superseded.contains_key(&package) && !self.packages.is_present(&p) {
-                    return Err(devforge_runtime::RuntimeError::PackageSuperseded.into());
-                }
-                self.packages.download(&p, cancel, |_| {})?;
+                self.install_runtime_family(&package, cancel)?;
+                self.select_runtime_default(&package)?;
                 self.refresh_runtimes()?;
                 Ok(serde_json::json!({"installed":true}))
             }
+            Command::UpdateRuntime { package } => self.update_runtime_branch(&package, cancel),
             Command::RemoveRuntime { package } => {
                 self.packages.remove(self.catalog.get(&package)?)?;
                 self.refresh_runtimes()?;

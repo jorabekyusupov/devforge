@@ -427,6 +427,29 @@ pub fn secrets(root: &std::path::Path) -> Arc<dyn devforge_core::SecretStore + S
         )))
     }
 }
+/// Public reviewed package metadata only. This does not probe installations,
+/// access credentials, connect to an owner or grant mutation authority.
+#[tauri::command]
+pub fn runtime_catalog() -> Result<serde_json::Value, Error> {
+    let target = devforge_runtime::package::Target::current()
+        .map_err(|_| State::failure("runtime_catalog_unavailable"))?;
+    let catalog = devforge_projects::project::Catalog::bundled();
+    let rows: Vec<_> = catalog
+        .packages
+        .iter()
+        .filter(|(_, package)| package.target == target)
+        .map(|(id, package)| {
+            serde_json::json!({
+                "id": id, "kind": package.kind, "version": package.version,
+                "variant": package.variant, "installed": false,
+                "installation_unknown": true, "problem": null,
+                "replacement": catalog.superseded.get(id)
+            })
+        })
+        .collect();
+    Ok(serde_json::Value::Array(rows))
+}
+
 #[tauri::command]
 pub async fn connect_manager(state: tauri::State<'_, State>) -> Result<(), Error> {
     let state = state.inner().clone();
@@ -1063,5 +1086,30 @@ mod tests {
         state.shutdown_owner().unwrap();
         worker.join().unwrap().unwrap();
         assert!(devforge_platform::distribution::AppLease::acquire(root.path()).is_ok());
+    }
+}
+
+#[cfg(test)]
+mod public_runtime_catalog_tests {
+    #[test]
+    fn catalog_is_current_target_public_metadata_with_unknown_installation() {
+        let rows = super::runtime_catalog().unwrap();
+        let rows = rows.as_array().unwrap();
+        let catalog = devforge_projects::project::Catalog::bundled();
+        let target = devforge_runtime::package::Target::current().unwrap();
+        assert!(!rows.is_empty());
+        assert!(
+            rows.iter()
+                .any(|row| row["kind"] == "php"
+                    && row["version"].as_str().unwrap().starts_with("8.5"))
+        );
+        for row in rows {
+            let package = catalog.get(row["id"].as_str().unwrap()).unwrap();
+            assert_eq!(package.target, target);
+            assert_eq!(row["installation_unknown"], true);
+            assert_eq!(row["installed"], false);
+            assert!(row["problem"].is_null());
+            assert!(row.get("path").is_none());
+        }
     }
 }

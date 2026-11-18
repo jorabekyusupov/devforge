@@ -2080,9 +2080,9 @@ dialog {
 .discovery-list-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; }
 .discovery-projects { margin: 16px 0; }
 .discovery-projects h2 { font-size: 16px; margin: 0; }
-.discovery-projects ul { list-style: none; padding: 0; margin: 8px 0; }
-.discovery-projects li { display: flex; align-items: center; gap: 16px; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border); }
-.discovery-projects li > div { min-width: 0; display: grid; gap: 5px; }
+.discovery-projects > ul { list-style: none; padding: 0; margin: 8px 0; }
+.discovery-projects > ul > li { display: flex; align-items: center; gap: 16px; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.discovery-projects > ul > li > div { min-width: 0; display: grid; gap: 5px; }
 .discovery-projects small, .discovery-projects p { overflow-wrap: anywhere; }
-.discovery-projects li > button { flex-shrink: 0; }
+.discovery-projects > ul > li > button { flex-shrink: 0; }
 @media (max-width: 950px) { .discovery-path { flex-wrap: wrap; } .discovery-path input { flex-basis: 100%; } }

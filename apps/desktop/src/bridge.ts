@@ -57,8 +57,14 @@ export const desktopBackend: Backend = {
     return listen<string>("workspace-exit-error", (e) => callback(e.payload));
   },
   workspace: {
-    async connect() { ensureDesktop(); return invoke("connect_manager"); },
-    async reconcile() { ensureDesktop(); return invoke("reconcile_manager_operation"); },
+    async connect() {
+      ensureDesktop();
+      return invoke("connect_manager");
+    },
+    async reconcile() {
+      ensureDesktop();
+      return invoke("reconcile_manager_operation");
+    },
     async configurationSecret(id, reference, value) {
       ensureDesktop();
       return invoke("configuration_secret", { id, reference, value });
@@ -154,9 +160,19 @@ export const desktopBackend: Backend = {
       ensureDesktop();
       return invoke("inspector_snapshot", { id, context: context ?? null });
     },
+    async catalog() {
+      ensureDesktop();
+      return invoke("runtime_catalog");
+    },
     async snapshot() {
       ensureDesktop();
       return invoke("workspace_snapshot");
+    },
+    async detectProject(target) {
+      ensureDesktop();
+      return invoke("workspace_command", {
+        command: { action: "path" in target ? "detect_project" : "redetect_project", ...target },
+      });
     },
     async execute(command) {
       ensureDesktop();

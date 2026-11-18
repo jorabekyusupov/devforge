@@ -1,3 +1,7 @@
+import { matchingDatabases, ProjectDetectionSummary } from "../components/ProjectDetectionSummary";
+import { preferredRuntimeOptions } from "../runtime-branches";
+import { RuntimeCatalog } from "../components/RuntimeCatalog";
+import { runtimeVersionLabel } from "../runtime-branches";
 import { FirstProjectChecklist } from "../components/FirstProjectChecklist";
 import { ProjectServices } from "../components/ProjectServices";
 import { WorkspaceModal as Modal } from "../components/WorkspaceModal";
@@ -21,7 +25,6 @@ import {
   Code2,
   Trash2,
   Download,
-  RefreshCw,
   AlertCircle,
   X,
   Database as DatabaseIcon,
@@ -31,6 +34,7 @@ import {
 import {
   useWorkspace,
   type WorkspaceBackend,
+  type ProjectDetection,
   type Row,
   type ProjectInput,
   type Command,
@@ -84,7 +88,26 @@ export function WorkspacePage({
         .toLocaleLowerCase()
         .includes(query.toLocaleLowerCase()),
   );
-  const runtimes = api.snapshot?.runtimes ?? [];
+  const [availableCatalog, setAvailableCatalog] = useState<Runtime[]>([]);
+  useEffect(() => {
+    if (mode !== "runtimes" || !backend?.catalog) return;
+    let active = true;
+    void backend
+      .catalog()
+      .then((rows) => {
+        if (active)
+          setAvailableCatalog(
+            rows.map((row) => ({ ...row, installation_unknown: true })),
+          );
+      })
+      .catch(() => {
+        /* Keep the actionable workspace connection error visible. */
+      });
+    return () => {
+      active = false;
+    };
+  }, [backend, mode]);
+  const runtimes = api.snapshot?.runtimes ?? availableCatalog;
   useEffect(() => {
     const changed = () =>
       setSelected(
@@ -93,8 +116,13 @@ export function WorkspacePage({
     window.addEventListener("hashchange", changed);
     return () => window.removeEventListener("hashchange", changed);
   }, []);
-  const needsReconciliation = api.error?.code === "native_client_admission_unconfirmed";
-  const needsConnection = !!api.error && /^(native_bridge_|native_client_reauthentication_required|manager_auth_)/.test(api.error.code);
+  const needsReconciliation =
+    api.error?.code === "native_client_admission_unconfirmed";
+  const needsConnection =
+    !!api.error &&
+    /^(native_bridge_|native_client_reauthentication_required|manager_auth_)/.test(
+      api.error.code,
+    );
   const errorKey = api.error
     ? `${api.error.scope}.errors.${api.error.code}`
     : "";
@@ -102,12 +130,16 @@ export function WorkspacePage({
     ? needsReconciliation
       ? t("work.managerOperationUnconfirmed")
       : needsConnection
-      ? t(api.error.code === "native_bridge_artifact_unavailable" ? "work.managerUnavailable" : "work.managerConnectionRequired")
-      : i18n.exists(errorKey)
-      ? t(errorKey)
-      : api.error.code === "desktop_unavailable"
-        ? t("errors.desktop_unavailable")
-        : t("errors.unexpected")
+        ? t(
+            api.error.code === "native_bridge_artifact_unavailable"
+              ? "work.managerUnavailable"
+              : "work.managerConnectionRequired",
+          )
+        : i18n.exists(errorKey)
+          ? t(errorKey)
+          : api.error.code === "desktop_unavailable"
+            ? t("errors.desktop_unavailable")
+            : t("errors.unexpected")
     : "";
   const filtered = projects
     .filter((r) =>
@@ -149,10 +181,30 @@ export function WorkspacePage({
           <AlertCircle aria-hidden="true" />
           <div>
             <p>{errorMessage}</p>
-            {!needsConnection && !needsReconciliation && <a href="#runtimes">{t("work.checkRuntimes")}</a>}
+            {!needsConnection && !needsReconciliation && (
+              <a href="#runtimes">{t("work.checkRuntimes")}</a>
+            )}
           </div>
-          <button type="button" onClick={() => void (needsReconciliation ? api.reconcile() : needsConnection ? api.connect() : api.refresh())} disabled={needsReconciliation ? api.connecting : api.busy}>
-            {t(needsReconciliation ? "work.checkManagerOperation" : needsConnection ? (api.connecting ? "work.connectingManager" : "work.connectManager") : "common.retry")}
+          <button
+            type="button"
+            onClick={() =>
+              void (needsReconciliation
+                ? api.reconcile()
+                : needsConnection
+                  ? api.connect()
+                  : api.refresh())
+            }
+            disabled={needsReconciliation ? api.connecting : api.busy}
+          >
+            {t(
+              needsReconciliation
+                ? "work.checkManagerOperation"
+                : needsConnection
+                  ? api.connecting
+                    ? "work.connectingManager"
+                    : "work.connectManager"
+                  : "common.retry",
+            )}
           </button>
           <button aria-label={t("work.dismiss")} onClick={api.clearError}>
             <X aria-hidden="true" />
@@ -169,6 +221,7 @@ export function WorkspacePage({
           )}
           {[
             "install",
+            "update_runtime",
             "create_project",
             "prepare_project",
             "create_backup",
@@ -257,6 +310,15 @@ export function WorkspacePage({
                             defaultValue: t("discovery.failed"),
                           })}
                         </small>
+                      )}
+                      {entry.state === "needs_runtime" && entry.detection && (
+                        <ProjectDetectionSummary
+                          detection={entry.detection}
+                          busy={api.busy}
+                          install={async (packageId) => {
+                            await api.run({ action: "install", package: packageId });
+                          }}
+                        />
                       )}
                     </div>
                     {entry.ignored ? (
@@ -402,6 +464,7 @@ export function WorkspacePage({
                   snapshot={api.snapshot!}
                   busy={api.busy}
                   run={api.run}
+                  detect={backend?.detectProject}
                   open={api.open}
                   onForget={() =>
                     setConfirm({
@@ -431,117 +494,170 @@ export function WorkspacePage({
         </>
       )}
       {mode === "runtimes" && (
-        <>
-          <div className="workspace-toolbar">
-            <label className="search-field">
-              <Search aria-hidden="true" />
-              <span className="sr-only">{t("work.searchRuntimes")}</span>
-              <input
-                type="search"
-                placeholder={t("work.searchRuntimes")}
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-              />
-            </label>
-            <button
-              disabled={api.busy}
-              onClick={() => void api.run({ action: "refresh_runtimes" })}
-            >
-              <RefreshCw aria-hidden="true" />
-              {t("work.refresh")}
-            </button>
-          </div>
-          <div className="table-scroll">
-            <table className="runtime-table">
-              <caption className="sr-only">{t("runtimes.title")}</caption>
-              <thead>
-                <tr>
-                  <th>{t("work.runtime")}</th>
-                  <th>{t("work.version")}</th>
-                  <th>{t("work.status")}</th>
-                  <th>
-                    <span className="sr-only">{t("work.actions")}</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {runtimes
-                  .filter((p) =>
-                    `${p.kind} ${p.version} ${p.variant}`
-                      .toLowerCase()
-                      .includes(query.toLowerCase()),
-                  )
-                  .map((p) => (
-                    <tr key={p.id}>
-                      <td>
-                        <strong>{t(`work.kinds.${p.kind}`)}</strong>
-                        <small>{p.variant}</small>
-                      </td>
-                      <td>
-                        <code>{p.version}</code>
-                        {p.replacement && !p.installed && (
-                          <small>{t("work.runtimeSuperseded")}</small>
+        <RuntimeCatalog
+          runtimes={runtimes}
+          query={query}
+          onQueryChange={setQuery}
+          busy={api.busy}
+          onRefresh={() => void api.run({ action: "refresh_runtimes" })}
+        >
+          {(visibleRuntimes) => (
+            <div className="table-scroll">
+              <table className="runtime-table">
+                <caption className="sr-only">{t("runtimes.title")}</caption>
+                <thead>
+                  <tr>
+                    <th>{t("work.runtime")}</th>
+                    <th>{t("work.version")}</th>
+                    <th>{t("work.status")}</th>
+                    <th>
+                      <span className="sr-only">{t("work.actions")}</span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visibleRuntimes.map((group) => {
+                    const p = group.latest;
+                    const installed = group.installed.filter(
+                      (runtime) => runtime.installed && !runtime.problem,
+                    );
+                    const remove = (runtime: Runtime) => (
+                      <button
+                        key={runtime.id}
+                        aria-label={t("work.removeRuntimeLabel", {
+                          name: `${runtime.kind} ${runtime.version} ${runtime.variant}`,
+                        })}
+                        disabled={api.busy || p.installation_unknown}
+                        onClick={() =>
+                          setConfirm({
+                            action: "remove_runtime",
+                            package: runtime.id,
+                          })
+                        }
+                      >
+                        <Trash2 aria-hidden="true" />
+                        {t("work.remove")}
+                        {group.installed.length > 1 && (
+                          <span>
+                            {runtimeVersionLabel(runtime.version)} ·{" "}
+                            {runtime.variant}
+                          </span>
                         )}
-                      </td>
-                      <td>
-                        <StateBadge
-                          value={
-                            p.problem
-                              ? "damaged"
-                              : p.installed
-                                ? "installed"
-                                : "missing"
-                          }
-                        />
-                      </td>
-                      <td>
-                        {p.replacement && !p.installed ? (
-                          <button
-                            disabled={api.busy}
-                            onClick={() =>
-                              void api.run({
-                                action: "install",
-                                package: p.replacement!,
-                              })
-                            }
-                          >
-                            <Download aria-hidden="true" />
-                            {t("work.installReplacement")}
-                          </button>
-                        ) : p.installed || p.problem ? (
-                          <button
-                            aria-label={t("work.removeRuntimeLabel", {
-                              name: `${p.kind} ${p.version} ${p.variant}`,
-                            })}
-                            disabled={api.busy}
-                            onClick={() =>
-                              setConfirm({
-                                action: "remove_runtime",
-                                package: p.id,
-                              })
-                            }
-                          >
-                            <Trash2 aria-hidden="true" />
-                            {t("work.remove")}
-                          </button>
-                        ) : (
-                          <button
-                            disabled={api.busy}
-                            onClick={() =>
-                              void api.run({ action: "install", package: p.id })
-                            }
-                          >
-                            <Download aria-hidden="true" />
-                            {t("work.install")}
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
-          </div>
-        </>
+                      </button>
+                    );
+                    return (
+                      <tr key={group.id}>
+                        <td>
+                          <strong>
+                            {t(`work.kinds.${p.kind}`)} {group.branch}
+                          </strong>
+                          {p.kind !== "php" && <small>{p.variant}</small>}
+                        </td>
+                        <td>
+                          {installed.length > 0 && (
+                            <small>
+                              {t("runtimeCatalog.installedLabel")}:{" "}
+                              <code>
+                                {[
+                                  ...new Set(
+                                    installed.map((runtime) =>
+                                      runtimeVersionLabel(runtime.version),
+                                    ),
+                                  ),
+                                ].join(", ")}
+                              </code>
+                            </small>
+                          )}
+                          <small>
+                            {t("runtimeCatalog.latestLabel")}:{" "}
+                            <code>{runtimeVersionLabel(p.version)}</code>
+                          </small>
+                          {p.version !== runtimeVersionLabel(p.version) && (
+                            <small>{p.version}</small>
+                          )}
+                          {p.replacement && !p.installed && (
+                            <small>{t("work.runtimeSuperseded")}</small>
+                          )}
+                        </td>
+                        <td>
+                          {p.installation_unknown ? (
+                            <small>
+                              {t("runtimeCatalog.connectionRequired")}
+                            </small>
+                          ) : (
+                            <StateBadge
+                              value={
+                                p.problem
+                                  ? "damaged"
+                                  : group.complete ||
+                                      (installed.length > 0 &&
+                                        group.updateAvailable)
+                                    ? "installed"
+                                    : installed.length > 0
+                                      ? "incomplete"
+                                      : "missing"
+                              }
+                            />
+                          )}
+                          {group.updateAvailable && (
+                            <small>{t("runtimeCatalog.updateAvailable")}</small>
+                          )}
+                        </td>
+                        <td className="runtime-branch-actions">
+                          {group.updateAvailable ? (
+                            <button
+                              disabled={api.busy || p.installation_unknown}
+                              onClick={() =>
+                                void api.run({
+                                  action: "update_runtime",
+                                  package: p.id,
+                                })
+                              }
+                            >
+                              <Download aria-hidden="true" />
+                              {t("runtimeCatalog.update")}
+                            </button>
+                          ) : !group.complete ? (
+                            <button
+                              disabled={api.busy || p.installation_unknown}
+                              onClick={() =>
+                                void api.run({
+                                  action: "install",
+                                  package: p.replacement ?? p.id,
+                                })
+                              }
+                            >
+                              <Download aria-hidden="true" />
+                              {t(
+                                installed.length > 0
+                                  ? "runtimeCatalog.completeInstallation"
+                                  : p.replacement
+                                    ? "work.installReplacement"
+                                    : "work.install",
+                              )}
+                            </button>
+                          ) : null}
+                          {group.installed.length === 1 ? (
+                            remove(group.installed[0])
+                          ) : group.installed.length > 1 ? (
+                            <details className="runtime-installed-builds">
+                              <summary>
+                                {t("runtimeCatalog.installedBuilds", {
+                                  count: group.installed.length,
+                                })}
+                              </summary>
+                              <div>{group.installed.map(remove)}</div>
+                            </details>
+                          ) : null}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </RuntimeCatalog>
       )}
       {mode === "services" && (
         <>
@@ -601,9 +717,18 @@ export function WorkspacePage({
           errorText={errorMessage}
           busy={api.busy}
           browse={api.browse}
+          detect={backend?.detectProject}
+          databases={api.snapshot?.databases ?? []}
+          install={(packageId) => api.run({ action: "install", package: packageId })}
           onClose={() => setAdding(false)}
-          onSubmit={async (value) => {
-            if (await api.run(value)) setAdding(false);
+          onSubmit={async (value, instance) => {
+            let id: unknown;
+            if (await api.run(value, (result) => { id = result.project_id; })) {
+              setAdding(false);
+              if (instance && typeof id === "string") {
+                await api.run({ action: "bind_database", id, instance });
+              }
+            }
           }}
         />
       )}
@@ -682,8 +807,8 @@ function StateBadge({ value }: { value: string }) {
     </span>
   );
 }
-function runtimeOptions(list: Runtime[], kind: string) {
-  return list.filter(
+function runtimeOptions(list: Runtime[], kind: string, selectedId?: string) {
+  return preferredRuntimeOptions(list, selectedId).filter(
     (p) => p.kind === kind && (kind !== "php" || p.variant !== "fpm"),
   );
 }
@@ -708,7 +833,7 @@ function RuntimeSelect({
         onChange={(e) => onChange(e.target.value)}
         required
       >
-        {runtimeOptions(list, kind).map((p) => (
+        {runtimeOptions(list, kind, value).map((p) => (
           <option value={p.id} key={p.id}>
             {p.version}
             {p.installed ? "" : ` · ${t("work.states.missing")}`}
@@ -723,6 +848,7 @@ function ProjectDetail({
   snapshot,
   busy,
   run,
+  detect,
   open,
   onForget,
   onTool,
@@ -731,6 +857,7 @@ function ProjectDetail({
   snapshot: Snapshot;
   busy: boolean;
   run: (c: Command) => Promise<boolean>;
+  detect?: WorkspaceBackend["detectProject"];
   open: (
     id: string,
     t: "browser" | "editor" | "terminal" | "folder",
@@ -740,6 +867,9 @@ function ProjectDetail({
 }) {
   const { t } = useTranslation();
   const p = row.project;
+  const watchedSettings = snapshot.discovery?.entries.find(
+    (entry) => entry.project_id === p.id && entry.state === "ready",
+  )?.detection;
   const [form, setForm] = useState<ProjectInput>({
     name: p.name,
     php: p.php,
@@ -750,6 +880,24 @@ function ProjectDetail({
     queue: row.development.queue,
   });
   const [instance, setInstance] = useState(row.database?.instance_id ?? "");
+  const [detected, setDetected] = useState<ProjectDetection | null>(null);
+  const [detecting, setDetecting] = useState(false);
+  const [detectError, setDetectError] = useState(false);
+  async function redetect() {
+    if (!detect) return;
+    setDetecting(true);
+    setDetectError(false);
+    setDetected(null);
+    try {
+      setDetected(await detect({ id: p.id }));
+    } catch {
+      setDetectError(true);
+    } finally {
+      setDetecting(false);
+    }
+  }
+  const dbSuggestions = matchingDatabases(detected?.database ?? null, snapshot.databases);
+
   const active = !!row.serving;
   const update = <K extends keyof ProjectInput>(
     key: K,
@@ -900,6 +1048,36 @@ function ProjectDetail({
             <section className="work-panel">
               <h3>{t("work.runtime")}</h3>
               <p className="muted">{t("work.runtimeHint")}</p>
+              {detect && (
+                <button type="button" disabled={detecting} onClick={() => void redetect()}>
+                  {t("projectDetection.redetect")}
+                </button>
+              )}
+              {detecting && <p role="status">{t("projectDetection.detecting")}</p>}
+              {detectError && <p role="alert">{t("projectDetection.error")}</p>}
+              {detected && (
+                <>
+                  <ProjectDetectionSummary detection={detected} busy={busy} install={async (packageId) => {
+                    if (await run({ action: "install", package: packageId })) await redetect();
+                  }} />
+                  <button
+                    type="button"
+                    disabled={!detected.php?.installed && !detected.node?.installed && (active || !!row.database || dbSuggestions.length !== 1)}
+                    onClick={() => {
+                      setForm((f) => ({
+                        ...f,
+                        php: detected.php?.installed ? detected.php.id : f.php,
+                        node: detected.node?.installed ? detected.node.id : f.node,
+                      }));
+                      if (!active && !row.database && dbSuggestions.length === 1) {
+                        setInstance(dbSuggestions[0].instance.id);
+                      }
+                    }}
+                  >
+                    {t("projectDetection.useSuggestions")}
+                  </button>
+                </>
+              )}
               <RuntimeSelect
                 kind="php"
                 value={form.php}
@@ -913,8 +1091,11 @@ function ProjectDetail({
                 list={snapshot.runtimes}
               />
               <p className="constraints" translate="no">
-                PHP {p.php_constraint} · Node {p.node_constraint}
+                PHP {watchedSettings?.php_constraint ?? p.php_constraint} · Node {watchedSettings?.node_constraint ?? p.node_constraint}
               </p>
+              {watchedSettings && !detected && (
+                <ProjectDetectionSummary detection={watchedSettings} metadataOnly />
+              )}
             </section>
             <section className="work-panel">
               <h3>{t("work.development")}</h3>
@@ -1179,6 +1360,9 @@ function ProjectDialog({
   errorText,
   busy,
   browse,
+  detect,
+  databases,
+  install,
   onClose,
   onSubmit,
 }: {
@@ -1186,9 +1370,12 @@ function ProjectDialog({
   errorText: string;
   busy: boolean;
   browse: () => Promise<string | null>;
+  detect?: WorkspaceBackend["detectProject"];
+  databases: Snapshot["databases"];
+  install: (id: string) => Promise<boolean>;
   onClose: () => void;
   initialPath?: string;
-  onSubmit: (v: Extract<Command, { action: "import" }>) => Promise<void>;
+  onSubmit: (v: Extract<Command, { action: "import" }>, instance: string) => Promise<void>;
 }) {
   const { t } = useTranslation();
   const [path, setPath] = useState(initialPath);
@@ -1201,6 +1388,46 @@ function ProjectDialog({
     vite: false,
     queue: false,
   });
+  const [scan, setScan] = useState<{ path: string; value?: ProjectDetection } | null>(null);
+  const [scanAgain, setScanAgain] = useState(0);
+  const [databaseChoice, setDatabaseChoice] = useState<{ path: string; instance: string } | null>(null);
+  const requestedPath = path.trim();
+  const detected = scan?.path === requestedPath ? scan.value : undefined;
+  const detecting = Boolean(detect && requestedPath && scan?.path !== requestedPath);
+  const dbSuggestions = matchingDatabases(detected?.database ?? null, databases);
+  const database = databaseChoice?.path === requestedPath
+    ? databaseChoice.instance
+    : dbSuggestions.length === 1 && detected?.database?.source !== "composer.json"
+      ? dbSuggestions[0].instance.id
+      : "";
+  const missingRuntime = detected && (
+    !detected.php || !detected.node ||
+    (detected.php.id === form.php && !detected.php.installed) ||
+    (detected.node.id === form.node && !detected.node.installed)
+  );
+
+  useEffect(() => {
+    if (!detect || !requestedPath) return;
+    let current = true;
+    const timer = window.setTimeout(() => {
+      void detect({ path: requestedPath }).then((value) => {
+        if (!current) return;
+        setScan({ path: requestedPath, value });
+        setForm((f) => ({
+          ...f,
+          php: value.php?.id ?? f.php,
+          node: value.node?.id ?? f.node,
+        }));
+      }).catch(() => {
+        if (current) setScan({ path: requestedPath });
+      });
+    }, 350);
+    return () => {
+      current = false;
+      window.clearTimeout(timer);
+    };
+  }, [detect, requestedPath, scanAgain]);
+
   const update = <K extends keyof ProjectInput>(
     key: K,
     value: ProjectInput[K],
@@ -1223,7 +1450,9 @@ function ProjectDialog({
         }
         onSubmit={(e) => {
           e.preventDefault();
-          void onSubmit({ action: "import", path, ...form });
+          if (!detecting && !missingRuntime) {
+            void onSubmit({ action: "import", path: requestedPath, ...form }, database);
+          }
         }}
       >
         <fieldset disabled={busy}>
@@ -1250,6 +1479,10 @@ function ProjectDialog({
             </button>
           </div>
           <p className="muted">{t("work.importHint")}</p>
+          {detecting && <p role="status">{t("projectDetection.detecting")}</p>}
+          {requestedPath && scan?.path === requestedPath && !detected && (
+            <p role="alert">{t("projectDetection.error")}</p>
+          )}
           <label>
             {t("work.projectName")}
             <input
@@ -1302,6 +1535,28 @@ function ProjectDialog({
               list={runtimes}
             />
           </div>
+          {detected && (
+            <ProjectDetectionSummary detection={detected} busy={busy} install={async (id) => {
+              if (await install(id)) {
+                setScan(null);
+                setScanAgain((value) => value + 1);
+              }
+            }} />
+          )}
+          {dbSuggestions.length > 0 && (
+            <label>
+              {t("work.databaseService")}
+              <select name="import-database" value={database} onChange={(e) => setDatabaseChoice({ path: requestedPath, instance: e.target.value })}>
+                <option value="">{t("projectDetection.skipDatabase")}</option>
+                {dbSuggestions.map(({ instance }) => (
+                  <option key={instance.id} value={instance.id}>{instance.engine === "mysql" ? "MySQL" : "PostgreSQL"} · {instance.port}</option>
+                ))}
+              </select>
+            </label>
+          )}
+          {detected?.database && dbSuggestions.length === 0 && ["mysql", "postgresql"].includes(detected.database.engine) && (
+            <p className="muted">{t("projectDetection.noDatabaseService")}</p>
+          )}
           <label className="toggle-row">
             <span>HTTPS</span>
             <input
@@ -1314,7 +1569,7 @@ function ProjectDialog({
             <button type="button" onClick={onClose}>
               {t("work.cancel")}
             </button>
-            <button className="primary" type="submit">
+            <button className="primary" type="submit" disabled={detecting || !!missingRuntime}>
               {busy ? t("work.working") : t("work.addProject")}
             </button>
           </div>

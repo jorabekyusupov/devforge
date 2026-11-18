@@ -392,3 +392,21 @@ User yetti rol sub-agent tahlilidagi barcha taklif va ishlar hamda boshqa chatda
 ### Rejani bajarish va bosqichma-bosqich push — 2026-11-13
 
 User birlashtirilgan reja boyicha barcha ishlarni boshlash va har bosqich yakunida push qilishni topshirdi. Bu keyingi topshiriq planning-only chegarasini tegishli implementation/test/commit/push uchun almashtiradi. Parallel mustaqil ishlar sub-agentlarga ajratiladi, faqat ta'sirlangan testlar bajariladi. Ochiq minimum-OS/signing/client gate'lari dalilsiz yopilmaydi; public release yoki system permission o'zgarishi oddiy source push bilan bir xil emas. Bosqich natijalari execution-status yozuvida kuzatiladi.
+
+
+### Runtime katalog tablari — 2026-11-17
+
+User runtime kategoriyalari PHP/Node.js/Databases/Cache/Tools, zarur mahsulot
+ichki tablari, versiya qidiruvi, o'rnatilganlar filtri va oxirgi tabni eslash
+maslahatini “mana shunday bajar” deb tasdiqladi. Bu mavjud katalog UI'sini
+amalga oshirish topshirig'i; yangi runtime provider yoki publish talab qilinmagan.
+[UI/UX yozuvi](../ui-ux-policy.md) implementatsiya va tekshirish chegaralarini saqlaydi.
+
+
+### Runtime tarmoqlari va qo‘lda yangilash — 2026-11-17
+
+User PHP8.5 kabi bitta tarmoq qatori, o‘sha tarmoqning oxirgi patch’i va unga
+bog‘langan loyihalarni yangilash taklifini tasdiqladi; yangilash avtomatik emas,
+tugma bosilganda bajarilishini tanladi. Keyin PHP va boshqa bo‘limlarda versiyalar
+ko‘rinmayotganini bildirdi. [Kontrakt](../runtime-branch-updates.md) katalog va
+autentifikatsiya ajratilishi, yangilash hamda tekshirish chegaralarini qayd etadi.

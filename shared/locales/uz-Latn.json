@@ -170,6 +170,23 @@
       "elevated_process_unsupported": "Serving boshqaruvchisini administrator huquqisiz ishga tushiring."
     }
   },
+  "projectDetection": {
+    "redetect": "Qayta aniqlash",
+    "detecting": "Loyiha sozlamalari o‘qilmoqda…",
+    "error": "Sozlamalar aniqlanmadi. Loyiha papkasini tekshiring yoki sozlamalarni qo‘lda tanlang.",
+    "useSuggestions": "Takliflardan foydalanish",
+    "install": "{{runtime}} o‘rnatish",
+    "noRuntime": "Katalogda mos versiya yo‘q",
+    "extensions": "Kerakli PHP kengaytmalari",
+    "unchecked": "Kengaytmalar mavjudligi tekshirilmagan",
+    "missing": "Tavsiya qilingan PHP’da yetishmaydi:",
+    "extensionsReady": "Tavsiya qilingan PHP’da mavjud",
+    "noExtensions": "composer.json faylida kengaytmalar ko‘rsatilmagan",
+    "noDatabase": "Baza turi aniqlanmadi",
+    "skipDatabase": "Boshqariladigan bazasiz qo‘shish",
+    "noDatabaseService": "Mos baza servisi tayyor emas. Uni loyiha qo‘shilgandan keyin ulashingiz mumkin.",
+    "noNodeConstraint": "Node.js uchun versiya talabi ko‘rsatilmagan"
+  },
   "work": {
     "addProject": "Loyiha qo‘shish",
     "searchProjects": "Loyihalarni qidirish…",
@@ -246,7 +263,8 @@
       "succeeded": "Yakunlangan",
       "installed": "O‘rnatilgan",
       "missing": "O‘rnatilmagan",
-      "damaged": "Tiklash kerak"
+      "damaged": "Tiklash kerak",
+      "incomplete": "O‘rnatish to‘liq emas"
     },
     "operations": {
       "import": "Loyiha qo‘shilmoqda…",
@@ -287,7 +305,8 @@
       "mail_configure": "Mail amali bajarilmoqda…",
       "mail_delete": "Mail amali bajarilmoqda…",
       "mail_save": "Mail amali bajarilmoqda…",
-      "discovery_restore": "Qaytarish"
+      "discovery_restore": "Qaytarish",
+      "update_runtime": "Runtime yangilanmoqda…"
     },
     "kinds": {
       "php": "PHP",
@@ -408,7 +427,10 @@
       "manifest_review_required": "Avval konfiguratsiyani ko‘rib chiqib tasdiqlang.",
       "worktree_archive_unavailable": "Arxiv ushbu amal uchun mavjud emas. Fayllar va qayd etilgan holatni tekshiring.",
       "worktree_archive_limit": "Arxiv fayllar soni, hajmi yoki chuqurligi chegarasidan oshgan.",
-      "discovery_unavailable": "Loyiha papkasi o‘zgargan yoki ochilmayapti. Loyihani to‘xtatib, qayta tekshiring."
+      "discovery_unavailable": "Loyiha papkasi o‘zgargan yoki ochilmayapti. Loyihani to‘xtatib, qayta tekshiring.",
+      "runtime_update_unavailable": "Bu yig‘ilma o‘z tarmog‘idagi eng yangi versiya emas. Katalogni yangilab, qayta urinib ko‘ring.",
+      "runtime_update_in_use": "Yangilashdan oldin shu runtime’dan foydalanayotgan loyihalar, ma’lumotlar bazalari va kesh xizmatlarini to‘xtating.",
+      "runtime_catalog_unavailable": "Ushbu platforma uchun runtime katalogi mavjud emas."
     }
   },
   "runtimes": {
@@ -1018,6 +1040,141 @@
     "phpAction": "PHP tayyorligini tekshirish",
     "composer": "Tanlangan aniq Composer paketi"
   },
+  "reportView": {
+    "technical": "Texnik tafsilotlar",
+    "limitations": "Cheklovlar va tekshirilmagan holatlar",
+    "loading": "Hisobot o‘qilmoqda…",
+    "failed": "Hisobot yangilanmadi. Ulanishni tekshirib qayta urinib ko‘ring.",
+    "refresh": "Hisobotni yangilash",
+    "unknown": "Noma’lum",
+    "project": "Loyiha",
+    "evidence": "Tekshiruv dalili",
+    "previous": "Yangi o‘qish mavjud bo‘lmaguncha oldingi kuzatuv ko‘rsatilmoqda.",
+    "unsupported": "Hisobotning bu versiyasi qo‘llanmaydi.",
+    "notLoaded": "Hisobot hali yuklanmagan.",
+    "state": {
+      "match": "Yozuvlar mos",
+      "mismatch": "Yozuvlar farq qiladi",
+      "missing": "Mavjud emas",
+      "not_applicable": "Tegishli emas",
+      "unverified": "Tekshirilmagan",
+      "supported": "Hisobot daliliga ko‘ra qo‘llanadi",
+      "unsupported": "Qo‘llanmaydi",
+      "available": "Metadata mavjud"
+    },
+    "reasons": {
+      "metadataMatch": "Repository sozlamalari ro‘yxatdagi metadata bilan mos; runtime ishlashi tekshirilmagan.",
+      "metadataDifference": "Repository va ro‘yxatdagi sozlamalar farq qiladi. Konfiguratsiya rejasini tekshiring.",
+      "missingSetting": "E’lon qilingan sozlama ro‘yxatga olinmagan. Konfiguratsiya rejasini tekshiring.",
+      "notApplicable": "Bu sozlama ikkala tomonda ham berilmagan.",
+      "catalogOnly": "Katalog aniq paketni topdi; native ishga tushirish alohida tekshiriladi.",
+      "targetUnavailable": "Bu platforma uchun aniq runtime oilasi mavjud emas.",
+      "secretUnverified": "Secret mavjudligi so‘ralmagan; ro‘yxatdagi nom faqat metadata.",
+      "cachedOnly": "Faqat saqlangan diagnostika mavjud; joriy vaqt yoki revision dalili yo‘q.",
+      "notProbed": "Tegishli native xizmat yoki platforma tekshiruvi bajarilmagan.",
+      "registryIncomplete": "Ro‘yxat to‘liq o‘qilmagan; yozuv yo‘qligi obyekt yo‘qligini isbotlamaydi.",
+      "other": "Metadata yoki resurs egasi bo‘yicha tekshirilmagan holatlar bor. Qarordan oldin tafsilotlarni ko‘ring.",
+      "activeBinding": "Baza avlodi hozir loyihaga bog‘langan.",
+      "runtimeLeases": "Runtime paketi saqlangan; boshqa jarayonlardagi lease’lar noma’lum bo‘lishi mumkin.",
+      "retainedBackup": "Backup ma’lumoti saqlangan; bu skan uning ichini tekshirmagan.",
+      "retainedWorkspace": "Workspace yoki archive fayllari egalik receipt’i bo‘yicha saqlangan.",
+      "pendingData": "Qisman yoki tekshirilmagan initialization ma’lumoti ko‘rib chiqish uchun saqlangan.",
+      "retainedData": "Ilovaga tegishli ma’lumot yoki tarix saqlangan.",
+      "drillReview": "Restore drill ma’lumoti saqlangan va alohida ko‘rib chiqishni talab qiladi."
+    }
+  },
+  "environmentView": {
+    "title": "Muhitni solishtirish",
+    "caution": "Faqat o‘qiladigan, atomar bo‘lmagan metadata. Sozlamalar mosligi yoki paket receipt’i native sog‘lomlik va offline tayyorlikni isbotlamaydi.",
+    "metadataMatch": "Yozilgan konfiguratsiya",
+    "health": "Native muhit sog‘lomligi",
+    "healthUnknown": "Bu metadata hisobotida aniqlanmagan",
+    "comparisons": "Repository va ro‘yxatdagi sozlamalar",
+    "setting": "Sozlama",
+    "expected": "Repository kutmoqda",
+    "actual": "Ro‘yxatdagi qiymat",
+    "noFacts": "Solishtirish dalillari qaytmadi; bu moslik isboti emas.",
+    "portability": "Platforma dalillari",
+    "target": "Platforma",
+    "catalog": "Katalog mosligi",
+    "native": "Native bajarish",
+    "secrets": "Mahalliy secret reference’lari",
+    "secretHint": "Faqat nom va alias ko‘rsatiladi. Ro‘yxatga olish ishlatish mumkin bo‘lgan secret mavjudligini isbotlamaydi.",
+    "noSecretFacts": "Secret talablari dalili qaytmadi; mavjudligi tekshirilmagan.",
+    "nameRegistered": "Nom ro‘yxatda bor",
+    "nameMissing": "Nom ro‘yxatda yo‘q",
+    "extensions": "PHP extension talablari",
+    "extensionHint": "Cache’dagi mavjudlik tarixiy metadata. Joriy PHP, lock’dagi tranzitiv talablar va platforma tekshiruvi alohida.",
+    "noExtensionFacts": "Extension dalillari qaytmadi; bu barcha talablar bajarilganini isbotlamaydi.",
+    "artifacts": "Boshqariladigan paket metadata’si",
+    "artifactHint": "Receipt metadata kuzatuvi, executable yoki arxivning yangi integrity tekshiruvi emas. Platforma talablari va secretlar ishni hali bloklashi mumkin.",
+    "replacement": "Tekshirilgan almashtiruvchi",
+    "match": {
+      "yes": "Faqat metadata mos",
+      "no": "Yozuvlarda farqlar bor",
+      "unknown": "Aniqlanmagan"
+    },
+    "cached": {
+      "present": "Cache tekshiruvida bor",
+      "absent": "Cache tekshiruvida yo‘q",
+      "unknown": "Cache dalili yo‘q"
+    }
+  },
+  "storageView": {
+    "title": "Saqlash joyi kuzatuvi",
+    "sizeCaution": "Mantiqiy ko‘rinadigan baytlar diskda egallangan yoki bo‘shatiladigan joy emas. Hardlink qayta sanalishi, sparse fayl hajmni kattalashtirib ko‘rsatishi mumkin.",
+    "scopeCaution": "Faqat chegaralangan, atomar bo‘lmagan ilova namespace’lari; foydalanuvchi loyihalari va butun data root skan qilinmaydi.",
+    "logicalBytes": "Kuzatilgan mantiqiy baytlar",
+    "measurement": "O‘lchov qamrovi",
+    "registry": "Ro‘yxat qamrovi",
+    "completeWithinScope": "Hisobot doirasida to‘liq",
+    "incomplete": "To‘liq emas yoki tekshirilmagan",
+    "noResources": "Bu qamrovda resurs qaytmadi; bu disk sarfi nol ekanini isbotlamaydi.",
+    "ownership": "Egalik dalili",
+    "ownershipUnknown": "Egasi noma’lum; o‘chirmang",
+    "ownershipRecorded": "Egalik metadata’si yozilgan; o‘chirish ruxsati emas",
+    "workspace": "Workspace",
+    "references": "Kuzatilgan bog‘lanishlar",
+    "noReferences": "Bog‘lanish qaytmadi; bu resurs ishlatilmayotganini isbotlamaydi.",
+    "referenceCaution": "Boshqa lease yoki archive bog‘lanishlari noma’lum bo‘lishi mumkin. Hisobot qamrovini tekshiring.",
+    "preview": "Runtime olib tashlashni ko‘rib chiqish",
+    "previewCaution": "Faqat o‘qiladigan tavsiya. Review candidate o‘chirish ruxsati yoki apply token emas. Bu oynadan resurs o‘chirilmaydi.",
+    "package": "Paket",
+    "reviewState": "Ko‘rib chiqish holati",
+    "lease": "Lease kuzatuvi",
+    "leaseCaution": "Lease bir lahzada tekshirilgan. Keyingi olib tashlash lock olib, egalik, bog‘lanishlar va katalogni qayta tekshirishi kerak.",
+    "previewState": {
+      "blocked": "Bloklangan",
+      "review_candidate": "Faqat keyingi ko‘rib chiqish uchun nomzod",
+      "unknown": "Noma’lum"
+    },
+    "leaseState": {
+      "held": "Band",
+      "unheld_at_observation": "Kuzatuv vaqtida band emas",
+      "missing": "Lease metadata’si yo‘q",
+      "unknown": "Noma’lum"
+    },
+    "categories": {
+      "runtime_package": "Runtime paketi",
+      "database_instance": "Baza instance’i",
+      "database_generation": "Baza avlodi",
+      "cache_instance": "Cache instance’i",
+      "backups": "Backup’lar",
+      "debug_profiles": "Debug profillari",
+      "project_configuration": "Loyiha konfiguratsiyasi",
+      "project_logs": "Loyiha loglari",
+      "mail": "Xatlarni ushlash",
+      "worktree_payload": "Workspace fayllari",
+      "workspace_metadata": "Workspace metadata’si",
+      "project_registry_metadata": "Loyihalar ro‘yxati",
+      "preferences_metadata": "Sozlamalar",
+      "inspection_artifacts": "Inspeksiya artifactlari",
+      "tooling_logs": "Tooling loglari",
+      "restore_drill_receipt": "Restore drill receipt’i"
+    },
+    "resource": "Resurs",
+    "retained": "Saqlanish sababi"
+  },
   "agentConnections": {
     "title": "Tashqi agentlar",
     "description": "Mahalliy clientlarni tanlangan loyihalarga aniq va muddati cheklangan ruxsatlar bilan ulang.",
@@ -1298,5 +1455,29 @@
     "execManagedTest": "Boshqariladigan test",
     "execSummaryHint": "Native owner chegaralangan, maxfiy qiymatlari yashirilgan chaqiruv tavsifini beradi. Argumentlar ma’lumot, shell buyrug‘i emas; secret qiymatlari ko‘rsatilmaydi.",
     "scopeDependency": "Har bir ruxsat o‘qish huquqini talab qiladi. Kod bajarish yoki sensitive amallar uchun loyihani boshqarishni ham aniq tanlang; kengroq ruxsatlar avtomatik qo‘shilmaydi."
+  },
+  "runtimeCatalog": {
+    "categories": {
+      "php": "PHP",
+      "node": "Node.js",
+      "databases": "Ma’lumotlar bazalari",
+      "cache": "Kesh",
+      "tools": "Vositalar"
+    },
+    "categoryLabel": "Runtime kategoriyalari",
+    "productLabel": "Runtime mahsulotlari",
+    "searchVersions": "Versiyalarni qidirish…",
+    "installedOnly": "Faqat o‘rnatilganlar",
+    "empty": "Tanlangan filtrlarga mos versiyalar topilmadi.",
+    "installedVersion": "O‘rnatilgan: {{version}}",
+    "latestVersion": "Eng yangi mavjud: {{version}}",
+    "update": "Yangilash",
+    "updateAvailable": "Yangilanish mavjud",
+    "installedBuilds": "O‘rnatilgan yig‘ilmalar ({{count}})",
+    "partial": "O‘rnatish to‘liq emas",
+    "installedLabel": "O‘rnatilgan",
+    "latestLabel": "Katalogdagi eng yangi",
+    "connectionRequired": "O‘rnatilganlik holatini tekshirish uchun ulaning.",
+    "completeInstallation": "O‘rnatishni yakunlash"
   }
 }

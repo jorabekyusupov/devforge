@@ -24,6 +24,10 @@ export interface Site {
   vite: boolean;
 }
 export interface Runtime {
+  branch?: string | null;
+  latest_package?: string | null;
+  installation_unknown?: boolean;
+  update_available?: boolean;
   replacement?: string | null;
   problem?: string | null;
   id: string;
@@ -113,6 +117,7 @@ export interface DiscoveryEntry {
   state: string;
   problem: string | null;
   ignored: boolean;
+  detection?: ProjectDetection;
 }
 export interface DiscoveryView {
   root: string | null;
@@ -441,7 +446,21 @@ export interface RemoteSource {
   tls_ca: string | null;
   loopback_unencrypted: boolean;
 }
+type RuntimeSuggestion = Pick<Runtime, "id" | "version" | "installed">;
+
+export interface ProjectDetection {
+  php: RuntimeSuggestion | null;
+  node: RuntimeSuggestion | null;
+  php_constraint: string;
+  node_constraint: string;
+  extensions: string[];
+  missing_extensions: string[] | null;
+  database: { engine: "mysql" | "postgresql" | "sqlite" | "sqlsrv"; source: string } | null;
+}
+
 export interface WorkspaceBackend {
+  detectProject?(target: { path: string } | { id: string }): Promise<ProjectDetection>;
+  catalog?(): Promise<Runtime[]>;
   configurationSecret?(
     id: string,
     reference: string,
@@ -668,7 +687,7 @@ export type Command =
   | { action: "forget"; id: string; revision: number }
   | { action: "start" | "stop" | "restart" | "test_database"; id: string }
   | {
-      action: "install" | "remove_runtime" | "create_database";
+      action: "install" | "update_runtime" | "remove_runtime" | "create_database";
       package: string;
     }
   | { action: "bind_database"; id: string; instance: string }

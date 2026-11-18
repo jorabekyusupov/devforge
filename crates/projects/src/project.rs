@@ -5,7 +5,6 @@ use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeMap,
     fs,
-    io::Read,
     path::{Path, PathBuf},
     time::Duration,
 };
@@ -107,7 +106,7 @@ fn legacy_composer() -> String {
     };
     format!("composer-2.11.2-{suffix}")
 }
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Inspection {
     pub path: PathBuf,
     pub php_constraint: String,
@@ -134,6 +133,9 @@ impl Project {
     }
 }
 pub fn inspect(path: &Path) -> Result<Inspection> {
+    inspect_manifest(path).map(|(inspection, _)| inspection)
+}
+pub(crate) fn inspect_manifest(path: &Path) -> Result<(Inspection, serde_json::Value)> {
     let root = fs::canonicalize(path).map_err(|_| E::InvalidProject)?;
     if !root.is_dir() || !root.join("public/index.php").is_file() {
         return Err(E::InvalidProject);
@@ -152,12 +154,15 @@ pub fn inspect(path: &Path) -> Result<Inspection> {
     };
     node.parse::<node_semver::Range>()
         .map_err(|_| E::UnsupportedConstraint)?;
-    Ok(Inspection {
-        path: root,
-        php_constraint: php,
-        node_constraint: node,
-        has_package_json,
-    })
+    Ok((
+        Inspection {
+            path: root,
+            php_constraint: php,
+            node_constraint: node,
+            has_package_json,
+        },
+        composer,
+    ))
 }
 fn constraint(object: &serde_json::Value, key: &str) -> Result<String> {
     match object.get(key) {
@@ -170,21 +175,16 @@ fn constraint(object: &serde_json::Value, key: &str) -> Result<String> {
     }
 }
 fn read_json(path: &Path) -> Result<serde_json::Value> {
-    let file = fs::File::open(path).map_err(|_| E::InvalidManifest)?;
-    if file.metadata()?.len() > 2 * 1024 * 1024 {
-        return Err(E::InvalidManifest);
-    }
-    let mut bytes = Vec::new();
-    file.take(2 * 1024 * 1024 + 1).read_to_end(&mut bytes)?;
+    let bytes =
+        crate::manifest::read_file(path, 2 * 1024 * 1024).map_err(|_| E::InvalidManifest)?;
     serde_json::from_slice(&bytes).map_err(|_| E::InvalidManifest)
 }
 pub fn compatible(inspection: &Inspection, php: &Package, node: &Package) -> Result<()> {
-    let target = Target::current()?;
-    if php.kind != "php"
-        || !php.executables.contains_key("php")
-        || php.target != target
-        || node.kind != "node"
-        || node.target != target
+    compatible_php(inspection, php)?;
+    compatible_node(inspection, node)
+}
+pub fn compatible_php(inspection: &Inspection, php: &Package) -> Result<()> {
+    if php.kind != "php" || !php.executables.contains_key("php") || php.target != Target::current()?
     {
         return Err(E::RuntimeUnavailable);
     }
@@ -194,6 +194,12 @@ pub fn compatible(inspection: &Inspection, php: &Package, node: &Package) -> Res
         .map_err(|_| E::UnsupportedConstraint)?;
     if !php_req.matches(&pversion) {
         return Err(E::IncompatiblePhp);
+    }
+    Ok(())
+}
+pub fn compatible_node(inspection: &Inspection, node: &Package) -> Result<()> {
+    if node.kind != "node" || node.target != Target::current()? {
+        return Err(E::RuntimeUnavailable);
     }
     let version: node_semver::Version = node
         .version

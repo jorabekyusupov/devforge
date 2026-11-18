@@ -70,3 +70,28 @@ references'ni saqlaydi; retained connection qayta faollashtiriladi. Restore fail
 bo'lsa active binding saqlanadi. `.env` avtomatik o'zgarmaydi; tashqi terminalga
 automatik global tanlov berilmaydi. Engine-specific platform gap'lari, SQLite va
 unmanaged DB backup chegarasi [M9 kontraktida](m9-services-results.md).
+
+# Loyiha importida avtomatik aniqlash
+
+Desktop import formasi Laravel papkasidan `require.php` va `engines.node` ni
+o‘qiydi. Mos o‘rnatilgan PHP/Node versiyalari ustun, keyin katalogdagi eng
+yangi mos versiya o‘rnatish uchun ko‘rsatiladi. PHP uchun serving paketi ham
+o‘rnatilgan bo‘lishi kerak. Composer `require` va `require-dev` dagi
+`ext-*` talablari tanlangan paketning PHP CLI modullari bilan solishtiriladi;
+bu loyiha konfiguratsiyasi yoki extension versiyalari tekshiruvi emas.
+
+DB turi `.env`, keyin `.env.example` dagi aniq `DB_CONNECTION` dan olinadi.
+Yagona PDO talabi faqat ishora bo‘ladi. Import formasi yagona mos tayyor
+boshqariladigan servisni oldindan tanlashi mumkin; bazaga ulash import
+tasdiqlangandan keyin alohida bajariladi. Mavjud loyiha uchun qayta aniqlash
+faqat taklif chiqaradi; formadagi tanlovni qo‘llash va saqlash foydalanuvchida.
+Aniqlash Composer skriptlari yoki loyiha kodini ishga tushirmaydi va `.env` ni
+o‘zgartirmaydi.
+
+Manba: [Rust aniqlash](../../crates/workspace/src/project_detection.rs),
+[desktop forma](../../apps/desktop/src/pages/WorkspacePage.tsx).
+
+Tekshiruv: macOS ARM64 da manager va desktop debug build yig‘ildi va ikkala
+jarayon ishga tushdi; 32 workspace Rust va 110 frontend testi o‘tdi. Import
+prefill va qayta aniqlashning saqlamaguncha yozmasligi desktop forma testida
+tekshirildi. Windows va native oynadagi qo‘lda sinov bu bosqichda bajarilmadi.

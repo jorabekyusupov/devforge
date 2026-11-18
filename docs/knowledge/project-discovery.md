@@ -52,9 +52,17 @@ kengaytirmaydi. Original qarorlar va mezonlar reja faylida saqlangan.[^request][
 - Bir root’ning faqat bevosita Laravel child directory’lari read-only tekshiriladi.
   Dot/dependency/owned staging/data directory, non-Unicode child va symlink/junction
   children skip qilinadi.10,000 entry cap yoki permission xatosi partial/unavailable,
-  ommaviy missing emas. Scanner script, `.env`, install yoki secret ishlatmaydi.
-- Runtime mustaqil candidate saqlanadi. Mos installed PHP CLI+web va Node bo‘lsa
-  project/site yaratiladi; bo‘lmasa needs-runtime holati. Prepare/Start explicit.
+  ommaviy missing emas. Scanner script yoki runtime ishga tushirmaydi, secret
+  store’ga murojaat qilmaydi va loyiha fayllarini o‘zgartirmaydi.
+- Scanner qo‘lda import bilan umumiy parser orqali `composer.json`,
+  `package.json` va `DB_CONNECTION` ni o‘qiydi. Natijada PHP/Node talablari,
+  PHP kengaytmalari va faqat taniqli DB turi saqlanadi. `.env` dan boshqa
+  qiymatlar va credential chiqarilmaydi.
+- Mos o‘rnatilgan PHP CLI+web va Node bo‘lsa project/site yaratiladi.
+  Bo‘lmasa needs-runtime kartasi mos PHP/Node paketlari uchun o‘rnatish tugmasini
+  ko‘rsatadi. Muvaffaqiyatli runtime operatsiyasi kuzatuvchidan tezkor qayta
+  skan so‘raydi; mos paketlar tayyor bo‘lsa loyiha avtomatik qo‘shiladi.
+  Extension ishlashini tekshirish, Prepare, DB yaratish va Start explicit.
 - Project schema7 additive discovery ledger, fizik identity, transactional Forget
   suppression va Restore bor. Restore original project ID, runtime va binding’larni
   qaytaradi. Birinchi scan’dan oldingi CLI Forget ham suppression qiladi. Stale
@@ -180,3 +188,17 @@ Oldingi “main/M7 integration ochiq” va “current catalog maintenance ochiq�
 ushbu scoped integration bilan almashtirildi. Native qabul current upstream snapshot
 uchun; keyingi mutable publisher rebuild yangi review talab qiladi. M15 signing/
 minimum-OS/distribution gate’lari shu task bilan yopilgan deb ko‘rsatilmaydi.
+
+## Runtime tavsiyalari bilan yangilanish — 2026-11-18
+
+[Metadata parser](../../crates/projects/src/project_metadata.rs) watched scan
+ichida faqat fayl metadata’sini o‘qiydi. [Workspace reconciliation](../../crates/workspace/src/discovery.rs)
+mos paketlar va registration holatini hisoblaydi; avval saqlangan loyiha
+runtime tanlovini o‘zgartirmaydi. [Manager](../../crates/manager/src/actor.rs)
+runtime o‘zgargach watcher scan’ini uyg‘otadi.
+[Desktop forma testi](../../apps/desktop/src/workspace.test.tsx) kartadagi install
+buyrug‘ini; Rust fixture missing-to-ready, bitta loyiha, domen va fayllar
+o‘zgarmasligini tekshiradi. macOS ARM64 da test va build bajarildi; Windows
+va native oyna orqali qo‘lda o‘rnatish bu iteratsiyada tekshirilmadi.
+Ishga tushirilgan yangi macOS buildida `~/Devforge` uchun real scan mavjud
+ready loyiha yozuviga detection metadata yozganini read-only SQL tasdiqladi.

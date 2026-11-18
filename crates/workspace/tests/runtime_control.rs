@@ -418,3 +418,317 @@ fn cancelled_denied_foreign_target_and_remove_requests_have_no_runtime_effects()
         before.revision
     );
 }
+
+#[test]
+fn manual_branch_update_rebinds_stopped_project_and_retains_packages_and_yaml() {
+    let (root, mut workspace, id) = fixture();
+    candidates(&mut workspace, root.path());
+    let before = workspace.projects.get(&id).unwrap();
+    let old = workspace.catalog.get(&before.php).unwrap().clone();
+    // Force a known preceding same-branch CLI family regardless of bundled default.
+    cached_fixture(
+        &mut workspace,
+        root.path(),
+        "old-cli",
+        "php",
+        "8.4.98",
+        &old.variant,
+        if cfg!(windows) {
+            &["php", "php-cgi"]
+        } else {
+            &["php"]
+        },
+    );
+    workspace
+        .projects
+        .configure(
+            &id,
+            before.revision,
+            &before.name,
+            "old-cli",
+            &before.node,
+            &workspace.catalog,
+        )
+        .unwrap();
+    let yaml = before.path.join("devforge.yaml");
+    fs::write(&yaml, "# explicit exact lock stays owned by user\n").unwrap();
+    let result = workspace
+        .execute(
+            Command::UpdateRuntime {
+                package: "candidate-php".into(),
+            },
+            &Cancellation::default(),
+        )
+        .unwrap();
+    assert_eq!(result["updated"], true);
+    assert_eq!(workspace.projects.get(&id).unwrap().php, "candidate-php");
+    assert!(
+        workspace
+            .packages
+            .is_present(workspace.catalog.get("old-cli").unwrap())
+    );
+    assert_eq!(
+        fs::read_to_string(&yaml).unwrap(),
+        "# explicit exact lock stays owned by user\n"
+    );
+    let snapshot = workspace.snapshot().unwrap();
+    assert!(
+        !snapshot
+            .runtimes
+            .iter()
+            .find(|p| p.id == "candidate-php")
+            .unwrap()
+            .update_available
+    );
+}
+
+#[test]
+fn manual_branch_update_rejects_stale_targets_and_cancel_before_changes() {
+    let (root, mut workspace, id) = fixture();
+    candidates(&mut workspace, root.path());
+    let before = workspace.projects.get(&id).unwrap();
+    let variant = workspace.catalog.get(&before.php).unwrap().variant.clone();
+    cached_fixture(
+        &mut workspace,
+        root.path(),
+        "newest-cli",
+        "php",
+        "8.4.100",
+        &variant,
+        if cfg!(windows) {
+            &["php", "php-cgi"]
+        } else {
+            &["php"]
+        },
+    );
+    assert_eq!(
+        workspace
+            .execute(
+                Command::UpdateRuntime {
+                    package: "candidate-php".into()
+                },
+                &Cancellation::default()
+            )
+            .unwrap_err()
+            .code,
+        "runtime_update_unavailable"
+    );
+    let cancelled = Cancellation::default();
+    cancelled.cancel();
+    assert_eq!(
+        workspace
+            .execute(
+                Command::UpdateRuntime {
+                    package: "newest-cli".into()
+                },
+                &cancelled
+            )
+            .unwrap_err()
+            .code,
+        "cancelled"
+    );
+    assert_eq!(workspace.projects.get(&id).unwrap().php, before.php);
+}
+
+#[test]
+fn failed_new_runtime_download_preserves_project_pins_and_old_cache() {
+    let (root, mut workspace, id) = fixture();
+    candidates(&mut workspace, root.path());
+    let before = workspace.projects.get(&id).unwrap();
+    workspace
+        .projects
+        .configure(
+            &id,
+            before.revision,
+            &before.name,
+            "candidate-php",
+            &before.node,
+            &workspace.catalog,
+        )
+        .unwrap();
+    let before = workspace.projects.get(&id).unwrap();
+    let mut next = workspace.catalog.get("candidate-php").unwrap().clone();
+    next.version = "8.4.101".into();
+    next.url = "http://invalid.example/refused-without-network".into();
+    workspace.catalog.packages.insert("failed-cli".into(), next);
+    if !cfg!(windows) {
+        let mut web = workspace.catalog.get("candidate-web").unwrap().clone();
+        web.version = "8.4.101".into();
+        workspace.catalog.packages.insert("failed-web".into(), web);
+    }
+    let error = workspace
+        .execute(
+            Command::UpdateRuntime {
+                package: "failed-cli".into(),
+            },
+            &Cancellation::default(),
+        )
+        .unwrap_err();
+    assert_eq!(error.code, "invalid_package");
+    let after = workspace.projects.get(&id).unwrap();
+    assert_eq!(after.php, before.php);
+    assert_eq!(after.revision, before.revision);
+    assert!(
+        workspace
+            .packages
+            .is_present(workspace.catalog.get("candidate-php").unwrap())
+    );
+    assert!(
+        !workspace
+            .packages
+            .is_present(workspace.catalog.get("failed-cli").unwrap())
+    );
+}
+
+#[test]
+fn withdrawn_newer_patch_is_never_downgraded_to_older_trusted_latest() {
+    let (root, mut workspace, id) = fixture();
+    candidates(&mut workspace, root.path());
+    let before = workspace.projects.get(&id).unwrap();
+    let variant = workspace.catalog.get(&before.php).unwrap().variant.clone();
+    cached_fixture(
+        &mut workspace,
+        root.path(),
+        "withdrawn-newer",
+        "php",
+        "8.4.100",
+        &variant,
+        if cfg!(windows) {
+            &["php", "php-cgi"]
+        } else {
+            &["php"]
+        },
+    );
+    workspace
+        .catalog
+        .superseded
+        .insert("withdrawn-newer".into(), "candidate-php".into());
+    workspace
+        .projects
+        .configure(
+            &id,
+            before.revision,
+            &before.name,
+            "withdrawn-newer",
+            &before.node,
+            &workspace.catalog,
+        )
+        .unwrap();
+    workspace
+        .execute(
+            Command::UpdateRuntime {
+                package: "candidate-php".into(),
+            },
+            &Cancellation::default(),
+        )
+        .unwrap();
+    assert_eq!(workspace.projects.get(&id).unwrap().php, "withdrawn-newer");
+}
+
+#[test]
+fn branch_update_preserves_debug_runtime_change_guard_before_download() {
+    let (root, mut workspace, id) = fixture();
+    candidates(&mut workspace, root.path());
+    let before = workspace.projects.get(&id).unwrap();
+    let variant = workspace.catalog.get(&before.php).unwrap().variant.clone();
+    cached_fixture(
+        &mut workspace,
+        root.path(),
+        "debug-old",
+        "php",
+        "8.4.98",
+        &variant,
+        if cfg!(windows) {
+            &["php", "php-cgi"]
+        } else {
+            &["php"]
+        },
+    );
+    let project = workspace
+        .projects
+        .configure(
+            &id,
+            before.revision,
+            &before.name,
+            "debug-old",
+            &before.node,
+            &workspace.catalog,
+        )
+        .unwrap();
+    workspace
+        .projects
+        .save_debugger(
+            &id,
+            project.revision,
+            devforge_debugger::Settings {
+                runtime: Some("a".repeat(32)),
+                mode: devforge_debugger::Mode::Debug,
+                breakpoints: vec![],
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        workspace
+            .execute(
+                Command::UpdateRuntime {
+                    package: "candidate-php".into()
+                },
+                &Cancellation::default()
+            )
+            .unwrap_err()
+            .code,
+        "debug_runtime_change"
+    );
+    assert_eq!(workspace.projects.get(&id).unwrap().php, "debug-old");
+}
+
+#[test]
+fn initial_latest_caddy_install_activates_only_the_current_default_branch() {
+    let (root, mut workspace, _) = fixture();
+    let target = Target::current().unwrap();
+    let original = workspace
+        .catalog
+        .packages
+        .values()
+        .find(|p| p.kind == "caddy" && p.target == target)
+        .unwrap()
+        .clone();
+    let branch = devforge_projects::runtime_branch::branch(&original).unwrap();
+    let latest = format!("{branch}.999");
+    cached_fixture(
+        &mut workspace,
+        root.path(),
+        "caddy-current-latest",
+        "caddy",
+        &latest,
+        &original.variant,
+        &["caddy"],
+    );
+    workspace
+        .execute(
+            Command::Install {
+                package: "caddy-current-latest".into(),
+            },
+            &Cancellation::default(),
+        )
+        .unwrap();
+    assert_eq!(workspace.catalog.defaults.get("caddy"), Some(&latest));
+    cached_fixture(
+        &mut workspace,
+        root.path(),
+        "caddy-next-branch",
+        "caddy",
+        "99.0.0",
+        &original.variant,
+        &["caddy"],
+    );
+    workspace
+        .execute(
+            Command::Install {
+                package: "caddy-next-branch".into(),
+            },
+            &Cancellation::default(),
+        )
+        .unwrap();
+    assert_eq!(workspace.catalog.defaults.get("caddy"), Some(&latest));
+}

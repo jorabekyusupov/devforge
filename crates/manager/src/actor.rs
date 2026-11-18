@@ -1705,6 +1705,11 @@ fn worker_loop(
                 } else {
                     None
                 };
+                let refresh_discovery = matches!(&work, Work::Command(command) if matches!(
+                    command.as_ref(),
+                    Command::Install { .. } | Command::UpdateRuntime { .. }
+                    | Command::RemoveRuntime { .. } | Command::RefreshRuntimes
+                ));
                 let mut outcome = match work {
                     Work::Command(command) => {
                         if resource_command(&command) {
@@ -1809,6 +1814,13 @@ fn worker_loop(
                 } else {
                     None
                 };
+                if refresh_discovery
+                    && outcome.is_ok()
+                    && let Ok(service) = shared.discovery.lock()
+                    && let Some(service) = service.as_ref()
+                {
+                    service.request();
+                }
                 let _ = sync_discovery(shared, &mut workspace);
                 if let Err(error) = refresh(shared, &workspace)
                     && let Ok(mut cache) = shared.cache.lock()

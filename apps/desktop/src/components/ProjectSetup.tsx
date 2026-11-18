@@ -1,3 +1,7 @@
+import {
+  preferredRuntimeOptions,
+  latestInstalledRuntimes,
+} from "../runtime-branches";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { FolderGit2, FolderPlus, CheckCircle2 } from "lucide-react";
@@ -64,7 +68,7 @@ function RuntimeField({
         onChange={(e) => onChange(e.target.value)}
       >
         <option value="">{t("setup.chooseRuntime")}</option>
-        {list
+        {preferredRuntimeOptions(list, value)
           .filter(
             (r) =>
               r.kind === kind &&
@@ -190,7 +194,7 @@ export function CreateProjectDialog({
   const formRef = useRef<HTMLFormElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   const first = (kind: string) =>
-    [...runtimes]
+    latestInstalledRuntimes(runtimes)
       .filter(
         (r) =>
           r.installed &&

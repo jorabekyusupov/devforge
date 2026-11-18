@@ -1,8 +1,9 @@
-//! Bounded, read-only discovery. No package execution, credentials or environment reads.
-use crate::project::inspect;
+//! Bounded, read-only discovery. No package execution or credential access.
+use crate::project_metadata::{self, DatabaseHint, Metadata};
 use devforge_runtime::Cancellation;
 use serde::{Deserialize, Serialize};
 use std::{
+    collections::BTreeSet,
     fs,
     path::{Path, PathBuf},
 };
@@ -14,6 +15,8 @@ pub struct Candidate {
     pub path: PathBuf,
     pub name: String,
     pub problem: Option<String>,
+    #[serde(default)]
+    pub metadata: Option<Metadata>,
 }
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Scan {
@@ -191,16 +194,20 @@ fn scan_with_limit(root: &Path, cancel: &Cancellation, limit: usize) -> Scan {
                 continue;
             }
         };
-        let problem = if !path.join("artisan").is_file() {
-            Some("invalid_project".into())
+        let (metadata, problem) = if !path.join("artisan").is_file() {
+            (None, Some("invalid_project".into()))
         } else {
-            inspect(&path).err().map(|e| e.to_string())
+            match project_metadata::read(&path) {
+                Ok(metadata) => (Some(metadata), None),
+                Err(error) => (None, Some(error.to_string())),
+            }
         };
         result.candidates.push(Candidate {
             identity,
             path,
             name,
             problem,
+            metadata,
         });
     }
     result.candidates.sort_by(|a, b| a.path.cmp(&b.path));
@@ -357,6 +364,31 @@ mod tests {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RuntimeSuggestion {
+    pub id: String,
+    pub version: String,
+    pub installed: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DetectedSettings {
+    pub php: Option<RuntimeSuggestion>,
+    pub node: Option<RuntimeSuggestion>,
+    pub php_constraint: String,
+    pub node_constraint: String,
+    pub extensions: BTreeSet<String>,
+    pub missing_extensions: Option<Vec<String>>,
+    pub database: Option<DatabaseHint>,
+}
+impl DetectedSettings {
+    pub fn installed_pair(&self) -> Option<(&str, &str)> {
+        let php = self.php.as_ref().filter(|item| item.installed)?;
+        let node = self.node.as_ref().filter(|item| item.installed)?;
+        Some((&php.id, &node.id))
+    }
+}
+
 /// Persistent association and suppression, independent from selected runtimes.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Entry {
@@ -368,6 +400,8 @@ pub struct Entry {
     pub state: String,
     pub problem: Option<String>,
     pub ignored: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub detection: Option<DetectedSettings>,
 }
 impl crate::project::ProjectStore {
     pub fn discovery_entries(&self) -> crate::Result<Vec<Entry>> {
@@ -419,6 +453,7 @@ impl crate::project::ProjectStore {
                     state: "ignored".into(),
                     problem: None,
                     ignored: true,
+                    detection: None,
                 })?;
             }
         }
@@ -456,7 +491,7 @@ impl crate::project::ProjectStore {
                     if project.worktree.is_some() {
                         return Err(crate::ProjectError::WorkspaceManaged);
                     }
-                    let checked = inspect(&entry.path)?;
+                    let checked = crate::project::inspect(&entry.path)?;
                     if let Some(existing) =
                         self.list()?.into_iter().find(|p| p.path == checked.path)
                     {

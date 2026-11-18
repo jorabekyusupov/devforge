@@ -12,6 +12,8 @@ pub mod manifest;
 pub mod mysql_service;
 pub mod php_settings;
 pub mod project;
+pub mod project_metadata;
+pub mod runtime_branch;
 pub mod storage_metadata;
 pub mod terminal;
 use serde::{Deserialize, Serialize};

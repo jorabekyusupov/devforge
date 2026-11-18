@@ -434,6 +434,10 @@ impl RunningPostgres {
             .write(true)
             .open(root.join("instance.lock"))?;
         lock.try_lock().map_err(|_| E::InstanceBusy)?;
+        // A stopped patch update may have committed while this start waited for the lock.
+        if store.instance(id)?.package != instance.package {
+            return Err(E::InstanceBusy);
+        }
         // A listener already on the port is foreign. Never stop/attach to it.
         let probe = TcpListener::bind(("127.0.0.1", instance.port)).map_err(|_| E::InstanceBusy)?;
         drop(probe);

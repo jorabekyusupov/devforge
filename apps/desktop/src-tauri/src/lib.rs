@@ -374,6 +374,7 @@ pub fn run() {
             workspace::connect_manager,
             workspace::reconcile_manager_operation,
             workspace::workspace_snapshot,
+            workspace::runtime_catalog,
             workspace::inspector_snapshot,
             workspace::debug_read,
             workspace::configuration_read,

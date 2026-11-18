@@ -418,6 +418,7 @@ fn schema_six_from_either_history_preserves_debugger_profiles_and_discovery() {
                     state: "ignored".into(),
                     problem: None,
                     ignored: true,
+                    detection: None,
                 })
                 .unwrap();
         }

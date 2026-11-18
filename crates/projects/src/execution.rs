@@ -1,3 +1,17 @@
+pub const WINDOWS_PHP_EXTENSIONS: &[&str] = &[
+    "openssl",
+    "mbstring",
+    "fileinfo",
+    "curl",
+    "pdo_pgsql",
+    "pdo_mysql",
+    "pdo_sqlite",
+    "sqlite3",
+    "intl",
+    "sodium",
+    "zip",
+];
+
 use crate::{
     ProjectError as E, Result, private_dir,
     project::{Catalog, Project, ProjectStore, compatible, inspect},
@@ -497,19 +511,7 @@ impl Context {
         if cfg!(windows) {
             let ext = php.path().parent().unwrap().join("ext");
             text.push_str(&format!("extension_dir={}\n", ini_path(&ext)?));
-            for name in [
-                "openssl",
-                "mbstring",
-                "fileinfo",
-                "curl",
-                "pdo_pgsql",
-                "pdo_mysql",
-                "pdo_sqlite",
-                "sqlite3",
-                "intl",
-                "sodium",
-                "zip",
-            ] {
+            for name in WINDOWS_PHP_EXTENSIONS {
                 if ext.join(format!("php_{name}.dll")).is_file() {
                     text.push_str(&format!("extension={name}\n"));
                 }

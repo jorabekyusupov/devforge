@@ -1,0 +1,67 @@
+.metadata-report {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.metadata-report > * + * {
+  margin-block-start: 1rem;
+}
+.metadata-report table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 0.85rem;
+}
+.metadata-report caption {
+  text-align: start;
+  font-weight: 600;
+  padding-block: 0.5rem;
+}
+.metadata-report th,
+.metadata-report td {
+  padding: 0.6rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+  text-align: start;
+  overflow-wrap: anywhere;
+}
+.metadata-report th {
+  font-weight: 600;
+}
+.metadata-report dl {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  gap: 0.6rem 1rem;
+}
+.metadata-report dd {
+  margin: 0;
+  text-align: start;
+}
+.metadata-report dt {
+  font-weight: 600;
+}
+.metadata-report .report-technical {
+  margin-block-start: 0.5rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+.metadata-report summary {
+  cursor: pointer;
+}
+.metadata-report summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+}
+.metadata-report li + li {
+  margin-block-start: 0.4rem;
+}
+.metadata-report .report-resource {
+  border-block-start: 1px solid var(--border);
+  padding-block-start: 1rem;
+}
+.metadata-report h3 {
+  margin-block: 0.5rem;
+}
+.metadata-report code {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}

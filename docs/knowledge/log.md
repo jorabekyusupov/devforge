@@ -2,7 +2,19 @@
 
 - **M7–M12 functional completion**: [yakun yozuvi](m7-m12-completion.md): shared Rust core,7-method request builder va revision-guarded primitive locals, verified common MySQL8.4.11 oilasi, reviewed YAML GUI, same-ID archive restoration/purge, recursive isolated submodules va external PG/MySQL staged copy. macOS ARM64/Intel hamda Windows native backend/CLI/UI qabul; har target22 axe case/0 violation. Concurrent main996a11d saqlandi, filesystem-identity interop regressiyalari qo'shildi. Latest core macOS134/Windows131 Rust va44 frontend/OS;1 OS-credential test M15 ignored. Failure/infrastructure history, runtime hash rollover va aniq source projection evidence'da.30-doc strict close; M13–M15'ga avtomatik o'tilmadi.
 
+## 2026-11-18
+
+- **Kuzatiladigan loyiha papkasi:** runtime, extension va DB metadata avtomatik aniqlanadi; kerakli runtime kartadan o‘rnatiladi va keyingi skan loyihani avtomatik ro‘yxatga oladi. [Kontrakt](project-discovery.md).
+
+- **Loyiha sozlamalarini aniqlash:** import va mavjud Laravel loyihasida PHP, PHP kengaytmalari, Node.js va baza turini aniqlash qo‘shildi. [Kontrakt](project-environments.md).
+
 ## 2026-11-17
+
+- **Runtime family display correction:** PostgreSQL default/server duplicate row merged, PHP partial installation now has an explicit incomplete state/completion action. 30 scoped frontend tests and build/locales passed; Windows not run. [Contract](runtime-branch-updates.md).
+
+- **Runtime branch update:** patchlar bitta tarmoq qatoriga birlashtirildi, explicit Update orqali stopped registry foydalanuvchilari almashtiriladi; ulanishsiz public katalog ko‘rinadi. [Kontrakt va chegaralar](runtime-branch-updates.md).
+
+- **Runtime katalog tablari:** besh kategoriya, actual-product ichki tablari, qidiruv/installed filtri va saqlanadigan tanlov qo‘shildi. Maqsadli UI testlar 13/13, build va uch locale tekshiruvi o‘tdi; native macOS/Windows tekshirilmagan. [UI/UX qaydi](ui-ux-policy.md).
 
 - **A11 reviewed database backup:** scoped backup, checked publication and original-operation metadata result; existing staged restore retained. [Contract](../architecture/reviewed-service-actions.md), [execution](execution-status.md).
 

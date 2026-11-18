@@ -27,6 +27,8 @@ mavzuni tanlang, so'ng faqat tegishli hujjatlar va ularning manbalarini o'qing.
 - [MVP birinchi bosqich rejasi](mvp-phase-1-plan.md) - macOS va Windows hamda rus, o'zbek va ingliz tillari uchun bosqichlar, natijalar va qabul mezonlari.
 - [Birinchi MVP taklifi](mvp-proposal.md) - tavsiya etilgan birinchi ish jarayoni, funksiyalar va hali tasdiqlanmagan chegaralar.
 
+- [Runtime branch updates](runtime-branch-updates.md) - bitta versiya tarmog‘i, qo‘lda yangilash va manager ulanmaganida katalog ko‘rinishi.
+
 ## Manba va yuritish
 
 - [M13.6a managed execution](../architecture/managed-execution.md) - six managed tools, own output/cancel va A01 owned-worktree job SQLite isolation; kengroq test profillari alohida.
@@ -60,6 +62,8 @@ mavzuni tanlang, so'ng faqat tegishli hujjatlar va ularning manbalarini o'qing.
 - [External grant foundation](../architecture/external-grants.md) - owner-issued project scopes, A02 explicit information-right SDK/bridge va read gate, hash-only credentials hamda durable revoke/expiry.
 
 - [Terminal snapshots](../architecture/terminal-snapshots.md) - exact foreground shell coexistence, private runtime config va frozen metadata.
+
+- [E02/E05 report UI](report-views-results.md) - environment, storage va cleanup preview komponentlarining tekshiruv natijalari.
 
 - [E02 environment metadata](../architecture/environment-report.md) - repository expected versus registered configuration, portability va explicitly unverified health.
 

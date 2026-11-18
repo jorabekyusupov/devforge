@@ -43,7 +43,8 @@ impl SubjectSelector {
             Ok(Self::Project { project_id: id })
         };
         match command {
-            Command::ConfigurationSave { id, .. }
+            Command::RedetectProject { id, .. }
+            | Command::ConfigurationSave { id, .. }
             | Command::ConfigurationApply { id, .. }
             | Command::DebugInstall { id, .. }
             | Command::DebugConfigure { id, .. }
@@ -101,11 +102,13 @@ impl SubjectSelector {
                 instance_id: Id::new(instance)
                     .map_err(|_| crate::actor::ActorError::InvalidInput)?,
             }),
-            Command::Import { .. }
+            Command::DetectProject { .. }
+            | Command::Import { .. }
             | Command::CreateProject { .. }
             | Command::DiscoveryRestore { .. }
             | Command::RefreshRuntimes
             | Command::Install { .. }
+            | Command::UpdateRuntime { .. }
             | Command::RemoveRuntime { .. }
             | Command::CreateDatabase { .. }
             | Command::StartDatabase { .. }
