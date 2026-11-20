@@ -1,5 +1,6 @@
 import { useId } from "react";
 import { useTranslation } from "react-i18next";
+import { ChevronRight } from "lucide-react";
 import type { Row, Snapshot } from "../workspace";
 import "./FirstProjectChecklist.css";
 
@@ -91,7 +92,12 @@ export function FirstProjectChecklist({
       className="work-panel first-project-checks"
       aria-labelledby={heading}
     >
-      <summary id={heading}>{t("firstProject.title")}</summary>
+      <summary id={heading}>
+        <span className="disclosure-title">
+          <ChevronRight className="disclosure-chevron" aria-hidden="true" />
+          <span>{t("firstProject.title")}</span>
+        </span>
+      </summary>
       <p className="muted">{t("firstProject.hint")}</p>
       <ol>
         <li>

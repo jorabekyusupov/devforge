@@ -87,6 +87,19 @@ export interface Backup {
   created: number;
   project: string;
 }
+export interface CacheSettings {
+  memory_mb?: number | null;
+  aof_enabled?: boolean | null;
+}
+export interface DatabaseSettings {
+  max_connections?: number | null;
+  memory_mb?: number | null;
+  work_mem_mb?: number | null;
+  max_allowed_packet_mb?: number | null;
+  timezone?: string | null;
+  log_statement?: string | null;
+  sql_mode?: string | null;
+}
 export interface Cache {
   instance: {
     id: string;
@@ -94,6 +107,7 @@ export interface Cache {
     package: string;
     port: number;
     ready: boolean;
+    settings?: CacheSettings;
   };
   state: string;
 }
@@ -104,6 +118,7 @@ export interface Database {
     port: number;
     ready: boolean;
     engine?: "mysql" | "postgresql";
+    settings?: DatabaseSettings;
   };
   state: string;
   users: number;
@@ -687,8 +702,25 @@ export type Command =
   | { action: "forget"; id: string; revision: number }
   | { action: "start" | "stop" | "restart" | "test_database"; id: string }
   | {
-      action: "install" | "update_runtime" | "remove_runtime" | "create_database";
+      action: "install" | "update_runtime" | "remove_runtime";
       package: string;
+    }
+  | {
+      action: "create_database";
+      package: string;
+      port?: number;
+    }
+  | {
+      action: "configure_database";
+      instance: string;
+      port: number;
+      settings: DatabaseSettings;
+    }
+  | {
+      action: "configure_cache";
+      instance: string;
+      port: number;
+      settings: CacheSettings;
     }
   | { action: "bind_database"; id: string; instance: string }
   | { action: "stop_database"; instance: string };

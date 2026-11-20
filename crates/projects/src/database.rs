@@ -20,6 +20,136 @@ use std::{
 };
 use zeroize::Zeroizing;
 
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct DatabaseSettings {
+    pub max_connections: Option<u32>,
+    pub memory_mb: Option<u32>,
+    pub work_mem_mb: Option<u32>,
+    pub max_allowed_packet_mb: Option<u32>,
+    pub timezone: Option<String>,
+    pub log_statement: Option<String>,
+    pub sql_mode: Option<String>,
+}
+
+pub fn validate_service_port(port: u16) -> Result<()> {
+    if port < 1024 {
+        return Err(E::InvalidEnvironment);
+    }
+    Ok(())
+}
+
+impl DatabaseSettings {
+    pub fn validate(&self, engine: Engine) -> Result<()> {
+        if self
+            .max_connections
+            .is_some_and(|n| !(10..=2000).contains(&n))
+        {
+            return Err(E::InvalidEnvironment);
+        }
+        if self.memory_mb.is_some_and(|n| !(16..=8192).contains(&n)) {
+            return Err(E::InvalidEnvironment);
+        }
+        if let Some(work_mem) = self.work_mem_mb
+            && (engine != Engine::Postgresql || !(1..=1024).contains(&work_mem))
+        {
+            return Err(E::InvalidEnvironment);
+        }
+        if let Some(packet) = self.max_allowed_packet_mb
+            && (engine != Engine::Mysql || !(1..=1024).contains(&packet))
+        {
+            return Err(E::InvalidEnvironment);
+        }
+        if let Some(tz) = &self.timezone {
+            match engine {
+                Engine::Postgresql => {
+                    if tz.is_empty()
+                        || tz.len() > 80
+                        || !tz
+                            .bytes()
+                            .all(|c| c.is_ascii_alphanumeric() || b"/_+-:".contains(&c))
+                    {
+                        return Err(E::InvalidEnvironment);
+                    }
+                }
+                Engine::Mysql => {
+                    if self.mysql_timezone().is_none() {
+                        return Err(E::InvalidEnvironment);
+                    }
+                }
+            }
+        }
+        if let Some(level) = &self.log_statement {
+            let valid = match engine {
+                Engine::Postgresql => matches!(level.as_str(), "none" | "ddl" | "mod" | "all"),
+                Engine::Mysql => matches!(level.as_str(), "none" | "all"),
+            };
+            if !valid {
+                return Err(E::InvalidEnvironment);
+            }
+        }
+        if let Some(mode) = &self.sql_mode
+            && (engine != Engine::Mysql || !matches!(mode.as_str(), "strict" | "relaxed"))
+        {
+            return Err(E::InvalidEnvironment);
+        }
+        Ok(())
+    }
+
+    pub(crate) fn mysql_timezone(&self) -> Option<String> {
+        let tz = self.timezone.as_deref()?;
+        if tz == "SYSTEM" {
+            return Some("SYSTEM".into());
+        }
+        if tz == "UTC" {
+            return Some("+00:00".into());
+        }
+        let bytes = tz.as_bytes();
+        if bytes.len() == 6
+            && matches!(bytes[0], b'+' | b'-')
+            && bytes[3] == b':'
+            && bytes[1].is_ascii_digit()
+            && bytes[2].is_ascii_digit()
+            && bytes[4].is_ascii_digit()
+            && bytes[5].is_ascii_digit()
+        {
+            let hours: u8 = tz[1..3].parse().ok()?;
+            let mins: u8 = tz[4..6].parse().ok()?;
+            if hours <= 14 && mins <= 59 && !(hours == 14 && mins > 0) {
+                return Some(tz.into());
+            }
+        }
+        None
+    }
+
+    pub(crate) fn postgres_args(&self, port: u16) -> Vec<std::ffi::OsString> {
+        let mut args = vec![
+            "-c".into(),
+            "listen_addresses=127.0.0.1".into(),
+            "-c".into(),
+            format!("port={port}").into(),
+            "-c".into(),
+            "unix_socket_directories=".into(),
+        ];
+        if let Some(n) = self.max_connections {
+            args.extend(["-c".into(), format!("max_connections={n}").into()]);
+        }
+        if let Some(mb) = self.memory_mb {
+            args.extend(["-c".into(), format!("shared_buffers={mb}MB").into()]);
+        }
+        if let Some(mb) = self.work_mem_mb {
+            args.extend(["-c".into(), format!("work_mem={mb}MB").into()]);
+        }
+        if let Some(tz) = &self.timezone {
+            args.extend(["-c".into(), format!("timezone={tz}").into()]);
+        }
+        if let Some(level) = &self.log_statement {
+            args.extend(["-c".into(), format!("log_statement={level}").into()]);
+        }
+        args
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Instance {
     #[serde(default)]
@@ -30,6 +160,8 @@ pub struct Instance {
     pub admin: String,
     pub secret_ref: String,
     pub ready: bool,
+    #[serde(default)]
+    pub settings: DatabaseSettings,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Binding {
@@ -118,6 +250,7 @@ impl RunningDatabase {
             || actual.admin != expected.admin
             || actual.secret_ref != expected.secret_ref
             || actual.ready != expected.ready
+            || actual.settings != expected.settings
             || fs::canonicalize(owned_root)?
                 != fs::canonicalize(store.root.join("databases").join(&expected.id))?
         {
@@ -291,6 +424,53 @@ impl ProjectStore {
             password,
         })
     }
+    pub(crate) fn ensure_port_unused(
+        &self,
+        port: u16,
+        ignore_database: Option<&str>,
+        ignore_cache: Option<&str>,
+    ) -> Result<()> {
+        if self
+            .instances()?
+            .iter()
+            .any(|item| item.port == port && Some(item.id.as_str()) != ignore_database)
+        {
+            return Err(E::InstanceBusy);
+        }
+        if self
+            .cache_instances()?
+            .iter()
+            .any(|item| item.port == port && Some(item.id.as_str()) != ignore_cache)
+        {
+            return Err(E::InstanceBusy);
+        }
+        Ok(())
+    }
+
+    pub fn configure_instance(
+        &self,
+        id: &str,
+        port: u16,
+        settings: DatabaseSettings,
+    ) -> Result<Instance> {
+        let _operation = self.operation_lock()?;
+        let mut instance = self.instance(id)?;
+        if !instance.ready {
+            return Err(E::RecoveryRequired);
+        }
+        validate_service_port(port)?;
+        settings.validate(instance.engine)?;
+        self.ensure_port_unused(port, Some(id), None)?;
+        if port != instance.port {
+            let probe = TcpListener::bind(("127.0.0.1", port)).map_err(|_| E::InstanceBusy)?;
+            drop(probe);
+        }
+        instance.port = port;
+        instance.settings = settings;
+        self.save_instance(&instance)?;
+        Ok(instance)
+    }
+
     pub fn initialize_instance(
         &self,
         package_id: &str,
@@ -313,6 +493,10 @@ impl ProjectStore {
             return Err(E::RuntimeUnavailable);
         }
         let initdb = packages.executable(package, "initdb")?;
+        if port != 0 {
+            validate_service_port(port)?;
+            self.ensure_port_unused(port, None, None)?;
+        }
         let chosen = TcpListener::bind(("127.0.0.1", port)).map_err(|_| E::InstanceBusy)?;
         let id = crate::id();
         let port = chosen.local_addr()?.port();
@@ -325,6 +509,7 @@ impl ProjectStore {
             admin: format!("df_admin_{id}"),
             secret_ref: format!("instance/{id}/admin"),
             ready: false,
+            settings: DatabaseSettings::default(),
         };
         let root = self.root.join("databases").join(&id);
         private_dir(&root)?;
@@ -434,10 +619,15 @@ impl RunningPostgres {
             .write(true)
             .open(root.join("instance.lock"))?;
         lock.try_lock().map_err(|_| E::InstanceBusy)?;
-        // A stopped patch update may have committed while this start waited for the lock.
-        if store.instance(id)?.package != instance.package {
+        // A stopped patch update or settings edit may have committed while waiting for the lock.
+        let fresh = store.instance(id)?;
+        if fresh.package != instance.package
+            || fresh.port != instance.port
+            || fresh.settings != instance.settings
+        {
             return Err(E::InstanceBusy);
         }
+        instance.settings.validate(Engine::Postgresql)?;
         // A listener already on the port is foreign. Never stop/attach to it.
         let probe = TcpListener::bind(("127.0.0.1", instance.port)).map_err(|_| E::InstanceBusy)?;
         drop(probe);
@@ -452,15 +642,17 @@ impl RunningPostgres {
         );
         let mut supervisor = Supervisor::open(root.join("logs"))?;
         let environment = server_env(&executable);
+        let mut args: Vec<std::ffi::OsString> = vec![
+            "-D".into(),
+            dunce::simplified(&root.join("data")).as_os_str().to_owned(),
+        ];
+        args.extend(instance.settings.postgres_args(instance.port));
         supervisor.start_redacted(
             ProcessSpec {
                 input: None,
                 id: "postgres".into(),
                 executable,
-                args: vec![
-                    "-D".into(),
-                    dunce::simplified(&root.join("data")).as_os_str().to_owned(),
-                ],
+                args,
                 directory: root.clone(),
                 environment,
                 readiness: Readiness::Output {
@@ -809,4 +1001,188 @@ pub fn provision_binding(
     credentials.connection_test()?;
     binding.ready = true;
     Ok(binding)
+}
+
+#[cfg(test)]
+mod settings_tests {
+    use super::*;
+    use crate::cache::{CacheInstance, CacheSettings};
+
+    fn free_port() -> u16 {
+        let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+        listener.local_addr().unwrap().port()
+    }
+
+    #[test]
+    fn database_settings_validates_bounds_engines_and_injection() {
+        let pg = DatabaseSettings {
+            max_connections: Some(200),
+            memory_mb: Some(256),
+            work_mem_mb: Some(16),
+            timezone: Some("Asia/Tashkent".into()),
+            log_statement: Some("ddl".into()),
+            ..Default::default()
+        };
+        pg.validate(Engine::Postgresql).unwrap();
+        let args: Vec<String> = pg
+            .postgres_args(5433)
+            .into_iter()
+            .map(|a| a.to_string_lossy().into_owned())
+            .collect();
+        assert!(args.contains(&"listen_addresses=127.0.0.1".to_string()));
+        assert!(args.contains(&"port=5433".to_string()));
+        assert!(args.contains(&"max_connections=200".to_string()));
+        assert!(args.contains(&"shared_buffers=256MB".to_string()));
+        assert!(args.contains(&"work_mem=16MB".to_string()));
+        assert!(args.contains(&"timezone=Asia/Tashkent".to_string()));
+        assert!(args.contains(&"log_statement=ddl".to_string()));
+
+        // Cross-engine parameters must be rejected.
+        assert!(pg.validate(Engine::Mysql).is_err());
+
+        let mysql = DatabaseSettings {
+            max_connections: Some(150),
+            memory_mb: Some(128),
+            max_allowed_packet_mb: Some(64),
+            timezone: Some("UTC".into()),
+            log_statement: Some("all".into()),
+            sql_mode: Some("relaxed".into()),
+            ..Default::default()
+        };
+        mysql.validate(Engine::Mysql).unwrap();
+        assert_eq!(mysql.mysql_timezone().as_deref(), Some("+00:00"));
+        assert!(mysql.validate(Engine::Postgresql).is_err());
+
+        // Injection / invalid ranges rejected.
+        let bad_tz = DatabaseSettings {
+            timezone: Some("UTC\nlisten_addresses='*'".into()),
+            ..Default::default()
+        };
+        assert!(bad_tz.validate(Engine::Postgresql).is_err());
+        let bad_mysql_tz = DatabaseSettings {
+            timezone: Some("Asia/Tashkent".into()),
+            ..Default::default()
+        };
+        assert!(bad_mysql_tz.validate(Engine::Mysql).is_err());
+        assert!(validate_service_port(80).is_err());
+        assert!(validate_service_port(5432).is_ok());
+    }
+
+    #[test]
+    fn configure_instance_and_cache_enforce_port_uniqueness_and_persistence() {
+        let root = tempfile::tempdir().unwrap();
+        let store = ProjectStore::open(root.path()).unwrap();
+        let port_a = free_port();
+        let port_b = free_port();
+        let port_c = free_port();
+        let port_next = free_port();
+        let db_a = Instance {
+            engine: Engine::Postgresql,
+            id: "db-a".into(),
+            package: "pg".into(),
+            port: port_a,
+            admin: "admin".into(),
+            secret_ref: "ref/a".into(),
+            ready: true,
+            settings: DatabaseSettings::default(),
+        };
+        let db_b = Instance {
+            engine: Engine::Mysql,
+            id: "db-b".into(),
+            package: "mysql".into(),
+            port: port_b,
+            admin: "admin".into(),
+            secret_ref: "ref/b".into(),
+            ready: true,
+            settings: DatabaseSettings::default(),
+        };
+        let cache = CacheInstance {
+            id: "cache-a".into(),
+            project_id: "proj-a".into(),
+            package: "garnet".into(),
+            runtime: "dotnet".into(),
+            port: port_c,
+            username: "df_proj".into(),
+            secret_ref: "ref/cache".into(),
+            admin_ref: "ref/cache-admin".into(),
+            ready: true,
+            settings: CacheSettings::default(),
+        };
+        store.save_instance(&db_a).unwrap();
+        store.save_instance(&db_b).unwrap();
+        store
+            .connection
+            .execute(
+                "INSERT INTO cache_instances VALUES(?1,?2)",
+                params![cache.id, serde_json::to_string(&cache).unwrap()],
+            )
+            .unwrap();
+
+        // Port collision with another DB or cache instance is rejected.
+        assert!(
+            store
+                .configure_instance("db-a", port_b, DatabaseSettings::default())
+                .is_err()
+        );
+        assert!(
+            store
+                .configure_instance("db-a", port_c, DatabaseSettings::default())
+                .is_err()
+        );
+        // Active local listener on target port is rejected.
+        let occupied = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+        let occupied_port = occupied.local_addr().unwrap().port();
+        assert!(
+            store
+                .configure_instance("db-a", occupied_port, DatabaseSettings::default())
+                .is_err()
+        );
+        drop(occupied);
+
+        // Valid update persists port and settings.
+        let updated = store
+            .configure_instance(
+                "db-a",
+                port_next,
+                DatabaseSettings {
+                    max_connections: Some(120),
+                    memory_mb: Some(256),
+                    work_mem_mb: Some(8),
+                    timezone: Some("UTC".into()),
+                    log_statement: Some("mod".into()),
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+        assert_eq!(updated.port, port_next);
+        assert_eq!(updated.settings.memory_mb, Some(256));
+        assert_eq!(store.instance("db-a").unwrap().port, port_next);
+
+        // Cache configuration validates bounds and persists.
+        let updated_cache = store
+            .configure_cache(
+                "cache-a",
+                port_a,
+                CacheSettings {
+                    memory_mb: Some(128),
+                    aof_enabled: Some(false),
+                },
+            )
+            .unwrap();
+        assert_eq!(updated_cache.port, port_a);
+        assert_eq!(updated_cache.settings.memory_mb, Some(128));
+        assert_eq!(updated_cache.settings.aof_enabled, Some(false));
+        assert!(
+            store
+                .configure_cache(
+                    "cache-a",
+                    port_a,
+                    CacheSettings {
+                        memory_mb: Some(4),
+                        aof_enabled: None,
+                    },
+                )
+                .is_err()
+        );
+    }
 }

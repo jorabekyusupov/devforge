@@ -208,6 +208,7 @@ impl Rig {
             w.execute(
                 devforge_workspace::Command::CreateDatabase {
                     package: package_id.clone(),
+                    port: None,
                 },
                 &cancel,
             )

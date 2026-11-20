@@ -8366,6 +8366,7 @@ fn a11_backup_native_review_binds_owned_database_and_denies_unapproved_apply() {
             admin: "private-admin-canary".into(),
             secret_ref: "private-secret-reference-canary".into(),
             ready: true,
+            settings: Default::default(),
         };
         let binding = Binding {
             project_id: projects[0].id.clone(),

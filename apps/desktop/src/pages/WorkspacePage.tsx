@@ -1,3 +1,6 @@
+import "./ProjectsWorkspace.css";
+import "./ServicesWorkspace.css";
+import { DatabaseSettingsDialog } from "../components/ServiceSettingsDialogs";
 import { matchingDatabases, ProjectDetectionSummary } from "../components/ProjectDetectionSummary";
 import { preferredRuntimeOptions } from "../runtime-branches";
 import { RuntimeCatalog } from "../components/RuntimeCatalog";
@@ -15,6 +18,8 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Folder,
+  FolderPlus,
+  FolderSearch,
   Plus,
   Search,
   ExternalLink,
@@ -30,6 +35,13 @@ import {
   Database as DatabaseIcon,
   CheckCircle2,
   Star,
+  Globe,
+  Wrench,
+  SlidersHorizontal,
+  ShieldCheck,
+  RefreshCw,
+  ScrollText,
+  ChevronRight,
 } from "lucide-react";
 import {
   useWorkspace,
@@ -206,7 +218,7 @@ export function WorkspacePage({
                   : "common.retry",
             )}
           </button>
-          <button aria-label={t("work.dismiss")} onClick={api.clearError}>
+          <button type="button" aria-label={t("work.dismiss")} onClick={api.clearError}>
             <X aria-hidden="true" />
           </button>
         </div>
@@ -228,7 +240,7 @@ export function WorkspacePage({
             "restore_backup",
             "install_redis_client",
           ].includes(api.pending?.action ?? "") && (
-            <button onClick={() => void api.cancel()}>
+            <button type="button" onClick={() => void api.cancel()}>
               {t("work.cancel")}
             </button>
           )}
@@ -263,205 +275,274 @@ export function WorkspacePage({
                 onChange={(e) => setQuery(e.target.value)}
               />
             </label>
-            <button
-              onClick={() => {
-                api.clearError();
-                setCreating(true);
-              }}
-              className="primary"
-              disabled={api.busy || !api.snapshot}
-            >
-              <Plus aria-hidden="true" />
-              {t("setup.newProject")}
-            </button>
-            <button
-              onClick={() => setAdding(true)}
-              disabled={api.busy || !api.snapshot}
-            >
-              <Plus aria-hidden="true" />
-              {t("work.addProject")}
-            </button>
+            <div className="workspace-toolbar-actions">
+              <button
+                type="button"
+                onClick={() => {
+                  api.clearError();
+                  setCreating(true);
+                }}
+                className="primary"
+                disabled={api.busy || !api.snapshot}
+              >
+                <Plus aria-hidden="true" />
+                {t("setup.newProject")}
+              </button>
+              <button
+                type="button"
+                onClick={() => setAdding(true)}
+                disabled={api.busy || !api.snapshot}
+              >
+                <FolderPlus aria-hidden="true" />
+                {t("work.addProject")}
+              </button>
+            </div>
           </div>
           {api.snapshot?.discovery && (
             <section
-              className="discovery-projects"
+              className={`discovery-projects ${discovered.length === 0 ? "discovery-projects-quiet" : ""}`}
               aria-labelledby="discovered-heading"
             >
-              <div className="discovery-list-heading">
-                <h2 id="discovered-heading">{t("discovery.discovered")}</h2>
-                <a href="#settings">{t("discovery.manageFolder")}</a>
-              </div>
-              <p className="muted" translate="no">
-                {api.snapshot.discovery.root}
-              </p>
-              <ul>
-                {discovered.slice(0, discoveryLimit).map((entry) => (
-                  <li
-                    key={entry.identity}
-                    data-discovery-identity={entry.identity}
-                  >
-                    <div>
-                      <strong translate="no">{entry.name}</strong>
-                      <span>{t(`discovery.states.${entry.state}`)}</span>
-                      <small translate="no">{entry.path}</small>
-                      {entry.problem && (
-                        <small>
-                          {t(`discovery.problems.${entry.problem}`, {
-                            defaultValue: t("discovery.failed"),
-                          })}
-                        </small>
-                      )}
-                      {entry.state === "needs_runtime" && entry.detection && (
-                        <ProjectDetectionSummary
-                          detection={entry.detection}
-                          busy={api.busy}
-                          install={async (packageId) => {
-                            await api.run({ action: "install", package: packageId });
-                          }}
-                        />
-                      )}
-                    </div>
-                    {entry.ignored ? (
-                      <button
-                        disabled={api.busy}
-                        onClick={() =>
-                          void api.run({
-                            action: "discovery_restore",
-                            identity: entry.identity,
-                          })
-                        }
+              {discovered.length === 0 ? (
+                <>
+                  <div className="discovery-quiet-info">
+                    <FolderSearch aria-hidden="true" />
+                    <h2 id="discovered-heading">{t("discovery.discovered")}</h2>
+                    <code
+                      className="discovery-root-path"
+                      title={api.snapshot.discovery.root ?? undefined}
+                      translate="no"
+                    >
+                      {api.snapshot.discovery.root}
+                    </code>
+                  </div>
+                  <a className="panel-header-link" href="#settings">
+                    {t("discovery.manageFolder")}
+                  </a>
+                </>
+              ) : (
+                <>
+                  <div className="discovery-list-heading">
+                    <div className="discovery-heading-title">
+                      <FolderSearch aria-hidden="true" />
+                      <h2 id="discovered-heading">{t("discovery.discovered")}</h2>
+                      <span className="discovery-count">{discovered.length}</span>
+                      <code
+                        className="discovery-root-path"
+                        title={api.snapshot.discovery.root ?? undefined}
+                        translate="no"
                       >
-                        {t("discovery.restore")}
+                        {api.snapshot.discovery.root}
+                      </code>
+                    </div>
+                    <div className="discovery-header-links">
+                      {api.snapshot.discovery.entries.some(
+                        (e) => e.state === "needs_runtime",
+                      ) && (
+                        <a className="panel-header-link" href="#runtimes">
+                          {t("discovery.installRuntimes")}
+                        </a>
+                      )}
+                      <a className="panel-header-link" href="#settings">
+                        {t("discovery.manageFolder")}
+                      </a>
+                    </div>
+                  </div>
+                  <ul>
+                    {discovered.slice(0, discoveryLimit).map((entry) => (
+                      <li
+                        key={entry.identity}
+                        data-discovery-identity={entry.identity}
+                      >
+                        <div>
+                          <div className="discovery-entry-head">
+                            <strong translate="no">{entry.name}</strong>
+                            <span className="state">
+                              {t(`discovery.states.${entry.state}`)}
+                            </span>
+                          </div>
+                          <small className="discovery-entry-path" translate="no">
+                            {entry.path}
+                          </small>
+                          {entry.problem && (
+                            <small className="discovery-entry-problem">
+                              {t(`discovery.problems.${entry.problem}`, {
+                                defaultValue: t("discovery.failed"),
+                              })}
+                            </small>
+                          )}
+                          {entry.state === "needs_runtime" && entry.detection && (
+                            <ProjectDetectionSummary
+                              detection={entry.detection}
+                              busy={api.busy}
+                              install={async (packageId) => {
+                                await api.run({ action: "install", package: packageId });
+                              }}
+                            />
+                          )}
+                        </div>
+                        {entry.ignored ? (
+                          <button
+                            type="button"
+                            disabled={api.busy}
+                            onClick={() =>
+                              void api.run({
+                                action: "discovery_restore",
+                                identity: entry.identity,
+                              })
+                            }
+                          >
+                            {t("discovery.restore")}
+                          </button>
+                        ) : (
+                          !entry.project_id &&
+                          entry.state !== "missing" &&
+                          entry.state !== "detached" && (
+                            <button
+                              type="button"
+                              disabled={api.busy}
+                              onClick={() => {
+                                setDiscoveryPath(entry.path);
+                                api.clearError();
+                                setAdding(true);
+                              }}
+                            >
+                              {t("discovery.configure")}
+                            </button>
+                          )
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                  {discovered.length > discoveryLimit && (
+                    <div className="discovery-footer-actions">
+                      <button
+                        type="button"
+                        onClick={() => setDiscoveryLimit((n) => n + 50)}
+                      >
+                        {t("discovery.showMore")}
                       </button>
-                    ) : (
-                      !entry.project_id &&
-                      entry.state !== "missing" &&
-                      entry.state !== "detached" && (
-                        <button
-                          disabled={api.busy}
-                          onClick={() => {
-                            setDiscoveryPath(entry.path);
-                            api.clearError();
-                            setAdding(true);
-                          }}
-                        >
-                          {t("discovery.configure")}
-                        </button>
-                      )
-                    )}
-                  </li>
-                ))}
-              </ul>
-              {discovered.length > discoveryLimit && (
-                <button onClick={() => setDiscoveryLimit((n) => n + 50)}>
-                  {t("discovery.showMore")}
-                </button>
+                    </div>
+                  )}
+                </>
               )}
-              {api.snapshot.discovery.entries.some(
-                (e) => e.state === "needs_runtime",
-              ) && <a href="#runtimes">{t("discovery.installRuntimes")}</a>}
             </section>
           )}
-          <div
-            className="project-filters"
-            role="group"
-            aria-label={t("setup.projectFilter")}
-          >
-            {(["all", "recent", "favorites"] as const).map((key) => (
-              <button
-                key={key}
-                aria-pressed={projectFilter === key}
-                onClick={() => setProjectFilter(key)}
-              >
-                {t(`setup.filters.${key}`)}
-              </button>
-            ))}
-          </div>
           {api.snapshot && !api.busy && projects.length === 0 && (
             <div className="workspace-empty">
               <Folder aria-hidden="true" />
               <h2>{t("work.noProjects")}</h2>
               <p>{t("work.importHint")}</p>
-              <button
-                className="primary"
-                onClick={() => setAdding(true)}
-                disabled={api.busy}
-              >
-                {t("work.addProject")}
-              </button>
+              <div className="workspace-empty-actions">
+                <button
+                  type="button"
+                  className="primary"
+                  onClick={() => setAdding(true)}
+                  disabled={api.busy}
+                >
+                  <FolderPlus aria-hidden="true" />
+                  {t("work.addProject")}
+                </button>
+              </div>
             </div>
           )}
           {projects.length > 0 && (
             <div className="project-layout">
-              <div className="project-list" aria-label={t("work.projectList")}>
-                {filtered.map((p) => (
-                  <div className="project-list-item" key={p.project.id}>
-                    <a
-                      key={p.project.id}
-                      href={`#projects?project=${encodeURIComponent(p.project.id)}`}
-                      className={`project-row ${row?.project.id === p.project.id ? "active" : ""}`}
-                      aria-current={
-                        row?.project.id === p.project.id ? "true" : undefined
-                      }
-                      onClick={() => {
-                        setSelected(p.project.id);
-                        if (!api.busy)
-                          void api.run({ action: "visit", id: p.project.id });
-                      }}
-                    >
-                      <div>
-                        <Folder aria-hidden="true" />
-                        <strong translate="no">{p.project.name}</strong>
-                        <StateBadge
-                          value={
-                            api.pending &&
-                            ["start", "restart"].includes(api.pending.action) &&
-                            "id" in api.pending &&
-                            api.pending.id === p.project.id
-                              ? "starting"
-                              : p.state
-                          }
-                        />
-                      </div>
-                      <span translate="no">{p.site?.domain}</span>
-                      <code title={p.project.path} translate="no">
-                        {p.project.path}
-                      </code>
-                    </a>
+              <div className="project-rail">
+                <div
+                  className="project-filters"
+                  role="group"
+                  aria-label={t("setup.projectFilter")}
+                >
+                  {(["all", "recent", "favorites"] as const).map((key) => (
                     <button
-                      className="favorite-button"
-                      disabled={api.busy}
-                      aria-label={t(
-                        p.navigation?.favorite
-                          ? "setup.unfavorite"
-                          : "setup.favorite",
-                        { name: p.project.name },
-                      )}
-                      aria-pressed={!!p.navigation?.favorite}
-                      onClick={() =>
-                        void api.run({
-                          action: "favorite",
-                          id: p.project.id,
-                          favorite: !p.navigation?.favorite,
-                        })
-                      }
+                      type="button"
+                      key={key}
+                      aria-pressed={projectFilter === key}
+                      onClick={() => setProjectFilter(key)}
                     >
-                      <Star
-                        aria-hidden="true"
-                        fill={p.navigation?.favorite ? "currentColor" : "none"}
-                      />
+                      {t(`setup.filters.${key}`)}
                     </button>
-                  </div>
-                ))}
-                {filtered.length === 0 && (
-                  <p className="muted">{t("work.noMatches")}</p>
-                )}
+                  ))}
+                </div>
+                <div className="project-list" aria-label={t("work.projectList")}>
+                  {filtered.map((p) => (
+                    <div className="project-list-item" key={p.project.id}>
+                      <a
+                        key={p.project.id}
+                        href={`#projects?project=${encodeURIComponent(p.project.id)}`}
+                        className={`project-row ${row?.project.id === p.project.id ? "active" : ""}`}
+                        aria-current={
+                          row?.project.id === p.project.id ? "true" : undefined
+                        }
+                        onClick={() => {
+                          setSelected(p.project.id);
+                          if (!api.busy)
+                            void api.run({ action: "visit", id: p.project.id });
+                        }}
+                      >
+                        <div>
+                          <Folder aria-hidden="true" />
+                          <strong title={p.project.name} translate="no">
+                            {p.project.name}
+                          </strong>
+                          <StateBadge
+                            value={
+                              api.pending &&
+                              ["start", "restart"].includes(api.pending.action) &&
+                              "id" in api.pending &&
+                              api.pending.id === p.project.id
+                                ? "starting"
+                                : p.state
+                            }
+                          />
+                        </div>
+                        <span title={p.site?.domain} translate="no">
+                          {p.site?.domain}
+                        </span>
+                        <code title={p.project.path} translate="no">
+                          {p.project.path}
+                        </code>
+                      </a>
+                      <button
+                        type="button"
+                        className="favorite-button"
+                        disabled={api.busy}
+                        aria-label={t(
+                          p.navigation?.favorite
+                            ? "setup.unfavorite"
+                            : "setup.favorite",
+                          { name: p.project.name },
+                        )}
+                        aria-pressed={!!p.navigation?.favorite}
+                        onClick={() =>
+                          void api.run({
+                            action: "favorite",
+                            id: p.project.id,
+                            favorite: !p.navigation?.favorite,
+                          })
+                        }
+                      >
+                        <Star
+                          aria-hidden="true"
+                          fill={p.navigation?.favorite ? "currentColor" : "none"}
+                        />
+                      </button>
+                    </div>
+                  ))}
+                  {filtered.length === 0 && (
+                    <p className="muted project-list-empty">
+                      {t("work.noMatches")}
+                    </p>
+                  )}
+                </div>
               </div>
               {row && (
                 <ProjectDetail
                   key={`${row.project.id}-${row.project.revision}`}
                   row={row}
                   snapshot={api.snapshot!}
+                  logs={logs}
                   busy={api.busy}
                   run={api.run}
                   detect={backend?.detectProject}
@@ -521,9 +602,19 @@ export function WorkspacePage({
                     const installed = group.installed.filter(
                       (runtime) => runtime.installed && !runtime.problem,
                     );
+                    const memberIds = new Set(group.members.map((m) => m.id));
+                    const usedByProjects = projects.filter(
+                      (item) =>
+                        memberIds.has(item.project.php) ||
+                        memberIds.has(item.project.node) ||
+                        (item.project.composer &&
+                          memberIds.has(item.project.composer)),
+                    ).length;
                     const remove = (runtime: Runtime) => (
                       <button
+                        type="button"
                         key={runtime.id}
+                        className="danger"
                         aria-label={t("work.removeRuntimeLabel", {
                           name: `${runtime.kind} ${runtime.version} ${runtime.variant}`,
                         })}
@@ -548,107 +639,144 @@ export function WorkspacePage({
                     return (
                       <tr key={group.id}>
                         <td>
-                          <strong>
-                            {t(`work.kinds.${p.kind}`)} {group.branch}
-                          </strong>
-                          {p.kind !== "php" && <small>{p.variant}</small>}
+                          <div className="runtime-name-cell">
+                            <div className="runtime-name-head">
+                              <strong>
+                                {t(`work.kinds.${p.kind}`)} {group.branch}
+                              </strong>
+                              {p.kind !== "php" && (
+                                <span className="op-pill-muted" translate="no">
+                                  {p.variant}
+                                </span>
+                              )}
+                            </div>
+                            {usedByProjects > 0 && (
+                              <span className="muted">
+                                {t("work.projectUsers", {
+                                  count: usedByProjects,
+                                })}
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td>
-                          {installed.length > 0 && (
-                            <small>
-                              {t("runtimeCatalog.installedLabel")}:{" "}
-                              <code>
-                                {[
-                                  ...new Set(
-                                    installed.map((runtime) =>
-                                      runtimeVersionLabel(runtime.version),
+                          <div className="runtime-version-stack">
+                            {installed.length > 0 && (
+                              <span className="runtime-version-row">
+                                <span>{t("runtimeCatalog.installedLabel")}:</span>
+                                <code className="op-mono-chip" translate="no">
+                                  {[
+                                    ...new Set(
+                                      installed.map((runtime) =>
+                                        runtimeVersionLabel(runtime.version),
+                                      ),
                                     ),
-                                  ),
-                                ].join(", ")}
+                                  ].join(", ")}
+                                </code>
+                              </span>
+                            )}
+                            <span className="runtime-version-row">
+                              <span>{t("runtimeCatalog.latestLabel")}:</span>
+                              <code className="op-mono-chip" translate="no">
+                                {runtimeVersionLabel(p.version)}
                               </code>
-                            </small>
-                          )}
-                          <small>
-                            {t("runtimeCatalog.latestLabel")}:{" "}
-                            <code>{runtimeVersionLabel(p.version)}</code>
-                          </small>
-                          {p.version !== runtimeVersionLabel(p.version) && (
-                            <small>{p.version}</small>
-                          )}
-                          {p.replacement && !p.installed && (
-                            <small>{t("work.runtimeSuperseded")}</small>
-                          )}
+                            </span>
+                            {p.version !== runtimeVersionLabel(p.version) && (
+                              <small translate="no">{p.version}</small>
+                            )}
+                            {p.replacement && !p.installed && (
+                              <small>{t("work.runtimeSuperseded")}</small>
+                            )}
+                          </div>
                         </td>
                         <td>
-                          {p.installation_unknown ? (
-                            <small>
-                              {t("runtimeCatalog.connectionRequired")}
-                            </small>
-                          ) : (
-                            <StateBadge
-                              value={
-                                p.problem
-                                  ? "damaged"
-                                  : group.complete ||
-                                      (installed.length > 0 &&
-                                        group.updateAvailable)
-                                    ? "installed"
-                                    : installed.length > 0
-                                      ? "incomplete"
-                                      : "missing"
-                              }
-                            />
-                          )}
-                          {group.updateAvailable && (
-                            <small>{t("runtimeCatalog.updateAvailable")}</small>
-                          )}
+                          <div className="runtime-status-stack">
+                            {p.installation_unknown ? (
+                              <span className="state">
+                                {t("runtimeCatalog.connectionRequired")}
+                              </span>
+                            ) : (
+                              <StateBadge
+                                value={
+                                  p.problem
+                                    ? "damaged"
+                                    : group.complete ||
+                                        (installed.length > 0 &&
+                                          group.updateAvailable)
+                                      ? "installed"
+                                      : installed.length > 0
+                                        ? "incomplete"
+                                        : "missing"
+                                }
+                              />
+                            )}
+                            {group.updateAvailable && (
+                              <span className="runtime-update-note">
+                                {t("runtimeCatalog.updateAvailable")}
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="runtime-branch-actions">
-                          {group.updateAvailable ? (
-                            <button
-                              disabled={api.busy || p.installation_unknown}
-                              onClick={() =>
-                                void api.run({
-                                  action: "update_runtime",
-                                  package: p.id,
-                                })
-                              }
-                            >
-                              <Download aria-hidden="true" />
-                              {t("runtimeCatalog.update")}
-                            </button>
-                          ) : !group.complete ? (
-                            <button
-                              disabled={api.busy || p.installation_unknown}
-                              onClick={() =>
-                                void api.run({
-                                  action: "install",
-                                  package: p.replacement ?? p.id,
-                                })
-                              }
-                            >
-                              <Download aria-hidden="true" />
-                              {t(
-                                installed.length > 0
-                                  ? "runtimeCatalog.completeInstallation"
-                                  : p.replacement
-                                    ? "work.installReplacement"
-                                    : "work.install",
-                              )}
-                            </button>
-                          ) : null}
-                          {group.installed.length === 1 ? (
-                            remove(group.installed[0])
-                          ) : group.installed.length > 1 ? (
-                            <details className="runtime-installed-builds">
-                              <summary>
-                                {t("runtimeCatalog.installedBuilds", {
-                                  count: group.installed.length,
-                                })}
-                              </summary>
-                              <div>{group.installed.map(remove)}</div>
-                            </details>
-                          ) : null}
+                          <div className="runtime-actions-wrap">
+                            {group.updateAvailable ? (
+                              <button
+                                type="button"
+                                className="primary"
+                                disabled={api.busy || p.installation_unknown}
+                                onClick={() =>
+                                  void api.run({
+                                    action: "update_runtime",
+                                    package: p.id,
+                                  })
+                                }
+                              >
+                                <Download aria-hidden="true" />
+                                {t("runtimeCatalog.update")}
+                              </button>
+                            ) : !group.complete ? (
+                              <button
+                                type="button"
+                                className={
+                                  installed.length === 0 ? "primary" : undefined
+                                }
+                                disabled={api.busy || p.installation_unknown}
+                                onClick={() =>
+                                  void api.run({
+                                    action: "install",
+                                    package: p.replacement ?? p.id,
+                                  })
+                                }
+                              >
+                                <Download aria-hidden="true" />
+                                {t(
+                                  installed.length > 0
+                                    ? "runtimeCatalog.completeInstallation"
+                                    : p.replacement
+                                      ? "work.installReplacement"
+                                      : "work.install",
+                                )}
+                              </button>
+                            ) : null}
+                            {group.installed.length === 1 ? (
+                              remove(group.installed[0])
+                            ) : group.installed.length > 1 ? (
+                              <details className="runtime-installed-builds">
+                                <summary>
+                                  <ChevronRight
+                                    className="op-disclosure-chevron"
+                                    aria-hidden="true"
+                                  />
+                                  <span>
+                                    {t("runtimeCatalog.installedBuilds", {
+                                      count: group.installed.length,
+                                    })}
+                                  </span>
+                                </summary>
+                                <div>{group.installed.map(remove)}</div>
+                              </details>
+                            ) : null}
+                          </div>
                         </td>
                       </tr>
                     );
@@ -665,49 +793,50 @@ export function WorkspacePage({
             snapshot={api.snapshot}
             busy={api.busy}
             run={api.run}
+            errorText={errorMessage}
+            clearError={api.clearError}
           />
           <ProjectServices
             snapshot={api.snapshot}
             busy={api.busy}
             run={api.run}
             backend={backend}
+            errorText={errorMessage}
+            clearError={api.clearError}
           />
-          <div className="section-toolbar">
-            <h2>{t("work.logs")}</h2>
-            <label>
-              {t("work.stream")}
-              <select
-                value={stream}
-                onChange={(e) => setStream(e.target.value)}
-              >
-                <option value="all">{t("work.allStreams")}</option>
-                <option value="stdout">stdout</option>
-                <option value="stderr">stderr</option>
-              </select>
-            </label>
-            <label className="search-field">
-              <Search aria-hidden="true" />
-              <span className="sr-only">{t("work.searchLogs")}</span>
-              <input
-                type="search"
-                value={query}
-                placeholder={t("work.searchLogs")}
-                onChange={(e) => setQuery(e.target.value)}
-              />
-            </label>
-          </div>
-          <LogViewer logs={logs} />
-        </>
-      )}
-      {mode === "projects" && row && (
-        <>
-          <div className="section-toolbar">
-            <h2>{t("work.logs")}</h2>
-            <a href={`#services?project=${row.project.id}`}>
-              {t("work.allLogs")}
-            </a>
-          </div>
-          <LogViewer logs={logs} />
+          <section className="work-panel services-logs-panel">
+            <div className="section-toolbar">
+              <h2>
+                <ScrollText aria-hidden="true" />
+                {t("work.logs")}
+              </h2>
+              <label>
+                {t("work.stream")}
+                <select
+                  name="log-stream"
+                  value={stream}
+                  onChange={(e) => setStream(e.target.value)}
+                >
+                  <option value="all">{t("work.allStreams")}</option>
+                  <option value="stdout">stdout</option>
+                  <option value="stderr">stderr</option>
+                </select>
+              </label>
+              <label className="search-field">
+                <Search aria-hidden="true" />
+                <span className="sr-only">{t("work.searchLogs")}</span>
+                <input
+                  type="search"
+                  name="log-search"
+                  autoComplete="off"
+                  value={query}
+                  placeholder={t("work.searchLogs")}
+                  onChange={(e) => setQuery(e.target.value)}
+                />
+              </label>
+            </div>
+            <LogViewer logs={logs} />
+          </section>
         </>
       )}
       {adding && (
@@ -846,6 +975,7 @@ function RuntimeSelect({
 function ProjectDetail({
   row,
   snapshot,
+  logs,
   busy,
   run,
   detect,
@@ -855,6 +985,7 @@ function ProjectDetail({
 }: {
   row: Row;
   snapshot: Snapshot;
+  logs: Snapshot["logs"];
   busy: boolean;
   run: (c: Command) => Promise<boolean>;
   detect?: WorkspaceBackend["detectProject"];
@@ -944,86 +1075,126 @@ function ProjectDetail({
   }, [dirty, busy]);
   return (
     <article className="project-detail">
-      <div className="detail-title">
-        <Folder aria-hidden="true" />
-        <h2 translate="no">{p.name}</h2>
-        <StateBadge value={row.state} />
-        {row.discovery_state && row.discovery_state !== "ready" && (
-          <span className="state">
-            {t(`discovery.states.${row.discovery_state}`)}
-          </span>
-        )}
-      </div>
-      <div className="project-url">
-        <code translate="no">
-          {row.serving?.preferred_url ?? row.site?.domain}
-        </code>
-        <button
-          disabled={busy || row.state !== "running"}
-          onClick={() => void open(p.id, "browser")}
-        >
-          <ExternalLink aria-hidden="true" />
-          {t("work.openBrowser")}
-        </button>
-      </div>
-      <div className="action-bar">
-        <button
-          disabled={
-            busy ||
-            active ||
-            (!!row.discovery_state &&
-              !["ready", "detached"].includes(row.discovery_state))
-          }
-          onClick={() => void run({ action: "start", id: p.id })}
-        >
-          <Play aria-hidden="true" />
-          {t("work.start")}
-        </button>
-        <button
-          disabled={busy || !active}
-          onClick={() => void run({ action: "stop", id: p.id })}
-        >
-          <Square aria-hidden="true" />
-          {t("work.stop")}
-        </button>
-        <button
-          disabled={busy || !active}
-          onClick={() => void run({ action: "restart", id: p.id })}
-        >
-          <RotateCw aria-hidden="true" />
-          {t("work.restart")}
-        </button>
-        <button disabled={busy} onClick={() => void open(p.id, "editor")}>
-          <Code2 aria-hidden="true" />
-          {t("work.openEditor")}
-        </button>
-        <button disabled={busy} onClick={() => void open(p.id, "terminal")}>
-          <Terminal aria-hidden="true" />
-          {t("work.openTerminal")}
-        </button>
-        <button disabled={busy} onClick={() => void open(p.id, "folder")}>
-          <Folder aria-hidden="true" />
-          {t("work.openFolder")}
-        </button>
+      <div className="project-hero">
+        <div className="project-hero-top">
+          <div className="detail-title">
+            <Folder aria-hidden="true" />
+            <h2 translate="no">{p.name}</h2>
+            <StateBadge value={row.state} />
+            {row.discovery_state && row.discovery_state !== "ready" && (
+              <span className="state">
+                {t(`discovery.states.${row.discovery_state}`)}
+              </span>
+            )}
+          </div>
+          <div className="project-url">
+            <span className="project-url-chip">
+              <Globe aria-hidden="true" />
+              <code translate="no">
+                {row.serving?.preferred_url ?? row.site?.domain}
+              </code>
+            </span>
+            <button
+              type="button"
+              disabled={busy || row.state !== "running"}
+              onClick={() => void open(p.id, "browser")}
+            >
+              <ExternalLink aria-hidden="true" />
+              {t("work.openBrowser")}
+            </button>
+          </div>
+        </div>
+        <div className="action-bar project-actions">
+          <div className="action-group lifecycle-actions">
+            <button
+              type="button"
+              className={!active ? "primary" : undefined}
+              disabled={
+                busy ||
+                active ||
+                (!!row.discovery_state &&
+                  !["ready", "detached"].includes(row.discovery_state))
+              }
+              onClick={() => void run({ action: "start", id: p.id })}
+            >
+              <Play aria-hidden="true" />
+              {t("work.start")}
+            </button>
+            <button
+              type="button"
+              disabled={busy || !active}
+              onClick={() => void run({ action: "stop", id: p.id })}
+            >
+              <Square aria-hidden="true" />
+              {t("work.stop")}
+            </button>
+            <button
+              type="button"
+              disabled={busy || !active}
+              onClick={() => void run({ action: "restart", id: p.id })}
+            >
+              <RotateCw aria-hidden="true" />
+              {t("work.restart")}
+            </button>
+          </div>
+          <div className="action-group quick-open-actions">
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void open(p.id, "editor")}
+            >
+              <Code2 aria-hidden="true" />
+              {t("work.openEditor")}
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void open(p.id, "terminal")}
+            >
+              <Terminal aria-hidden="true" />
+              {t("work.openTerminal")}
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void open(p.id, "folder")}
+            >
+              <Folder aria-hidden="true" />
+              {t("work.openFolder")}
+            </button>
+          </div>
+        </div>
+        <div className="action-bar setup-tools">
+          <button
+            type="button"
+            disabled={busy || dirty}
+            onClick={() => onTool("prepare")}
+          >
+            <Wrench aria-hidden="true" />
+            {t("setup.prepare")}
+          </button>
+          <button
+            type="button"
+            id={`project-${p.id}-php-settings`}
+            disabled={busy || dirty}
+            onClick={() => onTool("php")}
+          >
+            <SlidersHorizontal aria-hidden="true" />
+            {t("setup.phpSettings")}
+          </button>
+          <button
+            type="button"
+            disabled={busy || dirty}
+            onClick={() => onTool("https")}
+          >
+            <ShieldCheck aria-hidden="true" />
+            {t("setup.systemHttps")}
+          </button>
+        </div>
       </div>
       {row.serving && !row.serving.system_trusted && row.site?.https && (
         <p className="notice">{t("work.trustFallback")}</p>
       )}
-      <div className="action-bar setup-tools">
-        <button disabled={busy || dirty} onClick={() => onTool("prepare")}>
-          {t("setup.prepare")}
-        </button>
-        <button
-          id={`project-${p.id}-php-settings`}
-          disabled={busy || dirty}
-          onClick={() => onTool("php")}
-        >
-          {t("setup.phpSettings")}
-        </button>
-        <button disabled={busy || dirty} onClick={() => onTool("https")}>
-          {t("setup.systemHttps")}
-        </button>
-      </div>
       <FirstProjectChecklist
         row={row}
         snapshot={snapshot}
@@ -1046,37 +1217,30 @@ function ProjectDetail({
         <fieldset disabled={busy}>
           <div className="detail-grid">
             <section className="work-panel">
-              <h3>{t("work.runtime")}</h3>
-              <p className="muted">{t("work.runtimeHint")}</p>
-              {detect && (
-                <button type="button" disabled={detecting} onClick={() => void redetect()}>
-                  {t("projectDetection.redetect")}
-                </button>
-              )}
-              {detecting && <p role="status">{t("projectDetection.detecting")}</p>}
-              {detectError && <p role="alert">{t("projectDetection.error")}</p>}
-              {detected && (
-                <>
-                  <ProjectDetectionSummary detection={detected} busy={busy} install={async (packageId) => {
-                    if (await run({ action: "install", package: packageId })) await redetect();
-                  }} />
+              <div className="panel-header">
+                <h3>{t("work.runtime")}</h3>
+                {detect && (
                   <button
                     type="button"
-                    disabled={!detected.php?.installed && !detected.node?.installed && (active || !!row.database || dbSuggestions.length !== 1)}
-                    onClick={() => {
-                      setForm((f) => ({
-                        ...f,
-                        php: detected.php?.installed ? detected.php.id : f.php,
-                        node: detected.node?.installed ? detected.node.id : f.node,
-                      }));
-                      if (!active && !row.database && dbSuggestions.length === 1) {
-                        setInstance(dbSuggestions[0].instance.id);
-                      }
-                    }}
+                    className="panel-header-action"
+                    disabled={detecting}
+                    onClick={() => void redetect()}
                   >
-                    {t("projectDetection.useSuggestions")}
+                    <RefreshCw aria-hidden="true" />
+                    {t("projectDetection.redetect")}
                   </button>
-                </>
+                )}
+              </div>
+              <p className="muted">{t("work.runtimeHint")}</p>
+              {detecting && (
+                <p role="status" className="muted">
+                  {t("projectDetection.detecting")}
+                </p>
+              )}
+              {detectError && (
+                <p role="alert" className="modal-error">
+                  {t("projectDetection.error")}
+                </p>
               )}
               <RuntimeSelect
                 kind="php"
@@ -1091,83 +1255,163 @@ function ProjectDetail({
                 list={snapshot.runtimes}
               />
               <p className="constraints" translate="no">
-                PHP {watchedSettings?.php_constraint ?? p.php_constraint} · Node {watchedSettings?.node_constraint ?? p.node_constraint}
+                PHP {watchedSettings?.php_constraint ?? p.php_constraint} · Node{" "}
+                {watchedSettings?.node_constraint ?? p.node_constraint}
               </p>
+              {detected && (
+                <>
+                  <ProjectDetectionSummary
+                    detection={detected}
+                    busy={busy}
+                    install={async (packageId) => {
+                      if (await run({ action: "install", package: packageId }))
+                        await redetect();
+                    }}
+                  />
+                  <div className="detection-actions">
+                    <button
+                      type="button"
+                      disabled={
+                        !detected.php?.installed &&
+                        !detected.node?.installed &&
+                        (active || !!row.database || dbSuggestions.length !== 1)
+                      }
+                      onClick={() => {
+                        setForm((f) => ({
+                          ...f,
+                          php: detected.php?.installed
+                            ? detected.php.id
+                            : f.php,
+                          node: detected.node?.installed
+                            ? detected.node.id
+                            : f.node,
+                        }));
+                        if (
+                          !active &&
+                          !row.database &&
+                          dbSuggestions.length === 1
+                        ) {
+                          setInstance(dbSuggestions[0].instance.id);
+                        }
+                      }}
+                    >
+                      {t("projectDetection.useSuggestions")}
+                    </button>
+                  </div>
+                </>
+              )}
               {watchedSettings && !detected && (
-                <ProjectDetectionSummary detection={watchedSettings} metadataOnly />
+                <ProjectDetectionSummary
+                  detection={watchedSettings}
+                  metadataOnly
+                />
               )}
             </section>
             <section className="work-panel">
-              <h3>{t("work.development")}</h3>
-              <label className="toggle-row">
-                <span>{t("work.vite")}</span>
-                <input
-                  type="checkbox"
-                  role="switch"
-                  checked={form.vite}
-                  onChange={(e) => update("vite", e.target.checked)}
-                />
-              </label>
-              <label className="toggle-row">
-                <span>{t("work.queue")}</span>
-                <input
-                  type="checkbox"
-                  role="switch"
-                  checked={form.queue}
-                  onChange={(e) => update("queue", e.target.checked)}
-                />
-              </label>
-              {row.queue_state && (
-                <p>
-                  {t("work.queue")}: <StateBadge value={row.queue_state} />
-                </p>
-              )}
+              <div className="panel-header">
+                <h3>{t("work.development")}</h3>
+              </div>
+              <div className="dev-toggle-list">
+                <div className="dev-toggle-item">
+                  <label className="toggle-row">
+                    <span className="dev-toggle-label">{t("work.vite")}</span>
+                    <input
+                      type="checkbox"
+                      role="switch"
+                      checked={form.vite}
+                      onChange={(e) => update("vite", e.target.checked)}
+                    />
+                  </label>
+                </div>
+                <div className="dev-toggle-item">
+                  <label className="toggle-row">
+                    <span className="dev-toggle-label">
+                      {t("work.queue")}
+                      {row.queue_state && <StateBadge value={row.queue_state} />}
+                    </span>
+                    <input
+                      type="checkbox"
+                      role="switch"
+                      checked={form.queue}
+                      onChange={(e) => update("queue", e.target.checked)}
+                    />
+                  </label>
+                </div>
+              </div>
             </section>
           </div>
           <details className="advanced-config">
-            <summary>{t("work.domainSettings")}</summary>
-            <label className="toggle-row">
-              <span>HTTPS</span>
-              <input
-                type="checkbox"
-                role="switch"
-                checked={form.https}
-                onChange={(e) => update("https", e.target.checked)}
-              />
-            </label>
-            <label>
-              {t("work.domain")}
-              <input
-                name="domain"
-                value={form.domain}
-                required
-                pattern="[a-z0-9][a-z0-9.\-]*\.devforge\.test"
-                spellCheck={false}
-                onChange={(e) => update("domain", e.target.value)}
-              />
-            </label>
+            <summary>
+              <span className="disclosure-title">
+                <ChevronRight className="disclosure-chevron" aria-hidden="true" />
+                {t("work.domainSettings")}
+              </span>
+              <span className="disclosure-preview">
+                <code translate="no">{form.domain}</code>
+                {form.https ? " · HTTPS" : ""}
+              </span>
+            </summary>
+            <div className="advanced-config-body">
+              <label className="toggle-row">
+                <span>HTTPS</span>
+                <input
+                  type="checkbox"
+                  role="switch"
+                  checked={form.https}
+                  onChange={(e) => update("https", e.target.checked)}
+                />
+              </label>
+              <label>
+                {t("work.domain")}
+                <input
+                  name="domain"
+                  value={form.domain}
+                  required
+                  autoComplete="off"
+                  pattern="[a-z0-9][a-z0-9.\-]*\.devforge\.test"
+                  spellCheck={false}
+                  onChange={(e) => update("domain", e.target.value)}
+                />
+              </label>
+            </div>
           </details>
-          <div className="save-row">
-            <p className="muted">{t("work.saveHint")}</p>
-            <button className="primary" type="submit">
+          <div className="save-row" data-dirty={dirty ? "true" : "false"}>
+            <div className="save-row-copy">
+              {dirty && (
+                <span className="unsaved-badge">{t("work.unsaved")}</span>
+              )}
+              <p className="muted">{t("work.saveHint")}</p>
+            </div>
+            <button className={dirty ? "primary" : undefined} type="submit">
               {t("work.save")}
             </button>
           </div>
         </fieldset>
       </form>
       <section className="work-panel database-panel">
-        <h3>{t("work.database")}</h3>
-        <p className="muted">
-          {row.database ? (
-            <code translate="no">{row.database.database}</code>
-          ) : (
-            t("work.noDatabase")
-          )}
-        </p>
+        <div className="panel-header">
+          <div className="database-header-meta">
+            <h3>
+              <DatabaseIcon aria-hidden="true" />
+              {t("work.database")}
+            </h3>
+            {row.database ? (
+              <code className="database-name-chip" translate="no">
+                {row.database.database}
+              </code>
+            ) : (
+              <span className="muted">{t("work.noDatabase")}</span>
+            )}
+          </div>
+          <a className="panel-header-link" href="#services">
+            {t("work.manageDatabases")}
+          </a>
+        </div>
         <div className="database-controls">
           <label>
             {t("work.databaseService")}
             <select
+              name="database-service"
               value={instance}
               disabled={busy || active}
               onChange={(e) => setInstance(e.target.value)}
@@ -1182,6 +1426,7 @@ function ProjectDetail({
             </select>
           </label>
           <button
+            type="button"
             disabled={busy || active || !instance || !!row.database}
             onClick={() =>
               void run({ action: "bind_database", id: p.id, instance })
@@ -1190,29 +1435,58 @@ function ProjectDetail({
             {t("work.bindDatabase")}
           </button>
           <button
+            type="button"
             disabled={busy || !row.database}
             onClick={() => void run({ action: "test_database", id: p.id })}
           >
             {t("work.testConnection")}
           </button>
         </div>
-        <a href="#services">{t("work.manageDatabases")}</a>
+      </section>
+      <section className="work-panel project-logs-panel">
+        <div className="panel-header">
+          <h3>
+            <ScrollText aria-hidden="true" />
+            {t("work.logs")}
+          </h3>
+          <a
+            className="panel-header-link"
+            href={`#services?project=${encodeURIComponent(p.id)}`}
+          >
+            {t("work.allLogs")}
+          </a>
+        </div>
+        <LogViewer logs={logs} />
       </section>
       <details className="project-meta">
-        <summary>{t("work.projectDetails")}</summary>
-        <dl>
-          <dt>{t("work.path")}</dt>
-          <dd>
-            <code translate="no">{p.path}</code>
-          </dd>
-          <dt>{t("work.domain")}</dt>
-          <dd translate="no">{row.site?.domain}</dd>
-        </dl>
-        <button className="danger" disabled={busy} onClick={onForget}>
-          <Trash2 aria-hidden="true" />
-          {t("work.forget")}
-        </button>
-        <p className="muted">{t("work.dataPreserved")}</p>
+        <summary>
+          <span className="disclosure-title">
+            <ChevronRight className="disclosure-chevron" aria-hidden="true" />
+            {t("work.projectDetails")}
+          </span>
+        </summary>
+        <div className="project-meta-body">
+          <dl>
+            <dt>{t("work.path")}</dt>
+            <dd>
+              <code translate="no">{p.path}</code>
+            </dd>
+            <dt>{t("work.domain")}</dt>
+            <dd translate="no">{row.site?.domain}</dd>
+          </dl>
+          <div className="project-danger-row">
+            <button
+              type="button"
+              className="danger"
+              disabled={busy}
+              onClick={onForget}
+            >
+              <Trash2 aria-hidden="true" />
+              {t("work.forget")}
+            </button>
+            <p className="muted">{t("work.dataPreserved")}</p>
+          </div>
+        </div>
       </details>
       {leaveTo && (
         <Modal
@@ -1222,10 +1496,15 @@ function ProjectDetail({
         >
           <p>{t("work.unsavedHint")}</p>
           <div className="modal-actions">
-            <button onClick={() => setLeaveTo(null)} data-initial-focus>
+            <button
+              type="button"
+              onClick={() => setLeaveTo(null)}
+              data-initial-focus
+            >
               {t("work.keepEditing")}
             </button>
             <button
+              type="button"
               className="danger"
               onClick={() => {
                 const target = leaveTo;
@@ -1245,10 +1524,14 @@ function DatabaseServices({
   snapshot,
   busy,
   run,
+  errorText,
+  clearError,
 }: {
   snapshot: Snapshot | null;
   busy: boolean;
   run: (c: Command) => Promise<boolean>;
+  errorText: string;
+  clearError: () => void;
 }) {
   const { t } = useTranslation();
   const list =
@@ -1267,72 +1550,184 @@ function DatabaseServices({
           ),
       ) ?? [];
   const [selected, setSelected] = useState("");
+  const [customPort, setCustomPort] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
   const value = selected || list[0]?.id || "";
+  const trimmedPort = customPort.trim();
+  const parsedPort = trimmedPort ? Number.parseInt(trimmedPort, 10) : undefined;
+  const portInvalid =
+    trimmedPort !== "" &&
+    (!Number.isInteger(parsedPort) ||
+      (parsedPort ?? 0) < 1024 ||
+      (parsedPort ?? 0) > 65535);
+  const editing = editingId
+    ? snapshot?.databases.find((d) => d.instance.id === editingId)
+    : undefined;
   return (
     <section className="work-panel">
       <div className="section-toolbar">
         <h2>
           <DatabaseIcon aria-hidden="true" />
           {t("work.databaseServices")}
+          {snapshot && snapshot.databases.length > 0 && (
+            <span className="service-count-badge">
+              {snapshot.databases.length}
+            </span>
+          )}
         </h2>
-        <label>
-          {t("work.version")}
-          <select
-            value={value}
-            disabled={busy}
-            onChange={(e) => setSelected(e.target.value)}
-          >
-            {list.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.kind === "mysql" ? "MySQL" : "PostgreSQL"} · {p.version}
-                {p.installed ? "" : ` · ${t("work.states.missing")}`}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button
-          className="primary"
-          disabled={busy || !list.find((p) => p.id === value)?.installed}
-          onClick={() =>
-            void run({ action: "create_database", package: value })
-          }
-        >
-          <Plus aria-hidden="true" />
-          {t("work.createDatabase")}
-        </button>
-      </div>
-      <p className="muted">{t("work.databaseHint")}</p>
-      {!snapshot?.databases.length && (
-        <p className="empty-copy">{t("work.noServices")}</p>
-      )}
-      {snapshot?.databases.map((d) => (
-        <div className="service-row" key={d.instance.id}>
-          <div>
-            <strong>
-              {d.instance.engine === "mysql" ? "MySQL" : "PostgreSQL"} ·{" "}
-              {
-                snapshot.runtimes.find((r) => r.id === d.instance.package)
-                  ?.version
-              }{" "}
-              · {d.instance.port}
-            </strong>
-            <p>{t("work.projectUsers", { count: d.users })}</p>
-          </div>
-          <StateBadge value={d.state} />
+        <div className="service-create-controls">
+          <label>
+            {t("work.version")}
+            <select
+              name="create-database-version"
+              value={value}
+              disabled={busy}
+              onChange={(e) => setSelected(e.target.value)}
+            >
+              {list.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.kind === "mysql" ? "MySQL" : "PostgreSQL"} · {p.version}
+                  {p.installed ? "" : ` · ${t("work.states.missing")}`}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="service-port-field">
+            {t("services.port")}
+            <input
+              name="create-database-port"
+              type="number"
+              inputMode="numeric"
+              min={1024}
+              max={65535}
+              placeholder={t("services.portAuto")}
+              disabled={busy}
+              value={customPort}
+              onChange={(e) => setCustomPort(e.target.value)}
+            />
+          </label>
           <button
-            disabled={busy || d.users > 0 || !d.instance.ready}
+            type="button"
+            className="primary"
+            disabled={
+              busy ||
+              portInvalid ||
+              !list.find((p) => p.id === value)?.installed
+            }
             onClick={() =>
               void run({
-                action:
-                  d.state === "stopped" ? "start_database" : "stop_database",
-                instance: d.instance.id,
+                action: "create_database",
+                package: value,
+                ...(parsedPort ? { port: parsedPort } : {}),
+              }).then((ok) => {
+                if (ok) setCustomPort("");
               })
             }
           >
-            {t(d.state === "stopped" ? "work.start" : "work.stop")}
+            <Plus aria-hidden="true" />
+            {t("work.createDatabase")}
           </button>
         </div>
-      ))}
+      </div>
+      <p className="muted">{t("work.databaseHint")}</p>
+      {!snapshot?.databases.length ? (
+        <p className="service-empty-box">{t("work.noServices")}</p>
+      ) : (
+        <div className="service-instance-list">
+          {snapshot.databases.map((d) => {
+            const version = snapshot.runtimes.find(
+              (r) => r.id === d.instance.package,
+            )?.version;
+            const s = d.instance.settings;
+            const params: string[] = [];
+            if (s?.memory_mb) params.push(`${s.memory_mb} MB`);
+            if (s?.max_connections) params.push(`max ${s.max_connections}`);
+            if (s?.work_mem_mb) params.push(`work_mem ${s.work_mem_mb} MB`);
+            if (s?.max_allowed_packet_mb)
+              params.push(`packet ${s.max_allowed_packet_mb} MB`);
+            if (s?.timezone) params.push(s.timezone);
+            if (s?.log_statement && s.log_statement !== "none")
+              params.push(`log: ${s.log_statement}`);
+            if (s?.sql_mode && s.sql_mode !== "strict") params.push(s.sql_mode);
+            return (
+              <div className="service-row" key={d.instance.id}>
+                <div className="service-row-identity">
+                  <div className="service-row-title">
+                    <DatabaseIcon aria-hidden="true" />
+                    <strong>
+                      {d.instance.engine === "mysql" ? "MySQL" : "PostgreSQL"}
+                      {version ? ` · ${version}` : ""}
+                    </strong>
+                    <code className="service-address-chip" translate="no">
+                      127.0.0.1:{d.instance.port}
+                    </code>
+                    <StateBadge value={d.state} />
+                  </div>
+                  <div className="service-meta-chips">
+                    <span>{t("work.projectUsers", { count: d.users })}</span>
+                    {params.map((chip) => (
+                      <span
+                        key={chip}
+                        className="service-param-chip"
+                        translate="no"
+                      >
+                        {chip}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                <div className="service-row-actions">
+                  <button
+                    type="button"
+                    disabled={busy || !d.instance.ready}
+                    onClick={() => {
+                      clearError();
+                      setEditingId(d.instance.id);
+                    }}
+                  >
+                    <SlidersHorizontal aria-hidden="true" />
+                    {t("services.settings")}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy || d.users > 0 || !d.instance.ready}
+                    onClick={() =>
+                      void run({
+                        action:
+                          d.state === "stopped"
+                            ? "start_database"
+                            : "stop_database",
+                        instance: d.instance.id,
+                      })
+                    }
+                  >
+                    {d.state === "stopped" ? (
+                      <Play aria-hidden="true" />
+                    ) : (
+                      <Square aria-hidden="true" />
+                    )}
+                    {t(d.state === "stopped" ? "work.start" : "work.stop")}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {editing && (
+        <DatabaseSettingsDialog
+          key={`${editing.instance.id}-${editing.instance.port}`}
+          database={editing}
+          version={
+            snapshot?.runtimes.find((r) => r.id === editing.instance.package)
+              ?.version
+          }
+          busy={busy}
+          errorText={errorText}
+          onClose={() => setEditingId(null)}
+          onSave={run}
+        />
+      )}
     </section>
   );
 }
@@ -1342,7 +1737,11 @@ function LogViewer({ logs }: { logs: Snapshot["logs"] }) {
     <div className="log-viewer" tabIndex={0} aria-label={t("work.logs")}>
       {logs.length ? (
         logs.map((log, i) => (
-          <div key={`${log.process}-${i}`} className="log-line">
+          <div
+            key={`${log.process}-${i}`}
+            className="log-line"
+            data-stream={log.stream}
+          >
             <code>{log.process}</code>
             <span>{log.stream}</span>
             <pre translate="no">{log.text}</pre>

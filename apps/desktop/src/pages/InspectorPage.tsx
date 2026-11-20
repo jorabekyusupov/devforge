@@ -14,6 +14,7 @@ import {
   type InspectionView,
   type Command,
 } from "../workspace";
+import "./InspectorPage.css";
 export function InspectorPage({ backend }: { backend?: WorkspaceBackend }) {
   const { t, i18n } = useTranslation();
   const api = useWorkspace(backend);
@@ -120,27 +121,43 @@ export function InspectorPage({ backend }: { backend?: WorkspaceBackend }) {
       ) : (
         <>
           <div className="inspector-toolbar">
-            <label className="inspector-project">
-              {t("inspector.project")}
-              <select
-                name="inspection-project"
-                value={id}
-                onChange={(e) => {
-                  setProject(e.target.value);
-                  setContextFilter("");
-                  location.hash = `inspector?project=${encodeURIComponent(e.target.value)}`;
-                }}
-              >
-                {projects.map((p) => (
-                  <option key={p.project.id} value={p.project.id}>
-                    {p.project.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <div className="inspector-toolbar-left">
+              <label className="inspector-project">
+                {t("inspector.project")}
+                <select
+                  name="inspection-project"
+                  value={id}
+                  onChange={(e) => {
+                    setProject(e.target.value);
+                    setContextFilter("");
+                    location.hash = `inspector?project=${encodeURIComponent(e.target.value)}`;
+                  }}
+                >
+                  {projects.map((p) => (
+                    <option key={p.project.id} value={p.project.id}>
+                      {p.project.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {view && (
+                <span
+                  className={`state ${view.capture.enabled ? "state-recording" : "state-stopped"}`}
+                >
+                  <i aria-hidden="true" />
+                  {t(
+                    view.capture.enabled
+                      ? "inspector.recording"
+                      : "inspector.paused",
+                  )}
+                </span>
+              )}
+            </div>
             <div className="inspector-actions">
               {!view?.companion_installed && (
                 <button
+                  type="button"
+                  className="primary"
                   ref={installButton}
                   onClick={() => setConfirm("install")}
                   disabled={api.busy || !view}
@@ -150,7 +167,14 @@ export function InspectorPage({ backend }: { backend?: WorkspaceBackend }) {
                 </button>
               )}
               <button
-                className={view?.capture.enabled ? "capture-active" : ""}
+                type="button"
+                className={
+                  view?.capture.enabled
+                    ? "capture-active"
+                    : view?.companion_installed
+                      ? "primary"
+                      : undefined
+                }
                 disabled={api.busy || !view?.companion_installed}
                 onClick={() =>
                   void execute({
@@ -168,6 +192,8 @@ export function InspectorPage({ backend }: { backend?: WorkspaceBackend }) {
                 )}
               </button>
               <button
+                type="button"
+                className={view?.capture.events.length ? "danger" : undefined}
                 ref={clearButton}
                 disabled={api.busy || !view?.capture.events.length}
                 onClick={() => setConfirm("clear")}
@@ -178,9 +204,15 @@ export function InspectorPage({ backend }: { backend?: WorkspaceBackend }) {
             </div>
           </div>
           {contextFilter && (
-            <p className="notice">
-              {t("inspector.contextFilter")}: <code>{contextFilter}</code>
+            <div className="inspector-context-bar">
+              <span>
+                {t("inspector.contextFilter")}:{" "}
+                <code className="op-mono-chip" translate="no">
+                  {contextFilter}
+                </code>
+              </span>
               <button
+                type="button"
                 onClick={() => {
                   setContextFilter("");
                   location.hash = `inspector?project=${id}`;
@@ -188,14 +220,14 @@ export function InspectorPage({ backend }: { backend?: WorkspaceBackend }) {
               >
                 {t("inspector.clearContext")}
               </button>
-            </p>
+            </div>
           )}
           <p className="muted inspector-hint">{t("inspector.localHint")}</p>
           {failure ? (
             <div className="notice error" role="alert">
               <AlertCircle aria-hidden="true" />
               <p>{t("inspector.loadFailed")}</p>
-              <button onClick={() => setRevision((n) => n + 1)}>
+              <button type="button" onClick={() => setRevision((n) => n + 1)}>
                 {t("common.retry")}
               </button>
             </div>
@@ -236,14 +268,12 @@ export function InspectorPage({ backend }: { backend?: WorkspaceBackend }) {
                     spellCheck={false}
                   />
                 </label>
-              </div>
-              <div className="inspection-state" role="status">
-                {t(
-                  view.capture.enabled
-                    ? "inspector.recording"
-                    : "inspector.paused",
-                )}{" "}
-                · {t("inspector.retention")}
+                <div className="inspection-state" role="status">
+                  <span className="op-count-badge" aria-hidden="true">
+                    {filtered.length}
+                  </span>
+                  <span>{t("inspector.retention")}</span>
+                </div>
               </div>
               <div className="inspector-panels">
                 <div className="inspector-table-wrap">
@@ -266,9 +296,16 @@ export function InspectorPage({ backend }: { backend?: WorkspaceBackend }) {
                             row?.sequence === e.sequence ? "selected" : ""
                           }
                         >
-                          <td>{t(`inspector.kinds.${e.kind}`)}</td>
+                          <td>
+                            <span
+                              className={`inspector-kind-pill kind-${e.kind}`}
+                            >
+                              {t(`inspector.kinds.${e.kind}`)}
+                            </span>
+                          </td>
                           <td>
                             <button
+                              type="button"
                               className="event-select"
                               onClick={() => setSelected(e.sequence)}
                               aria-pressed={row?.sequence === e.sequence}
@@ -294,6 +331,7 @@ export function InspectorPage({ backend }: { backend?: WorkspaceBackend }) {
                       aria-label={t("inspector.pages")}
                     >
                       <button
+                        type="button"
                         disabled={pageIndex === 0}
                         onClick={() => setEventPage(pageIndex - 1)}
                       >
@@ -305,6 +343,7 @@ export function InspectorPage({ backend }: { backend?: WorkspaceBackend }) {
                         / {number(filtered.length)}
                       </span>
                       <button
+                        type="button"
                         disabled={(pageIndex + 1) * 50 >= filtered.length}
                         onClick={() => setEventPage(pageIndex + 1)}
                       >
@@ -334,11 +373,19 @@ export function InspectorPage({ backend }: { backend?: WorkspaceBackend }) {
                 >
                   {row ? (
                     <>
-                      <h2 translate="no">{row.name}</h2>
-                      <p className="muted">
-                        {t(`inspector.kinds.${row.kind}`)} ·{" "}
-                        {number(row.duration_ms)} ms
-                      </p>
+                      <div className="inspector-detail-head">
+                        <h2 translate="no">{row.name}</h2>
+                        <p className="inspector-detail-sub">
+                          <span
+                            className={`inspector-kind-pill kind-${row.kind}`}
+                          >
+                            {t(`inspector.kinds.${row.kind}`)}
+                          </span>
+                          <span className="op-mono-chip" translate="no">
+                            {number(row.duration_ms)} ms
+                          </span>
+                        </p>
+                      </div>
                       {profile && (
                         <>
                           <dl className="inspector-metrics">
@@ -421,8 +468,24 @@ export function InspectorPage({ backend }: { backend?: WorkspaceBackend }) {
                 </section>
               </div>
               <section className="work-panel inspector-capability">
-                <div>
-                  <h2>{t("inspector.phpCapability")}</h2>
+                <div className="inspector-capability-info">
+                  <div className="inspector-capability-head">
+                    <h2>{t("inspector.phpCapability")}</h2>
+                    {view.php_capability && (
+                      <span
+                        className={`state ${view.php_capability.loaded ? "state-ready" : "state-stopped"}`}
+                      >
+                        <i aria-hidden="true" />
+                        {view.php_capability.version
+                          ? `${view.php_capability.version} · ${view.php_capability.mode}`
+                          : t(
+                              view.php_capability.loaded
+                                ? "inspector.xdebugPresent"
+                                : "inspector.xdebugMissing",
+                            )}
+                      </span>
+                    )}
+                  </div>
                   <p className="muted">
                     {view.php_capability
                       ? t(
@@ -432,13 +495,9 @@ export function InspectorPage({ backend }: { backend?: WorkspaceBackend }) {
                         )
                       : t("inspector.probeHint")}
                   </p>
-                  {view.php_capability?.version && (
-                    <code>
-                      {view.php_capability.version} · {view.php_capability.mode}
-                    </code>
-                  )}
                 </div>
                 <button
+                  type="button"
                   disabled={api.busy}
                   onClick={() =>
                     void execute({ action: "inspector_probe", id })
@@ -482,12 +541,18 @@ export function InspectorPage({ backend }: { backend?: WorkspaceBackend }) {
             </p>
           )}
           <div className="dialog-actions">
-            <button disabled={api.busy} onClick={close} autoFocus>
+            <button
+              type="button"
+              disabled={api.busy}
+              onClick={close}
+              autoFocus
+            >
               {t("work.cancel")}
             </button>
             <button
+              type="button"
               disabled={api.busy}
-              className="primary"
+              className={confirm === "clear" ? "danger" : "primary"}
               onClick={async () => {
                 const ok = await api.run({
                   action:

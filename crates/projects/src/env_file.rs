@@ -527,6 +527,7 @@ mod tests {
             admin: "admin".into(),
             secret_ref: "admin-ref".into(),
             ready: true,
+            settings: Default::default(),
         };
         let binding = Binding {
             project_id: p.id.clone(),

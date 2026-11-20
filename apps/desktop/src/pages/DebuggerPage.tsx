@@ -10,6 +10,7 @@ import {
   Trash2,
   Download,
   Settings2,
+  ChevronRight,
 } from "lucide-react";
 import { WorkspaceModal } from "../components/WorkspaceModal";
 import {
@@ -21,6 +22,7 @@ import {
   type DebugVariable,
   type FunctionProfile,
 } from "../workspace";
+import "./DebuggerPage.css";
 function Variables({
   values,
   edit,
@@ -44,6 +46,7 @@ function Variables({
           <code translate="no">{v.value || "—"}</code>
           {edit && v.assign && (
             <button
+              type="button"
               disabled={disabled}
               onClick={() => edit(v)}
               aria-label={t("debugger.editVariable", { name: v.name })}
@@ -267,31 +270,106 @@ export function DebuggerPage({ backend }: { backend?: WorkspaceBackend }) {
           ? v.line >= Math.max(1, frame.line - 12) && v.line <= frame.line + 16
           : v.line <= 40,
       ) ?? [];
+  const sdkInstalled = !!view?.runtimes.some((r) => r.installed);
+  const sessionState = view?.session
+    ? view.session.state
+    : running && view?.settings.mode === "profile"
+      ? "profiling"
+      : "stopped";
+  const sessionStateClass =
+    sessionState === "paused"
+      ? "state-paused"
+      : sessionState === "running" || sessionState === "profiling"
+        ? "state-running"
+        : "state-stopped";
   return (
     <section
       className="workspace-content debugger-content"
       aria-label={t("debugger.title")}
     >
-      <div className="workspace-toolbar">
-        <label>
-          {t("debugger.project")}
-          <select
-            name="debug-project"
-            disabled={busy}
-            value={id}
-            onChange={(e) => setChosen(e.target.value)}
+      <div className="debugger-header">
+        <div className="debugger-header-left">
+          <label>
+            {t("debugger.project")}
+            <select
+              name="debug-project"
+              disabled={busy}
+              value={id}
+              onChange={(e) => setChosen(e.target.value)}
+            >
+              {rows.map((r) => (
+                <option key={r.project.id} value={r.project.id}>
+                  {r.project.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          {view && (
+            <>
+              <span
+                className={`state ${view.settings.mode === "off" ? "state-stopped" : "state-active"}`}
+              >
+                <i aria-hidden="true" />
+                {t(`debugger.modes.${view.settings.mode}`)}
+              </span>
+              <span
+                className={`state ${sdkInstalled ? "state-ready" : "state-incomplete"}`}
+              >
+                <i aria-hidden="true" />
+                {sdkInstalled
+                  ? t("debugger.sdkReady")
+                  : t("debugger.sdkMissing")}
+              </span>
+            </>
+          )}
+        </div>
+        <div className="debugger-header-right">
+          {view && (
+            <>
+              <div className="debugger-tabs" aria-label={t("debugger.views")}>
+                <button
+                  type="button"
+                  aria-pressed={tab === "debug"}
+                  onClick={() => setTab("debug")}
+                >
+                  {t("debugger.tabDebug")}
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={tab === "profiles"}
+                  onClick={() => setTab("profiles")}
+                >
+                  {t("debugger.tabProfiles")}
+                </button>
+              </div>
+              <button
+                type="button"
+                disabled={busy || row?.state !== "stopped"}
+                onClick={() => {
+                  setConsent(false);
+                  setInstalling(true);
+                  api.clearError();
+                }}
+              >
+                <Download aria-hidden="true" />
+                {t("debugger.install")}
+              </button>
+            </>
+          )}
+          <button
+            type="button"
+            className={
+              view && view.settings.mode === "off" && sdkInstalled
+                ? "primary"
+                : undefined
+            }
+            disabled={!view || busy}
+            onClick={settings}
           >
-            {rows.map((r) => (
-              <option key={r.project.id} value={r.project.id}>
-                {r.project.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button disabled={!view || busy} onClick={settings}>
-          <Settings2 aria-hidden="true" />
-          {t("debugger.configure")}
-        </button>
+            <Settings2 aria-hidden="true" />
+            {t("debugger.configure")}
+          </button>
+        </div>
       </div>
       {assignment && (
         <WorkspaceModal
@@ -325,6 +403,8 @@ export function DebuggerPage({ backend }: { backend?: WorkspaceBackend }) {
           </label>
           <div className="modal-actions">
             <button
+              type="button"
+              className="primary"
               disabled={busy || !paused}
               onClick={() =>
                 void execute({
@@ -359,205 +439,204 @@ export function DebuggerPage({ backend }: { backend?: WorkspaceBackend }) {
         <p role="status">{t("debugger.loading")}</p>
       ) : (
         <>
-          <div className="debug-runtime-row">
-            <strong>{t(`debugger.modes.${view.settings.mode}`)}</strong>
-            <span>
-              {view.runtimes.some((r) => r.installed)
-                ? t("debugger.sdkReady")
-                : t("debugger.sdkMissing")}
-            </span>
-            <button
-              disabled={busy || row?.state !== "stopped"}
-              onClick={() => {
-                setConsent(false);
-                setInstalling(true);
-                api.clearError();
-              }}
-            >
-              <Download aria-hidden="true" />
-              {t("debugger.install")}
-            </button>
-          </div>
-          <div className="activity-tabs" aria-label={t("debugger.views")}>
-            <button
-              aria-pressed={tab === "debug"}
-              onClick={() => setTab("debug")}
-            >
-              {t("debugger.tabDebug")}
-            </button>
-            <button
-              aria-pressed={tab === "profiles"}
-              onClick={() => setTab("profiles")}
-            >
-              {t("debugger.tabProfiles")}
-            </button>
-          </div>
-          <div className="debug-controls">
-            <span className="status-pill" role="status">
-              {view.session
-                ? t(`debugger.states.${view.session.state}`, {
-                    defaultValue: view.session.state,
-                  })
-                : running && view.settings.mode === "profile"
-                  ? t("debugger.states.profiling")
-                  : t("debugger.states.stopped")}
-            </span>
-            <button
-              className="primary"
-              disabled={!paused || busy}
-              onClick={() => void control("run")}
-            >
-              <Play aria-hidden="true" />
-              {t("debugger.continue")}
-            </button>
-            <button
-              disabled={!paused || busy}
-              onClick={() => void control("step_over")}
-            >
-              <ArrowRight aria-hidden="true" />
-              {t("debugger.stepOver")}
-            </button>
-            <button
-              disabled={!paused || busy}
-              onClick={() => void control("step_into")}
-            >
-              <ArrowDown aria-hidden="true" />
-              {t("debugger.stepInto")}
-            </button>
-            <button
-              disabled={!paused || busy}
-              onClick={() => void control("step_out")}
-            >
-              <ArrowUp aria-hidden="true" />
-              {t("debugger.stepOut")}
-            </button>
-            <button
-              disabled={!paused || busy}
-              onClick={() => void control("stop")}
-            >
-              <Square aria-hidden="true" />
-              {t("debugger.stopRequest")}
-            </button>
-          </div>
-          <details className="debug-panel">
-            <summary>{t("debugger.requestOptions")}</summary>
-            <label>
-              {t("debugger.method")}
-              <select
-                name="debug-method"
-                value={method}
-                onChange={(e) => setMethod(e.target.value)}
+          <div className="debug-deck">
+            <div className="debug-controls">
+              <div className="debug-step-group">
+                <span className={`state ${sessionStateClass}`} role="status">
+                  <i aria-hidden="true" />
+                  {view.session
+                    ? t(`debugger.states.${view.session.state}`, {
+                        defaultValue: view.session.state,
+                      })
+                    : running && view.settings.mode === "profile"
+                      ? t("debugger.states.profiling")
+                      : t("debugger.states.stopped")}
+                </span>
+                <button
+                  type="button"
+                  className={paused ? "primary" : undefined}
+                  disabled={!paused || busy}
+                  onClick={() => void control("run")}
+                >
+                  <Play aria-hidden="true" />
+                  {t("debugger.continue")}
+                </button>
+                <button
+                  type="button"
+                  disabled={!paused || busy}
+                  onClick={() => void control("step_over")}
+                >
+                  <ArrowRight aria-hidden="true" />
+                  {t("debugger.stepOver")}
+                </button>
+                <button
+                  type="button"
+                  disabled={!paused || busy}
+                  onClick={() => void control("step_into")}
+                >
+                  <ArrowDown aria-hidden="true" />
+                  {t("debugger.stepInto")}
+                </button>
+                <button
+                  type="button"
+                  disabled={!paused || busy}
+                  onClick={() => void control("step_out")}
+                >
+                  <ArrowUp aria-hidden="true" />
+                  {t("debugger.stepOut")}
+                </button>
+                <button
+                  type="button"
+                  className={paused ? "danger" : undefined}
+                  disabled={!paused || busy}
+                  onClick={() => void control("stop")}
+                >
+                  <Square aria-hidden="true" />
+                  {t("debugger.stopRequest")}
+                </button>
+              </div>
+              <button
+                type="button"
+                className={hasSession ? "danger" : "primary"}
+                disabled={busy}
+                onClick={() =>
+                  void execute({ action: hasSession ? "stop" : "start", id })
+                }
               >
-                {[
-                  "GET",
-                  "HEAD",
-                  "POST",
-                  "PUT",
-                  "PATCH",
-                  "DELETE",
-                  "OPTIONS",
-                ].map((m) => (
-                  <option key={m}>{m}</option>
-                ))}
-              </select>
-            </label>
-            <label>
-              {t("debugger.headers")}
-              <textarea
-                name="debug-headers"
-                value={headers}
-                maxLength={16384}
-                onChange={(e) => setHeaders(e.target.value)}
-                spellCheck={false}
-                autoComplete="off"
-              />
-            </label>
-            <label>
-              {t("debugger.body")}
-              <textarea
-                name="debug-body"
-                disabled={method === "HEAD"}
-                value={body}
-                maxLength={1048576}
-                onChange={(e) => setBody(e.target.value)}
-                spellCheck={false}
-                autoComplete="off"
-              />
-            </label>
-            {method === "HEAD" && (
-              <p className="muted">{t("debugger.headBodyHelp")}</p>
-            )}
-            <p className="muted">{t("debugger.requestPrivacy")}</p>
-          </details>
-          <div className="debug-request">
-            <label>
-              {t("debugger.requestPath")}
-              <input
-                name="debug-request-path"
-                value={request}
-                onChange={(e) => setRequest(e.target.value)}
-                spellCheck={false}
-                autoComplete="off"
-              />
-            </label>
-            <button
-              disabled={
-                busy ||
-                !running ||
-                view.settings.mode === "off" ||
-                view.request?.state === "running"
-              }
-              onClick={() =>
-                void (async () => {
-                  const parsed: Record<string, string> = {};
-                  for (const line of headers
-                    .split(/\r?\n/)
-                    .filter((v) => v.trim())) {
-                    const at = line.indexOf(":");
-                    const name = line.slice(0, at).trim();
-                    if (
-                      at < 1 ||
-                      Object.keys(parsed).some(
-                        (k) => k.toLowerCase() === name.toLowerCase(),
-                      )
-                    ) {
-                      setReadError(t("debugger.errors.invalid_request"));
-                      return;
+                {t(
+                  hasSession ? "debugger.stopProject" : "debugger.startProject",
+                )}
+              </button>
+            </div>
+            <div className="debug-request">
+              <label>
+                {t("debugger.requestPath")}
+                <input
+                  name="debug-request-path"
+                  value={request}
+                  onChange={(e) => setRequest(e.target.value)}
+                  spellCheck={false}
+                  autoComplete="off"
+                />
+              </label>
+              <button
+                type="button"
+                className={
+                  !busy &&
+                  running &&
+                  view.settings.mode !== "off" &&
+                  view.request?.state !== "running"
+                    ? "primary"
+                    : undefined
+                }
+                disabled={
+                  busy ||
+                  !running ||
+                  view.settings.mode === "off" ||
+                  view.request?.state === "running"
+                }
+                onClick={() =>
+                  void (async () => {
+                    const parsed: Record<string, string> = {};
+                    for (const line of headers
+                      .split(/\r?\n/)
+                      .filter((v) => v.trim())) {
+                      const at = line.indexOf(":");
+                      const name = line.slice(0, at).trim();
+                      if (
+                        at < 1 ||
+                        Object.keys(parsed).some(
+                          (k) => k.toLowerCase() === name.toLowerCase(),
+                        )
+                      ) {
+                        setReadError(t("debugger.errors.invalid_request"));
+                        return;
+                      }
+                      parsed[name] = line.slice(at + 1).trim();
                     }
-                    parsed[name] = line.slice(at + 1).trim();
-                  }
-                  await execute({
-                    action: "debug_http",
-                    id,
-                    request: {
-                      method,
-                      path: request,
-                      headers: parsed,
-                      body: method === "HEAD" ? "" : body,
-                    },
-                  });
-                })()
-              }
-            >
-              {t("debugger.runRequest")}
-            </button>
-            <button
-              disabled={busy}
-              onClick={() =>
-                void execute({ action: hasSession ? "stop" : "start", id })
-              }
-            >
-              {t(hasSession ? "debugger.stopProject" : "debugger.startProject")}
-            </button>
+                    await execute({
+                      action: "debug_http",
+                      id,
+                      request: {
+                        method,
+                        path: request,
+                        headers: parsed,
+                        body: method === "HEAD" ? "" : body,
+                      },
+                    });
+                  })()
+                }
+              >
+                {t("debugger.runRequest")}
+              </button>
+            </div>
+            <details className="debug-request-options">
+              <summary>
+                <span>{t("debugger.requestOptions")}</span>
+                <ChevronRight
+                  className="op-disclosure-chevron"
+                  aria-hidden="true"
+                />
+              </summary>
+              <div className="debug-request-options-grid">
+                <label className="debug-method-field">
+                  {t("debugger.method")}
+                  <select
+                    name="debug-method"
+                    value={method}
+                    onChange={(e) => setMethod(e.target.value)}
+                  >
+                    {[
+                      "GET",
+                      "HEAD",
+                      "POST",
+                      "PUT",
+                      "PATCH",
+                      "DELETE",
+                      "OPTIONS",
+                    ].map((m) => (
+                      <option key={m}>{m}</option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  {t("debugger.headers")}
+                  <textarea
+                    name="debug-headers"
+                    value={headers}
+                    maxLength={16384}
+                    onChange={(e) => setHeaders(e.target.value)}
+                    spellCheck={false}
+                    autoComplete="off"
+                  />
+                </label>
+                <label>
+                  {t("debugger.body")}
+                  <textarea
+                    name="debug-body"
+                    disabled={method === "HEAD"}
+                    value={body}
+                    maxLength={1048576}
+                    onChange={(e) => setBody(e.target.value)}
+                    spellCheck={false}
+                    autoComplete="off"
+                  />
+                </label>
+              </div>
+              {method === "HEAD" && (
+                <p className="muted">{t("debugger.headBodyHelp")}</p>
+              )}
+              <p className="muted">{t("debugger.requestPrivacy")}</p>
+            </details>
+            {view.request && (
+              <p className="debug-request-status" role="status">
+                {t(`debugger.requests.${view.request.state}`)}
+                {view.request.status !== null
+                  ? ` · HTTP ${view.request.status}`
+                  : ""}
+              </p>
+            )}
           </div>
-          {view.request && (
-            <p className="muted" role="status">
-              {t(`debugger.requests.${view.request.state}`)}
-              {view.request.status !== null
-                ? ` · HTTP ${view.request.status}`
-                : ""}
-            </p>
-          )}
           {view.session?.error && (
             <p className="notice error" role="alert">
               {message(view.session.error)}
@@ -567,7 +646,12 @@ export function DebuggerPage({ backend }: { backend?: WorkspaceBackend }) {
             <>
               <div className="debug-main-grid">
                 <article className="debug-panel">
-                  <h2>{t("debugger.breakpoints")}</h2>
+                  <div className="debug-panel-head">
+                    <h2>{t("debugger.breakpoints")}</h2>
+                    <span className="op-count-badge" aria-hidden="true">
+                      {view.settings.breakpoints.length}
+                    </span>
+                  </div>
                   <ul className="debug-breakpoints">
                     {view.settings.breakpoints.map((b, index) => (
                       <li key={b.file + ":" + b.line}>
@@ -575,6 +659,8 @@ export function DebuggerPage({ backend }: { backend?: WorkspaceBackend }) {
                           {b.file}:{b.line}
                         </code>
                         <button
+                          type="button"
+                          className="danger"
                           disabled={busy || view.session?.state === "running"}
                           aria-label={t("debugger.removeBreakpoint")}
                           onClick={() =>
@@ -635,9 +721,16 @@ export function DebuggerPage({ backend }: { backend?: WorkspaceBackend }) {
                   </form>
                 </article>
                 <article className="debug-panel debug-source">
-                  <h2 translate={code ? "no" : undefined}>
-                    {code?.file ?? t("debugger.source")}
-                  </h2>
+                  <div className="debug-panel-head">
+                    <h2 translate={code ? "no" : undefined}>
+                      {code?.file ?? t("debugger.source")}
+                    </h2>
+                    {frame?.line && (
+                      <span className="op-mono-chip" translate="no">
+                        :{frame.line}
+                      </span>
+                    )}
+                  </div>
                   {code ? (
                     <div
                       className="debug-code"
@@ -667,11 +760,17 @@ export function DebuggerPage({ backend }: { backend?: WorkspaceBackend }) {
               </div>
               <div className="debug-bottom-grid">
                 <article className="debug-panel">
-                  <h2>{t("debugger.stack")}</h2>
+                  <div className="debug-panel-head">
+                    <h2>{t("debugger.stack")}</h2>
+                    <span className="op-count-badge" aria-hidden="true">
+                      {view.session?.frames.length ?? 0}
+                    </span>
+                  </div>
                   <ul className="debug-stack">
                     {view.session?.frames.map((f) => (
                       <li key={f.depth}>
                         <button
+                          type="button"
                           disabled={!paused || busy}
                           aria-pressed={f.depth === view.session?.depth}
                           onClick={() =>
@@ -695,7 +794,12 @@ export function DebuggerPage({ backend }: { backend?: WorkspaceBackend }) {
                   )}
                 </article>
                 <article className="debug-panel">
-                  <h2>{t("debugger.variables")}</h2>
+                  <div className="debug-panel-head">
+                    <h2>{t("debugger.variables")}</h2>
+                    <span className="op-count-badge" aria-hidden="true">
+                      {view.session?.variables.length ?? 0}
+                    </span>
+                  </div>
                   <Variables
                     values={view.session?.variables ?? []}
                     disabled={!paused || busy}
@@ -724,11 +828,17 @@ export function DebuggerPage({ backend }: { backend?: WorkspaceBackend }) {
           ) : (
             <div className="debug-profiles">
               <article className="debug-panel">
-                <h2>{t("debugger.history")}</h2>
+                <div className="debug-panel-head">
+                  <h2>{t("debugger.history")}</h2>
+                  <span className="op-count-badge" aria-hidden="true">
+                    {view.profiles.length}
+                  </span>
+                </div>
                 <ul>
                   {view.profiles.map((p) => (
                     <li key={p.id}>
                       <button
+                        type="button"
                         aria-pressed={p.id === selectedProfile}
                         onClick={() => void loadProfile(p.id)}
                       >
@@ -743,7 +853,14 @@ export function DebuggerPage({ backend }: { backend?: WorkspaceBackend }) {
                 )}
               </article>
               <article className="debug-panel">
-                <h2>{t("debugger.functions")}</h2>
+                <div className="debug-panel-head">
+                  <h2>{t("debugger.functions")}</h2>
+                  {profile && (
+                    <span className="op-count-badge" aria-hidden="true">
+                      {values.length}
+                    </span>
+                  )}
+                </div>
                 {profile ? (
                   <>
                     <p>
@@ -763,6 +880,7 @@ export function DebuggerPage({ backend }: { backend?: WorkspaceBackend }) {
                         />
                       </label>
                       <button
+                        type="button"
                         onClick={() => void saveProfile()}
                         disabled={busy}
                       >
@@ -770,6 +888,7 @@ export function DebuggerPage({ backend }: { backend?: WorkspaceBackend }) {
                         {t("debugger.export")}
                       </button>
                       <button
+                        type="button"
                         className="danger"
                         disabled={busy}
                         onClick={() => setRemove(selectedProfile)}
@@ -880,10 +999,15 @@ export function DebuggerPage({ backend }: { backend?: WorkspaceBackend }) {
             <p className="notice">{t("debugger.stopFirst")}</p>
           )}
           <div className="modal-actions">
-            <button disabled={busy} onClick={() => setConfigure(false)}>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => setConfigure(false)}
+            >
               {t("work.cancel")}
             </button>
             <button
+              type="button"
               className="primary"
               disabled={
                 busy ||
@@ -929,16 +1053,21 @@ export function DebuggerPage({ backend }: { backend?: WorkspaceBackend }) {
           {busy && (
             <div className="operation-progress">
               <p role="status">{t("debugger.building")}</p>
-              <button onClick={() => void api.cancel()}>
+              <button type="button" onClick={() => void api.cancel()}>
                 {t("setup.cancelOperation")}
               </button>
             </div>
           )}
           <div className="modal-actions">
-            <button disabled={busy} onClick={() => setInstalling(false)}>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => setInstalling(false)}
+            >
               {t("work.cancel")}
             </button>
             <button
+              type="button"
               className="primary"
               disabled={busy || !consent}
               onClick={() =>
@@ -965,10 +1094,15 @@ export function DebuggerPage({ backend }: { backend?: WorkspaceBackend }) {
           <p>{t("debugger.deleteHelp")}</p>
           {errorNotice}
           <div className="modal-actions">
-            <button disabled={busy} onClick={() => setRemove(null)}>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => setRemove(null)}
+            >
               {t("work.cancel")}
             </button>
             <button
+              type="button"
               className="danger"
               disabled={busy}
               onClick={() =>

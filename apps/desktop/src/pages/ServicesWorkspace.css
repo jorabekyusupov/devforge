@@ -1,0 +1,449 @@
+/* Scoped Services & logs optimization — inherits DevForge MASTER.md tokens. */
+
+.workspace-content[data-mode="services"] {
+  gap: 1rem;
+  --state-bg-neutral: color-mix(in srgb, var(--muted) 10%, var(--surface));
+  --state-bg-success: color-mix(in srgb, var(--success) 13%, var(--surface));
+  --state-bg-danger: color-mix(in srgb, var(--danger) 13%, var(--surface));
+  --state-bg-accent: color-mix(in srgb, var(--accent) 14%, var(--surface));
+  --panel-radius: 8px;
+}
+
+.workspace-content[data-mode="services"] button {
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease;
+}
+
+.workspace-content[data-mode="services"] button.primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 88%, var(--text));
+  border-color: color-mix(in srgb, var(--accent) 88%, var(--text));
+  color: var(--on-accent);
+}
+
+.workspace-content[data-mode="services"] button.danger:hover:not(:disabled) {
+  background: var(--state-bg-danger);
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+:root[data-theme="dark"] .workspace-content[data-mode="services"] select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%23b0bdc8' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round' viewBox='0 0 24 24'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="system"] .workspace-content[data-mode="services"] select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%23b0bdc8' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round' viewBox='0 0 24 24'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  }
+}
+
+.workspace-content[data-mode="services"] .work-panel {
+  border-radius: var(--panel-radius);
+  padding: 1.05rem 1.15rem;
+  box-shadow: var(--shadow);
+}
+
+/* Status pills matching Projects */
+.workspace-content[data-mode="services"] .state {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.16rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 550;
+  line-height: 1.35;
+  background: var(--state-bg-neutral);
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.workspace-content[data-mode="services"] .state-running,
+.workspace-content[data-mode="services"] .state-ready,
+.workspace-content[data-mode="services"] .state-installed {
+  background: var(--state-bg-success);
+  color: var(--success);
+}
+
+.workspace-content[data-mode="services"] .state-failed {
+  background: var(--state-bg-danger);
+  color: var(--danger);
+}
+
+.workspace-content[data-mode="services"] .state-starting,
+.workspace-content[data-mode="services"] .state-backoff {
+  background: var(--state-bg-accent);
+  color: var(--accent);
+}
+
+.service-count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.45rem;
+  height: 1.35rem;
+  padding: 0 0.45rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  background: var(--state-bg-accent);
+  color: var(--accent);
+}
+
+/* 1. Shared Database Services card */
+.service-create-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+
+.service-port-field {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.8rem;
+}
+
+.service-port-field input {
+  width: 6.2rem;
+  min-height: 38px;
+  font-variant-numeric: tabular-nums;
+}
+
+.service-instance-list {
+  display: flex;
+  flex-direction: column;
+  margin-top: 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  overflow: hidden;
+  background: var(--canvas);
+}
+
+.workspace-content[data-mode="services"] .service-instance-list .service-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.85rem 1rem;
+  padding: 0.8rem 0.95rem;
+  margin: 0;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  flex-wrap: wrap;
+}
+
+.workspace-content[data-mode="services"] .service-instance-list .service-row:first-child {
+  border-top: 0;
+}
+
+.service-row-identity {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 12rem;
+  flex: 1;
+}
+
+.service-row-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.service-row-title > svg {
+  width: 1rem;
+  height: 1rem;
+  color: var(--accent);
+  flex: none;
+}
+
+.service-row-title strong {
+  font-size: 0.92rem;
+  font-weight: 650;
+}
+
+.service-address-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.14rem 0.5rem;
+  border-radius: 5px;
+  background: var(--info);
+  border: 1px solid var(--border);
+  font-size: 0.76rem;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.service-meta-chips {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  font-size: 0.76rem;
+  color: var(--muted);
+}
+
+.service-param-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.1rem 0.45rem;
+  border-radius: 4px;
+  background: var(--info);
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.71rem;
+  color: var(--muted);
+}
+
+.workspace-content[data-mode="services"] .service-row-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+.service-empty-box {
+  margin-top: 0.85rem;
+  padding: 1.5rem 1rem;
+  text-align: center;
+  border: 1px dashed var(--border);
+  border-radius: 7px;
+  background: var(--canvas);
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+/* 2. Project Services card */
+.service-project-header-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.service-drivers-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 0.85rem;
+}
+
+.service-driver-group {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+  padding: 0.85rem 0.95rem;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--canvas);
+}
+
+.service-driver-group[data-dirty="true"] {
+  background: var(--selected);
+  border-color: var(--accent);
+}
+
+.service-driver-group > label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.82rem;
+  flex: 1 1 11rem;
+  min-width: 0;
+}
+
+.service-driver-group select {
+  width: 100%;
+  min-width: 0;
+}
+
+.service-driver-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+
+/* Disclosures inside Project Services */
+.service-disclosure {
+  margin-top: 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--canvas);
+  padding: 0.55rem 0.9rem;
+}
+
+.service-disclosure > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+  cursor: pointer;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0 !important;
+  padding: 0.15rem 0;
+  list-style: none;
+}
+
+.service-disclosure > summary::-webkit-details-marker {
+  display: none;
+}
+
+.service-disclosure > summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+
+.service-disclosure-body {
+  margin-top: 0.65rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.service-cache-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding-top: 0.55rem;
+  border-top: 1px dashed var(--border);
+}
+
+.service-cache-footer > p {
+  flex: 1;
+  min-width: 14rem;
+}
+
+/* Backups section */
+.workspace-content[data-mode="services"] .backup-section {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.workspace-content[data-mode="services"] .backup-section > .section-toolbar {
+  justify-content: space-between;
+}
+
+.backup-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.backup-section h3 {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0;
+  margin-inline-end: auto;
+  font-size: 1rem;
+  font-weight: 650;
+}
+
+.backup-section h3 > svg {
+  width: 1rem;
+  height: 1rem;
+  color: var(--muted);
+}
+
+/* 3. Services Logs card */
+.services-logs-panel .section-toolbar {
+  margin-bottom: 0.75rem;
+}
+
+.services-logs-panel .log-viewer {
+  max-height: 22rem;
+  min-height: 7rem;
+}
+
+.services-logs-panel .log-line {
+  content-visibility: visible;
+}
+
+.workspace-content[data-mode="services"] .log-line[data-stream="stderr"] {
+  background: color-mix(in srgb, var(--danger) 6%, transparent);
+}
+
+.workspace-content[data-mode="services"] .log-line[data-stream="stderr"] span {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.workspace-content[data-mode="services"] + footer {
+  margin-top: 1.35rem;
+}
+
+/* Service Settings Dialogs */
+.service-settings-dialog .service-settings-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem 1rem;
+  margin-top: 0.85rem;
+}
+
+.service-settings-dialog .service-settings-grid > label {
+  margin-top: 0;
+}
+
+.service-settings-dialog .service-settings-grid input,
+.service-settings-dialog .service-settings-grid select {
+  width: 100%;
+  min-width: 0;
+}
+
+.service-settings-dialog .service-aof-toggle {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 1rem;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--info);
+  cursor: pointer;
+}
+
+.service-settings-actions {
+  justify-content: space-between !important;
+  gap: 0.75rem;
+}
+
+.service-settings-submit-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 760px) {
+  .service-settings-dialog .service-settings-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workspace-content[data-mode="services"] button {
+    transition: none;
+  }
+}

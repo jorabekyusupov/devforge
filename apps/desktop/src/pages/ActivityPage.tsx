@@ -22,6 +22,19 @@ import {
   type LogFilter,
   type InspectionView,
 } from "../workspace";
+import "./ActivityPage.css";
+
+function logTone(kind: string, level: string): "danger" | "warn" | "accent" | "neutral" {
+  if (
+    kind === "exception" ||
+    ["error", "critical", "alert", "emergency"].includes(level)
+  ) {
+    return "danger";
+  }
+  if (level === "warning") return "warn";
+  if (level === "info" || level === "notice") return "accent";
+  return "neutral";
+}
 export function safeMailHtml(html: string) {
   const body = DOMPurify.sanitize(html, {
     USE_PROFILES: { html: true },
@@ -216,29 +229,28 @@ export function ActivityPage({ backend }: { backend?: WorkspaceBackend }) {
       className="workspace-content activity-content"
       aria-busy={api.busy}
     >
-      <div className="activity-project">
-        <label>
-          {t("activity.project")}
-          <select
-            name="activity-project"
-            value={id}
-            disabled={api.busy}
-            onChange={(e) => navigate(tab, e.target.value)}
-          >
-            {projects.map((r) => (
-              <option key={r.project.id} value={r.project.id}>
-                {r.project.name}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-      {!id ? (
-        <p>{t("inspector.noProjects")}</p>
-      ) : (
-        <>
+      <div className="activity-header">
+        <div className="activity-project">
+          <label>
+            {t("activity.project")}
+            <select
+              name="activity-project"
+              value={id}
+              disabled={api.busy}
+              onChange={(e) => navigate(tab, e.target.value)}
+            >
+              {projects.map((r) => (
+                <option key={r.project.id} value={r.project.id}>
+                  {r.project.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        {id && (
           <nav className="activity-tabs" aria-label={t("activity.views")}>
             <button
+              type="button"
               aria-pressed={tab === "mail"}
               onClick={() => navigate("mail")}
             >
@@ -246,6 +258,7 @@ export function ActivityPage({ backend }: { backend?: WorkspaceBackend }) {
               {t("activity.inbox")}
             </button>
             <button
+              type="button"
               aria-pressed={tab === "logs"}
               onClick={() => navigate("logs")}
             >
@@ -253,6 +266,12 @@ export function ActivityPage({ backend }: { backend?: WorkspaceBackend }) {
               {t("activity.logs")}
             </button>
           </nav>
+        )}
+      </div>
+      {!id ? (
+        <p className="op-empty-box">{t("inspector.noProjects")}</p>
+      ) : (
+        <>
           {api.error && (
             <p role="alert" className="notice error">
               <AlertCircle aria-hidden="true" />
@@ -266,74 +285,104 @@ export function ActivityPage({ backend }: { backend?: WorkspaceBackend }) {
             </p>
           )}
           <div className="activity-toolbar">
-            {tab === "mail" ? (
-              <>
-                <span className="mail-state">
-                  {t(mail?.running ? "activity.running" : "activity.stopped")}{" "}
-                  {mail?.port && <code>127.0.0.1:{mail.port}</code>}
-                </span>
-                <button
-                  disabled={api.busy || row.state !== "stopped" || !mail}
-                  onClick={() =>
-                    void execute({
-                      action: "mail_configure",
-                      id,
-                      enabled: !mail?.running,
-                    })
-                  }
-                >
-                  {t(mail?.running ? "activity.stop" : "activity.start")}
-                </button>
-                <button
-                  disabled={api.busy || !total}
-                  onClick={() =>
-                    setConfirm({
-                      action: "mail_delete",
-                      id,
-                      message: null,
-                      consent: true,
-                    })
-                  }
-                >
-                  <Trash2 aria-hidden="true" />
-                  {t("activity.clearInbox")}
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  disabled={api.busy || row.state !== "stopped"}
-                  onClick={() =>
-                    setConfirm({ action: "inspector_install", id })
-                  }
-                >
-                  <Download aria-hidden="true" />
-                  {t("activity.installCapture")}
-                </button>
-                <button
-                  disabled={api.busy || !capture?.companion_installed}
-                  onClick={() =>
-                    void execute({
-                      action: "inspector_capture",
-                      id,
-                      enabled: !capture?.capture.enabled,
-                    })
-                  }
-                >
-                  {t(
-                    capture?.capture.enabled
-                      ? "inspector.pause"
-                      : "inspector.enable",
-                  )}
-                </button>
-                <button
-                  disabled={api.busy || !capture?.capture.events.length}
-                  onClick={() => setConfirm({ action: "inspector_clear", id })}
-                >
-                  {t("inspector.clear")}
-                </button>
-              </>
-            )}
+            <div className="activity-toolbar-group">
+              {tab === "mail" ? (
+                <>
+                  <span className="mail-state">
+                    <span
+                      className={`state ${mail?.running ? "state-running" : "state-stopped"}`}
+                    >
+                      <i aria-hidden="true" />
+                      {t(mail?.running ? "activity.running" : "activity.stopped")}
+                    </span>
+                    {mail?.port && (
+                      <code className="op-mono-chip" translate="no">
+                        127.0.0.1:{mail.port}
+                      </code>
+                    )}
+                  </span>
+                  <button
+                    type="button"
+                    className={
+                      !mail?.running && row.state === "stopped"
+                        ? "primary"
+                        : undefined
+                    }
+                    disabled={api.busy || row.state !== "stopped" || !mail}
+                    onClick={() =>
+                      void execute({
+                        action: "mail_configure",
+                        id,
+                        enabled: !mail?.running,
+                      })
+                    }
+                  >
+                    {t(mail?.running ? "activity.stop" : "activity.start")}
+                  </button>
+                  <button
+                    type="button"
+                    className={total ? "danger" : undefined}
+                    disabled={api.busy || !total}
+                    onClick={() =>
+                      setConfirm({
+                        action: "mail_delete",
+                        id,
+                        message: null,
+                        consent: true,
+                      })
+                    }
+                  >
+                    <Trash2 aria-hidden="true" />
+                    {t("activity.clearInbox")}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    disabled={api.busy || row.state !== "stopped"}
+                    onClick={() =>
+                      setConfirm({ action: "inspector_install", id })
+                    }
+                  >
+                    <Download aria-hidden="true" />
+                    {t("activity.installCapture")}
+                  </button>
+                  <button
+                    type="button"
+                    className={
+                      capture?.companion_installed && !capture?.capture.enabled
+                        ? "primary"
+                        : undefined
+                    }
+                    disabled={api.busy || !capture?.companion_installed}
+                    onClick={() =>
+                      void execute({
+                        action: "inspector_capture",
+                        id,
+                        enabled: !capture?.capture.enabled,
+                      })
+                    }
+                  >
+                    {t(
+                      capture?.capture.enabled
+                        ? "inspector.pause"
+                        : "inspector.enable",
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    className={
+                      capture?.capture.events.length ? "danger" : undefined
+                    }
+                    disabled={api.busy || !capture?.capture.events.length}
+                    onClick={() => setConfirm({ action: "inspector_clear", id })}
+                  >
+                    {t("inspector.clear")}
+                  </button>
+                </>
+              )}
+            </div>
             <label className="activity-search">
               <span className="sr-only">{t("activity.search")}</span>
               <Search aria-hidden="true" />
@@ -412,11 +461,13 @@ export function ActivityPage({ backend }: { backend?: WorkspaceBackend }) {
           {failure ? (
             <div role="alert" className="notice error">
               <p>{t("activity.failed")}</p>
-              <button onClick={() => setRevision((v) => v + 1)}>
+              <button type="button" onClick={() => setRevision((v) => v + 1)}>
                 {t("common.retry")}
               </button>
             </div>
-          ) : !(tab==="mail"?mail:logs) ? <p role="status">{t("common.loading")}</p> : (
+          ) : !(tab === "mail" ? mail : logs) ? (
+            <p role="status">{t("common.loading")}</p>
+          ) : (
             <div className="activity-panels">
               <div className="activity-list">
                 <p className="activity-count" role="status">
@@ -431,6 +482,7 @@ export function ActivityPage({ backend }: { backend?: WorkspaceBackend }) {
                     ? (mail?.inbox.messages ?? []).map((m) => (
                         <li key={m.id}>
                           <button
+                            type="button"
                             className="activity-item"
                             aria-pressed={m.id === mailId}
                             onClick={() => setSelected(m.id)}
@@ -451,17 +503,20 @@ export function ActivityPage({ backend }: { backend?: WorkspaceBackend }) {
                     : (logs?.entries ?? []).map((e) => (
                         <li key={e.sequence}>
                           <button
+                            type="button"
                             className="activity-item"
                             aria-pressed={e.sequence === log?.sequence}
                             onClick={() => setSelected(String(e.sequence))}
                           >
-                            <strong>
+                            <span
+                              className={`log-level-pill tone-${logTone(e.kind, e.name)}`}
+                            >
                               {e.kind === "exception"
                                 ? e.name
                                 : t(`activity.levels.${e.name}`, {
                                     defaultValue: e.name,
                                   })}
-                            </strong>
+                            </span>
                             <span>
                               {String(
                                 (e.data as Record<string, unknown>)?.message ??
@@ -492,6 +547,8 @@ export function ActivityPage({ backend }: { backend?: WorkspaceBackend }) {
                           {detail.summary.subject || t("activity.noSubject")}
                         </h2>
                         <button
+                          type="button"
+                          className="danger"
                           disabled={api.busy}
                           onClick={() =>
                             setConfirm({
@@ -511,8 +568,9 @@ export function ActivityPage({ backend }: { backend?: WorkspaceBackend }) {
                         <dt>{t("activity.to")}</dt>
                         <dd>{detail.summary.to}</dd>
                       </dl>
-                      <div className="activity-tabs">
+                      <div className="activity-tabs mail-mode-tabs">
                         <button
+                          type="button"
                           aria-pressed={mode === "html"}
                           disabled={!detail.html}
                           onClick={() => setMode("html")}
@@ -520,6 +578,7 @@ export function ActivityPage({ backend }: { backend?: WorkspaceBackend }) {
                           HTML
                         </button>
                         <button
+                          type="button"
                           aria-pressed={mode === "text"}
                           onClick={() => setMode("text")}
                         >
@@ -550,11 +609,15 @@ export function ActivityPage({ backend }: { backend?: WorkspaceBackend }) {
                             <div className="mail-attachment" key={a.index}>
                               <span translate="no">{a.name}</span>
                               <small>{number(a.bytes)} B</small>
-                              <button onClick={() => void preview(a.index)}>
+                              <button
+                                type="button"
+                                onClick={() => void preview(a.index)}
+                              >
                                 <Eye aria-hidden="true" />
                                 {t("activity.preview")}
                               </button>
                               <button
+                                type="button"
                                 disabled={api.busy || !backend?.chooseMailFile}
                                 onClick={() => void save(a.index, a.name)}
                               >
@@ -567,12 +630,12 @@ export function ActivityPage({ backend }: { backend?: WorkspaceBackend }) {
                       )}
                     </>
                   ) : (
-                    <p>{t("activity.selectMail")}</p>
+                    <p className="muted">{t("activity.selectMail")}</p>
                   )
                 ) : log ? (
                   <LogDetail event={log} id={id} />
                 ) : (
-                  <p>{t("activity.selectLog")}</p>
+                  <p className="muted">{t("activity.selectLog")}</p>
                 )}
                 {detailFailure && <p role="alert">{t("activity.failed")}</p>}
               </article>
@@ -580,13 +643,18 @@ export function ActivityPage({ backend }: { backend?: WorkspaceBackend }) {
           )}
           {!!total && (
             <div className="activity-pager">
-              <button disabled={!page} onClick={() => setPage((p) => p - 1)}>
+              <button
+                type="button"
+                disabled={!page}
+                onClick={() => setPage((p) => p - 1)}
+              >
                 {t("activity.previous")}
               </button>
               <span>
                 {number(page + 1)} / {number(Math.ceil(total / size))}
               </span>
               <button
+                type="button"
                 disabled={(page + 1) * size >= total}
                 onClick={() => setPage((p) => p + 1)}
               >
@@ -611,6 +679,7 @@ export function ActivityPage({ backend }: { backend?: WorkspaceBackend }) {
           </p>
           <div className="modal-actions">
             <button
+              type="button"
               data-initial-focus
               disabled={api.busy}
               onClick={() => setConfirm(null)}
@@ -618,6 +687,10 @@ export function ActivityPage({ backend }: { backend?: WorkspaceBackend }) {
               {t("work.cancel")}
             </button>
             <button
+              type="button"
+              className={
+                confirm.action === "inspector_install" ? "primary" : "danger"
+              }
               disabled={api.busy}
               onClick={() =>
                 void execute(confirm).then((ok) => {
@@ -689,28 +762,38 @@ function LogDetail({
     : [];
   return (
     <>
-      <h2>
-        {event.kind === "exception"
-          ? event.name
-          : t(`activity.levels.${event.name}`, { defaultValue: event.name })}
-      </h2>
+      <div className="activity-detail-title">
+        <h2>
+          {event.kind === "exception"
+            ? event.name
+            : t(`activity.levels.${event.name}`, { defaultValue: event.name })}
+        </h2>
+        <span className={`log-level-pill tone-${logTone(event.kind, event.name)}`}>
+          {event.kind === "exception"
+            ? t("activity.kinds.exception")
+            : t(`activity.levels.${event.name}`, { defaultValue: event.name })}
+        </span>
+      </div>
       <pre className="log-message" translate="no">
         {String(data.message ?? "")}
       </pre>
       {data.file && (
-        <p translate="no">
+        <p className="op-mono-chip" translate="no">
           {String(data.file)}:{String(data.line ?? "")}
         </p>
       )}
       <h3>{t("activity.context")}</h3>
-      <code className="activity-context" translate="no">
-        {event.context}
-      </code>
-      <a
-        href={`#inspector?project=${encodeURIComponent(id)}&context=${event.context}`}
-      >
-        {t("activity.trace")}
-      </a>
+      <div className="log-context-bar">
+        <code className="activity-context op-mono-chip" translate="no">
+          {event.context}
+        </code>
+        <a
+          className="button"
+          href={`#inspector?project=${encodeURIComponent(id)}&context=${event.context}`}
+        >
+          {t("activity.trace")}
+        </a>
+      </div>
       <pre className="log-context" translate="no">
         {JSON.stringify(data.context ?? {}, null, 2)}
       </pre>

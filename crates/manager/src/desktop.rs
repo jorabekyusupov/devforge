@@ -98,7 +98,9 @@ impl SubjectSelector {
             | Command::WorktreeCleanup { id, .. } => Ok(Self::Worktree {
                 worktree_id: Id::new(id).map_err(|_| crate::actor::ActorError::InvalidInput)?,
             }),
-            Command::StartCache { instance } | Command::StopCache { instance } => Ok(Self::Cache {
+            Command::StartCache { instance }
+            | Command::StopCache { instance }
+            | Command::ConfigureCache { instance, .. } => Ok(Self::Cache {
                 instance_id: Id::new(instance)
                     .map_err(|_| crate::actor::ActorError::InvalidInput)?,
             }),
@@ -111,6 +113,7 @@ impl SubjectSelector {
             | Command::UpdateRuntime { .. }
             | Command::RemoveRuntime { .. }
             | Command::CreateDatabase { .. }
+            | Command::ConfigureDatabase { .. }
             | Command::StartDatabase { .. }
             | Command::StopDatabase { .. } => Ok(Self::Root {}),
         }

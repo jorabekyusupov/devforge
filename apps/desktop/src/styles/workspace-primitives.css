@@ -1,0 +1,225 @@
+/* Shared operational primitives across all DevForge desktop surfaces.
+ * Inherits MASTER.md theme variables without introducing competing palettes. */
+
+:root {
+  --panel-radius: 8px;
+  --state-bg-neutral: color-mix(in srgb, var(--muted) 10%, var(--surface));
+  --state-bg-success: color-mix(in srgb, var(--success) 13%, var(--surface));
+  --state-bg-danger: color-mix(in srgb, var(--danger) 13%, var(--surface));
+  --state-bg-accent: color-mix(in srgb, var(--accent) 14%, var(--surface));
+  --state-bg-warn: color-mix(in srgb, #b45309 13%, var(--surface));
+  --warn: #b45309;
+}
+
+:root[data-theme="dark"] {
+  --warn: #fbbf24;
+  --state-bg-warn: color-mix(in srgb, #fbbf24 14%, var(--surface));
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="system"] {
+    --warn: #fbbf24;
+    --state-bg-warn: color-mix(in srgb, #fbbf24 14%, var(--surface));
+  }
+}
+
+/* Sticky desktop sidebar across all screens above the compact breakpoint. */
+@media (min-width: 761px) {
+  .app-shell .sidebar {
+    position: sticky;
+    top: 0;
+    height: 100dvh;
+    align-self: start;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+}
+
+/* Consistent footer breathing room on operational pages. */
+.workspace-content + footer {
+  margin-top: 1.35rem;
+}
+
+/* Shared button motion & primary/danger hover states across workspace pages. */
+.workspace-content button {
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.workspace-content button.primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 88%, var(--text));
+  border-color: color-mix(in srgb, var(--accent) 88%, var(--text));
+  color: var(--on-accent);
+}
+
+.workspace-content button.danger:hover:not(:disabled) {
+  background: var(--state-bg-danger);
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+/* Unified custom select chevron (light & dark) across all workspace pages. */
+.workspace-content select {
+  appearance: none;
+  -webkit-appearance: none;
+  min-height: 2.3rem;
+  padding: 0.45rem 2rem 0.45rem 0.7rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%2364748b' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round' viewBox='0 0 24 24'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.65rem center;
+  background-size: 1rem;
+  cursor: pointer;
+}
+
+.workspace-content select:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+:root[data-theme="dark"] .workspace-content select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%23b0bdc8' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round' viewBox='0 0 24 24'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="system"] .workspace-content select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%23b0bdc8' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round' viewBox='0 0 24 24'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  }
+}
+
+/* Unified tinted semantic state pills. */
+.workspace-content .state {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.16rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 550;
+  line-height: 1.35;
+  background: var(--state-bg-neutral);
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.workspace-content .state-running,
+.workspace-content .state-ready,
+.workspace-content .state-installed {
+  background: var(--state-bg-success);
+  color: var(--success);
+}
+
+.workspace-content .state-failed,
+.workspace-content .state-damaged,
+.workspace-content .state-error {
+  background: var(--state-bg-danger);
+  color: var(--danger);
+}
+
+.workspace-content .state-starting,
+.workspace-content .state-backoff,
+.workspace-content .state-active,
+.workspace-content .state-recording {
+  background: var(--state-bg-accent);
+  color: var(--accent);
+}
+
+.workspace-content .state-incomplete,
+.workspace-content .state-warning,
+.workspace-content .state-paused {
+  background: var(--state-bg-warn);
+  color: var(--warn);
+}
+
+/* Reusable operational badges, chips, disclosures, and empty boxes. */
+.op-count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.4rem;
+  height: 1.3rem;
+  padding: 0 0.42rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  background: var(--state-bg-accent);
+  color: var(--accent);
+}
+
+.op-mono-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.14rem 0.48rem;
+  border-radius: 5px;
+  background: var(--info);
+  border: 1px solid var(--border);
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.75rem;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.op-pill-muted {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.12rem 0.48rem;
+  border-radius: 5px;
+  background: var(--info);
+  font-size: 0.74rem;
+  color: var(--muted);
+}
+
+.op-disclosure-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.op-disclosure-chevron {
+  width: 0.95rem;
+  height: 0.95rem;
+  color: var(--muted);
+  transition: transform 140ms ease;
+  flex: none;
+}
+
+details[open] > summary .op-disclosure-chevron {
+  transform: rotate(90deg);
+}
+
+.op-empty-box {
+  padding: 2.2rem 1.25rem;
+  text-align: center;
+  border: 1px dashed var(--border);
+  border-radius: var(--panel-radius);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 0.88rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.op-empty-box > svg {
+  width: 2rem;
+  height: 2rem;
+  color: var(--muted);
+}
+
+.op-empty-box h2 {
+  font-size: 1.05rem;
+  color: var(--text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workspace-content button,
+  .op-disclosure-chevron {
+    transition: none;
+  }
+}

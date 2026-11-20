@@ -334,7 +334,7 @@ fn main() -> Result<()> {
         );
     }
     let db = w.execute(
-        Command::CreateDatabase { package: pg },
+        Command::CreateDatabase { package: pg, port: None },
         &Cancellation::default(),
     )?;
     let instance = db["id"].as_str().unwrap().to_owned();

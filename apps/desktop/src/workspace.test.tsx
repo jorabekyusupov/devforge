@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import {
+  cleanup,
   render,
   screen,
   within,
@@ -341,4 +342,90 @@ it("offers the reviewed provider build without reinstalling a withdrawn identity
     action: "install",
     package: "php84-reviewed",
   });
+});
+
+it("keeps project filters hidden when empty, renders quiet discovery compactly, and pairs logs + dirty save state inside project detail", async () => {
+  const b = backend();
+  b.get().discovery = {
+    root: "/fixture/Devforge",
+    state: "ready",
+    problem: null,
+    skipped: 0,
+    last_scan: 1,
+    entries: [],
+  };
+  await mount(b.api, "projects");
+  await screen.findByText("Your workspace starts here");
+  expect(
+    screen.queryByRole("group", { name: "Project list filter" }),
+  ).not.toBeInTheDocument();
+  const quietDiscovery = document.querySelector(".discovery-projects");
+  expect(quietDiscovery).toHaveClass("discovery-projects-quiet");
+  expect(quietDiscovery?.querySelector("ul")).toBeNull();
+  expect(
+    within(quietDiscovery as HTMLElement).getByRole("link", {
+      name: "Manage folder",
+    }),
+  ).toHaveAttribute("href", "#settings");
+  cleanup();
+
+  b.get().projects.push({
+    project: {
+      id: "atlas",
+      name: "Atlas",
+      path: "/fixture/Devforge/atlas",
+      php: "php84",
+      node: "node22",
+      revision: 1,
+      php_constraint: "^8.3",
+      node_constraint: "*",
+      environment_names: [],
+      active: true,
+    },
+    site: {
+      project_id: "atlas",
+      domain: "atlas.devforge.test",
+      https: true,
+      vite: false,
+    },
+    development: { queue: false },
+    state: "stopped",
+    serving: null,
+    queue_state: null,
+    database: null,
+  });
+  b.get().logs.push({
+    project_id: "atlas",
+    process: "caddy",
+    stream: "stderr",
+    text: "RAW_STDERR_LINE",
+  });
+
+  const user = await mount(b.api, "projects");
+  const details = (await screen.findByRole("heading", { name: "Atlas" })).closest(
+    ".project-detail",
+  ) as HTMLElement;
+  expect(
+    screen.getByRole("group", { name: "Project list filter" }),
+  ).toBeInTheDocument();
+  expect(within(details).getByRole("button", { name: "Start" })).toHaveClass(
+    "primary",
+  );
+  expect(within(details).getByText("RAW_STDERR_LINE")).toBeInTheDocument();
+  expect(
+    within(details).getByText("RAW_STDERR_LINE").closest(".log-line"),
+  ).toHaveAttribute("data-stream", "stderr");
+
+  const saveRow = details.querySelector(".save-row") as HTMLElement;
+  expect(saveRow).toHaveAttribute("data-dirty", "false");
+  expect(
+    within(saveRow).getByRole("button", { name: "Save changes" }),
+  ).not.toHaveClass("primary");
+
+  await user.click(within(details).getByRole("switch", { name: "Vite dev server" }));
+  expect(saveRow).toHaveAttribute("data-dirty", "true");
+  expect(within(saveRow).getByText("Unsaved changes")).toBeInTheDocument();
+  expect(
+    within(saveRow).getByRole("button", { name: "Save changes" }),
+  ).toHaveClass("primary");
 });

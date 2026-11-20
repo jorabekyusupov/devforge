@@ -159,7 +159,11 @@ export function ProjectDiscoverySettings({
         <div className="discovery-actions">
           <button
             type="submit"
-            className="primary"
+            className={
+              !working && draft.trim() && draft !== folder
+                ? "primary"
+                : undefined
+            }
             disabled={working || !draft.trim() || draft === folder}
           >
             {t("discovery.save")}
@@ -204,7 +208,11 @@ export function ProjectDiscoverySettings({
       <p className="muted">{t("discovery.defaultHint")}</p>
       {report && (
         <div className="discovery-status" role="status" aria-live="polite">
-          <strong>{t(`discovery.states.${report.state || "scanning"}`)}</strong>
+          <strong
+            className={`discovery-state-pill state-${report.problem ? "error" : report.state || "scanning"}`}
+          >
+            {t(`discovery.states.${report.state || "scanning"}`)}
+          </strong>
           <span>
             {t("discovery.count", {
               count: report.entries.filter(
@@ -241,10 +249,16 @@ export function ProjectDiscoverySettings({
         >
           <p>{t("discovery.unsavedDescription")}</p>
           <div className="discovery-actions">
-            <button data-initial-focus onClick={() => setLeaveTo(null)}>
+            <button
+              type="button"
+              data-initial-focus
+              onClick={() => setLeaveTo(null)}
+            >
               {t("work.keepEditing")}
             </button>
             <button
+              type="button"
+              className="danger"
               onClick={() => {
                 const target = leaveTo;
                 setLeaveTo(null);

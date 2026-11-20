@@ -448,6 +448,7 @@ pub fn run(root: &Path) -> Result<()> {
     let instance = w.execute(
         Command::CreateDatabase {
             package: mysql.clone(),
+            port: None,
         },
         &cancel,
     )?;
@@ -534,6 +535,7 @@ pub fn run(root: &Path) -> Result<()> {
     let instance = w.execute(
         Command::CreateDatabase {
             package: common.clone(),
+            port: None,
         },
         &cancel,
     )?;

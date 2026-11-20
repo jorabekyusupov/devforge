@@ -530,7 +530,7 @@ pub fn run(root: &Path) -> Result<()> {
         eprintln!("M12_PHASE: MySQL isolated copied database");
         w.packages
             .download(w.catalog.get(&mysql)?, &cancel, |_| {})?;
-        let instance = w.execute(Command::CreateDatabase { package: mysql }, &cancel)?;
+        let instance = w.execute(Command::CreateDatabase { package: mysql, port: None }, &cancel)?;
         w.execute(
             Command::SwitchDatabase {
                 id: b.id.clone(),

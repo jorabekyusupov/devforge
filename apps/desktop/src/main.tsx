@@ -3,6 +3,7 @@ import { I18nextProvider } from "react-i18next";
 import { App } from "./App";
 import { createEngine } from "./i18n";
 import "./styles.css";
+import "./styles/workspace-primitives.css";
 
 const engine = await createEngine();
 createRoot(document.getElementById("root")!).render(

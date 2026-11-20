@@ -4,6 +4,7 @@ import {
   Activity,
   AlertCircle,
   CheckCircle2,
+  FileCode2,
   Folder,
   Layers,
   Server,
@@ -184,7 +185,7 @@ export function App({ backend = desktopBackend }: { backend?: Backend }) {
   const navigateItems = [
     { id: "projects", icon: Folder, group: "workspace" },
     { id: "workspaces", icon: GitBranch, group: "workspace" },
-    { id: "configuration", icon: Settings2, group: "workspace" },
+    { id: "configuration", icon: FileCode2, group: "workspace" },
     { id: "runtimes", icon: Layers, group: "workspace" },
     { id: "services", icon: Server, group: "workspace" },
     { id: "inspector", icon: ScanSearch, group: "workspace" },
@@ -237,6 +238,7 @@ export function App({ backend = desktopBackend }: { backend?: Backend }) {
           v{snapshot?.diagnostics.appVersion ?? "0.1.0"}
           {backend.quit && (
             <button
+              type="button"
               className="quit-button"
               onClick={() => void backend.quit?.()}
             >
@@ -302,7 +304,7 @@ export function App({ backend = desktopBackend }: { backend?: Backend }) {
           <div className="notice error" role="alert">
             <AlertCircle aria-hidden="true" />
             <p>{t(`errors.${error}`)}</p>
-            <button onClick={() => void load()} disabled={busy}>
+            <button type="button" onClick={() => void load()} disabled={busy}>
               {t("common.retry")}
             </button>
           </div>

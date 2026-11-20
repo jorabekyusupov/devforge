@@ -1,67 +1,284 @@
+/* Refined Runtimes catalog — inherits shared workspace-primitives.css tokens. */
+
+.runtime-catalog {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+/* Primary category tabs: crisp bottom-border tabs with subtle count badge */
 .runtime-catalog-tabs {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
-  padding-bottom: 10px;
-  margin-bottom: 14px;
+  gap: 0.25rem;
   border-bottom: 1px solid var(--border);
+  padding-bottom: 0;
+  margin-bottom: 0;
 }
+
 .runtime-catalog-tabs [role="tab"] {
   background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 6px 6px 0 0;
+  padding: 0.55rem 0.9rem;
+  min-height: 2.35rem;
+  color: var(--muted);
+  font-weight: 500;
+  margin-bottom: -1px;
+}
+
+.runtime-catalog-tabs [role="tab"]:hover:not(:disabled) {
+  color: var(--text);
+  background: var(--info);
   border-color: transparent;
 }
+
 .runtime-catalog-tabs [aria-selected="true"] {
-  background: var(--selected);
-  border-color: var(--accent);
+  background: transparent;
+  border-bottom-color: var(--accent);
   color: var(--accent);
+  font-weight: 600;
 }
-.runtime-catalog [role="tabpanel"] {
-  min-width: 0;
-}
-.runtime-installed-filter {
+
+.runtime-tab-count {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  cursor: pointer;
-}
-.runtime-installed-filter input {
-  width: 16px;
-  height: 16px;
-  min-height: 16px;
-  padding: 0;
-  accent-color: var(--accent);
-}
-.runtime-catalog-empty {
-  padding: 28px 16px;
-  text-align: center;
+  justify-content: center;
+  min-width: 1.3rem;
+  height: 1.2rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  background: var(--info);
   color: var(--muted);
+}
+
+.runtime-catalog-tabs [aria-selected="true"] .runtime-tab-count {
+  background: var(--state-bg-accent);
+  color: var(--accent);
+}
+
+/* Secondary product tabs: compact segmented pill bar */
+.runtime-catalog-tabs.runtime-product-tabs {
+  display: inline-flex;
+  width: fit-content;
+  max-width: 100%;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--panel-radius);
+  background: var(--info);
+  padding: 3px;
+  gap: 3px;
+  margin-bottom: 0.75rem;
+}
+
+.runtime-catalog-tabs.runtime-product-tabs [role="tab"] {
+  border: 1px solid transparent;
+  border-radius: 5px;
+  min-height: 2rem;
+  padding: 0.3rem 0.75rem;
+  margin-bottom: 0;
+  font-size: 0.82rem;
+}
+
+.runtime-catalog-tabs.runtime-product-tabs [aria-selected="true"] {
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--text);
+  box-shadow: var(--shadow);
+}
+
+.runtime-catalog [role="tabpanel"] {
+  min-width: 0;
 }
 
 .runtime-catalog [role="tabpanel"]:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 3px;
+  border-radius: 6px;
 }
 
-.runtime-branch-actions > button,
-.runtime-installed-builds {
-  margin: 4px 0;
+/* Toolbar: search left, installed filter + refresh grouped right */
+.runtime-catalog-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.85rem;
 }
+
+.runtime-catalog-toolbar > .search-field {
+  flex: 1 1 16rem;
+  max-width: 24rem;
+}
+
+.runtime-toolbar-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-inline-start: auto;
+}
+
+.runtime-installed-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.42rem 0.75rem;
+  min-height: 2.25rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  font-size: 0.84rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.runtime-installed-filter:has(input:checked) {
+  background: var(--selected);
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.runtime-installed-filter input {
+  width: 1rem;
+  height: 1rem;
+  min-height: 1rem;
+  padding: 0;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+/* Table card */
+.workspace-content[data-mode="runtimes"] .table-scroll {
+  border-radius: var(--panel-radius);
+  box-shadow: var(--shadow);
+  background: var(--surface);
+}
+
+.workspace-content[data-mode="runtimes"] .runtime-table th {
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  padding: 0.65rem 0.9rem;
+}
+
+.workspace-content[data-mode="runtimes"] .runtime-table td {
+  padding: 0.8rem 0.9rem;
+  vertical-align: middle;
+}
+
+.workspace-content[data-mode="runtimes"] .runtime-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.workspace-content[data-mode="runtimes"] .runtime-table tbody tr:hover td {
+  background: color-mix(in srgb, var(--selected) 28%, var(--surface));
+}
+
+.runtime-name-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.runtime-name-head {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.runtime-version-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  align-items: flex-start;
+}
+
+.runtime-version-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.76rem;
+  color: var(--muted);
+}
+
+.runtime-status-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.3rem;
+}
+
+.runtime-update-note {
+  font-size: 0.72rem;
+  font-weight: 550;
+  color: var(--accent);
+}
+
+.runtime-branch-actions {
+  min-width: 155px;
+}
+
+.runtime-actions-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.runtime-installed-builds {
+  text-align: start;
+}
+
 .runtime-installed-builds summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
   cursor: pointer;
   color: var(--muted);
-  padding: 6px 0;
+  font-size: 0.8rem;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--canvas);
+  list-style: none;
 }
+
+.runtime-installed-builds summary::-webkit-details-marker {
+  display: none;
+}
+
 .runtime-installed-builds summary:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 3px;
 }
-.runtime-installed-builds button {
+
+.runtime-installed-builds > div {
+  margin-top: 0.4rem;
   display: flex;
-  margin: 6px 0;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 0.35rem;
+  align-items: flex-end;
 }
-.runtime-branch-actions {
-  min-width: 140px;
+
+.runtime-installed-builds button {
+  font-size: 0.78rem;
+  min-height: 1.95rem;
+  padding: 0.25rem 0.55rem;
+}
+
+.runtime-catalog-empty {
+  padding: 2rem 1.25rem;
+  text-align: center;
+  color: var(--muted);
+  border: 1px dashed var(--border);
+  border-radius: var(--panel-radius);
+  background: var(--surface);
 }

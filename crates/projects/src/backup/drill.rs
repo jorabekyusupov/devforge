@@ -348,6 +348,7 @@ mod tests {
             admin: "fixture".into(),
             secret_ref: "fixture/admin-secret-must-not-leak".into(),
             ready: true,
+            settings: Default::default(),
         };
         store.save_instance(&instance).unwrap();
         let binding = Binding {

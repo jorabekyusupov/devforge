@@ -51,6 +51,20 @@ impl ServiceSelection {
         self.cache == CacheDriver::Redis || self.queue == QueueDriver::Redis
     }
 }
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct CacheSettings {
+    pub memory_mb: Option<u32>,
+    pub aof_enabled: Option<bool>,
+}
+impl CacheSettings {
+    pub fn validate(&self) -> Result<()> {
+        if self.memory_mb.is_some_and(|n| !(16..=4096).contains(&n)) {
+            return Err(E::InvalidEnvironment);
+        }
+        Ok(())
+    }
+}
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CacheInstance {
     pub id: String,
@@ -62,6 +76,8 @@ pub struct CacheInstance {
     pub secret_ref: String,
     pub admin_ref: String,
     pub ready: bool,
+    #[serde(default)]
+    pub settings: CacheSettings,
 }
 #[derive(Debug)]
 pub enum Response {
@@ -226,6 +242,7 @@ impl ProjectStore {
             secret_ref: format!("cache/{id}/project"),
             admin_ref: format!("cache/{id}/admin"),
             ready: false,
+            settings: CacheSettings::default(),
         };
         secrets
             .set(&instance.secret_ref, &crate::password())
@@ -238,6 +255,29 @@ impl ProjectStore {
         instance.ready = true;
         self.save_cache(&instance)?;
         service.stop()?;
+        Ok(instance)
+    }
+    pub fn configure_cache(
+        &self,
+        id: &str,
+        port: u16,
+        settings: CacheSettings,
+    ) -> Result<CacheInstance> {
+        let _lock = self.operation_lock()?;
+        let mut instance = self.cache_instance(id)?;
+        if !instance.ready {
+            return Err(E::RecoveryRequired);
+        }
+        crate::database::validate_service_port(port)?;
+        settings.validate()?;
+        self.ensure_port_unused(port, None, Some(id))?;
+        if port != instance.port {
+            let probe = TcpListener::bind(("127.0.0.1", port)).map_err(|_| E::InstanceBusy)?;
+            drop(probe);
+        }
+        instance.port = port;
+        instance.settings = settings;
+        self.save_cache(&instance)?;
         Ok(instance)
     }
     pub fn save_services(
@@ -400,13 +440,17 @@ impl RunningCache {
             .truncate(false)
             .open(root.join("instance.lock"))?;
         lock.try_lock().map_err(|_| E::InstanceBusy)?;
-        // A stopped patch update may have committed while this start waited for the lock.
+        // A stopped patch update or settings edit may have committed while waiting for the lock.
         if {
             let fresh = store.cache_instance(id)?;
-            fresh.package != instance.package || fresh.runtime != instance.runtime
+            fresh.package != instance.package
+                || fresh.runtime != instance.runtime
+                || fresh.port != instance.port
+                || fresh.settings != instance.settings
         } {
             return Err(E::InstanceBusy);
         }
+        instance.settings.validate()?;
         let bind = TcpListener::bind(("127.0.0.1", instance.port)).map_err(|_| E::InstanceBusy)?;
         drop(bind);
         let server = packages.executable(catalog.get(&instance.package)?, "garnet")?;
@@ -446,7 +490,7 @@ impl RunningCache {
         for key in ["DOTNET_ROOT", "DOTNET_ROOT_ARM64", "DOTNET_ROOT_X64"] {
             env.insert(key.into(), dunce::simplified(home).as_os_str().to_owned());
         }
-        let args = vec![
+        let mut args: Vec<OsString> = vec![
             "--bind".into(),
             "127.0.0.1".into(),
             "--port".into(),
@@ -457,21 +501,27 @@ impl RunningCache {
             dunce::simplified(&acl_path).as_os_str().to_owned(),
             "--lua".into(),
             "--memory".into(),
-            "64m".into(),
+            format!("{}m", instance.settings.memory_mb.unwrap_or(64)).into(),
             "--page".into(),
             "1m".into(),
             "--index".into(),
             "1m".into(),
             "--device-type".into(),
             "FileStream".into(),
-            "--aof".into(),
-            "--aof-memory".into(),
-            "8m".into(),
-            "--aof-page-size".into(),
-            "2m".into(),
-            "--aof-segment-size".into(),
-            "16m".into(),
-            "--aof-commit-wait".into(),
+        ];
+        if instance.settings.aof_enabled.unwrap_or(true) {
+            args.extend([
+                "--aof".into(),
+                "--aof-memory".into(),
+                "8m".into(),
+                "--aof-page-size".into(),
+                "2m".into(),
+                "--aof-segment-size".into(),
+                "16m".into(),
+                "--aof-commit-wait".into(),
+            ]);
+        }
+        args.extend([
             "--storage-tier".into(),
             "--logdir".into(),
             dunce::simplified(&root.join("data")).as_os_str().to_owned(),
@@ -480,7 +530,7 @@ impl RunningCache {
                 .as_os_str()
                 .to_owned(),
             "--recover".into(),
-        ];
+        ]);
         let mut supervisor = Supervisor::open(root.join("logs"))?;
         supervisor.start_redacted(
             ProcessSpec {

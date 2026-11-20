@@ -123,7 +123,7 @@ pub fn run(root: &Path) -> Result<()> {
     let mut mysql_instance = None;
     if let Some(package) = mysql {
         eprintln!("M9_PHASE: MySQL project switch and migrations");
-        let i = w.execute(Command::CreateDatabase { package }, &cancel)?;
+        let i = w.execute(Command::CreateDatabase { package, port: None }, &cancel)?;
         let id = i["id"].as_str().unwrap().to_string();
         assert!(
             w.execute(

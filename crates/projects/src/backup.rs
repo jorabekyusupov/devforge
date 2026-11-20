@@ -1038,6 +1038,7 @@ mod tests {
             admin: "fixture".into(),
             secret_ref: "fixture-admin".into(),
             ready: true,
+            settings: Default::default(),
         };
         store.save_instance(&instance).unwrap();
         let binding = Binding {

@@ -1,0 +1,522 @@
+.workspace-content.debugger-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  min-width: 0;
+}
+
+.debugger-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.7rem 0.9rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--panel-radius);
+}
+
+.debugger-header-left,
+.debugger-header-right {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.debugger-content .debugger-header label {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  font-size: 0.84rem;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.debugger-content .debugger-header select {
+  min-width: 11rem;
+  min-height: 2.15rem;
+  font-size: 0.86rem;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.debugger-header-right > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.36rem;
+  min-height: 2.15rem;
+  padding: 0.38rem 0.78rem;
+  font-size: 0.83rem;
+}
+
+.debugger-header-right > button svg {
+  width: 0.9rem;
+  height: 0.9rem;
+}
+
+.debugger-content .debugger-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.22rem;
+  margin: 0;
+  padding: 0.18rem;
+  background: color-mix(in srgb, var(--canvas) 75%, var(--surface));
+  border: 1px solid var(--border);
+  border-radius: 9px;
+}
+
+.debugger-content .debugger-tabs button {
+  min-height: 1.9rem;
+  padding: 0.28rem 0.72rem;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 500;
+}
+
+.debugger-content .debugger-tabs button[aria-pressed="true"] {
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: var(--shadow);
+}
+
+.debug-deck {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.8rem 0.9rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--panel-radius);
+}
+
+.debugger-content .debug-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0 0 0.75rem;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+}
+
+.debug-step-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.debugger-content .debug-controls button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 2.05rem;
+  padding: 0.35rem 0.72rem;
+  font-size: 0.82rem;
+}
+
+.debugger-content .debug-controls button svg {
+  width: 0.88rem;
+  height: 0.88rem;
+}
+
+.debugger-content .debug-request {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.debugger-content .debug-request label {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1 1 16rem;
+  min-width: 12rem;
+  margin: 0;
+  font-size: 0.83rem;
+  font-weight: 500;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.debugger-content .debug-request input {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 2.1rem;
+  padding: 0.35rem 0.7rem;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.83rem;
+}
+
+.debugger-content .debug-request button {
+  min-height: 2.1rem;
+  padding: 0.38rem 0.78rem;
+  font-size: 0.83rem;
+}
+
+.debugger-content .debug-request-options {
+  margin: 0;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--canvas) 48%, var(--surface));
+}
+
+.debugger-content .debug-request-options > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  list-style: none;
+  cursor: pointer;
+  font-size: 0.83rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.debugger-content .debug-request-options > summary::-webkit-details-marker {
+  display: none;
+}
+
+.debug-request-options-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+
+.debug-request-options-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.debug-request-options-grid .debug-method-field {
+  grid-column: 1 / -1;
+  max-width: 13rem;
+}
+
+.debug-request-options-grid textarea {
+  min-height: 4.5rem;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.78rem;
+}
+
+.debug-request-status {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.debugger-content .debug-main-grid {
+  display: grid;
+  grid-template-columns: minmax(17rem, 22rem) minmax(0, 1fr);
+  gap: 0.95rem;
+  margin: 0;
+  align-items: start;
+}
+
+.debugger-content .debug-bottom-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.95rem;
+  margin: 0;
+  align-items: start;
+}
+
+.debugger-content .debug-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 1rem 1.05rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--panel-radius);
+  min-width: 0;
+}
+
+.debug-panel-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding-bottom: 0.65rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.debugger-content .debug-panel h2 {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+.debugger-content .debug-breakpoints {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.debugger-content .debug-breakpoints li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.42rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--canvas) 55%, var(--surface));
+}
+
+.debugger-content .debug-breakpoints code {
+  font-size: 0.78rem;
+  overflow-wrap: anywhere;
+}
+
+.debugger-content .debug-breakpoints button {
+  padding: 0.25rem 0.4rem;
+  min-height: 0;
+}
+
+.debugger-content .debug-panel form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.55rem;
+  margin: 0;
+  padding-top: 0.65rem;
+  border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+}
+
+.debugger-content .debug-panel form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.debugger-content .debug-panel form label:first-child {
+  flex: 1 1 10rem;
+}
+
+.debugger-content .debug-panel form label:nth-child(2) {
+  width: 5.5rem;
+}
+
+.debugger-content .debug-panel form button[type="submit"] {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.32rem;
+  min-height: 2.15rem;
+  padding: 0.38rem 0.75rem;
+  font-size: 0.82rem;
+}
+
+.debugger-content .debug-code {
+  margin: 0;
+  padding: 0.5rem 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--canvas) 65%, var(--surface));
+  max-height: 23rem;
+  overflow: auto;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.78rem;
+  line-height: 1.65;
+}
+
+.debugger-content .debug-code ol {
+  margin: 0;
+  padding-inline-start: 3rem;
+}
+
+.debugger-content .debug-code li {
+  padding: 0.05rem 0.75rem;
+  white-space: pre;
+}
+
+.debugger-content .debug-code li.current {
+  background: var(--selected);
+  box-shadow: inset 3px 0 0 var(--accent);
+  font-weight: 600;
+}
+
+.debugger-content .debug-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.debugger-content .debug-stack button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.18rem;
+  width: 100%;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--canvas) 45%, var(--surface));
+  text-align: start;
+}
+
+.debugger-content .debug-stack button[aria-pressed="true"] {
+  background: var(--selected);
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.debugger-content .debug-stack code {
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.debugger-content .debug-stack span {
+  font-size: 0.74rem;
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.debugger-content .debug-variables {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.debugger-content .debug-variables li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--canvas) 48%, var(--surface));
+  font-size: 0.8rem;
+}
+
+.debugger-content .debug-profiles {
+  display: grid;
+  grid-template-columns: minmax(15rem, 19.5rem) minmax(0, 1fr);
+  gap: 0.95rem;
+  margin: 0;
+  align-items: start;
+}
+
+.debugger-content .debug-profiles ul {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.debugger-content .debug-profiles li button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.58rem 0.72rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--canvas) 48%, var(--surface));
+  font-size: 0.81rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.debugger-content .debug-profiles li button[aria-pressed="true"] {
+  background: var(--selected);
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.debugger-content .debug-function-table {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: auto;
+  max-height: 26rem;
+}
+
+.debugger-content .debug-function-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.debugger-content .debug-function-table th {
+  position: sticky;
+  top: 0;
+  background: color-mix(in srgb, var(--canvas) 55%, var(--surface));
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.debugger-content .debug-function-table td:not(:first-child) {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.debugger-content .debug-function-table tbody tr {
+  content-visibility: visible;
+}
+
+.debugger-content > .muted {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+@media (max-width: 1060px) {
+  .debugger-content .debug-main-grid,
+  .debugger-content .debug-bottom-grid,
+  .debugger-content .debug-profiles,
+  .debug-request-options-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

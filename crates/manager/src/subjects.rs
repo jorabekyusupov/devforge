@@ -111,7 +111,10 @@ pub(crate) fn resource_subject(
         }
         return project_id(&record.input.source_id).map(Some);
     }
-    if let Command::StartCache { instance } | Command::StopCache { instance } = command {
+    if let Command::StartCache { instance }
+    | Command::StopCache { instance }
+    | Command::ConfigureCache { instance, .. } = command
+    {
         if snapshot.caches.len() > CACHE_LIMIT {
             return Err(SubjectError::MetadataLimit);
         }
@@ -549,6 +552,7 @@ mod tests {
             secret_ref: "ref".into(),
             admin_ref: "admin".into(),
             ready: false,
+            settings: Default::default(),
         };
         let registry =
             rusqlite::Connection::open(workspace.projects.root().join("projects.sqlite3")).unwrap();
@@ -767,6 +771,7 @@ mod tests {
             secret_ref: "opaque-ref".into(),
             admin_ref: "opaque-admin".into(),
             ready: false,
+            settings: Default::default(),
         };
         let registry =
             rusqlite::Connection::open(workspace.projects.root().join("projects.sqlite3")).unwrap();

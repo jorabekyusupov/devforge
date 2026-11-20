@@ -56,7 +56,7 @@ export function ProjectDetectionSummary({
     </li>
   );
   return (
-    <div className="notice" style={{ overflowWrap: "anywhere" }}>
+    <div className="detection-summary">
       <ul>
         {!metadataOnly && (
           <>

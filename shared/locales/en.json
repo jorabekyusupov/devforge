@@ -63,7 +63,10 @@
     "database": "Preferences database",
     "schema": "Schema version",
     "privacy": "No project credentials are stored in this database.",
-    "connection": "Desktop connection"
+    "connection": "Desktop connection",
+    "copySummary": "Copy summary",
+    "copyPath": "Copy path",
+    "copied": "Copied"
   },
   "errors": {
     "invalid_settings": "These preferences are not supported. Choose an available option.",
@@ -306,7 +309,9 @@
       "mail_delete": "Applying mail operation…",
       "mail_save": "Applying mail operation…",
       "discovery_restore": "Restore",
-      "update_runtime": "Updating runtime…"
+      "update_runtime": "Updating runtime…",
+      "configure_database": "Saving database settings…",
+      "configure_cache": "Saving cache settings…"
     },
     "kinds": {
       "php": "PHP",
@@ -479,7 +484,40 @@
     "retained": "Retained databases",
     "retainedHint": "Reactivate a previous connection without copying or deleting its data.",
     "activate": "Activate connection",
-    "projectLabel": "Project"
+    "projectLabel": "Project",
+    "settings": "Settings",
+    "databaseSettingsTitle": "Database service settings",
+    "cacheSettingsTitle": "Cache service settings",
+    "stopToEdit": "Stop this service before changing its port or internal settings.",
+    "loopbackHint": "Always listens on 127.0.0.1 only. Bound projects automatically pick up the updated port on next start.",
+    "port": "Port",
+    "portAuto": "Auto",
+    "portRange": "1024–65535",
+    "maxConnections": "Max connections",
+    "memoryMb": "Memory / buffer pool (MB)",
+    "workMemMb": "Work memory (MB)",
+    "maxAllowedPacketMb": "Max allowed packet (MB)",
+    "timezone": "Timezone",
+    "timezoneHintPg": "IANA name or UTC (e.g. UTC, Asia/Tashkent)",
+    "timezoneHintMysql": "UTC, SYSTEM, or offset (e.g. +05:00)",
+    "logStatement": "Query logging",
+    "logLevels": {
+      "none": "Off (default)",
+      "ddl": "Schema changes (DDL)",
+      "mod": "Writes & DDL (mod)",
+      "all": "All queries"
+    },
+    "sqlMode": "SQL mode",
+    "sqlModes": {
+      "strict": "Strict (default)",
+      "relaxed": "Relaxed (legacy compatibility)"
+    },
+    "cacheMemoryMb": "Memory limit (MB)",
+    "aofPersistence": "Persist cache to disk (AOF)",
+    "aofOn": "AOF on",
+    "aofOff": "Memory only",
+    "resetDefaults": "Reset defaults",
+    "defaultValue": "Default"
   },
   "inspector": {
     "title": "Inspector",

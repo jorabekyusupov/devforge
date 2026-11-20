@@ -7,6 +7,7 @@ import {
   Archive,
   ExternalLink,
   AlertCircle,
+  Info,
 } from "lucide-react";
 import { WorkspaceModal } from "../components/WorkspaceModal";
 import {
@@ -18,6 +19,16 @@ import {
   type ArchivePlan,
   type RemoteSource,
 } from "../workspace";
+import "./WorktreesPage.css";
+
+function stageTone(stage: string): "ready" | "busy" | "error" | "muted" {
+  if (stage === "ready") return "ready";
+  if (["creating", "removing", "restoring", "purging"].includes(stage)) {
+    return "busy";
+  }
+  if (stage === "failed") return "error";
+  return "muted";
+}
 export function WorktreesPage({ backend }: { backend?: WorkspaceBackend }) {
   const { t, i18n } = useTranslation();
   const api = useWorkspace(backend);
@@ -169,19 +180,30 @@ export function WorktreesPage({ backend }: { backend?: WorkspaceBackend }) {
       className="workspace-content worktrees-page"
       aria-label={t("workspaces.title")}
     >
-      <div className="workspace-toolbar">
-        <label>
-          {t("forks.source")}
-          <select value={source} onChange={(e) => setSource(e.target.value)}>
-            <option value="">{t("forks.allSources")}</option>
-            {projects.map((p) => (
-              <option key={p.project.id} value={p.project.id}>
-                {p.project.name}
-              </option>
-            ))}
-          </select>
-        </label>
+      <div className="workspace-toolbar worktrees-toolbar">
+        <div className="worktrees-toolbar-left">
+          <label>
+            {t("forks.source")}
+            <select value={source} onChange={(e) => setSource(e.target.value)}>
+              <option value="">{t("forks.allSources")}</option>
+              {projects.map((p) => (
+                <option key={p.project.id} value={p.project.id}>
+                  {p.project.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="check-label worktrees-archived-toggle">
+            <input
+              type="checkbox"
+              checked={archived}
+              onChange={(e) => setArchived(e.target.checked)}
+            />
+            {t("forks.showArchived")}
+          </label>
+        </div>
         <button
+          type="button"
           className="primary"
           onClick={begin}
           disabled={api.busy || !projects.length}
@@ -190,15 +212,10 @@ export function WorktreesPage({ backend }: { backend?: WorkspaceBackend }) {
           {t("forks.new")}
         </button>
       </div>
-      <p className="muted">{t("forks.committedOnly")}</p>
-      <label className="check-label">
-        <input
-          type="checkbox"
-          checked={archived}
-          onChange={(e) => setArchived(e.target.checked)}
-        />
-        {t("forks.showArchived")}
-      </label>
+      <p className="worktrees-info-strip">
+        <Info aria-hidden="true" />
+        <span>{t("forks.committedOnly")}</span>
+      </p>
       {!creating && !cleanup && !archivePlan && !remote && failureNotice}
       {api.busy && !creating && !cleanup && (
         <p role="status">{t("forks.working")}</p>
@@ -217,201 +234,239 @@ export function WorktreesPage({ backend }: { backend?: WorkspaceBackend }) {
           <p>{t("forks.emptyHelp")}</p>
         </div>
       ) : (
-        <>
-          <div className="fork-list-heading" aria-hidden="true">
-            <span>{t("forks.name")}</span>
-            <span>{t("forks.branch")}</span>
-            <span>{t("forks.source")}</span>
-            <span>{t("forks.domain")}</span>
-            <span>{t("forks.status")}</span>
+        <div className="worktrees-split">
+          <div className="fork-rail">
+            <div className="fork-rail-header">
+              <span className="fork-rail-title">{t("workspaces.title")}</span>
+              <span className="op-count-badge" aria-hidden="true">
+                {views.length}
+              </span>
+            </div>
+            <ul className="fork-list">
+              {views.map((v) => {
+                const sourceName =
+                  projects.find((p) => p.project.id === v.record.input.source_id)
+                    ?.project.name ?? t("forks.unregisteredSource");
+                return (
+                  <li key={v.record.id}>
+                    <button
+                      type="button"
+                      data-workspace={v.record.id}
+                      className={`fork-row ${view?.record.id === v.record.id ? "selected" : ""}`}
+                      aria-pressed={view?.record.id === v.record.id}
+                      onClick={() => setSelected(v.record.id)}
+                    >
+                      <div className="fork-row-top">
+                        <strong>
+                          {byId.get(v.record.project_id ?? "")?.project.name ??
+                            v.record.input.name}
+                        </strong>
+                        <span
+                          className={`status-pill status-pill--${stageTone(v.record.stage)}`}
+                        >
+                          {status(v.record.stage)}
+                        </span>
+                      </div>
+                      <div className="fork-row-sub">
+                        <span className="mono fork-row-branch" translate="no">
+                          <GitBranch aria-hidden="true" />
+                          {v.record.input.branch}
+                        </span>
+                        <span aria-hidden="true">·</span>
+                        <span className="fork-row-source">{sourceName}</span>
+                      </div>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
           </div>
-          <ul className="fork-list">
-            {views.map((v) => (
-              <li key={v.record.id}>
-                <button
-                  data-workspace={v.record.id}
-                  className={`fork-row ${view?.record.id === v.record.id ? "selected" : ""}`}
-                  aria-pressed={view?.record.id === v.record.id}
-                  onClick={() => setSelected(v.record.id)}
-                >
-                  <strong>
-                    {byId.get(v.record.project_id ?? "")?.project.name ??
-                      v.record.input.name}
-                  </strong>
-                  <span className="mono" translate="no">
-                    <GitBranch aria-hidden="true" />
-                    {v.record.input.branch}
-                  </span>
-                  <span>
-                    {projects.find(
-                      (p) => p.project.id === v.record.input.source_id,
-                    )?.project.name ?? t("forks.unregisteredSource")}
-                  </span>
-                  <span className="mono fork-domain" translate="no">
-                    {byId.get(v.record.project_id ?? "")?.site?.domain ??
-                      v.record.domain}
-                  </span>
-                  <span className="status-pill">{status(v.record.stage)}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
           {view && (
             <article
               className="fork-detail"
               aria-labelledby="fork-detail-heading"
             >
-              <h2 id="fork-detail-heading">
-                {row?.project.name ?? view.record.input.name}
-              </h2>
-              <dl>
-                <dt>{t("forks.branch")}</dt>
-                <dd className="mono" translate="no">
-                  {view.record.input.branch}
-                </dd>
-                <dt>{t("forks.source")}</dt>
-                <dd>
-                  {projects.find(
-                    (p) => p.project.id === view.record.input.source_id,
-                  )?.project.name ?? view.record.source_path}
-                </dd>
-                <dt>{t("forks.path")}</dt>
-                <dd className="mono" translate="no">
-                  {view.record.stage === "removed" || view.files_archived
-                    ? view.retained_path
-                    : view.path}
-                </dd>
-                <dt>{t("forks.domain")}</dt>
-                <dd className="mono" translate="no">
-                  {row?.site?.domain ?? view.record.domain}
-                </dd>
-                <dt>{t("forks.runtimes")}</dt>
-                <dd className="mono" translate="no">
-                  {versions.get(row?.project.php ?? "") ??
-                    view.record.configuration.runtimes.php}{" "}
-                  /{" "}
-                  {versions.get(row?.project.node ?? "") ??
-                    view.record.configuration.runtimes.node}
-                </dd>
-                <dt>{t("forks.database")}</dt>
-                <dd>
-                  {view.record.configuration.database?.engine === "mysql"
-                    ? "MySQL"
-                    : view.record.configuration.database?.engine ===
-                        "postgresql"
-                      ? "PostgreSQL"
-                      : "SQLite"}{" "}
-                  · {t(`forks.databaseModes.${view.record.input.database}`)}
-                </dd>
-                <dt>{t("forks.configuration")}</dt>
-                <dd>{t("forks.pinned")}</dd>
-              </dl>
+              <div className="fork-detail-head">
+                <div className="fork-detail-identity">
+                  <div className="fork-detail-title-row">
+                    <h2 id="fork-detail-heading">
+                      {row?.project.name ?? view.record.input.name}
+                    </h2>
+                    <span
+                      className={`status-pill status-pill--${stageTone(view.record.stage)}`}
+                    >
+                      {status(view.record.stage)}
+                    </span>
+                  </div>
+                  <div className="fork-detail-chips">
+                    <span className="op-mono-chip" translate="no">
+                      <GitBranch aria-hidden="true" />
+                      {view.record.input.branch}
+                    </span>
+                    <span className="op-mono-chip" translate="no">
+                      {row?.site?.domain ?? view.record.domain}
+                    </span>
+                  </div>
+                </div>
+                <div className="workspace-actions">
+                  {row && (
+                    <a
+                      className="button primary"
+                      href={`#projects?project=${encodeURIComponent(row.project.id)}`}
+                    >
+                      <ExternalLink aria-hidden="true" />
+                      {t("forks.openProject")}
+                    </a>
+                  )}
+                  <button
+                    type="button"
+                    disabled={api.busy || view.record.stage === "purged"}
+                    onClick={() =>
+                      void api.run({
+                        action: "worktree_open",
+                        id: view.record.id,
+                      })
+                    }
+                  >
+                    <FolderOpen aria-hidden="true" />
+                    {t("forks.openFolder")}
+                  </button>
+                  {["removed", "restoring", "purging"].includes(
+                    view.record.stage,
+                  ) && (
+                    <>
+                      {view.record.stage !== "purging" && (
+                        <button
+                          type="button"
+                          disabled={api.busy}
+                          onClick={() => {
+                            setConsent(false);
+                            void api.run(
+                              {
+                                action: "worktree_archive_plan",
+                                id: view.record.id,
+                                operation: "restore",
+                              },
+                              (v) =>
+                                setArchivePlan(v as unknown as ArchivePlan),
+                            );
+                          }}
+                        >
+                          {t("forks.restore")}
+                        </button>
+                      )}
+                      {view.record.stage !== "restoring" && (
+                        <button
+                          type="button"
+                          className="danger"
+                          disabled={api.busy}
+                          onClick={() => {
+                            setConsent(false);
+                            void api.run(
+                              {
+                                action: "worktree_archive_plan",
+                                id: view.record.id,
+                                operation: "purge",
+                              },
+                              (v) =>
+                                setArchivePlan(v as unknown as ArchivePlan),
+                            );
+                          }}
+                        >
+                          {t("forks.purge")}
+                        </button>
+                      )}
+                    </>
+                  )}
+                  {view.record.stage === "ready" && row?.database && (
+                    <button
+                      type="button"
+                      disabled={api.busy || row.state !== "stopped"}
+                      onClick={() => {
+                        setRemote(true);
+                        setRemotePlan(null);
+                        setConsent(false);
+                        setRemoteSource((s) => ({
+                          ...s,
+                          port:
+                            row.database &&
+                            api.snapshot?.databases.find(
+                              (d) =>
+                                d.instance.id === row.database!.instance_id,
+                            )?.instance.engine === "mysql"
+                              ? 3306
+                              : 5432,
+                        }));
+                      }}
+                    >
+                      {t("forks.remoteCopy")}
+                    </button>
+                  )}
+                  {!["removed", "purged", "restoring", "purging"].includes(
+                    view.record.stage,
+                  ) && (
+                    <button
+                      type="button"
+                      className="danger"
+                      disabled={api.busy}
+                      onClick={() => void reviewCleanup()}
+                    >
+                      <Archive aria-hidden="true" />
+                      {t("forks.reviewCleanup")}
+                    </button>
+                  )}
+                </div>
+              </div>
               {view.record.last_error && (
                 <p className="notice error" role="alert">
                   {error(view.record.last_error)}
                 </p>
               )}
-              <div className="workspace-actions">
-                {row && (
-                  <a
-                    className="button primary"
-                    href={`#projects?project=${encodeURIComponent(row.project.id)}`}
-                  >
-                    <ExternalLink aria-hidden="true" />
-                    {t("forks.openProject")}
-                  </a>
-                )}
-                <button
-                  disabled={api.busy || view.record.stage === "purged"}
-                  onClick={() =>
-                    void api.run({
-                      action: "worktree_open",
-                      id: view.record.id,
-                    })
-                  }
-                >
-                  <FolderOpen aria-hidden="true" />
-                  {t("forks.openFolder")}
-                </button>
-                {["removed", "restoring", "purging"].includes(
-                  view.record.stage,
-                ) && (
-                  <>
-                    {view.record.stage !== "purging" && (
-                      <button
-                        disabled={api.busy}
-                        onClick={() => {
-                          setConsent(false);
-                          void api.run(
-                            {
-                              action: "worktree_archive_plan",
-                              id: view.record.id,
-                              operation: "restore",
-                            },
-                            (v) => setArchivePlan(v as unknown as ArchivePlan),
-                          );
-                        }}
-                      >
-                        {t("forks.restore")}
-                      </button>
-                    )}
-                    {view.record.stage !== "restoring" && (
-                      <button
-                        className="danger"
-                        disabled={api.busy}
-                        onClick={() => {
-                          setConsent(false);
-                          void api.run(
-                            {
-                              action: "worktree_archive_plan",
-                              id: view.record.id,
-                              operation: "purge",
-                            },
-                            (v) => setArchivePlan(v as unknown as ArchivePlan),
-                          );
-                        }}
-                      >
-                        {t("forks.purge")}
-                      </button>
-                    )}
-                  </>
-                )}
-                {view.record.stage === "ready" && row?.database && (
-                  <button
-                    disabled={api.busy || row.state !== "stopped"}
-                    onClick={() => {
-                      setRemote(true);
-                      setRemotePlan(null);
-                      setConsent(false);
-                      setRemoteSource((s) => ({
-                        ...s,
-                        port:
-                          row.database &&
-                          api.snapshot?.databases.find(
-                            (d) => d.instance.id === row.database!.instance_id,
-                          )?.instance.engine === "mysql"
-                            ? 3306
-                            : 5432,
-                      }));
-                    }}
-                  >
-                    {t("forks.remoteCopy")}
-                  </button>
-                )}
-                {!["removed", "purged", "restoring", "purging"].includes(
-                  view.record.stage,
-                ) && (
-                  <button
-                    className="danger"
-                    disabled={api.busy}
-                    onClick={() => void reviewCleanup()}
-                  >
-                    <Archive aria-hidden="true" />
-                    {t("forks.reviewCleanup")}
-                  </button>
-                )}
-              </div>
-              <p className="muted">
+              <dl>
+                <div className="fork-meta-item">
+                  <dt>{t("forks.source")}</dt>
+                  <dd>
+                    {projects.find(
+                      (p) => p.project.id === view.record.input.source_id,
+                    )?.project.name ?? view.record.source_path}
+                  </dd>
+                </div>
+                <div className="fork-meta-item">
+                  <dt>{t("forks.runtimes")}</dt>
+                  <dd className="mono" translate="no">
+                    {versions.get(row?.project.php ?? "") ??
+                      view.record.configuration.runtimes.php}{" "}
+                    /{" "}
+                    {versions.get(row?.project.node ?? "") ??
+                      view.record.configuration.runtimes.node}
+                  </dd>
+                </div>
+                <div className="fork-meta-item">
+                  <dt>{t("forks.database")}</dt>
+                  <dd>
+                    {view.record.configuration.database?.engine === "mysql"
+                      ? "MySQL"
+                      : view.record.configuration.database?.engine ===
+                          "postgresql"
+                        ? "PostgreSQL"
+                        : "SQLite"}{" "}
+                    · {t(`forks.databaseModes.${view.record.input.database}`)}
+                  </dd>
+                </div>
+                <div className="fork-meta-item">
+                  <dt>{t("forks.configuration")}</dt>
+                  <dd>{t("forks.pinned")}</dd>
+                </div>
+                <div className="fork-meta-item fork-meta-wide">
+                  <dt>{t("forks.path")}</dt>
+                  <dd className="mono" translate="no">
+                    {view.record.stage === "removed" || view.files_archived
+                      ? view.retained_path
+                      : view.path}
+                  </dd>
+                </div>
+              </dl>
+              <p className="fork-detail-footnote">
                 {t(
                   view.record.stage === "purged"
                     ? "forks.purgedHelp"
@@ -420,7 +475,7 @@ export function WorktreesPage({ backend }: { backend?: WorkspaceBackend }) {
               </p>
             </article>
           )}
-        </>
+        </div>
       )}
       {creating && (
         <WorkspaceModal
@@ -600,10 +655,15 @@ export function WorktreesPage({ backend }: { backend?: WorkspaceBackend }) {
                 {t("forks.trust")}
               </label>
               <div className="modal-actions">
-                <button disabled={api.busy} onClick={() => setPlan(null)}>
+                <button
+                  type="button"
+                  disabled={api.busy}
+                  onClick={() => setPlan(null)}
+                >
                   {t("forks.back")}
                 </button>
                 <button
+                  type="button"
                   className="primary"
                   disabled={api.busy || !trusted || !!plan.blockers.length}
                   onClick={() => void create()}
@@ -616,7 +676,7 @@ export function WorktreesPage({ backend }: { backend?: WorkspaceBackend }) {
           {api.busy && (
             <div className="operation-progress">
               <p role="status">{t("forks.working")}</p>
-              <button onClick={() => void api.cancel()}>
+              <button type="button" onClick={() => void api.cancel()}>
                 {t("forks.cancelOperation")}
               </button>
             </div>
@@ -667,10 +727,11 @@ export function WorktreesPage({ backend }: { backend?: WorkspaceBackend }) {
             {t("forks.archiveConsent")}
           </label>
           <div className="modal-actions">
-            <button onClick={close} disabled={api.busy}>
+            <button type="button" onClick={close} disabled={api.busy}>
               {t("work.cancel")}
             </button>
             <button
+              type="button"
               className={
                 archivePlan.operation === "purge" ? "danger" : "primary"
               }
@@ -819,10 +880,15 @@ export function WorktreesPage({ backend }: { backend?: WorkspaceBackend }) {
                 {t("forks.remoteConsent")}
               </label>
               <div className="modal-actions">
-                <button disabled={api.busy} onClick={() => setRemotePlan(null)}>
+                <button
+                  type="button"
+                  disabled={api.busy}
+                  onClick={() => setRemotePlan(null)}
+                >
                   {t("forks.back")}
                 </button>
                 <button
+                  type="button"
                   className="primary"
                   disabled={api.busy || !consent}
                   onClick={() =>
@@ -845,7 +911,7 @@ export function WorktreesPage({ backend }: { backend?: WorkspaceBackend }) {
             </>
           )}
           {api.busy && (
-            <button onClick={() => void api.cancel()}>
+            <button type="button" onClick={() => void api.cancel()}>
               {t("forks.cancelOperation")}
             </button>
           )}
@@ -897,10 +963,11 @@ export function WorktreesPage({ backend }: { backend?: WorkspaceBackend }) {
             {t("forks.cleanupConsent")}
           </label>
           <div className="modal-actions">
-            <button disabled={api.busy} onClick={close}>
+            <button type="button" disabled={api.busy} onClick={close}>
               {t("work.cancel")}
             </button>
             <button
+              type="button"
               className="danger"
               disabled={api.busy || !consent || !!cleanup.blockers.length}
               onClick={() => void remove()}

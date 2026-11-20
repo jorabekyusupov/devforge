@@ -134,13 +134,35 @@
   background: var(--surface);
   color: var(--text);
 }
+.agent-connections select {
+  appearance: none;
+  -webkit-appearance: none;
+  min-height: 2.2rem;
+  padding: 0.45rem 2rem 0.45rem 0.7rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%2364748b' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round' viewBox='0 0 24 24'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.65rem center;
+  background-size: 1rem;
+  cursor: pointer;
+}
+
+:root[data-theme="dark"] .agent-connections select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%23b0bdc8' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round' viewBox='0 0 24 24'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="system"] .agent-connections select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%23b0bdc8' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round' viewBox='0 0 24 24'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  }
+}
+
 .agent-connections .agent-dialog {
   width: min(90vw, 48rem);
   max-height: 85vh;
   overflow: auto;
   padding: 1.2rem;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--panel-radius);
   color: var(--text);
   background: var(--surface);
 }

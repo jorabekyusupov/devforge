@@ -54,6 +54,7 @@ fn fixture() -> Fixture {
         admin: "fixture-admin".into(),
         secret_ref: "fixture/database-secret".into(),
         ready: true,
+        settings: Default::default(),
     };
     let cache = CacheInstance {
         id: "cache".into(),
@@ -65,6 +66,7 @@ fn fixture() -> Fixture {
         secret_ref: "fixture/cache-secret".into(),
         admin_ref: "fixture/cache-admin".into(),
         ready: true,
+        settings: Default::default(),
     };
     store
         .connection

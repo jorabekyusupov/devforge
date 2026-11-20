@@ -242,6 +242,7 @@ fn staged_generations_preserve_active_binding_and_use_engine_specific_role_limit
             admin: "admin".into(),
             secret_ref: "admin-ref".into(),
             ready: true,
+            settings: Default::default(),
         };
         connection
             .execute(

@@ -380,6 +380,18 @@ pub enum Command {
     },
     CreateDatabase {
         package: String,
+        #[serde(default)]
+        port: Option<u16>,
+    },
+    ConfigureDatabase {
+        instance: String,
+        port: u16,
+        settings: devforge_projects::database::DatabaseSettings,
+    },
+    ConfigureCache {
+        instance: String,
+        port: u16,
+        settings: devforge_projects::cache::CacheSettings,
     },
     BindDatabase {
         id: String,
@@ -1063,15 +1075,40 @@ impl Workspace {
                 self.refresh_runtimes()?;
                 Ok(serde_json::json!({"removed":true}))
             }
-            Command::CreateDatabase { package } => {
+            Command::CreateDatabase { package, port } => {
                 let i = self.projects.initialize_instance(
                     &package,
-                    0,
+                    port.unwrap_or(0),
                     &self.catalog,
                     &self.packages,
                     self.secrets.as_ref(),
                 )?;
                 Ok(serde_json::to_value(i).unwrap())
+            }
+            Command::ConfigureDatabase {
+                instance,
+                port,
+                settings,
+            } => {
+                if self.databases.contains_key(&instance) || self.users(&instance) > 0 {
+                    return Err(error("database_in_use"));
+                }
+                let updated = self.projects.configure_instance(&instance, port, settings)?;
+                Ok(serde_json::to_value(updated).unwrap())
+            }
+            Command::ConfigureCache {
+                instance,
+                port,
+                settings,
+            } => {
+                let existing = self.projects.cache_instance(&instance)?;
+                if self.caches.contains_key(&instance)
+                    || self.sessions.contains_key(&existing.project_id)
+                {
+                    return Err(error("database_in_use"));
+                }
+                let updated = self.projects.configure_cache(&instance, port, settings)?;
+                Ok(serde_json::to_value(updated).unwrap())
             }
             Command::BindDatabase { id, instance } => {
                 if self.sessions.contains_key(&id) {

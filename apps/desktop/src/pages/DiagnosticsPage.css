@@ -1,0 +1,156 @@
+.diagnostics-content .card {
+  border-radius: var(--panel-radius);
+}
+
+.diagnostics-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-inline-start: auto;
+}
+
+.diagnostics-header-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.38rem;
+  min-height: 2.1rem;
+  padding: 0.38rem 0.78rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.83rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+
+.diagnostics-header-actions button:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.diagnostics-header-actions button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.diagnostics-header-actions button svg {
+  width: 0.9rem;
+  height: 0.9rem;
+}
+
+.diagnostics-connection-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.16rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  background: var(--state-bg-neutral);
+  color: var(--muted);
+}
+
+.diagnostics-connection-pill.is-connected {
+  background: var(--state-bg-success);
+  color: var(--success);
+}
+
+.diagnostics-connection-pill i {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.diagnostics-device-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 0;
+}
+
+.diagnostics-device-grid > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--canvas) 55%, var(--surface));
+  min-width: 0;
+}
+
+.diagnostics-device-grid dt {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.diagnostics-content .diagnostics-device-grid dd {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--text);
+  text-align: start;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.diagnostics-path-value {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  width: 100%;
+}
+
+.diagnostics-path-value code {
+  flex: 1 1 14rem;
+  padding: 0.3rem 0.55rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--canvas) 60%, var(--surface));
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.8rem;
+  overflow-wrap: anywhere;
+}
+
+.diagnostics-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 1.95rem;
+  padding: 0.3rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  flex: 0 0 auto;
+  transition: border-color 140ms ease, background-color 140ms ease;
+}
+
+.diagnostics-copy-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.diagnostics-copy-btn svg {
+  width: 0.85rem;
+  height: 0.85rem;
+}
+
+@media (max-width: 860px) {
+  .diagnostics-device-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

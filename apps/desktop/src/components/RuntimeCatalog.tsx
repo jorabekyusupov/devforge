@@ -69,13 +69,15 @@ function Tabs({
   label,
   id,
   panelId,
+  className = "",
 }: {
-  items: { id: string; label: string }[];
+  items: { id: string; label: string; count?: number }[];
   selected: string;
   onSelect: (id: string) => void;
   label: string;
   id: string;
   panelId: string;
+  className?: string;
 }) {
   function navigate(event: KeyboardEvent<HTMLButtonElement>, index: number) {
     let next: number;
@@ -102,7 +104,11 @@ function Tabs({
       [next]?.focus();
   }
   return (
-    <div className="runtime-catalog-tabs" role="tablist" aria-label={label}>
+    <div
+      className={`runtime-catalog-tabs ${className}`.trim()}
+      role="tablist"
+      aria-label={label}
+    >
       {items.map((item, index) => (
         <button
           key={item.id}
@@ -115,7 +121,12 @@ function Tabs({
           onClick={() => onSelect(item.id)}
           onKeyDown={(event) => navigate(event, index)}
         >
-          {item.label}
+          <span>{item.label}</span>
+          {typeof item.count === "number" && item.count > 0 && (
+            <span className="runtime-tab-count" aria-hidden="true">
+              {item.count}
+            </span>
+          )}
         </button>
       ))}
     </div>
@@ -177,12 +188,19 @@ export function RuntimeCatalog({
       /* Preferences are best effort. */
     }
   }, [selection]);
+  const installedBranchCount = (list: Runtime[]) =>
+    runtimeBranches(list).filter((branch) =>
+      branch.installed.some((r) => r.installed && !r.problem),
+    ).length;
   return (
     <div className="runtime-catalog">
       <Tabs
         items={categories.map((category) => ({
           id: category,
           label: t(`runtimeCatalog.categories.${category}`),
+          count: installedBranchCount(
+            runtimes.filter((r) => categoryFor(r.kind) === category),
+          ),
         }))}
         selected={selection.category}
         onSelect={(category) =>
@@ -203,9 +221,13 @@ export function RuntimeCatalog({
       >
         {products.length > 1 && (
           <Tabs
+            className="runtime-product-tabs"
             items={products.map((kind) => ({
               id: kind,
               label: productLabel(kind),
+              count: installedBranchCount(
+                categoryRuntimes.filter((r) => r.kind === kind),
+              ),
             }))}
             selected={product}
             onSelect={(kind) =>
@@ -241,19 +263,21 @@ export function RuntimeCatalog({
                 onChange={(event) => onQueryChange(event.target.value)}
               />
             </label>
-            <label className="runtime-installed-filter">
-              <input
-                type="checkbox"
-                disabled={installationUnknown}
-                checked={installedOnly && !installationUnknown}
-                onChange={(event) => setInstalledOnly(event.target.checked)}
-              />
-              {t("runtimeCatalog.installedOnly")}
-            </label>
-            <button type="button" disabled={busy} onClick={onRefresh}>
-              <RefreshCw aria-hidden="true" />
-              {t("work.refresh")}
-            </button>
+            <div className="runtime-toolbar-controls">
+              <label className="runtime-installed-filter">
+                <input
+                  type="checkbox"
+                  disabled={installationUnknown}
+                  checked={installedOnly && !installationUnknown}
+                  onChange={(event) => setInstalledOnly(event.target.checked)}
+                />
+                {t("runtimeCatalog.installedOnly")}
+              </label>
+              <button type="button" disabled={busy} onClick={onRefresh}>
+                <RefreshCw aria-hidden="true" />
+                {t("work.refresh")}
+              </button>
+            </div>
           </div>
           {filtered.length > 0 ? (
             children(filtered)

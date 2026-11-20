@@ -123,6 +123,10 @@ pub fn initialize(
         return Err(E::RuntimeUnavailable);
     }
     let executable = packages.executable(package, "mysqld")?;
+    if port != 0 {
+        crate::database::validate_service_port(port)?;
+        store.ensure_port_unused(port, None, None)?;
+    }
     let reserved = TcpListener::bind(("127.0.0.1", port)).map_err(|_| E::InstanceBusy)?;
     let port = reserved.local_addr()?.port();
     drop(reserved);
@@ -135,6 +139,7 @@ pub fn initialize(
         admin: format!("df_admin_{}", &id[..16]),
         secret_ref: format!("instance/{id}/admin"),
         ready: false,
+        settings: Default::default(),
     };
     let root = store.root.join("databases").join(&id);
     private_dir(&root)?;
@@ -235,10 +240,15 @@ impl RunningMySql {
             .write(true)
             .open(root.join("instance.lock"))?;
         lock.try_lock().map_err(|_| E::InstanceBusy)?;
-        // A stopped patch update may have committed while this start waited for the lock.
-        if store.instance(id)?.package != instance.package {
+        // A stopped patch update or settings edit may have committed while waiting for the lock.
+        let fresh = store.instance(id)?;
+        if fresh.package != instance.package
+            || fresh.port != instance.port
+            || fresh.settings != instance.settings
+        {
             return Err(E::InstanceBusy);
         }
+        instance.settings.validate(Engine::Mysql)?;
         let available =
             TcpListener::bind(("127.0.0.1", instance.port)).map_err(|_| E::InstanceBusy)?;
         drop(available);
@@ -293,7 +303,11 @@ impl RunningMySql {
             "--skip-name-resolve".into(),
             "--local-infile=0".into(),
             "--lower-case-table-names=1".into(),
-            "--innodb-buffer-pool-size=64M".into(),
+            format!(
+                "--innodb-buffer-pool-size={}M",
+                instance.settings.memory_mb.unwrap_or(64)
+            )
+            .into(),
             "--innodb-redo-log-capacity=64M".into(),
             format!(
                 "--pid-file={}",
@@ -312,6 +326,28 @@ impl RunningMySql {
             )
             .into(),
         ]);
+        if let Some(n) = instance.settings.max_connections {
+            args.push(format!("--max-connections={n}").into());
+        }
+        if let Some(mb) = instance.settings.max_allowed_packet_mb {
+            args.push(format!("--max-allowed-packet={mb}M").into());
+        }
+        if let Some(tz) = instance.settings.mysql_timezone() {
+            args.push(format!("--default-time-zone={tz}").into());
+        }
+        if instance.settings.sql_mode.as_deref() == Some("relaxed") {
+            args.push("--sql-mode=NO_ENGINE_SUBSTITUTION".into());
+        }
+        if instance.settings.log_statement.as_deref() == Some("all") {
+            args.push("--general-log=1".into());
+            args.push(
+                format!(
+                    "--general-log-file={}",
+                    dunce::simplified(&root.join("logs/general.log")).display()
+                )
+                .into(),
+            );
+        }
         if let Some(file) = &bootstrap_file {
             args.push(format!("--init-file={}", dunce::simplified(file.path()).display()).into());
         }

@@ -2296,6 +2296,7 @@ fn resource_command(command: &Command) -> bool {
             | Command::WorktreeCleanup { .. }
             | Command::StartCache { .. }
             | Command::StopCache { .. }
+            | Command::ConfigureCache { .. }
     )
 }
 fn hex(bytes: &[u8]) -> String {

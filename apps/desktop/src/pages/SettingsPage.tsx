@@ -2,9 +2,10 @@ import { AgentConnections } from "../components/AgentConnections";
 import { ProjectDiscoverySettings } from "../components/ProjectDiscoverySettings";
 import type { Backend } from "../bridge";
 import { useTranslation } from "react-i18next";
-import { Globe, Monitor, Database } from "lucide-react";
+import { Globe, Monitor, Database, Folder, Bot } from "lucide-react";
 import { registry } from "../i18n";
 import type { Bootstrap, Preferences, Theme } from "../bridge";
+import "./SettingsPage.css";
 export function SettingsPage({
   snapshot,
   busy,
@@ -35,8 +36,44 @@ export function SettingsPage({
     }
   };
 
+  function scrollToSection(selector: string) {
+    document
+      .querySelector(selector)
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
   return (
     <div className="settings-content">
+      <nav className="settings-jump-nav" aria-label={t("settings.title")}>
+        <button
+          type="button"
+          onClick={() => scrollToSection("#language-heading")}
+        >
+          <Globe aria-hidden="true" />
+          {t("settings.languageTitle")}
+        </button>
+        <button
+          type="button"
+          onClick={() => scrollToSection("#appearance-heading")}
+        >
+          <Monitor aria-hidden="true" />
+          {t("settings.appearanceTitle")}
+        </button>
+        <button
+          type="button"
+          onClick={() => scrollToSection("#discovery-heading")}
+        >
+          <Folder aria-hidden="true" />
+          {t("discovery.title")}
+        </button>
+        <button
+          type="button"
+          onClick={() => scrollToSection(".agent-connections")}
+        >
+          <Bot aria-hidden="true" />
+          {t("agentConnections.title")}
+        </button>
+      </nav>
       <section className="card" aria-labelledby="language-heading">
         <div className="section-heading">
           <Globe aria-hidden="true" />

@@ -1,0 +1,89 @@
+.settings-jump-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.5rem 0.65rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--panel-radius);
+}
+
+.settings-jump-nav button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.36rem;
+  min-height: 2rem;
+  padding: 0.32rem 0.72rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 550;
+  cursor: pointer;
+  transition: background-color 140ms ease, color 140ms ease, border-color 140ms ease;
+}
+
+.settings-jump-nav button:hover {
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+  color: var(--text);
+}
+
+.settings-jump-nav button svg {
+  width: 0.88rem;
+  height: 0.88rem;
+  color: var(--accent);
+}
+
+.settings-content .card {
+  scroll-margin-top: 1rem;
+  border-radius: var(--panel-radius);
+}
+
+.discovery-settings .discovery-path input {
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.85rem;
+}
+
+.discovery-settings .discovery-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem 0.85rem;
+  margin-top: 0.9rem;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--canvas) 55%, var(--surface));
+  font-size: 0.82rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.discovery-settings .discovery-state-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.14rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  background: var(--state-bg-neutral);
+  color: var(--muted);
+}
+
+.discovery-settings .discovery-state-pill.state-ready {
+  background: var(--state-bg-success);
+  color: var(--success);
+}
+
+.discovery-settings .discovery-state-pill.state-scanning {
+  background: var(--state-bg-accent);
+  color: var(--accent);
+}
+
+.discovery-settings .discovery-state-pill.state-error {
+  background: var(--state-bg-danger);
+  color: var(--danger);
+}

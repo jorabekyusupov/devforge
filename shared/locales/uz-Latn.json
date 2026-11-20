@@ -63,7 +63,10 @@
     "database": "Sozlamalar bazasi",
     "schema": "Sxema versiyasi",
     "privacy": "Loyiha parollari bu bazada saqlanmaydi.",
-    "connection": "Ilova bilan aloqa"
+    "connection": "Ilova bilan aloqa",
+    "copySummary": "Hisobotni nusxalash",
+    "copyPath": "Yo‘lni nusxalash",
+    "copied": "Nusxalandi"
   },
   "errors": {
     "invalid_settings": "Bu sozlamalar qo‘llab-quvvatlanmaydi. Mavjud variantni tanlang.",
@@ -306,7 +309,9 @@
       "mail_delete": "Mail amali bajarilmoqda…",
       "mail_save": "Mail amali bajarilmoqda…",
       "discovery_restore": "Qaytarish",
-      "update_runtime": "Runtime yangilanmoqda…"
+      "update_runtime": "Runtime yangilanmoqda…",
+      "configure_database": "Baza sozlamalari saqlanmoqda…",
+      "configure_cache": "Cache sozlamalari saqlanmoqda…"
     },
     "kinds": {
       "php": "PHP",
@@ -479,7 +484,40 @@
     "retained": "Saqlangan bazalar",
     "retainedHint": "Ma’lumotni ko‘chirmasdan yoki o‘chirmasdan oldingi ulanishga qayting.",
     "activate": "Ulanishni faollashtirish",
-    "projectLabel": "Loyiha"
+    "projectLabel": "Loyiha",
+    "settings": "Sozlamalar",
+    "databaseSettingsTitle": "Baza xizmati sozlamalari",
+    "cacheSettingsTitle": "Cache xizmati sozlamalari",
+    "stopToEdit": "Port yoki ichki sozlamalarni o‘zgartirishdan oldin xizmatni to‘xtating.",
+    "loopbackHint": "Xizmat faqat 127.0.0.1 manzilida ishlaydi. Bog‘langan loyihalar keyingi ishga tushishda yangi portni avtomatik oladi.",
+    "port": "Port",
+    "portAuto": "Avto",
+    "portRange": "1024–65535",
+    "maxConnections": "Maksimal ulanishlar",
+    "memoryMb": "Xotira / bufer puli (MB)",
+    "workMemMb": "Ishchi xotira work_mem (MB)",
+    "maxAllowedPacketMb": "Maksimal paket hajmi (MB)",
+    "timezone": "Vaqt mintaqasi",
+    "timezoneHintPg": "IANA nomi yoki UTC (masalan, UTC, Asia/Tashkent)",
+    "timezoneHintMysql": "UTC, SYSTEM yoki siljish (masalan, +05:00)",
+    "logStatement": "So‘rovlarni loglash",
+    "logLevels": {
+      "none": "O‘chiq (standart)",
+      "ddl": "Sxema o‘zgarishlari (DDL)",
+      "mod": "Yozish va DDL (mod)",
+      "all": "Barcha so‘rovlar"
+    },
+    "sqlMode": "SQL rejimi",
+    "sqlModes": {
+      "strict": "Qat’iy (standart)",
+      "relaxed": "Yumshoq (eski so‘rovlar bilan mos)"
+    },
+    "cacheMemoryMb": "Xotira limiti (MB)",
+    "aofPersistence": "Cache’ni diskda saqlash (AOF)",
+    "aofOn": "AOF yoqiq",
+    "aofOff": "Faqat xotira",
+    "resetDefaults": "Standartga qaytarish",
+    "defaultValue": "Standart"
   },
   "inspector": {
     "title": "Inspektor",

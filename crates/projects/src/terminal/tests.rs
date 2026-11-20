@@ -583,6 +583,7 @@ mod native {
             admin: "admin".into(),
             secret_ref: "admin/ref".into(),
             ready: true,
+            settings: Default::default(),
         };
         f.store
             .connection
@@ -630,6 +631,7 @@ mod native {
             secret_ref: "cache/old".into(),
             admin_ref: "cache/admin".into(),
             ready: true,
+            settings: Default::default(),
         };
         f.store
             .connection

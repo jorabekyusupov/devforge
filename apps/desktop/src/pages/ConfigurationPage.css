@@ -1,0 +1,384 @@
+.configuration-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.95rem;
+}
+
+.configuration-content .configuration-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0.7rem 0.9rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--panel-radius);
+}
+
+.configuration-content .configuration-toolbar label {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.55rem;
+  margin: 0;
+  font-size: 0.84rem;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.configuration-content .configuration-toolbar select {
+  min-width: 12rem;
+  min-height: 2.15rem;
+  font-size: 0.86rem;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.configuration-toolbar-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.configuration-content .configuration-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.65fr) minmax(17.5rem, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.configuration-editor-card,
+.configuration-content .configuration-review,
+.configuration-secrets-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  margin: 0;
+  padding: 1.05rem 1.15rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--panel-radius);
+  min-width: 0;
+}
+
+.configuration-aside {
+  display: flex;
+  flex-direction: column;
+  gap: 0.95rem;
+  position: sticky;
+  top: 0.9rem;
+  min-width: 0;
+}
+
+.configuration-content .configuration-review {
+  position: static;
+}
+
+.configuration-content .configuration-file {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.configuration-file-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.configuration-file-title svg {
+  width: 1.05rem;
+  height: 1.05rem;
+  color: var(--accent);
+}
+
+.configuration-content .configuration-file h2 {
+  margin: 0;
+  font-size: 0.98rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.configuration-status-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.16rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  border: 1px solid var(--border);
+  background: var(--state-bg-neutral);
+  color: var(--muted);
+}
+
+.configuration-status-pill.is-dirty {
+  background: var(--state-bg-warn);
+  border-color: color-mix(in srgb, var(--warn) 34%, transparent);
+  color: var(--warn);
+}
+
+.configuration-status-pill.is-saved {
+  background: var(--state-bg-success);
+  border-color: color-mix(in srgb, var(--success) 30%, transparent);
+  color: var(--success);
+}
+
+.configuration-editor-label {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.workspace-content textarea.configuration-editor {
+  width: 100%;
+  min-height: 25rem;
+  padding: 0.85rem 0.95rem;
+  border-radius: var(--panel-radius);
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--canvas) 68%, var(--surface));
+  color: var(--text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.82rem;
+  line-height: 1.65;
+  tab-size: 2;
+  resize: vertical;
+  white-space: pre;
+  overflow: auto;
+}
+
+.configuration-editor-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+
+.configuration-editor-footer p {
+  margin: 0;
+  flex: 1 1 14rem;
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.configuration-editor-footer .modal-actions {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.configuration-card-head {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.configuration-card-head svg {
+  width: 1rem;
+  height: 1rem;
+  color: var(--accent);
+}
+
+.configuration-card-head h2 {
+  margin: 0;
+  font-size: 0.96rem;
+}
+
+.configuration-review-desc {
+  margin: 0;
+  font-size: 0.83rem;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.configuration-content .configuration-review .check-label {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.configuration-content .configuration-review .check-label input {
+  width: 1rem;
+  height: 1rem;
+  margin: 0.2rem 0 0;
+  accent-color: var(--accent);
+}
+
+.configuration-plan-box {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  padding: 0.85rem 0.9rem;
+  border-radius: var(--panel-radius);
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--canvas) 55%, var(--surface));
+}
+
+.configuration-plan-box h3 {
+  margin: 0;
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.configuration-download-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.configuration-download-list li {
+  padding: 0.16rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+}
+
+.configuration-plan-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  margin: 0;
+  font-size: 0.84rem;
+}
+
+.configuration-secret-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin: 0;
+  font-size: 0.82rem;
+}
+
+.configuration-secret-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.12rem 0.48rem;
+  border-radius: 999px;
+  font-size: 0.73rem;
+  font-weight: 600;
+  border: 1px solid var(--border);
+}
+
+.configuration-secret-badge.is-ready {
+  background: var(--state-bg-success);
+  border-color: color-mix(in srgb, var(--success) 30%, transparent);
+  color: var(--success);
+}
+
+.configuration-secret-badge.is-missing {
+  background: var(--state-bg-warn);
+  border-color: color-mix(in srgb, var(--warn) 34%, transparent);
+  color: var(--warn);
+}
+
+.configuration-secrets-card details {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.configuration-secrets-card summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  list-style: none;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.configuration-secrets-card summary::-webkit-details-marker {
+  display: none;
+}
+
+.configuration-secrets-summary-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.configuration-secrets-summary-title svg {
+  width: 0.95rem;
+  height: 0.95rem;
+  color: var(--accent);
+}
+
+.configuration-secrets-card details[open] .op-disclosure-chevron {
+  transform: rotate(90deg);
+}
+
+.configuration-secrets-card form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  margin-top: 0.85rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--border);
+}
+
+.configuration-secrets-card form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.82rem;
+  font-weight: 500;
+}
+
+.configuration-secrets-card form button[type="submit"] {
+  align-self: flex-start;
+}
+
+.configuration-journal {
+  margin: 0;
+  padding: 0.55rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--canvas) 55%, var(--surface));
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.configuration-content .empty-state {
+  padding: 2.5rem 1.5rem;
+  background: var(--surface);
+  border: 1px dashed var(--border);
+  border-radius: var(--panel-radius);
+}
+
+@media (max-width: 1020px) {
+  .configuration-content .configuration-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .configuration-aside {
+    position: static;
+  }
+}
